@@ -1,0 +1,272 @@
+{
+  "global_extension_name": {
+    "message": "Tab Organizer",
+    "description": "The name of the extension."
+  },
+
+  "global_tab": {
+    "message": " tab",
+    "description": "Refers to a tab, within Tab Organizer/Google Chrome. Should include a space at the beginning."
+  },
+  "global_window": {
+    "message": " window",
+    "description": "Refers to a window, within Tab Organizer/Google Chrome. Should include a space at the beginning."
+  },
+  "global_plural": {
+    "message": "s",
+    "description": "Used when referring to more than one tab/window. This is combined with `global_tab` or `global_window` to create a plural form."
+  },
+  "global_end": {
+    "message": ".",
+    "description": "Used to signify the end of a sentence, such as with a period."
+  },
+
+
+  "title_in": {
+    "message": " in ",
+    "description": "Used as a separator between `global_tab` and `global_window`. There should be one space at both the beginning and end."
+  },
+
+
+  "button_toolbar_menu": {
+    "message": "Menu",
+    "description": "Button in the upper-left corner that displays a context menu when clicked."
+  },
+
+
+  "toolbar_menu_new_window": {
+    "message": "<u>N</u>ew Window",
+    "description": "Menu item to create a new window. If possible, underline the letter `n`, but if the text contains no `n`s, then underline nothing."
+  },
+
+
+  "toolbar_menu_macros": {
+    "message": "<u>M</u>acros...",
+    "description": "A submenu that shows a list of all the user's macros. If possible, underline the letter `m`, but if there is no `m`, then underline nothing."
+  },
+  "toolbar_menu_macros_apply_all": {
+    "message": "<u>A</u>pply all macros",
+    "description": "Menu item that executes all the user's macros in order. If possible, underline the letter `a`, but if there is no `a`, then underline nothing."
+  },
+  "toolbar_menu_macros_ignore": {
+    "message": "ignore",
+    "description": "Tells the user that the tabs will be ignored by future macros."
+  },
+  "toolbar_menu_macros_require": {
+    "message": "require",
+    "description": "Tells the user that the tabs will be moved into a window, and all non-matching tabs will be moved out."
+  },
+  "toolbar_menu_macros_move": {
+    "message": "move",
+    "description": "Tells the user that the tabs will be moved into a window."
+  },
+  "toolbar_menu_macros_close": {
+    "message": "close",
+    "description": "Tells the user that the tabs will be closed."
+  },
+  "toolbar_menu_macros_all_tabs": {
+    "message": "all tabs",
+    "description": "Tells the user that it will be applied to all of their tabs."
+  },
+  "toolbar_menu_macros_to": {
+    "message": "to",
+    "description": "Tells the user that the tabs will be moved to a window"
+  },
+  "toolbar_menu_macros_in": {
+    "message": "in",
+    "description": "Tells the user that the tabs will be in a window, such as with the `require` action."
+  },
+  "toolbar_menu_macros_new_window": {
+    "message": "new window",
+    "description": "Tells the user that the tabs will be moved to a new window."
+  },
+
+
+  "toolbar_menu_sort_default": {
+    "message": "<u>D</u>efault",
+    "description": "Menu item that changes sort back to the default. If possible, underline the letter `d`, but if there is no `d`, then underline nothing."
+  },
+
+
+  "toolbar_menu_sort_tabs": {
+    "message": "Sort <u>t</u>abs by...",
+    "description": "A submenu that lets the user change how their tabs are sorted. If possible, underline the letter `t`, but if there is no `t`, then underline nothing."
+  },
+  "toolbar_menu_sort_tabs_title_lt": {
+    "message": "Title <",
+    "description": "Menu item that sorts all tabs in ascending order, based on their title."
+  },
+  "toolbar_menu_sort_tabs_title_gt": {
+    "message": "Title >",
+    "description": "Menu item that sorts all tabs in descending order, based on their title."
+  },
+  "toolbar_menu_sort_tabs_url_lt": {
+    "message": "URL <",
+    "description": "Menu item that sorts all tabs in ascending order, based on their URL."
+  },
+  "toolbar_menu_sort_tabs_url_gt": {
+    "message": "URL >",
+    "description": "Menu item that sorts all tabs in descending order, based on their URL."
+  },
+
+
+  "toolbar_menu_sort_windows": {
+    "message": "Sort <u>w</u>indows by...",
+    "description": "A submenu that lets the user change how their windows are sorted. If possible, underline the letter `w`, but if there is no `w`, then underline nothing."
+  },
+  "toolbar_menu_sort_windows_name_lt": {
+    "message": "Name <",
+    "description": "Menu item that sorts all windows in ascending order, based on their name."
+  },
+  "toolbar_menu_sort_windows_name_gt": {
+    "message": "Name >",
+    "description": "Menu item that sorts all windows in descending order, based on their name."
+  },
+  "toolbar_menu_sort_windows_tab_number_lt": {
+    "message": "Number of tabs <",
+    "description": "Menu item that sorts all windows in ascending order, based on how many tabs they have."
+  },
+  "toolbar_menu_sort_windows_tab_number_gt": {
+    "message": "Number of tabs >",
+    "description": "Menu item that sorts all windows in descending order, based on how many tabs they have."
+  },
+
+
+  "toolbar_options": {
+    "message": "Options",
+    "description": "Link that goes to the options page."
+  },
+  "toolbar_faq": {
+    "message": "FAQ",
+    "description": "Link that goes to the Help/FAQ page."
+  },
+
+
+  "toolbar_undo_link": {
+    "message": "Undo",
+    "description": "A link that the user can click on to undo something they did."
+  },
+
+
+  "undo_message_move": {
+    "message": "You moved ",
+    "description": "Tells the user that they moved something, like a tab. Should include a space at the end."
+  },
+  "undo_message_closed": {
+    "message": "You closed ",
+    "description": "Tells the user that they closed something, like a tab. Should include a space at the end."
+  },
+  "undo_message_selected": {
+    "message": "You selected ",
+    "description": "Tells the user that they selected something, like a tab. Should include a space at the end."
+  },
+  "undo_message_unselected": {
+    "message": "You unselected ",
+    "description": "Tells the user that they unselected something, like a tab. Should include a space at the end."
+  },
+  "undo_message_pinned": {
+    "message": "You pinned ",
+    "description": "Tells the user that they pinned something, like a tab. Should include a space at the end."
+  },
+  "undo_message_unpinned": {
+    "message": "You unpinned ",
+    "description": "Tells the user that they unpinned something, like a tab. Should include a space at the end."
+  },
+  "undo_message_favorited": {
+    "message": "You favorited ",
+    "description": "Tells the user that they favorited something, like a tab. Should include a space at the end."
+  },
+  "undo_message_unfavorited": {
+    "message": "You unfavorited ",
+    "description": "Tells the user that they unfavorited something, like a tab. Should include a space at the end."
+  },
+  "undo_message_noop": {
+    "message": "Nothing changed",
+    "description": "Tells the user that nothing happened. Do not include a space at the end."
+  },
+  "undo_message_rename": {
+    "message": "You renamed the",
+    "description": "Tells the user that they renamed something, like a window. Do not include a space at the end."
+  },
+  "undo_message_create_new": {
+    "message": "You created a new",
+    "description": "Tells the user that they created something, like a tab. Do not include a space at the end."
+  },
+
+
+  "toolbar_search_placeholder": {
+    "message": "Search",
+    "description": "Tells the user that they can search using this box."
+  },
+
+
+  "tab_favorite": {
+    "message": "Favorite this tab",
+    "description": "Tells the user that they can click on the star to favorite the tab."
+  },
+  "tab_close": {
+    "message": "Close ",
+    "description": "Tells the user that they can click on the `x` button to close the tab. Should include a space at the end."
+  },
+
+  "window_close": {
+    "message": "<u>C</u>lose window",
+    "description": "Tells the user that this will close the entire window. If possible, underline the letter `c`, but if there is no `c`, then underline nothing."
+  },
+
+
+  "window_menu_open": {
+    "message": "Open menu ",
+    "description": "Tells the user that they can click on the arrow to open the context menu. Should include a space at the end."
+  },
+
+
+  "window_menu_new_tab": {
+    "message": "New <u>T</u>ab",
+    "description": "Menu item that creates a new tab. If possible, underline the letter `t`, but if there is no `t`, then underline nothing."
+  },
+  "window_menu_rename_window": {
+    "message": "<u>R</u>ename window",
+    "description": "Menu item that lets the user rename the window. If possible, underline the letter `r`, but if there is no `r`, then underline nothing."
+  },
+  "window_menu_select_all": {
+    "message": "Select <u>a</u>ll",
+    "description": "Menu item that causes all the tabs in the window to be selected. If possible, underline the letter `a`, but if there is no `a`, then underline nothing."
+  },
+  "window_menu_select_none": {
+    "message": "Select <u>n</u>one",
+    "description": "Menu item that causes all the tabs in the window to be unselected. If possible, underline the letter `n`, but if there is no `n`, then underline nothing."
+  },
+  "window_menu_selected": {
+    "message": "<u>S</u>elected...",
+    "description": "A submenu that lets the user perform actions on the selected tabs in the window. If possible, underline the letter `s`, but if there is no `s`, then underline nothing."
+  },
+  "window_menu_selected_reload": {
+    "message": "Re<u>l</u>oad selected",
+    "description": "Menu item that causes all the selected tabs in the window to be reloaded. If possible, underline the letter `l`, but if there is no `l`, then underline nothing."
+  },
+  "window_menu_selected_close": {
+    "message": "<u>C</u>lose selected",
+    "description": "Menu item that causes all the selected tabs in the window to be closed. If possible, underline the letter `c`, but if there is no `c`, then underline nothing."
+  },
+  "window_menu_selected_pin": {
+    "message": "<u>P</u>in selected",
+    "description": "Menu item that causes all the selected tabs in the window to become pinned. If possible, underline the letter `p`, but if there is no `p`, then underline nothing."
+  },
+  "window_menu_selected_unpin": {
+    "message": "<u>U</u>npin selected",
+    "description": "Menu item that causes all the selected tabs in the window to become unpinned. If possible, underline the letter `u`, but if there is no `u`, then underline nothing."
+  },
+  "window_menu_selected_favorite": {
+    "message": "<u>F</u>avorite selected",
+    "description": "Menu item that causes all the selected tabs in the window to become favorited. If possible, underline the letter `f`, but if there is no `f`, then underline nothing."
+  },
+  "window_menu_selected_unfavorite": {
+    "message": "U<u>n</u>favorite selected",
+    "description": "Menu item that causes all the selected tabs in the window to become unfavorited. If possible, underline the letter `n`, but if there is no `n`, then underline nothing."
+  },
+  "window_menu_move_selected_to": {
+    "message": "<u>M</u>ove selected to...",
+    "description": "A submenu that lets the user move all the selected tabs in the window to a different window. If possible, underline the letter `m`, but if there is no `m`, then underline nothing."
+  }
+}

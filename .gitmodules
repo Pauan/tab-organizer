@@ -1,0 +1,3 @@
+[submodule "lib/util"]
+	path = lib/util
+	url = https://github.com/Pauan/util.git
