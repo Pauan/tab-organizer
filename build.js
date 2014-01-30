@@ -33,7 +33,20 @@ function getFiles(name) {
   })
 }
 
+function mkdir(name) {
+  try {
+    fs.mkdirSync(name)
+  } catch (e) {
+    if (e.code !== "EEXIST") {
+      throw e
+    }
+  }
+}
+
 function build(name, file) {
+  mkdir(path.join(OUTDIR, "js"))
+  mkdir(path.join(OUTDIR, "map"))
+
   var sourcemap = path.join(OUTDIR,  "map", file + ".map")
 
   var command = ["java", "-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(name))
