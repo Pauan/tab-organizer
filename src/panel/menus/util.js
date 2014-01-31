@@ -78,12 +78,12 @@ goog.scope(function () {
   menus.button.make = function (eMenu, f) {
     return dom.image(function (e) {
       e.styles(button)
-      e.src("images/menu-button.png")
+      e.src("data/images/menu-button.png")
       menus.button.initialize(e, eMenu, f)
     })
     /*$.add(x, "img", function (x) {
       $.addClass(x, "group-menu-button")
-      $.setAttr(x, "src", "images/menu-button.png")
+      $.setAttr(x, "src", "data/images/menu-button.png")
       $.on(x, "click", function () {
         $.menu.show(menu, e, { relativeTo: x })
       })

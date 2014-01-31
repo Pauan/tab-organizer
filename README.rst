@@ -17,7 +17,7 @@ But if you're a developer, or want to try the absolute latest version before rel
 * Download the `Closure Compiler <http://dl.google.com/closure-compiler/compiler-latest.zip>`_ and unzip it into the ``closure-compiler`` folder.
 * ``./build.js``
 
-* According to `this page <http://www.greensock.com/licensing/>`_they would
+* According to `this page <http://www.greensock.com/licensing/>`_ they would
   prefer for me to not include their source code in this
   repository.
 
@@ -27,11 +27,11 @@ But if you're a developer, or want to try the absolute latest version before rel
 
 * Unzip GreenSock, then take these files...
 
-    * ``src/minified/plugins/ScrollToPlugin.min.js``
-    * ``src/minified/plugins/CSSPlugin.min.js``
-    * ``src/minified/TweenLite.min.js``
+  * ``src/minified/plugins/ScrollToPlugin.min.js``
+  * ``src/minified/plugins/CSSPlugin.min.js``
+  * ``src/minified/TweenLite.min.js``
 
-  ...and place them into the ``build/gsap`` folder.
+  ...and place them into the ``tab-organizer/build/gsap`` folder.
 
 * Now, in Google Chrome, go to the URL ``chrome://extensions/``
 * Make sure ``Developer mode`` (in the upper-right) is checked.

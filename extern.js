@@ -35,7 +35,7 @@ function Object() {}
 function Error() {}
 Error.prototype = {}
 
-/** @const @dict @constructor */
+/** @const @dict @type {function (new:SyntaxError, *=, *=, *=): SyntaxError} */
 function SyntaxError() {}
 
 /** @const @dict @type {function (new:Date, ?=, ?=, ?=, ?=, ?=, ?=, ?=): string}*/

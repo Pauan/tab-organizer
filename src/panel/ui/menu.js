@@ -238,12 +238,6 @@ goog.scope(function () {
     }
   }
 
-  function maker(e, s) {
-    return function () {
-      return func.apply(e[s], e, arguments)
-    }
-  }
-
   ui.menu.hide = function () {
     /*ui.animate.to(modal, 0.2, modalHidden, function () {
       modal.hide()
@@ -267,11 +261,11 @@ goog.scope(function () {
     o[element] = e
     array.push(eParent[children], o)
 
-    o.styleWhen = maker(e, "styleWhen")
-    //o.style     = maker(e, "style")
-    o.dom       = maker(e, "dom")
-    o.bind      = maker(e, "bind")
-    o.event     = maker(e, "event")
+    o.styleWhen = func.bind(e.styleWhen, e)
+    //o.style     = func.bind(e.style, e)
+    o.dom       = func.bind(e.dom, e)
+    o.bind      = func.bind(e.bind, e)
+    o.event     = func.bind(e.event, e)
 
     // TODO hacky
     o.moveBefore = function (x) {
@@ -295,7 +289,7 @@ goog.scope(function () {
   function itemText(o, e) {
     return dom.box(function (e) {
       e.styles(itemTextStyle)
-      o.text = maker(e, "text")
+      o.text = func.bind(e.text, e)
     }).move(e)
   }
 
@@ -331,8 +325,8 @@ goog.scope(function () {
       o[children] = []
 
       // TODO code duplication
-      o.bind  = maker(e, "bind")
-      o.event = maker(e, "event")
+      o.bind  = func.bind(e.bind, e)
+      o.event = func.bind(e.event, e)
 
       e.hide()
 
@@ -357,12 +351,12 @@ goog.scope(function () {
       var o = {}
 
       // TODO a little hacky ?
-      o.hide = maker(e, "hide")
-      o.show = maker(e, "show")
+      o.hide = func.bind(e.hide, e)
+      o.show = func.bind(e.show, e)
 
       // TODO code duplication
-      o.bind  = maker(e, "bind")
-      o.event = maker(e, "event")
+      o.bind  = func.bind(e.bind, e)
+      o.event = func.bind(e.event, e)
 
       if (f != null) {
         f(o)
@@ -437,7 +431,7 @@ goog.scope(function () {
         })
       }*/
 
-      o.remove = maker(e, "remove")
+      o.remove = func.bind(e.remove, e)
 
       f(o)
     }).move(eParent[element])
@@ -452,7 +446,7 @@ goog.scope(function () {
 
       dom.image(function (e) {
         e.styles(submenuArrow)
-        e.src("images/chevron-small-right.png")
+        e.src("data/images/chevron-small-right.png")
         //o.marginTop = "5px"
         //o.marginLeft = "2px"
       }).move(e)

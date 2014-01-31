@@ -162,7 +162,7 @@ goog.scope(function () {
 
       var close = dom.image(function (e) {
         e.styles(iconStyle, closeStyle)
-        e.src("images/button-close.png")
+        e.src("data/images/button-close.png")
 
         e.bind([e.mouseover], function (over) {
           e.styleWhen(closeHoverStyle, over)

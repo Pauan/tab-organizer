@@ -33,7 +33,7 @@ goog.scope(function () {
     e.height("100%")*/
 
     // TODO it might not need to wait for "tab.loaded" until after
-    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, groups.loaded, search.loaded), function () {
+    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, /*groups.loaded, */search.loaded), function () {
       ui.menu.initialize(e)
       ui.urlBar.initialize(e)
 
