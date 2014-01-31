@@ -59,7 +59,7 @@ goog.scope(function () {
   })
 
 
-  exports.hide = function (e, i) {
+  ui.group.hide = function (e, i) {
     ui.animate.to(e[info].groupTop, i, hiddenGroupTop)
     ui.animate.to(e[info].groupTopInner, i, hiddenGroupTopInner)
     ui.animate.to(e[info].groupTabs, i, hiddenGroupTabs)
@@ -69,7 +69,7 @@ goog.scope(function () {
   }
 
   // TODO this isn't very smooth... I wonder why?
-  exports.show = function (e, i) {
+  ui.group.show = function (e, i) {
     // TODO use TweenTimeline ?
     ui.animate.from(e[info].groupTop, i, hiddenGroupTop)
     ui.animate.from(e[info].groupTopInner, i, hiddenGroupTopInner)
@@ -77,7 +77,7 @@ goog.scope(function () {
     ui.animate.from(e, i, hiddenGroup)
   }
 
-  exports.make = function (sTitle, oGroup, f) {
+  ui.group.make = function (sTitle, oGroup, f) {
     return dom.box(function (eTop) {
       eTop[info] = {}
 

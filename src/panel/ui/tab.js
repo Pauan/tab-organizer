@@ -117,15 +117,15 @@ goog.scope(function () {
                                       dom.hsl(0, 0,  80, 0.75)], " "))
   })
 
-  exports.update = function (e, oTab) {
+  ui.tab.update = function (e, oTab) {
     e[fn](oTab)
   }
 
-  exports.show = function (e, i) {
+  ui.tab.show = function (e, i) {
     ui.animate.from(e, i, hiddenTab)
   }
 
-  exports.hide = function (e, i) {
+  ui.tab.hide = function (e, i) {
     // TODO a little hacky
     e.styleWhen(tabFocusedStyle, false)
     e.styleWhen(tabFocusedHoverStyle, false)
@@ -134,7 +134,7 @@ goog.scope(function () {
     })
   }
 
-  exports.make = function (oTab, oGroup, fClick) {
+  ui.tab.make = function (oTab, oGroup, fClick) {
     return dom.box(function (e) {
       e.styles(tabStyle)
 

@@ -57,7 +57,7 @@ goog.scope(function () {
 
   tabs.close = function (a) {
     assert(tabs.loaded.get(), "tabs")
-    assert(array.len(a))
+    assert(!!array.len(a))
     port.message({ "type": "close", "value": array.map(a, function (x) { return x.id }) })
   }
 
@@ -68,7 +68,7 @@ goog.scope(function () {
 
   tabs.unload = function (a) {
     assert(tabs.loaded.get(), "tabs")
-    assert(array.len(a))
+    assert(!!array.len(a))
     port.message({ "type": "unload", "value": array.map(a, function (x) { return x.id }) })
   }
 

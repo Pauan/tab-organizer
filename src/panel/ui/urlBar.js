@@ -130,7 +130,12 @@ goog.scope(function () {
       dom.box(function (e) {
         e.styles(dom.horiz)
 
-        function boxes(e) {
+        /**
+         * TODO more specific type for first argument
+         * @param {!Object} e
+         * @param {...!Array} var_args
+         */
+        function boxes(e, var_args) {
           var a = array.map(array.slice(arguments, 1), function (a) {
             return {
               name: a[0],

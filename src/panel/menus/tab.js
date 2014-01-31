@@ -18,13 +18,13 @@ goog.scope(function () {
 
   // TODO remove this later, maybe?
   cell.event([menus.tab.state], function (state) {
-    assert(array.len(state.tabs))
+    assert(!!array.len(state.tabs))
     assert(state.name == null)
   })
 
   function getIds() {
     var a = menus.tab.state.get().tabs
-    assert(array.len(a))
+    assert(!!array.len(a))
     return a
   }
 
@@ -42,7 +42,7 @@ goog.scope(function () {
           if (s !== null) {
             tabs.addToGroup(s, getIds())
           }
-          menu.hide() // TODO I'd like to get rid of this
+          ui.menu.hide() // TODO I'd like to get rid of this
         })
       })
 
@@ -144,7 +144,7 @@ goog.scope(function () {
         }
 
         cell.when(groups.loaded, function () {
-          groups.each(function (s) {
+          array.each(groups.getAll(), function (s) {
             makeCheckbox(s, false)
           })
 

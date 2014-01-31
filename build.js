@@ -142,6 +142,6 @@ function build(name, file) {
 }
 
 
-build("main",    "main.js")
-//build("panel",   "panel.js")
+//build("main",    "main.js")
+build("panel",   "panel.js")
 //build("options", "options.js")

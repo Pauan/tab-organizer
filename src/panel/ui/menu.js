@@ -345,6 +345,11 @@ goog.scope(function () {
     return o
   }
 
+  /**
+   * TODO stricter type
+   * @param {!Object} eParent
+   * @param {function(!Object):void=} f
+   */
   ui.menu.separator = function (eParent, f) {
     dom.separator(function (e) {
       e.styles(separatorStyle)

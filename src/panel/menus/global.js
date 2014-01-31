@@ -20,7 +20,7 @@ goog.scope(function () {
       ["Created", "created"],
       [],
       ["URL", "url"],
-      ["Name", "name"],
+      ["Name", "name"]
     ])
 
     ui.menu.separator(o)

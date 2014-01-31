@@ -12,9 +12,27 @@ But if you're a developer, or want to try the absolute latest version before rel
 * Make sure you have git, `Node.js <http://nodejs.org/>`_, and Java.
 * ``git clone --recursive https://github.com/Pauan/tab-organizer.git``
 * ``cd tab-organizer``
+
 * ``mkdir closure-compiler``
 * Download the `Closure Compiler <http://dl.google.com/closure-compiler/compiler-latest.zip>`_ and unzip it into the ``closure-compiler`` folder.
 * ``./build.js``
+
+* According to `this page <http://www.greensock.com/licensing/>`_they would
+  prefer for me to not include their source code in this
+  repository.
+
+  Instead, please visit `this page <http://www.greensock.com/gsap-js/>`_ to
+  download GreenSock. I use version 1.10.3 (2013-09-02), other
+  versions may or may not work.
+
+* Unzip GreenSock, then take these files...
+
+    * ``src/minified/plugins/ScrollToPlugin.min.js``
+    * ``src/minified/plugins/CSSPlugin.min.js``
+    * ``src/minified/TweenLite.min.js``
+
+  ...and place them into the ``build/gsap`` folder.
+
 * Now, in Google Chrome, go to the URL ``chrome://extensions/``
 * Make sure ``Developer mode`` (in the upper-right) is checked.
 * Click the ``Load unpacked extension...`` button.

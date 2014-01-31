@@ -7,6 +7,7 @@ goog.require("util.object")
 goog.require("util.url")
 goog.require("util.math")
 goog.require("util.dom")
+goog.require("util.log")
 goog.require("menus.tab")
 goog.require("ui.menu")
 goog.require("ui.group")
@@ -22,6 +23,9 @@ goog.scope(function () {
     , array    = util.array
     , object   = util.object
     , math     = util.math
+    , url      = util.url
+    , assert   = util.log.assert
+    , fail     = util.log.fail
     , manifest = platform.manifest
 
   util.dom.title(manifest.get("name"))
@@ -39,7 +43,7 @@ goog.scope(function () {
     //scaleY: "0.9"
 
     //scale: 0.98,
-    "opacity": "0",
+    "opacity": "0"
   })
 
   //var hiddenGroupList2 = Object.create(hiddenGroupList)
@@ -165,7 +169,7 @@ goog.scope(function () {
     }
   }
 
-  exports.initialize = function (e) {
+  logic.initialize = function (e) {
     var groupSort = e.bind([opt.get("group.sort.type")], lookup({
       "window": {
         groupSort: function (x, y) {
@@ -501,7 +505,7 @@ goog.scope(function () {
           a = array.map(a, function (x) {
             return x.info
           })
-          assert(array.len(a))
+          assert(!!array.len(a))
           assert(array.indexOf(a, oTab) !== -1)
         } else {
           a = [oTab]
@@ -512,7 +516,7 @@ goog.scope(function () {
             return x.isVisible
           })
         })
-        menu.show(menus.tab.menu, {
+        ui.menu.show(menus.tab.menu, {
           left: click.mouseX + 5,
           top:  click.mouseY + 5
         })
@@ -599,7 +603,7 @@ goog.scope(function () {
     }
 
     function init() {
-      array.each(tab.getAll(), function (tab) {
+      array.each(tabs.getAll(), function (tab) {
         addTab(e, tab, false)
       })
       searchTabs(search.on.get(), opt.get("groups.layout").get())
@@ -617,7 +621,7 @@ goog.scope(function () {
       })
     })
 
-    e.event([tab.on], function (a) {
+    e.event([tabs.on], function (a) {
       array.each(a, function (o) {
         var type = o["type"]
           , x    = o["value"]

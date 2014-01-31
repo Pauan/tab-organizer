@@ -4,17 +4,34 @@ goog.provide("search")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
+goog.require("util.log")
 goog.require("cache")
 
 goog.scope(function () {
   var cell   = util.cell
     , array  = util.array
     , object = util.object
+    , log    = util.log.log
 
   // [\^$.|?*+()
   function reQuote(s) {
     // TODO util.string or util.regexp
     return s["replace"](/[\[\\\^\$\.\|\?\*\+\(\)]/g, "\\$&")
+  }
+
+  function iterator(s) {
+    var i = 0
+    return {
+      peek: function () {
+        return s[i]
+      },
+      read: function () {
+        return s[i++]
+      },
+      has: function () {
+        return i < array.len(s)
+      }
+    }
   }
 
   function same(f) {
@@ -35,7 +52,7 @@ goog.scope(function () {
     var keys = sortedKeys(o)
     return function (test) {
       test = test()
-      // TODO iter
+      // TODO util.array
       for (var i = 0, iLen = array.len(keys); i < iLen; ++i) {
         if (test(keys[i])) {
           return o[keys[i]]
@@ -335,7 +352,7 @@ goog.scope(function () {
 
   function tokenize(s) {
     var c, a, r = []
-    s = new buffer.Buffer(s)
+    s = iterator(s)
     while (s.has()) {
       c = s.read()
       if (c === " ") {
@@ -376,8 +393,7 @@ goog.scope(function () {
         array.push(a, x)
       }
     }
-    // TODO should probably use something in the iter module instead...
-    return new buffer.Reader(a)
+    return iterator(a)
   }
 
   function generate(gen, x) {

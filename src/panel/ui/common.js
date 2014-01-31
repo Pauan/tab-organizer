@@ -21,7 +21,7 @@ goog.scope(function () {
 
     "black": 0,
     "grey": 0,
-    "white": 0,
+    "white": 0
   }
 
   var lightness = {
@@ -38,6 +38,13 @@ goog.scope(function () {
     "white": 95
   }
 
+  /**
+   * @param {string} hue
+   * @param {number} sat
+   * @param {number} light
+   * @param {number=} alpha
+   * @return {string}
+   */
   function skewHue(hue, sat, light, alpha) {
     if (hue === "black" || hue === "grey" || hue === "white") {
       sat = 0
@@ -46,6 +53,13 @@ goog.scope(function () {
     return dom.hsl(hues[hue], sat, light, alpha)
   }
 
+  /**
+   * @param {string} hue
+   * @param {number} sat
+   * @param {number} light
+   * @param {number=} alpha
+   * @return {string}
+   */
   function skew(hue, sat, light, alpha) {
                                // Base of 65
     return skewHue(hue, sat, (lightness[hue] - 65) + light, alpha)
@@ -65,6 +79,13 @@ goog.scope(function () {
     return dom.hsl(hues[hue], sat, light, alpha)
   }
 
+  /**
+   * @param {string} hue
+   * @param {number} sat
+   * @param {number} light
+   * @param {number=} alpha
+   * @return {string}
+   */
   function shadow(hue, sat, light, alpha) {
     if (hue === "yellow" || hue === "pink" || hue === "white") {
       return dom.hsl(hues[hue], 0, 100, alpha)

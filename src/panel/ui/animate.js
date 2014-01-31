@@ -24,6 +24,13 @@ goog.scope(function () {
     return new Wrapper(o)
   }
 
+  /**
+   * TODO more specific type for the first argument
+   * @param {!Object} e
+   * @param {number} i
+   * @param {!Wrapper} css
+   * @param {function():void=} f
+   */
   ui.animate.from = function (e, i, css, f) {
     assert(css instanceof Wrapper)
 
@@ -34,6 +41,13 @@ goog.scope(function () {
     }
   }
 
+  /**
+   * TODO more specific type for the first argument
+   * @param {!Object} e
+   * @param {number} i
+   * @param {!Wrapper} css
+   * @param {function():void=} f
+   */
   ui.animate.to = function (e, i, css, f) {
     assert(css instanceof Wrapper)
 

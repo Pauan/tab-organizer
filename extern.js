@@ -20,15 +20,29 @@ var Math = {}
 var document = {}
 
 /** @const @dict */
-var Object = {}
+var window = {}
 
+/** @const @dict */
+var TweenLite = {}
+
+/** @const @dict */
+var Power3 = {}
+
+/** @const @dict @type {function (new:Object, *=): ?} */
+function Object() {}
 
 /** @const @dict @type {function (new:Error, *=, *=, *=): Error} */
 function Error() {}
 Error.prototype = {}
 
+/** @const @dict @constructor */
+function SyntaxError() {}
+
 /** @const @dict @type {function (new:Date, ?=, ?=, ?=, ?=, ?=, ?=, ?=): string}*/
 function Date() {}
+
+/** @const @dict @type {function (new:RegExp, *=, *=): RegExp} */
+function RegExp() {}
 
 /** @const @dict @constructor */
 function Arguments() {}
@@ -60,3 +74,12 @@ function addEventListener(s, f, b) {}
 
 /** @const */
 function removeEventListener(s, f, b) {}
+
+/** @const */
+function decodeURIComponent(x) {}
+
+/** @const */
+function prompt(x, y) {}
+
+/** @const */
+function confirm(x) {}

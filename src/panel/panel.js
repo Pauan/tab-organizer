@@ -4,7 +4,6 @@ goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("ui.menu")
-goog.require("ui.tabs")
 goog.require("ui.urlBar")
 goog.require("ui.common")
 goog.require("ui.layout")
@@ -89,10 +88,10 @@ goog.scope(function () {
         e.set("height", dom.calc("100%", "-", searchHeight + "px"))
       })
 
-      e.styles(body, common.background)
+      e.styles(body, ui.common.background)
 
       dom.box(function (e) {
-        e.styles(top, common.topBar)
+        e.styles(top, ui.common.topBar)
 
         ui.search.make(e)
 
@@ -114,9 +113,9 @@ goog.scope(function () {
             array.each(tabs.getAll(), function (x) {
               if (x.isVisible) {
                 if (x.selected) {
-                  selected.push(x)
+                  array.push(selected, x)
                 } else {
-                  normal.push(x)
+                  array.push(normal, x)
                 }
               }
             })
