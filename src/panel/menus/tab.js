@@ -2,12 +2,11 @@ goog.provide("menus.tab")
 
 goog.require("util.cell")
 goog.require("util.array")
-goog.require("menu")
+goog.require("util.log")
+goog.require("ui.animate")
+goog.require("ui.menu")
 goog.require("tabs")
 goog.require("groups")
-//goog.require("sorted")
-goog.require("animate")
-goog.require("util.log")
 
 goog.scope(function () {
   var cell   = util.cell
@@ -29,9 +28,9 @@ goog.scope(function () {
     return a
   }
 
-  menus.tab.menu = menu.make(function (o) {
-    var groupMenu = menu.make(function (o) {
-      menu.item(o, function (o) {
+  menus.tab.menu = ui.menu.make(function (o) {
+    var groupMenu = ui.menu.make(function (o) {
+      ui.menu.item(o, function (o) {
         o.text("New")
 
         o.event([o.activate], function () {
@@ -47,13 +46,13 @@ goog.scope(function () {
         })
       })
 
-      menu.separator(o, function (eSeparator) {
+      ui.menu.separator(o, function (eSeparator) {
         var aGroups = []
           , oGroups = {}
 
         var iAnim = 0.5
 
-        var animHidden = animate.object({
+        var animHidden = ui.animate.object({
           "width": "0px",
           "height": "0px",
           "padding": "0px",
@@ -70,12 +69,12 @@ goog.scope(function () {
         function showSeparator(bAnimate) {
           eSeparator.show()
           if (bAnimate) {
-            animate.from(eSeparator, iAnim, animHidden)
+            ui.animate.from(eSeparator, iAnim, animHidden)
           }
         }
 
         function hideSeparator() {
-          animate.to(eSeparator, iAnim, animHidden, function () {
+          ui.animate.to(eSeparator, iAnim, animHidden, function () {
             eSeparator.hide()
           })
         }
@@ -83,10 +82,10 @@ goog.scope(function () {
         function makeCheckbox(s, bAnimate) {
           assert(oGroups[s] == null)
 
-          menu.checkbox(o, function (o) {
+          ui.menu.checkbox(o, function (o) {
             oGroups[s] = o
 
-            var i = sorted.insert(aGroups, s, sort)
+            var i = array.insertSorted(aGroups, s, sort)
 
             function hasGroup(x) {
               return x.groups[s] != null
@@ -122,7 +121,7 @@ goog.scope(function () {
             showSeparator(bAnimate)
             //o.show(iAnim, animate)
             if (bAnimate) {
-              animate.from(o, iAnim, animHidden)
+              ui.animate.from(o, iAnim, animHidden)
             }
           })
         }
@@ -131,7 +130,7 @@ goog.scope(function () {
           var e = oGroups[s]
           assert(e != null)
           delete oGroups[s]
-          sorted.remove(aGroups, s)
+          array.remove(aGroups, s)
 
           if (!array.len(aGroups)) {
             hideSeparator()
@@ -139,7 +138,7 @@ goog.scope(function () {
 
           //e.remove(iAnim, animate)
 
-          animate.to(e, iAnim, animHidden, function () {
+          ui.animate.to(e, iAnim, animHidden, function () {
             e.remove()
           })
         }
@@ -164,7 +163,7 @@ goog.scope(function () {
       })
     })
 
-    menu.item(o, function (o) {
+    ui.menu.item(o, function (o) {
       o.text("Unload")
 
       function isActive(x) {
@@ -181,22 +180,22 @@ goog.scope(function () {
 
       o.event([o.activate], function () {
         tabs.unload(getIds())
-        menu.hide()
+        ui.menu.hide()
       })
     })
 
-    menu.item(o, function (o) {
+    ui.menu.item(o, function (o) {
       o.text("Close")
 
       o.event([o.activate], function () {
         tabs.close(getIds())
-        menu.hide()
+        ui.menu.hide()
       })
     })
 
-    menu.separator(o)
+    ui.menu.separator(o)
 
-    menu.submenu(o, groupMenu, function (o) {
+    ui.menu.submenu(o, groupMenu, function (o) {
       o.text("Group...")
     })
   })

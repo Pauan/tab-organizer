@@ -1,7 +1,7 @@
 goog.provide("menus.group")
 
 goog.require("util.cell")
-goog.require("menu")
+goog.require("ui.menu")
 goog.require("menus.tab")
 
 goog.scope(function () {
@@ -9,10 +9,10 @@ goog.scope(function () {
 
   menus.group.state = cell.value({ selected: [], normal: [] })
 
-  menus.group.menu = menu.make(function (o) {
+  menus.group.menu = ui.menu.make(function (o) {
     //menu.separator(o)
 
-    menu.submenu(o, menus.tab.menu, function (o) {
+    ui.menu.submenu(o, menus.tab.menu, function (o) {
       o.bind([menus.group.state], function (state) {
         if (state.selected.length) {
           menus.tab.state.set({ tabs: state.selected })

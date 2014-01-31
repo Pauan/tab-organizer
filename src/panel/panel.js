@@ -8,22 +8,24 @@ goog.require("ui.tabs")
 goog.require("ui.urlBar")
 goog.require("ui.common")
 goog.require("ui.layout")
+goog.require("ui.search")
 goog.require("menus.global")
 goog.require("menus.button")
 goog.require("opt")
 goog.require("cache")
-goog.require("search")
 goog.require("logic")
+goog.require("tabs")
+goog.require("search")
 //goog.require("groups")
 
 goog.scope(function () {
-  var ui    = util.ui
+  var dom   = util.dom
     , cell  = util.cell
     , array = util.array
 
   var searchHeight = 23
 
-  ui.normalize(function (e) {
+  dom.initialize(function (e) {
     e.stopDragging()
 
     //e.clip()
@@ -32,11 +34,11 @@ goog.scope(function () {
     e.height("100%")*/
 
     // TODO it might not need to wait for "tab.loaded" until after
-    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, groups.loaded), function () {
-      menu.initialize(e)
-      urlBar.initialize(e)
+    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, groups.loaded, search.loaded), function () {
+      ui.menu.initialize(e)
+      ui.urlBar.initialize(e)
 
-      var body = ui.style(function (e) {
+      var body = dom.style(function (e) {
         e.set("font-family", "sans-serif")
         e.set("font-size", "13px")
 
@@ -55,21 +57,21 @@ goog.scope(function () {
         })
       })
 
-      var top = ui.style(function (e) {
-        e.styles(ui.horiz)
+      var top = dom.style(function (e) {
+        e.styles(dom.horiz)
         e.set("height", searchHeight + "px")
         e.set("border-width", "2px")
         e.set("border-radius", "5px")
-        e.set("background-color", ui.hsl(0, 0, 100, 1))
+        e.set("background-color", dom.hsl(0, 0, 100, 1))
         e.set("z-index", "3")
       })
 
-      var topRight = ui.style(function (e) {
-        e.styles(ui.horiz)
+      var topRight = dom.style(function (e) {
+        e.styles(dom.horiz)
         e.set("padding-right", "3px")
       })
 
-      var topSeparator = ui.style(function (e) {
+      var topSeparator = dom.style(function (e) {
         e.set("border-left-width", "3px")
         e.set("border-left-style", "double")
         e.set("height", "14px")
@@ -77,31 +79,31 @@ goog.scope(function () {
         e.set(["margin-right", "margin-bottom"], "3px")
       })
 
-      var topMenuText = ui.style(function (e) {})
+      var topMenuText = dom.style(function (e) {})
 
-      var bottom = ui.style(function (e) {
+      var bottom = dom.style(function (e) {
         e.set("white-space", "pre")
         e.set("overflow", "auto")
         //e.marginTop = "1px"
         e.set("width", "100%")
-        e.set("height", ui.calc("100%", "-", searchHeight + "px"))
+        e.set("height", dom.calc("100%", "-", searchHeight + "px"))
       })
 
       e.styles(body, common.background)
 
-      ui.box(function (e) {
+      dom.box(function (e) {
         e.styles(top, common.topBar)
 
-        search.initialize(e)
+        ui.search.make(e)
 
-        ui.box(function (e) {
+        dom.box(function (e) {
           e.styles(topRight)
 
-          ui.box(function (e) {
-            e.styles(topSeparator, common.topSeparator)
+          dom.box(function (e) {
+            e.styles(topSeparator, ui.common.topSeparator)
           }).move(e)
 
-          ui.box(function (e) {
+          dom.box(function (e) {
             e.styles(topMenuText)
             e.text("Menu")
           }).move(e)
@@ -126,12 +128,12 @@ goog.scope(function () {
       }).move(e)
 
       // TODO try making this vert and stretch
-      ui.box(function (e) {
+      dom.box(function (e) {
         e.styles(bottom)
         //e.stretch()
 
         e.bind([opt.get("groups.layout")], function (x) {
-          e.styleObject(layout.groupList, x, true)
+          e.styleObject(ui.layout.groupList, x, true)
         })
 
         logic.initialize(e)

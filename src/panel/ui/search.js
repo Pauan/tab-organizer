@@ -1,30 +1,26 @@
-define("search", function (require, exports) {
-  "use strict";
+goog.provide("ui.search")
 
-  var ui     = require("lib/util/ui")
-    , cell   = require("lib/util/cell")
-    , cache  = require("cache")
-    , parser = require("parser")
+goog.require("util.dom")
+goog.require("util.cell")
+goog.require("search")
 
-  /*function reDomain(sQ, sU) {
-    sU = sU || ""
-    var r = new RegExp("^https?:\\/\\/(?:www\\.)?" + reQuote(sQ) + sU)
-    return function (x) {
-      return r.test(x._data.url)
-    }
-  }*/
+goog.scope(function () {
+  var dom  = util.dom
+    , cell = util.cell
 
-  var searchStyle = ui.style(function (e) {
-    e.styles(ui.stretch)
+  var searchStyle = dom.style(function (e) {
+    e.styles(dom.stretch)
     e.set("padding", "1px 2px")
   })
 
-  var errorStyle = ui.style(function (e) {
-    e.set("background-color", ui.hsl(0, 100, 60, 0.5))
+  var errorStyle = dom.style(function (e) {
+    e.set("background-color", dom.hsl(0, 100, 60, 0.5))
   })
 
-  function make(oInfo) {
-    return ui.search(function (e) {
+  ui.search.make = function (e) {
+    var value = cache.get("search.last")
+
+    dom.search(function (e) {
       e.styles(searchStyle)
       e.autofocus(true)
       /*e.shadow(function (t) {
@@ -40,47 +36,17 @@ define("search", function (require, exports) {
         t.color(color.hsl(211, 100, 65)) // TODO code duplication with "common-ui" module
       })*/
 
-      e.bind([oInfo], function (x) {
-        e.value.set(x)
-      })
-      e.event([e.value], function (x) {
-        oInfo.set(x)
-      })
-    })
-  }
-
-  var cached, search
-
-  // TODO move into a different module
-  // TODO return a loaded thingy which is checked in "panel"
-  exports.initialize = function (e) {
-    var value = cache.get("search.last")
-    var eSearch = make(value)
-
-    if (search == null) {
-      search = cell.bind([value], function (s) {
-        try {
-          cached = parser.parse(s)
-          eSearch.title("")
-          eSearch.styleWhen(errorStyle, false)
-        } catch (e) {
-          if (cached == null) {
-            cached = function () {
-              return true
-            }
-          }
-          eSearch.title(e.message)
-          eSearch.styleWhen(errorStyle, true)
+      e.bind([search.on], function (x) {
+        if (x.value == null) {
+          e.title(x.error.message)
+          e.styleWhen(errorStyle, true)
+        } else {
+          e.title("")
+          e.styleWhen(errorStyle, false)
         }
-        return cached
       })
-    }
 
-    eSearch.move(e)
-  }
-
-  // TODO a bit hacky
-  exports.get = function () {
-    return search
+      e.sync(value)
+    }).move(e)
   }
 })

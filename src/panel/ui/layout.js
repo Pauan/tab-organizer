@@ -1,16 +1,18 @@
 // TODO grid mode is incorrect, should calculate everything in JS
-define("layout-ui", function (require, exports) {
-  "use strict";
+goog.provide("ui.layout")
 
-  var ui = require("lib/util/ui")
+goog.require("util.dom")
 
-  exports.group = {
-    "vertical": ui.style(function (e) {
+goog.scope(function () {
+  var dom = util.dom
+
+  ui.layout.group = {
+    "vertical": dom.style(function (e) {
       e.set("top", "-1px")
       e.set("border-top-width", "1px")
     }),
-    "horizontal": ui.style(function (e) {
-      e.styles(ui.stretch)
+    "horizontal": dom.style(function (e) {
+      e.styles(dom.stretch)
 
       e.set("background-color", "white") // TODO
       e.set("border-color", "dodgerblue")
@@ -41,7 +43,7 @@ define("layout-ui", function (require, exports) {
       //e.set("background-color", "inherit")
 
     }),
-    "grid": ui.style(function (e) {
+    "grid": dom.style(function (e) {
       e.set("overflow", "hidden")
       //e.stretch(true)
       e.set("margin-top", "-1px")
@@ -51,26 +53,26 @@ define("layout-ui", function (require, exports) {
       //e.set("border-width", "1px")
 
       //e.set("flex-grow", "1")
-      e.set("width",  ui.calc((1 / 3) * 100 + "%", "+", "1px"))
-      e.set("height", ui.calc((1 / 2) * 100 + "%", "+", "1px"))
+      e.set("width",  dom.calc((1 / 3) * 100 + "%", "+", "1px"))
+      e.set("height", dom.calc((1 / 2) * 100 + "%", "+", "1px"))
     })
   }
 
-  exports.groupFocused = {
-    "horizontal": ui.style(function (e) {
+  ui.layout.groupFocused = {
+    "horizontal": dom.style(function (e) {
       e.set("z-index", "2")
       //e.set("background-color", "green")
     })
   }
 
-  exports.groupLast = {
-    "horizontal": ui.style(function (e) {
+  ui.layout.groupLast = {
+    "horizontal": dom.style(function (e) {
       //e.set("min-width", "400px")
     })
   }
 
-  exports.groupTop = {
-    "horizontal": ui.style(function (e) {
+  ui.layout.groupTop = {
+    "horizontal": dom.style(function (e) {
       e.set("z-index", "1")
 
       e.set("background-color", "inherit")
@@ -86,16 +88,16 @@ define("layout-ui", function (require, exports) {
     })
   }
 
-  exports.groupTopInner = {
-    "horizontal": ui.style(function (e) {
+  ui.layout.groupTopInner = {
+    "horizontal": dom.style(function (e) {
       e.set("background-color", "inherit")
       e.set("border-radius", "inherit")
       e.set("padding-bottom", "1px")
     })
   }
 
-  exports.groupTabs = {
-    "horizontal": ui.style(function (e) {
+  ui.layout.groupTabs = {
+    "horizontal": dom.style(function (e) {
       e.set("background-color", "inherit")
       e.set("border-color", "inherit")
 
@@ -109,28 +111,28 @@ define("layout-ui", function (require, exports) {
 
       e.set("overflow", "auto")
       e.set("width", "400px")
-      e.set("height", ui.calc("100%", "-", "18px", "+", "1px"))
+      e.set("height", dom.calc("100%", "-", "18px", "+", "1px"))
     }),
-    "grid": ui.style(function (e) {
+    "grid": dom.style(function (e) {
       e.set("overflow", "auto")
       e.set("width", "100%")
-      e.set("height", ui.calc("100%", "-", "18px"))
+      e.set("height", dom.calc("100%", "-", "18px"))
       //e.set("height", "100%")
     })
   }
 
-  exports.groupList = {
-    "vertical": ui.style(function (e) {
+  ui.layout.groupList = {
+    "vertical": dom.style(function (e) {
     }),
-    "horizontal": ui.style(function (e) {
-      e.styles(ui.horiz)
+    "horizontal": dom.style(function (e) {
+      e.styles(dom.horiz)
       e.set("padding", "20px")
     }),
-    "grid": ui.style(function (e) {
-      e.styles(ui.horiz)
+    "grid": dom.style(function (e) {
+      e.styles(dom.horiz)
       e.set("align-content", "stretch")
       e.set("flex-wrap", "wrap")
-      e.set("width", ui.calc("100%", "-", "5px"))
+      e.set("width", dom.calc("100%", "-", "5px"))
     })
   }
 })

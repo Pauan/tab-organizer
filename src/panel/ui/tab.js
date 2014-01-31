@@ -1,115 +1,120 @@
-define("tab-ui", function (require, exports) {
-  "use strict";
+goog.provide("ui.tab")
 
-  var name      = require("lib/util/name")
-    , ui        = require("lib/util/ui")
-    , tab       = require("tab")
-    , opt       = require("opt")
-    , urlBar    = require("url-bar")
-    , common_ui = require("common-ui")
-    , animate   = require("animate")
+goog.require("util.Symbol")
+goog.require("util.dom")
+goog.require("util.array")
+goog.require("ui.urlBar")
+goog.require("ui.common")
+goog.require("ui.animate")
+goog.require("tabs")
+goog.require("opt")
 
-  var fn = new name.Name()
+goog.scope(function () {
+  var Symbol = util.Symbol
+    , dom    = util.dom
+    , array  = util.array
 
-  var hiddenTab = animate.object({
+  var fn = Symbol("fn")
+
+  var hiddenTab = ui.animate.object({
     //transform: "scale(0)",
     //scaleY: "0",
 
-    borderTopWidth: "0px",
-    borderBottomWidth: "0px",
-    paddingTop: "0px",
-    paddingBottom: "0px",
+    "borderTopWidth": "0px",
+    "borderBottomWidth": "0px",
+    "paddingTop": "0px",
+    "paddingBottom": "0px",
 
     //marginLeft: "15px",
-    height: "0px",
-    opacity: "0"
+    "height": "0px",
+    "opacity": "0"
   })
 
-  var tabStyle = ui.style(function (e) {
-    e.styles(ui.horiz, ui.clip, common_ui.normal)
+  var tabStyle = dom.style(function (e) {
+    e.styles(dom.horiz, dom.clip, ui.common.normal)
     e.set("border-width", "1px")
     e.set("padding", "1px")
     e.set("height", "20px")
     e.set("border-radius", "5px")
   })
 
-  var tabHoverStyle = ui.style(function (e) {
+  var tabHoverStyle = dom.style(function (e) {
     e.set("font-weight", "bold")
   })
 
-  var tabClickStyle = ui.style(function (e) {
+  var tabClickStyle = dom.style(function (e) {
     e.set("padding-top", "2px")
     e.set("padding-bottom", "0px")
   })
 
-  var tabInactiveStyle = ui.style(function (e) {
-    e.set("color", ui.hsl(0, 0, 30))
+  var tabInactiveStyle = dom.style(function (e) {
+    e.set("color", dom.hsl(0, 0, 30))
     e.set("opacity", "0.75")
   })
 
-  var tabInactiveHoverStyle = ui.style(function (e) {
-    e.set("background-color", ui.hsl(0, 0, 0, 0.4))
+  var tabInactiveHoverStyle = dom.style(function (e) {
+    e.set("background-color", dom.hsl(0, 0, 0, 0.4))
     // TODO: code duplication with .tab._hover
-    e.set("text-shadow", ["1px 0px 1px " + ui.hsl(0, 0, 0, 0.4),
-                          "0px 1px 1px " + ui.hsl(0, 0, 0, 0.4)].join(","))
-    e.set("border-color", ui.hsl(0, 0, 0, 0.2))
-    e.set("color", ui.hsl(0, 0, 99, 0.95)) // TODO minor code duplication with "common-ui" module
+    e.set("text-shadow", array.join(["1px 0px 1px " + dom.hsl(0, 0, 0, 0.4),
+                                     "0px 1px 1px " + dom.hsl(0, 0, 0, 0.4)], ","))
+    e.set("border-color", dom.hsl(0, 0, 0, 0.2))
+    e.set("color", dom.hsl(0, 0, 99, 0.95)) // TODO minor code duplication with "common-ui" module
   })
 
-  var tabFocusedStyle = ui.style(function (e) {
-    e.set("background-color", ui.hsl(30, 100, 94))
-    e.set("border-color",     ui.hsl(30, 100, 40))
+  var tabFocusedStyle = dom.style(function (e) {
+    e.set("background-color", dom.hsl(30, 100, 94))
+    e.set("border-color",     dom.hsl(30, 100, 40))
   })
 
-  var tabFocusedHoverStyle = ui.style(function (e) {
-    e.set("background-color", ui.hsl(30, 85, 57))
+  var tabFocusedHoverStyle = dom.style(function (e) {
+    e.set("background-color", dom.hsl(30, 85, 57))
     // TODO code duplication with "common-ui" module
-    e.set("text-shadow", ["1px 0px 1px " + ui.hsl(30, 61, 50),
-                          "0px 1px 1px " + ui.hsl(30, 61, 50)].join(",")) // TODO why is this duplicated like this ?
+    e.set("text-shadow", array.join(["1px 0px 1px " + dom.hsl(30, 61, 50),
+                                     "0px 1px 1px " + dom.hsl(30, 61, 50)], ",")) // TODO why is this duplicated like this ?
   })
 
-  var tabSelectedStyle = ui.style(function (e) {
+  var tabSelectedStyle = dom.style(function (e) {
     e.set("background-color", "red")
   })
 
-  var iconStyle = ui.style(function (e) {
+  var iconStyle = dom.style(function (e) {
     e.set("height", "16px")
     e.set("border-radius", "4px")
-    e.set("box-shadow", "0px 0px 15px " + ui.hsl(0, 0, 100, 0.9))
-    e.set("background-color", ui.hsl(0, 0, 100, 0.35))
+    e.set("box-shadow", "0px 0px 15px " + dom.hsl(0, 0, 100, 0.9))
+    e.set("background-color", dom.hsl(0, 0, 100, 0.35))
   })
 
-  var faviconStyle = ui.style(function (e) {
+  var faviconStyle = dom.style(function (e) {
     e.set("width", "16px")
   })
 
-  var faviconInactiveStyle = ui.style(function (e) {
+  var faviconInactiveStyle = dom.style(function (e) {
     e.set("filter", "grayscale(100%)")
   })
 
-  var textStyle = ui.style(function (e) {
-    e.styles(ui.stretch, ui.clip)
+  var textStyle = dom.style(function (e) {
+    e.styles(dom.stretch, dom.clip)
     e.set(["padding-left", "padding-right"], "2px")
   })
 
-  var closeStyle = ui.style(function (e) {
+  var closeStyle = dom.style(function (e) {
     e.set("width", "18px")
     e.set("border-width", "1px")
     e.set(["padding-left", "padding-right"], "1px")
   })
 
-  var closeHoverStyle = ui.style(function (e) {
-    e.set("background-color", ui.hsl(0, 0, 100, 0.75))
-    e.set("border-color", ui.hsl(0, 0, 90, 0.75))
+  var closeHoverStyle = dom.style(function (e) {
+    e.set("background-color", dom.hsl(0, 0, 100, 0.75))
+    e.set("border-color", dom.hsl(0, 0, 90, 0.75))
   })
 
-  var closeClickStyle = ui.style(function (e) {
+  var closeClickStyle = dom.style(function (e) {
     e.set("padding-top", "1px")
-    e.set("background-color", ui.hsl(0, 0,  98, 0.75))
-    e.set("border-color", [ui.hsl(0, 0,  70, 0.75),
-                           ui.hsl(0, 0, 100, 0.75),
-                           ui.hsl(0, 0, 100, 0.80),
-                           ui.hsl(0, 0,  80, 0.75)].join(" "))
+    e.set("background-color", dom.hsl(0, 0,  98, 0.75))
+    e.set("border-color", array.join([dom.hsl(0, 0,  70, 0.75),
+                                      dom.hsl(0, 0, 100, 0.75),
+                                      dom.hsl(0, 0, 100, 0.80),
+                                      dom.hsl(0, 0,  80, 0.75)], " "))
   })
 
   exports.update = function (e, oTab) {
@@ -117,20 +122,20 @@ define("tab-ui", function (require, exports) {
   }
 
   exports.show = function (e, i) {
-    animate.from(e, i, hiddenTab)
+    ui.animate.from(e, i, hiddenTab)
   }
 
   exports.hide = function (e, i) {
     // TODO a little hacky
     e.styleWhen(tabFocusedStyle, false)
     e.styleWhen(tabFocusedHoverStyle, false)
-    animate.to(e, i, hiddenTab, function () {
+    ui.animate.to(e, i, hiddenTab, function () {
       e.remove()
     })
   }
 
   exports.make = function (oTab, oGroup, fClick) {
-    return ui.box(function (e) {
+    return dom.box(function (e) {
       e.styles(tabStyle)
 
       /*e.background(function (t) {
@@ -144,18 +149,18 @@ define("tab-ui", function (require, exports) {
         t.color("transparent")
       })*/
 
-      var favicon = ui.image(function (e) {
+      var favicon = dom.image(function (e) {
         e.styles(iconStyle, faviconStyle)
       })
 
-      var text = ui.box(function (e) {
+      var text = dom.box(function (e) {
         e.styles(textStyle)
         /*e.font(function (t) {
           t.ellipsis()
         })*/
       })
 
-      var close = ui.image(function (e) {
+      var close = dom.image(function (e) {
         e.styles(iconStyle, closeStyle)
         e.src("images/button-close.png")
 
@@ -167,15 +172,16 @@ define("tab-ui", function (require, exports) {
           e.styleWhen(closeClickStyle, over && down.left)
         })
 
+        // TODO this is behavior, so should be abstracted out into logic
         e.event([e.mouseclick], function (click) {
           if (click.left) {
-            tab.close([oTab.id])
+            tabs.close([oTab])
           }
         })
       })
 
       function mouseover(over) {
-        e.styleWhen(common_ui.hover, over)
+        e.styleWhen(ui.common.hover, over)
         e.styleWhen(tabHoverStyle, over)
 
         e.styleWhen(tabInactiveHoverStyle, !oTab.active && over)
@@ -188,11 +194,11 @@ define("tab-ui", function (require, exports) {
         e.styleWhen(tabFocusedHoverStyle, isFocused && over)
 
         if (over) {
-          urlBar.currentURL.set({ mouseX:   over.mouseX
-                                , mouseY:   over.mouseY
-                                , location: oTab.location })
+          ui.urlBar.currentURL.set({ mouseX:   over.mouseX
+                                   , mouseY:   over.mouseY
+                                   , location: oTab.location })
         } else {
-          urlBar.currentURL.set(null)
+          ui.urlBar.currentURL.set(null)
         }
       }
 
@@ -222,7 +228,7 @@ define("tab-ui", function (require, exports) {
       }
       e[fn](oTab)
 
-      e.event([ui.exclude(e.mouseclick, close)], function (click) {
+      e.event([dom.exclude(e.mouseclick, close)], function (click) {
         fClick(oTab, oGroup, click)
       })
 
@@ -250,8 +256,8 @@ define("tab-ui", function (require, exports) {
         }
       })
 
-      e.bind([e.mouseover, ui.exclude(e.mousedown, close)], function (over, down) {
-        e.styleWhen(common_ui.click, over && down.left)
+      e.bind([e.mouseover, dom.exclude(e.mousedown, close)], function (over, down) {
+        e.styleWhen(ui.common.click, over && down.left)
         e.styleWhen(tabClickStyle,   over && down.left)
       })
     })

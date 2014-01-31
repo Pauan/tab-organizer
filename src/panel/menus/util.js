@@ -3,28 +3,28 @@ goog.provide("menus.option")
 
 goog.require("util.cell")
 goog.require("util.array")
-goog.require("util.ui")
+goog.require("util.dom")
+goog.require("ui.menu")
 goog.require("opt")
-goog.require("menu")
 
 goog.scope(function () {
   var cell  = util.cell
     , array = util.array
-    , ui    = util.ui
+    , dom   = util.dom
 
-  var bold = ui.style(function (o) {
+  var bold = dom.style(function (o) {
     o.set("font-weight", "bold")
   })
 
   menus.option.make = function (oMenu, sName, sOpt, a) {
-    var sub = menu.make(function (o) {
+    var sub = ui.menu.make(function (o) {
       cell.when(opt.loaded, function () {
         var x = opt.get(sOpt)
         array.each(a, function (a) {
           if (array.len(a) === 0) {
-            menu.separator(o)
+            ui.menu.separator(o)
           } else {
-            menu.item(o, function (e) {
+            ui.menu.item(o, function (e) {
               var val = a[1]
 
               e.text(a[0])
@@ -37,7 +37,7 @@ goog.scope(function () {
               e.event([e.activate], function () {
                 if (x.get() !== val) {
                   x.set(val)
-                  menu.hide()
+                  ui.menu.hide()
                 }
               })
             })
@@ -45,16 +45,16 @@ goog.scope(function () {
         })
       })
     })
-    menu.submenu(oMenu, sub, function (o) {
+    ui.menu.submenu(oMenu, sub, function (o) {
       o.text(sName)
     })
   }
 })
 
 goog.scope(function () {
-  var ui = util.ui
+  var dom = util.dom
 
-  var button = ui.style(function (e) {
+  var button = dom.style(function (e) {
     //e.set("width", "15px")
     e.set("height", "15px")
     e.set("padding-right", "1px")
@@ -70,13 +70,13 @@ goog.scope(function () {
       if (click.left) {
         f()
         var o = e.getPosition()
-        menu.show(eMenu, { top: o.bottom - 3, right: ui.width() - o.right - 1 })
+        ui.menu.show(eMenu, { top: o.bottom - 3, right: dom.width() - o.right - 1 })
       }
     })
   }
 
   menus.button.make = function (eMenu, f) {
-    return ui.image(function (e) {
+    return dom.image(function (e) {
       e.styles(button)
       e.src("images/menu-button.png")
       menus.button.initialize(e, eMenu, f)

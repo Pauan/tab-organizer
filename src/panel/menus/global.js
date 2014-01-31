@@ -3,7 +3,7 @@ goog.provide("menus.global")
 goog.require("menus.tab")
 goog.require("menus.option")
 goog.require("util.cell")
-goog.require("menu")
+goog.require("ui.menu")
 goog.require("opt")
 
 goog.scope(function () {
@@ -11,7 +11,7 @@ goog.scope(function () {
 
   menus.global.state = cell.value({ selected: [], normal: [] })
 
-  menus.global.menu = menu.make(function (o) {
+  menus.global.menu = ui.menu.make(function (o) {
     menus.option.make(o, "Sort tabs by...", "group.sort.type", [
       ["Window", "window"],
       ["Group", "group"],
@@ -23,9 +23,9 @@ goog.scope(function () {
       ["Name", "name"],
     ])
 
-    menu.separator(o)
+    ui.menu.separator(o)
 
-    menu.item(o, function (o) {
+    ui.menu.item(o, function (o) {
       o.text("Move tabs based on sort")
 
       o.event([o.activate], function () {
@@ -34,14 +34,14 @@ goog.scope(function () {
           cell.when(opt.loaded, function () {
             //tabs.moveBasedOnSort(opt.get("group.sort.type").get())
           })
-          menu.hide()
+          ui.menu.hide()
         }
       })
     })
 
-    menu.separator(o)
+    ui.menu.separator(o)
 
-    menu.submenu(o, menus.tab.menu, function (o) {
+    ui.menu.submenu(o, menus.tab.menu, function (o) {
       o.bind([menus.global.state], function (state) {
         if (state.selected.length) {
           o.text("All selected tabs...")

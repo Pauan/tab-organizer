@@ -1,103 +1,110 @@
-define("menu", function (require, exports) {
-  "use strict";
+goog.provide("ui.menu")
 
-  var ui        = require("lib/util/ui")
-    , name      = require("lib/util/name")
-    , cell      = require("lib/util/cell")
-    , iter      = require("lib/util/iter")
-    , common_ui = require("common-ui")
-    , animate   = require("animate")
+goog.require("util.dom")
+goog.require("util.Symbol")
+goog.require("util.cell")
+goog.require("util.array")
+goog.require("util.func")
+goog.require("ui.common")
+goog.require("ui.animate")
 
-  var element  = new name.Name()
-    , children = new name.Name()
-    , selected = new name.Name()
-    , size     = new name.Name()
+goog.scope(function () {
+  var dom    = util.dom
+    , Symbol = util.Symbol
+    , cell   = util.cell
+    , array  = util.array
+    , func   = util.func
+
+  var element  = Symbol("element")
+    , children = Symbol("children")
+    , selected = Symbol("selected")
+    , size     = Symbol("size")
 
   var menus = []
 
   var eParent = cell.dedupe(false)
 
-  /*var modalHidden = animate.object({
-    opacity: "0"
+  /*var modalHidden = ui.animate.object({
+    "opacity": "0"
   })*/
 
-  var menuHidden = animate.object({
-    scale: 0.75,
-    opacity: "0"
+  var menuHidden = ui.animate.object({
+    "scale": 0.75,
+    "opacity": "0"
   })
 
-  var modalStyle = ui.style(function (e) {
-    e.styles(ui.fixedPanel)
+  var modalStyle = dom.style(function (e) {
+    e.styles(dom.fixedPanel)
     e.set("top", "0px")
     e.set("left", "0px")
     e.set("width", "100%")
     e.set("height", "100%")
-    e.set("background-color", ui.hsl(0, 0, 0, 0.15))
+    e.set("background-color", dom.hsl(0, 0, 0, 0.15))
   })
 
-  var itemStyle = ui.style(function (e) {
-    e.styles(ui.horiz, common_ui.normal)
+  var itemStyle = dom.style(function (e) {
+    e.styles(dom.horiz, ui.common.normal)
     e.set("margin", "-1px")
     e.set(["padding-top", "padding-bottom"], "1px")
   })
 
-  var itemClickStyle = ui.style(function (e) {
+  var itemClickStyle = dom.style(function (e) {
     e.set("padding-top", "2px")
     e.set("padding-bottom", "0px")
   })
 
-  var itemDisabled = ui.style(function (e) {
-    e.set("color", ui.hsl(0, 0, 0, 0.2))
+  var itemDisabled = dom.style(function (e) {
+    e.set("color", dom.hsl(0, 0, 0, 0.2))
     e.set("cursor", "default") // TODO is this correct ?
   })
 
-  var itemTextStyle = ui.style(function (e) {
-    e.styles(ui.stretch, ui.clip)
+  var itemTextStyle = dom.style(function (e) {
+    e.styles(dom.stretch, dom.clip)
     e.set(["padding-left", "padding-right"], "5px")
   })
 
-  var menuStyle = ui.style(function (e) {
+  var menuStyle = dom.style(function (e) {
                             // TODO
-    e.styles(ui.fixedPanel, ui.clip, common_ui.background)
+    e.styles(dom.fixedPanel, dom.clip, ui.common.background)
     e.set("white-space", "pre")
     e.set("border-width", "1px")
     e.set("border-color", "black")
   })
 
-  var separatorStyle = ui.style(function (e) {
+  var separatorStyle = dom.style(function (e) {
     e.set("margin", "2px 3px")
-    // TODO code duplication with "lib/util/ui" module ?
+    // TODO code duplication with "lib/util/dom" module ?
     e.set("background-color", "gainsboro")
   })
 
-  var checkboxCheckbox = ui.style(function (e) {
+  var checkboxCheckbox = dom.style(function (e) {
     e.set("margin-right", "2px")
   })
 
-  var checkboxStyle = ui.style(function (e) {
-    e.styles(common_ui.normal, itemStyle)
+  var checkboxStyle = dom.style(function (e) {
+    e.styles(ui.common.normal, itemStyle)
     e.set("padding-left", "3px")
     e.set("padding-right", "4px")
   })
 
-  var submenuStyle = ui.style(function (e) {
-    e.styles(ui.horiz, common_ui.normal, itemStyle)
+  var submenuStyle = dom.style(function (e) {
+    e.styles(dom.horiz, ui.common.normal, itemStyle)
     e.set("cursor", "default")
   })
 
-  var submenuArrow = ui.style(function (e) {
+  var submenuArrow = dom.style(function (e) {
     e.set(["width", "height"], "7px")
     e.set("margin-right", "2px")
   })
 
-  var modal = ui.box(function (e) {
+  var modal = dom.box(function (e) {
     e.styles(modalStyle)
 
     e.hide()
 
     e.event([e.mouseclick], function (click) {
       if (click.left) {
-        exports.hide()
+        ui.menu.hide()
       }
     })
 
@@ -113,13 +120,13 @@ define("menu", function (require, exports) {
   })
 
   function hide1(o) {
-    iter.each(o[children], function (x) {
+    array.each(o[children], function (x) {
       delete x[size]
     })
 
     var e = o[element]
     o.hiding = true
-    animate.to(e, 0.2, menuHidden, function () {
+    ui.animate.to(e, 0.2, menuHidden, function () {
       e.hide()
       delete o.hiding
     })
@@ -153,31 +160,31 @@ define("menu", function (require, exports) {
       x.visible.set()
     })*/
 
-    menus.push(o)
+    array.push(menus, o)
     delete o.hiding
     e.show()
 
     // Corrects the position if it's out of bounds
     var ePos = e.getPosition()
     e.style(function (e) {
-      if (ePos.width > ui.width()) {
+      if (ePos.width > dom.width()) {
         e.set("left", "0px")
         e.set("right", "0px")
       } else if (ePos.left < 0) {
         e.set("left", "0px")
         e.set("right", "")
-      } else if (ePos.right > ui.width()) {
+      } else if (ePos.right > dom.width()) {
         e.set("left", "")
         e.set("right", "0px")
       }
 
-      if (ePos.height > ui.height()) {
+      if (ePos.height > dom.height()) {
         e.set("top", "0px")
         e.set("bottom", "0px")
       } else if (ePos.top < 0) {
         e.set("top", "0px")
         e.set("bottom", "")
-      } else if (ePos.bottom > ui.height()) {
+      } else if (ePos.bottom > dom.height()) {
         e.set("top", "")
         e.set("bottom", "0px")
       }
@@ -188,22 +195,22 @@ define("menu", function (require, exports) {
       o.set("width", e.getPosition().width + "px")
     })*/
 
-    iter.each(o[children], function (x) {
+    array.each(o[children], function (x) {
       x[size] = x[element].getPosition()
     })
 
-    animate.from(e, 0, menuHidden) // TODO a little ew, but probably necessary
+    ui.animate.from(e, 0, menuHidden) // TODO a little ew, but probably necessary
   }
 
   // TODO a bit ew how it accepts 2 arguments
   function hideMenus(parent, parent2) {
-    while (menus.length) {
-      var x = menus[menus.length - 1]
+    while (array.len(menus)) {
+      var x = array.last(menus)
       if (x === parent || x === parent2) {
         break
       } else {
         hide1(x)
-        menus.pop()
+        array.pop(menus)
       }
     }
     hideSelected(parent)
@@ -215,8 +222,8 @@ define("menu", function (require, exports) {
 
     var e = o[element]
     // TODO this seems a little bit hacky
-    e.styleWhen(common_ui.hover, true)
-    e.styleWhen(common_ui.click, false)
+    e.styleWhen(ui.common.hover, true)
+    e.styleWhen(ui.common.click, false)
   }
 
   function hideSelected(o) {
@@ -226,39 +233,39 @@ define("menu", function (require, exports) {
 
       e = e[element]
       // TODO this seems a little bit hacky
-      e.styleWhen(common_ui.hover, false)
-      e.styleWhen(common_ui.click, false)
+      e.styleWhen(ui.common.hover, false)
+      e.styleWhen(ui.common.click, false)
     }
   }
 
   function maker(e, s) {
     return function () {
-      return e[s].apply(e, arguments)
+      return func.apply(e[s], e, arguments)
     }
   }
 
-  exports.hide = function () {
-    /*animate.to(modal, 0.2, modalHidden, function () {
+  ui.menu.hide = function () {
+    /*ui.animate.to(modal, 0.2, modalHidden, function () {
       modal.hide()
     })*/
     modal.hide()
-    iter.each(menus, function (o) {
+    array.each(menus, function (o) {
       hide1(o)
     })
     menus = []
   }
 
-  exports.show = function (e, pos) {
-    exports.hide()
+  ui.menu.show = function (e, pos) {
+    ui.menu.hide()
     modal.show()
-    //animate.from(modal, 0.2, modalHidden)
+    //ui.animate.from(modal, 0.2, modalHidden)
     show1(e, pos)
   }
 
   function itemInit(eParent, e) {
     var o = {}
     o[element] = e
-    eParent[children].push(o)
+    array.push(eParent[children], o)
 
     o.styleWhen = maker(e, "styleWhen")
     //o.style     = maker(e, "style")
@@ -286,7 +293,7 @@ define("menu", function (require, exports) {
   }
 
   function itemText(o, e) {
-    return ui.box(function (e) {
+    return dom.box(function (e) {
       e.styles(itemTextStyle)
       o.text = maker(e, "text")
     }).move(e)
@@ -298,16 +305,16 @@ define("menu", function (require, exports) {
       if (b) {
         hideMenus(eParent, eParent)
       }
-      e.styleWhen(common_ui.hover, b)
+      e.styleWhen(ui.common.hover, b)
     })
     e.event([o.enabled, e.mouseover, e.mousedown], function (enabled, over, down) {
       var b = !eParent.hiding && enabled && over && down.left
-      e.styleWhen(common_ui.click, b)
+      e.styleWhen(ui.common.click, b)
       e.styleWhen(itemClickStyle, b)
     })
   }
 
-  exports.make = function (f) {
+  ui.menu.make = function (f) {
     /*return $.add(document.body, "div", function (e) {
       $.addClass(e, "menu")
       e._hidden = true
@@ -317,7 +324,7 @@ define("menu", function (require, exports) {
 
     var o = {}
 
-    ui.box(function (e) {
+    dom.box(function (e) {
       e.styles(menuStyle)
 
       o[element]  = e
@@ -338,8 +345,8 @@ define("menu", function (require, exports) {
     return o
   }
 
-  exports.separator = function (eParent, f) {
-    ui.separator(function (e) {
+  ui.menu.separator = function (eParent, f) {
+    dom.separator(function (e) {
       e.styles(separatorStyle)
 
       var o = {}
@@ -358,8 +365,8 @@ define("menu", function (require, exports) {
     }).move(eParent[element])
   }
 
-  exports.item = function (eParent, f) {
-    ui.box(function (e) {
+  ui.menu.item = function (eParent, f) {
+    dom.box(function (e) {
       e.styles(itemStyle)
 
       var o = itemInit(eParent, e)
@@ -387,14 +394,14 @@ define("menu", function (require, exports) {
     }).move(eParent[element])
   }
 
-  exports.checkbox = function (eParent, f) {
-    ui.label(function (e) {
+  ui.menu.checkbox = function (eParent, f) {
+    dom.label(function (e) {
       e.styles(checkboxStyle)
 
       var o = itemInit(eParent, e)
       itemHover(eParent, e, o)
 
-      ui.checkbox(function (e) {
+      dom.checkbox(function (e) {
         e.styles(checkboxCheckbox)
 
         o.checked = e.checked
@@ -431,14 +438,14 @@ define("menu", function (require, exports) {
     }).move(eParent[element])
   }
 
-  exports.submenu = function (eParent, eMenu, f) {
-    ui.box(function (e) {
+  ui.menu.submenu = function (eParent, eMenu, f) {
+    dom.box(function (e) {
       e.styles(submenuStyle)
 
       var o = itemInit(eParent, e)
       itemText(o, e)
 
-      ui.image(function (e) {
+      dom.image(function (e) {
         e.styles(submenuArrow)
         e.src("images/chevron-small-right.png")
         //o.marginTop = "5px"
@@ -451,7 +458,7 @@ define("menu", function (require, exports) {
           if (/*eParent[selected] !== o && */o[size] != null) {
             hideMenus(eParent, eMenu)
             showSelected(eParent, o)
-            show1(eMenu, { top: o[size].top, right: ui.width() - o[size].left - 1 })
+            show1(eMenu, { top: o[size].top, right: dom.width() - o[size].left - 1 })
           }
         }
       })
@@ -460,7 +467,7 @@ define("menu", function (require, exports) {
     }).move(eParent[element])
   }
 
-  exports.initialize = function (e) {
+  ui.menu.initialize = function (e) {
     eParent.set(e)
   }
 })

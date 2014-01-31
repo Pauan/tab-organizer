@@ -7,15 +7,15 @@ goog.require("util.object")
 goog.require("util.url")
 goog.require("util.math")
 goog.require("util.dom")
-//goog.require("search")
 goog.require("menus.tab")
 goog.require("ui.menu")
 goog.require("ui.group")
 goog.require("ui.tab")
 goog.require("ui.animate")
 goog.require("ui.layout")
-goog.require("opt")
 goog.require("tabs")
+goog.require("opt")
+goog.require("search")
 
 goog.scope(function () {
   var cell     = util.cell
@@ -349,7 +349,7 @@ goog.scope(function () {
       array.each(aGroups, function (group) {
         group.element.hide()
         array.each(group.aTabs, function (tab) {
-          if (f(tab)) {
+          if (f.value == null || f.value(tab)) {
             if (!(tab.info.id in seen)) {
               ++iTabs
             }
@@ -602,7 +602,7 @@ goog.scope(function () {
       array.each(tab.getAll(), function (tab) {
         addTab(e, tab, false)
       })
-      searchTabs(search.get().get(), opt.get("groups.layout").get())
+      searchTabs(search.on.get(), opt.get("groups.layout").get())
     }
     init()
 
@@ -638,10 +638,10 @@ goog.scope(function () {
           fail()
         }
       })
-      searchTabs(search.get().get(), opt.get("groups.layout").get())
+      searchTabs(search.on.get(), opt.get("groups.layout").get())
     })
 
-    e.event([search.get(), opt.get("groups.layout")], function (f, layout) {
+    e.event([search.on, opt.get("groups.layout")], function (f, layout) {
       searchTabs(f, layout)
     })
   }

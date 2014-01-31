@@ -1,14 +1,20 @@
 // TODO many bugs with the search engine
-define("parser", function (require, exports) {
-  "use strict";
+goog.provide("search")
 
-  var tab    = require("tab")
-    , buffer = require("lib/util/buffer")
-    , iter   = require("lib/util/iter")
+goog.require("util.cell")
+goog.require("util.array")
+goog.require("util.object")
+goog.require("cache")
+
+goog.scope(function () {
+  var cell   = util.cell
+    , array  = util.array
+    , object = util.object
 
   // [\^$.|?*+()
   function reQuote(s) {
-    return s.replace(/[\[\\\^\$\.\|\?\*\+\(\)]/g, "\\$&")
+    // TODO util.string or util.regexp
+    return s["replace"](/[\[\\\^\$\.\|\?\*\+\(\)]/g, "\\$&")
   }
 
   function same(f) {
@@ -30,11 +36,11 @@ define("parser", function (require, exports) {
     return function (test) {
       test = test()
       // TODO iter
-      for (var i = 0, iLen = keys.length; i < iLen; ++i) {
+      for (var i = 0, iLen = array.len(keys); i < iLen; ++i) {
         if (test(keys[i])) {
           return o[keys[i]]
         } else {
-          throw new SyntaxError(name + ": expected any of [" + keys.join(", ") + "]")
+          throw new SyntaxError(name + ": expected any of [" + array.join(keys, ", ") + "]")
         }
       }
     }
@@ -59,8 +65,9 @@ define("parser", function (require, exports) {
                  / is not available$/,
                  / failed to load$/]
         return function (x) {
-          return r.some(function (r) {
-            return r.test(x.info.title)
+          return array.some(r, function (r) {
+            // TODO util.regexp
+            return r["test"](x.info.title)
           })
         }
       })(),
@@ -68,6 +75,7 @@ define("parser", function (require, exports) {
       "child": null, // TODO
 
       "duplicated": function (x) {
+        // TODO
         return x.info.inChrome > 1
       },
 
@@ -75,7 +83,8 @@ define("parser", function (require, exports) {
         var url   = /\.\w+(?=[#?]|$)/
           , title = /\(\d+×\d+\)$/
         return function (x) {
-          return url.test(x.info.url) && title.test(x.info.title)
+          // TODO util.regexp
+          return url["test"](x.info.url) && title["test"](x.info.title)
         }
       })(),
 
@@ -83,11 +92,13 @@ define("parser", function (require, exports) {
         return x.info.pinned
       },
 
-      "selected": function (x) {
+      // TODO
+      /*"selected": function (x) {
         return $.hasClass(x, "selected")
-      },
+      },*/
 
       "unloaded": function (x) {
+        // TODO
         return x.info.inChrome === 0
       }
     }),
@@ -123,7 +134,8 @@ define("parser", function (require, exports) {
       test = test(function (x) {
         var r = new RegExp(x.regexp, x.flags)
         return function (x) {
-          return r.test(x)
+          // TODO util.regexp
+          return r["test"](x)
         }
       })
       return function (x) {
@@ -134,7 +146,8 @@ define("parser", function (require, exports) {
       test = test(function (x) {
         var r = new RegExp(x.regexp, x.flags)
         return function (x) {
-          return r.test(x)
+          // TODO util.regexp
+          return r["test"](x)
         }
       })
       return function (x) {
@@ -146,7 +159,7 @@ define("parser", function (require, exports) {
       return function (x) {
         var b
         // TODO inefficient
-        iter.forin(x.info.groups, function (s) {
+        object.each(x.info.groups, function (_, s) {
           if (test(s)) {
             b = true
           }
@@ -167,9 +180,10 @@ define("parser", function (require, exports) {
   }
 
   function sortedKeys(o) {
-    var aKeys = Object.keys(o)
-    aKeys.sort(function (x, y) {
-      return x.toLocaleUpperCase().localeCompare(y.toLocaleUpperCase())
+    var aKeys = object.keys(o)
+    array.sort(aKeys, function (x, y) {
+      // TODO
+      return x["toLocaleUpperCase"]()["localeCompare"](y["toLocaleUpperCase"]())
     })
     return aKeys
   }
@@ -193,10 +207,10 @@ define("parser", function (require, exports) {
           return x.regexp
         })
 
-        console.log(left)
+        log(left)
 
         if (typeof left !== "string" || !specials[left]) {
-          throw new SyntaxError("expected any of [" + sortedKeys(specials).join(", ") + "] but got " + left)
+          throw new SyntaxError("expected any of [" + array.join(sortedKeys(specials), ", ") + "] but got " + left)
         }
 
         return specials[left](function (gen) {
@@ -204,7 +218,8 @@ define("parser", function (require, exports) {
             return right(function (x) {
               var r = new RegExp("^" + x.regexp)
               return function (x) {
-                return r.test(x)
+                // TODO util.regexp
+                return r["test"](x)
               }
             })
           } else {
@@ -274,15 +289,15 @@ define("parser", function (require, exports) {
       } else if (c === "\\") {
         c = a.peek()
         if (c === "\"" || c === "\\") {
-          r.push(a.read())
+          array.push(r, a.read())
         } else {
           throw new SyntaxError("expected \\\" or \\\\ but got \\" + c)
         }
       } else {
-        r.push(c)
+        array.push(r, c)
       }
     }
-    r = r.join("")
+    r = array.join(r, "")
              // TODO
     return { name: r, regexp: "\\b" + reQuote(r) + "\\b", flags: "i" }
   }
@@ -298,22 +313,22 @@ define("parser", function (require, exports) {
       c = a.read()
       if (c === "/") {
         if (a.peek() === "i") {
-          flags.push(a.read())
+          array.push(flags, a.read())
         }
         break
       } else if (c === "\\") {
         if (a.peek() === "/") {
-          r.push(a.read())
+          array.push(r, a.read())
         } else {
-          r.push(c)
-          r.push(a.read())
+          array.push(r, c)
+          array.push(r, a.read())
         }
       } else {
-        r.push(c)
+        array.push(r, c)
       }
     }
-    flags = flags.join("")
-    r     = r.join("")
+    flags = array.join(flags, "")
+    r     = array.join(r, "")
              // TODO
     return { name: r, regexp: r, flags: flags }
   }
@@ -327,38 +342,38 @@ define("parser", function (require, exports) {
         while (s.peek() === " ") {
           s.read()
         }
-        r.push(tokens[" "])
+        array.push(r, tokens[" "])
       } else if (c === "\"") {
-        r.push(tokenizeString(s))
+        array.push(r, tokenizeString(s))
       } else if (tokens[c]) {
-        r.push(tokens[c])
+        array.push(r, tokens[c])
       } else {
         if (c === "r" && s.peek() === "/") {
           s.read()
-          r.push(tokenizeRegexp(s))
+          array.push(r, tokenizeRegexp(s))
         } else {
           a = [c]
           while (s.has() && !tokens[s.peek()]) {
-            a.push(s.read())
+            array.push(a, s.read())
           }
-          a = a.join("")
+          a = array.join(a, "")
           if (a === "OR") {
-            r.push(tokens["|"])
+            array.push(r, tokens["|"])
           } else {
-            r.push({ name: a, regexp: reQuote(a), flags: "i" })
+            array.push(r, { name: a, regexp: reQuote(a), flags: "i" })
           }
         }
       }
     }
     a = []
-    for (var i = 0, iLen = r.length; i < iLen; ++i) {
+    for (var i = 0, iLen = array.len(r); i < iLen; ++i) {
       var x = r[i]
         , y = r[i + 1]
       if (x === tokens["|"] && y === tokens[" "]) {
-        a.push(x)
+        array.push(a, x)
         ++i
       } else if (!(x === tokens[" "] && y === tokens["|"])) {
-        a.push(x)
+        array.push(a, x)
       }
     }
     // TODO should probably use something in the iter module instead...
@@ -366,11 +381,13 @@ define("parser", function (require, exports) {
   }
 
   function generate(gen, x) {
-    if ("regexp" in x) {
+    // TODO is this correct? used to be `"regexp" in x`
+    if (x.regexp != null) {
       if (gen == null) {
         var r = new RegExp(x.regexp, x.flags)
         return function (x) {
-          return r.test(x.info.url) || r.test(x.info.title)
+          // TODO util.regexp
+          return r["test"](x.info.url) || r["test"](x.info.title)
         }
       } else {
         return gen(x)
@@ -384,8 +401,10 @@ define("parser", function (require, exports) {
     if (a.has()) {
       var t, l = a.read()
 
-      if (!("regexp" in l)) {
-        if (!("prefix" in l)) {
+      // TODO is this correct? used to be `!("regexp" in x)`
+      if (l.regexp == null) {
+        // TODO is this correct? used to be `!("prefix" in x)`
+        if (l.prefix == null) {
           throw new SyntaxError("unexpected " + l.name)
         }
         l = l.prefix(a, function (gen) {
@@ -411,7 +430,22 @@ define("parser", function (require, exports) {
     }
   }
 
-  exports.parse = function (s) {
+  function parse(s) {
     return generate(null, expression(tokenize(s), 0))
   }
+
+  search.on = null
+
+  search.loaded = cell.dedupe(false)
+
+  cell.when(cache.loaded, function () {
+    search.on = cell.bind([cache.get("search.last")], function (s) {
+      try {
+        return { value: parse(s) }
+      } catch (e) {
+        return { error: e }
+      }
+    })
+    search.loaded.set(true)
+  })
 })

@@ -1,14 +1,22 @@
-define("url-bar", function (require, exports) {
-  "use strict";
+goog.provide("ui.urlBar")
 
-  var url   = require("lib/util/url")
-    , ui    = require("lib/util/ui")
-    , cell  = require("lib/util/cell")
+goog.require("util.url")
+goog.require("util.cell")
+goog.require("util.dom")
+goog.require("util.re")
+goog.require("util.array")
 
-  exports.currentURL = cell.value(null) // TODO maybe this shouldn't include duplicates ?
+goog.scope(function () {
+  var url   = util.url
+    , cell  = util.cell
+    , dom   = util.dom
+    , re    = util.re
+    , array = util.array
+
+  ui.urlBar.currentURL = cell.value(null) // TODO maybe this shouldn't include duplicates ?
 
   function spacify(x) {
-    return x.replace(/_|\-/g, " ")
+    return re.replace(x, /_|\-/g, " ")
   }
 
   function minify(x) {
@@ -22,15 +30,15 @@ define("url-bar", function (require, exports) {
     y.file  = null
 
     if (query) {
-      y.query = spacify(decodeURIComponent(query).replace(/^[\+&;]/, "")
-                                                 .replace(/[\+&;]/g, " ")
-                                                 .replace(/=/g, ":"))
+      y.query = spacify(re.replace(re.replace(re.replace(decodeURIComponent(query), /^[\+&;]/, ""),
+                                                                                    /[\+&;]/g, " "),
+                                                                                    /=/g, ":"))
     } else if (path) {
-      var last = path[path.length - 1]
-      if (path.length && last !== "") {
-        y.file = spacify(decodeURIComponent(last).replace(/\.(?:html?|php|asp)$/, ""))
+      var last = array.last(path)
+      if (array.len(path) && last !== "") {
+        y.file = spacify(re.replace(decodeURIComponent(last), /\.(?:html?|php|asp)$/, ""))
       } else {
-        y.path = spacify(decodeURIComponent(path.join("/")))
+        y.path = spacify(decodeURIComponent(array.join(path, "/")))
         // TODO a bit hacky
         if (y.path === "/") {
           y.path = null
@@ -45,21 +53,22 @@ define("url-bar", function (require, exports) {
     return y
   }
 
-  // TODO replace with a normal map, probably
-  var parsedURL = cell.mapfilter({}, exports.currentURL, function (x) {
-    return x !== null
-  }, function (x) {
-    return minify(x.location)
+  var parsedURL = cell.map(ui.urlBar.currentURL, function (x) {
+    if (x === null) {
+      return x
+    } else {
+      return minify(x.location)
+    }
   })
 
-  var panelStyle = ui.style(function (e) {
-    e.styles(ui.fixedPanel)
+  var panelStyle = dom.style(function (e) {
+    e.styles(dom.fixedPanel)
 
     e.set("white-space", "pre")
     e.set("left", "0px")
     e.set("bottom", "0px")
     // TODO maybe remove this
-    e.set("max-width", ui.calc("100%", "+", "1px"))
+    e.set("max-width", dom.calc("100%", "+", "1px"))
 
     e.set(["border-top-width", "border-right-width"], "1px")
     e.set(["border-top-color", "border-right-color"], "black")
@@ -78,68 +87,71 @@ define("url-bar", function (require, exports) {
     e.set("box-shadow", "0px 0px 3px dimgray")
   })
 
-  var textStyle = ui.style(function (e) {
+  var textStyle = dom.style(function (e) {
     e.set(["margin-left", "margin-right"], "3px")
   })
 
-  var protocolStyle = ui.style(function (e) {
+  var protocolStyle = dom.style(function (e) {
     e.styles(textStyle)
     e.set("font-weight", "bold")
-    e.set("color", ui.hsl(120, 100, 25))
+    e.set("color", dom.hsl(120, 100, 25))
   })
 
-  var domainStyle = ui.style(function (e) {
+  var domainStyle = dom.style(function (e) {
     e.styles(textStyle)
     e.set("font-weight", "bold")
   })
 
-  var pathStyle = ui.style(function (e) {
-    e.styles(textStyle, ui.clip)
+  var pathStyle = dom.style(function (e) {
+    e.styles(textStyle, dom.clip)
   })
 
-  var fileStyle = ui.style(function (e) {
-    e.styles(textStyle, ui.clip)
+  var fileStyle = dom.style(function (e) {
+    e.styles(textStyle, dom.clip)
     e.set("font-weight", "bold")
     e.set("color", "darkred") // TODO replace with hsl
   })
 
-  var queryStyle = ui.style(function (e) {
-    e.styles(textStyle, ui.clip)
+  var queryStyle = dom.style(function (e) {
+    e.styles(textStyle, dom.clip)
     e.set("font-weight", "bold")
     e.set("color", "darkred") // TODO replace with hsl
   })
 
-  var hashStyle = ui.style(function (e) {
-    e.styles(textStyle, ui.clip)
+  var hashStyle = dom.style(function (e) {
+    e.styles(textStyle, dom.clip)
     e.set("color", "darkblue") // TODO replace with hsl
   })
 
-  exports.initialize = function (e) {
-    ui.box(function (e) {
+  ui.urlBar.initialize = function (e) {
+    dom.box(function (e) {
       e.styles(panelStyle)
 
-      ui.box(function (e) {
-        e.styles(ui.horiz)
+      dom.box(function (e) {
+        e.styles(dom.horiz)
 
         function boxes(e) {
-          var a = [].slice.call(arguments, 1).map(function (a) {
+          var a = array.map(array.slice(arguments, 1), function (a) {
             return {
               name: a[0],
-              box: ui.box(function (e) {
+              box: dom.box(function (e) {
                 e.styles(a[1])
               }).move(e)
             }
           })
           e.event([parsedURL], function (o) {
-            var i = a.length
-            while (i--) {
-              var x = a[i]
-                , s = x.name
-              if (o[s]) {
-                x.box.text(o[s])
-                x.box.show()
-              } else {
-                x.box.hide()
+            if (o !== null) {
+              // TODO util.array.eachReverse
+              var i = array.len(a)
+              while (i--) {
+                var x = a[i]
+                  , s = x.name
+                if (o[s]) {
+                  x.box.text(o[s])
+                  x.box.show()
+                } else {
+                  x.box.hide()
+                }
               }
             }
           })
@@ -153,7 +165,7 @@ define("url-bar", function (require, exports) {
                  ["fragment", hashStyle])
       }).move(e)
 
-      e.bind([exports.currentURL], function (current) {
+      e.bind([ui.urlBar.currentURL], function (current) {
         if (current === null) {
           e.hide()
         } else {
