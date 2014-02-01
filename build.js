@@ -44,6 +44,7 @@ function mkdir(name) {
 }
 
 function build(name, file) {
+  mkdir(path.join(OUTDIR, "gsap"))
   mkdir(path.join(OUTDIR, "js"))
   mkdir(path.join(OUTDIR, "map"))
 
@@ -142,6 +143,6 @@ function build(name, file) {
 }
 
 
-//build("main",    "main.js")
+build("main",    "main.js")
 build("panel",   "panel.js")
 //build("options", "options.js")

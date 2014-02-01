@@ -23,13 +23,8 @@ goog.provide("main")
 
 goog.require("tabs")
 //goog.require("importExport")
-//goog.require("popup")
+goog.require("popup")
 
 tabs.init()
 //importExport.init()
-//popup.init()
-
-goog.require("platform.button")
-platform.button.setURL("panel.html")
-platform.button.setTitle("Tab Organizer")
-platform.button.setIconURL("data/icons/icon19.png")
+popup.init()

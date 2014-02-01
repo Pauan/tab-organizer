@@ -13,6 +13,7 @@ goog.scope(function () {
     , time   = util.time
     , Symbol = util.Symbol
     , array  = util.array
+    , log    = util.log.log
     , assert = util.log.assert
     , math   = util.math
 
@@ -38,9 +39,11 @@ goog.scope(function () {
      * @type {!Array.<!Tab>}
      */
     this.tabs  = []
+    this.state = x["state"]
     this.index = array.push(aWins, this)
     this.time  = {}
     this.time.created = time.timestamp()
+    this.id    = this.time.created
 
     var self = this
     array.each(x["tabs"], function (t) {
@@ -51,6 +54,7 @@ goog.scope(function () {
     })
 
     cWins[this[_id]] = this
+    ids[this.id] = this
   }
 
   /**
@@ -109,6 +113,37 @@ goog.scope(function () {
     return aWins
   }
 
+  /**
+   * @param {number} id
+   * @param {!Object.<string,number>} o
+   * @param {function():void=} f
+   */
+  function moveWindow(id, o, f) {
+    windows["update"](get(id)[_id], {
+      "top":    o.top,
+      "left":   o.left,
+      "width":  o.width,
+      "height": o.height,
+      "state":  "normal"
+    }, function () {
+      if (f != null) {
+        f()
+      }
+    })
+  }
+
+  platform.windows.move = function (id, o) {
+    moveWindow(id, o, function () {
+      setTimeout(function () {
+        moveWindow(id, o)
+      }, 100)
+    })
+  }
+
+  platform.windows.maximize = function (id) {
+    windows["update"](get(id)[_id], { "state": "maximized" })
+  }
+
   function get(i) {
     assert(i in ids)
     return ids[i]
@@ -128,11 +163,13 @@ goog.scope(function () {
    * @param {string} url
    * @param {boolean} pinned
    */
-  platform.tabs.open = function (url, pinned) {
+  platform.tabs.open = function (url, pinned, f) {
     tabs["create"]({
       "url":    url,
       "active": true,
       "pinned": !!pinned
+    }, function (o) {
+      log("1", o)
     })
   }
 
@@ -210,6 +247,7 @@ goog.scope(function () {
   }
 
   function onCreated(t) {
+    log("2", t)
     var old = cTabs[t["id"]]
     if (old == null) {
       var win = cWins[t["windowId"]]
@@ -247,6 +285,7 @@ goog.scope(function () {
         var win = cWins[id]
         if (win != null) {
           delete cWins[id]
+          delete ids[win.id]
 
           assert(typeof win.index === "number")
           assert(win.index >= 0)

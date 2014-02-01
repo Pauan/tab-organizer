@@ -23,17 +23,16 @@ goog.scope(function () {
 
   var port = platform.port.connect("tabs", function (x) {
     object.each(x, function (x) {
-      x = deserialize(x)
-      oTabs[x.id] = x
+      var y = deserialize(x)
+      oTabs[y.id] = y
     })
     tabs.loaded.set(true)
   })
 
   cell.event([port.on.message], function (x) {
-    array.each(x, function (o) {
-      o["value"] = deserialize(o["value"])
+    tabs.on.set(array.map(x, function (o) {
       var type = o["type"]
-        , x    = o["value"]
+        , x    = deserialize(o["value"])
       if (type === "created"     ||
           type === "updated"     ||
           type === "moved"       ||
@@ -46,8 +45,11 @@ goog.scope(function () {
       } else {
         fail()
       }
-    })
-    tabs.on.set(x)
+      return {
+        type: type,
+        value: x
+      }
+    }))
   })
 
   tabs.getAll = function () {
@@ -72,36 +74,36 @@ goog.scope(function () {
     port.message({ "type": "unload", "value": array.map(a, function (x) { return x.id }) })
   }
 
-  /*platform.tabs.select = function (a) {
+  tabs.select = function (a) {
     if (array.len(a)) {
       var r = []
       array.each(a, function (x) {
-        x.selected = 1
-        r.push({
-          "type": "select",
-          "value": x
+        x.selected = true
+        array.push(r, {
+          type: "select",
+          value: x
         })
       })
-      platform.tabs.on.set(r)
-      port["postMessage"]({ "type": "select", "value": array.map(a, function (x) { return x.id }) })
+      tabs.on.set(r)
+      port.message({ "type": "select", "value": array.map(a, function (x) { return x.id }) })
     }
   }
 
-  platform.tabs.deselect = function (a) {
+  tabs.deselect = function (a) {
     if (a.length) {
       var r = []
-      array.each(a, function (s) {
-        delete tabs[s].selected
-        r.push({
-          type: "updateRaw",
-          value: tabs[s]
+      array.each(a, function (x) {
+        delete x.selected
+        array.push(r, {
+          type: "deselect",
+          value: x
         })
       })
-      platform.tabs.on.set(r)
-      port.postMessage({ type: "deselect", value: a })
+      tabs.on.set(r)
+      port.message({ "type": "deselect", "value": array.map(a, function (x) { return x.id }) })
     }
   }
-
+/*
   platform.tabs.addToGroup = function (s, a) {
     console.assert(a.length)
     port.postMessage({ type: "addToGroup", group: s, value: a })

@@ -44,7 +44,27 @@ goog.scope(function () {
   var oTabs = {}
 
   tabs.init = function () {
-    cell.when(cell.and(migrate.loaded, opt.loaded, platform.tabs.loaded), function () {
+    cell.when(cell.and(migrate.loaded, opt.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
+      var aNames = []
+
+      function getWindowName(win) {
+        return aNames[win.index] || "" + (win.index + 1)
+      }
+
+      array.each(platform.windows.getAll(), function (win) {
+        win.name = getWindowName(win)
+      })
+
+      cell.event([platform.windows.on.created], function (win) {
+        win.name = getWindowName(win)
+      })
+
+      cell.event([platform.windows.on.removed], function (win) {
+        array.removeAt(aNames, win.index)
+      })
+
+
+
       array.each(platform.tabs.getAll(), function (t) {
         if (isValidURL(t.url)) {
           oTabs[t.id] = serialize(t)
@@ -93,8 +113,8 @@ goog.scope(function () {
         set("focused", t)
       })
 
-      cell.event([platform.port.on.connect("tabs")], function (message) {
-        message(oTabs)
+      cell.event([platform.port.on.connect("tabs")], function (port) {
+        port.message(oTabs)
       })
 
       cell.event([platform.port.on.message("tabs")], function (a) {
@@ -116,6 +136,8 @@ goog.scope(function () {
           }
         })
       })
+
+      tabs.loaded.set(true)
     })
   }
 })

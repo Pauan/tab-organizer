@@ -94,9 +94,11 @@ goog.scope(function () {
     })
 
     if (oConnect[s] != null) {
-      oConnect[s].set(function (x) {
-        if (!disconnected) {
-          port["postMessage"]({ "type": "init", "value": x })
+      oConnect[s].set({
+        message: function (x) {
+          if (!disconnected) {
+            port["postMessage"]({ "type": "init", "value": x })
+          }
         }
       })
     }

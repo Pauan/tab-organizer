@@ -24,6 +24,7 @@ goog.scope(function () {
     , object   = util.object
     , math     = util.math
     , url      = util.url
+    , log      = util.log.log
     , assert   = util.log.assert
     , fail     = util.log.fail
     , manifest = platform.manifest
@@ -201,7 +202,7 @@ goog.scope(function () {
             }]
           } else {
             return [{
-              id: tab.active.window.timestamp,
+              id: tab.active.window.time.created,
               window: {
                 name: tab.active.window.name
               }
@@ -267,7 +268,13 @@ goog.scope(function () {
       },
       "url": {
         groupSort: function (x, y) {
-          return x.id < y.id
+          if (x.id === "chrome://") {
+            return true
+          } else if (y.id === "chrome://") {
+            return false
+          } else {
+            return x.id["toLocaleUpperCase"]() < y.id["toLocaleUpperCase"]()
+          }
         },
         tabSort: function (x, y) {
           return x.info.url < y.info.url
@@ -279,7 +286,7 @@ goog.scope(function () {
           if (s.scheme === "chrome") {
             // TODO should always be sorted first
             return [{
-              id: "Chrome"
+              id: "chrome://"
             }]
           } else {
             delete s.path
@@ -603,7 +610,7 @@ goog.scope(function () {
     }
 
     function init() {
-      array.each(tabs.getAll(), function (tab) {
+      object.each(tabs.getAll(), function (tab) {
         addTab(e, tab, false)
       })
       searchTabs(search.on.get(), opt.get("groups.layout").get())
@@ -623,8 +630,8 @@ goog.scope(function () {
 
     e.event([tabs.on], function (a) {
       array.each(a, function (o) {
-        var type = o["type"]
-          , x    = o["value"]
+        var type = o.type
+          , x    = o.value
         if (type === "created") {
           addTab(e, x, true)
         } else if (type === "updated" || type === "moved" || type === "focused") {

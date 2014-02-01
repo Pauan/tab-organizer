@@ -77,9 +77,9 @@ goog.scope(function () {
           make(s, x)
         })
 
-        cell.event([port.on.connect(sPort)], function (message) {
+        cell.event([port.on.connect(sPort)], function (port) {
           cell.when(exports.loaded, function () {
-            message({ "options": opts, "defaults": defs })
+            port.message({ "options": opts, "defaults": defs })
           })
         })
 

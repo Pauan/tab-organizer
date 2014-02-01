@@ -1,37 +1,80 @@
 goog.provide("platform.popup")
 
+goog.require("util.Symbol")
+goog.require("util.cell")
+goog.require("util.math")
+goog.require("util.log")
+
 goog.scope(function () {
+  var Symbol = util.Symbol
+    , cell   = util.cell
+    , math   = util.math
+    , assert = util.log.assert
+
+  var _id = Symbol("_id")
+
   /**
    * @constructor
    */
-  function Popup(x) {
-    this.id = x["id"]
+  function Popup() {
+    this.loaded = cell.dedupe(false)
   }
 
   var windows = chrome["windows"]
 
-  platform.popup.create = function (url, left, top, width, height, f) {
+  var ids = {}
+
+  platform.popup.on        = {}
+  platform.popup.on.closed = cell.value(undefined)
+
+  // TODO use platform.windows.create instead ?
+  platform.popup.open = function (url, oSize) {
+    var p = new Popup()
     windows["create"]({ "url":     url
                       , "type":    "popup"
-                      , "top":     top
-                      , "left":    left
-                      , "width":   width
-                      , "height":  height
+                      , "top":     math.round(oSize.top)
+                      , "left":    math.round(oSize.left)
+                      , "width":   math.round(oSize.width)
+                      , "height":  math.round(oSize.height)
                       , "focused": true }, function (o) {
-                        var p = new Popup(o)
-                        platform.popup.move(p, left, top, width, height)
-                        f(p)
+                        p[_id] = o["id"]
+                        ids[p[_id]] = p
+                        p.loaded.set(true)
+                        platform.popup.move(p, oSize)
                       })
+    return p
   }
 
-  platform.popup.move = function (x, left, top, width, height) {
-    windows["update"](x.id, { "top":     top
-                            , "left":    left
-                            , "width":   width
-                            , "height":  height
-                            , "state":   "normal"
-                            , "focused": true })
+  platform.popup.move = function (p, oSize) {
+    cell.when(p.loaded, function () {
+      if (p[_id] != null) {
+        windows["update"](p[_id], { "top":     math.round(oSize.top)
+                                  , "left":    math.round(oSize.left)
+                                  , "width":   math.round(oSize.width)
+                                  , "height":  math.round(oSize.height)
+                                  , "state":   "normal"
+                                  , "focused": true })
+      }
+    })
   }
+
+  platform.popup.close = function (p) {
+    cell.when(p.loaded, function () {
+      if (p[_id] != null) {
+        windows["remove"](p[_id])
+      }
+    })
+  }
+
+  windows["onRemoved"]["addListener"](function (id) {
+    var p = ids[id]
+    if (p != null) {
+      assert(id === p[_id])
+      delete ids[id]
+      delete p[_id]
+      platform.popup.on.closed.set(p)
+    }
+  })
 
   platform.popup.getSize = function (f) {
     windows["create"]({ "url": "data/empty.html", "focused": false, "type": "normal" }, function (e) {

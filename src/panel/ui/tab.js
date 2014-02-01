@@ -184,12 +184,14 @@ goog.scope(function () {
         e.styleWhen(ui.common.hover, over)
         e.styleWhen(tabHoverStyle, over)
 
-        e.styleWhen(tabInactiveHoverStyle, !oTab.active && over)
-        e.styleWhen(tabInactiveStyle,      !oTab.active && !over)
+        e.styleWhen(tabInactiveHoverStyle, oTab.active == null && over)
+        e.styleWhen(tabInactiveStyle,      oTab.active == null && !over)
 
         // TODO a bit hacky
         // TODO inefficient
-        var isFocused = (oTab.active && oTab.active.focused && opt.get("group.sort.type").get() === "window")
+        var isFocused = (oTab.active != null &&
+                         oTab.active.focused &&
+                         opt.get("group.sort.type").get() === "window")
         e.styleWhen(tabFocusedStyle, isFocused)
         e.styleWhen(tabFocusedHoverStyle, isFocused && over)
 
@@ -214,10 +216,10 @@ goog.scope(function () {
           favicon.src("chrome://favicon/" + tab.url)
         }, 0)
 
-        favicon.styleWhen(faviconInactiveStyle, !oTab.active)
+        favicon.styleWhen(faviconInactiveStyle, oTab.active == null)
         e.styleWhen(tabSelectedStyle, oTab.selected)
 
-        if (oTab.active) {
+        if (oTab.active != null) {
           text.text(oTab.title)
         } else {
           text.text("➔ " + oTab.title)

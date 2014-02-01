@@ -29,7 +29,7 @@ optionMaker.make(opt, "options.user", "options", {
   "size.bubble.width"     : 300,
   "size.bubble.height"    : 600,
 
-  "popup.type"            : "bubble",
+  "popup.type"            : "sidebar",
 
   "popup.hotkey.ctrl"     : true,
   "popup.hotkey.shift"    : true,

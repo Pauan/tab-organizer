@@ -5,7 +5,7 @@ It uses the `Google Closure Compiler <https://developers.google.com/closure/comp
 How to install
 ==============
 
-If you're a normal user, you shouldn't be using this repository. Instead, install the version in the `Chrome Web Store <https://chrome.google.com/webstore/detail/tab-organizer/gbaokejhnafeofbniplkljehipcekkbh>`_ which is automatically updated.
+If you're a normal user, you should *NOT* be using this repository. Instead, install the version in the `Chrome Web Store <https://chrome.google.com/webstore/detail/tab-organizer/gbaokejhnafeofbniplkljehipcekkbh>`_ which is automatically updated.
 
 But if you're a developer, or want to try the absolute latest version before release, you can follow these steps:
 
