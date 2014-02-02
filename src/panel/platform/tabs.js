@@ -33,8 +33,7 @@ goog.scope(function () {
     oWins[y.id] = y
   }
 
-  function addTab(x) {
-    var y = deserialize.tab(x, oWins)
+  function addTab(y) {
     //y.focused = cell.dedupe(y.focused)
     oTabs[y.id] = y
   }
@@ -44,7 +43,7 @@ goog.scope(function () {
       addWindow(x)
     })
     object.each(x["tabs"], function (x) {
-      addTab(x)
+      addTab(deserialize.tab(x, oWins))
     })
     tabs.loaded.set(true)
   })
@@ -66,16 +65,18 @@ goog.scope(function () {
         oWins[x["id"]].name.set(x["name"])
 
       } else {
+        var y = deserialize.tab(x, oWins)
+
         if (type === "created"     ||
             type === "updated"     ||
             type === "moved"       ||
             type === "updateIndex" ||
             type === "focused"     ||
             type === "unfocused") {
-          addTab(x)
+          addTab(y)
 
         } else if (type === "removed") {
-          delete oTabs[x["id"]]
+          delete oTabs[y.id]
 
         } else {
           fail()
