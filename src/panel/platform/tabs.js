@@ -27,19 +27,25 @@ goog.scope(function () {
     })
   }
 
+  function addWindow(x) {
+    var y = deserialize.window(x)
+    y.name = cell.dedupe(y.name)
+    oWins[y.id] = y
+  }
+
+  function addTab(x) {
+    var y = deserialize.tab(x, oWins)
+    //y.focused = cell.dedupe(y.focused)
+    oTabs[y.id] = y
+  }
+
   var port = platform.port.connect("tabs", function (x) {
-    console["log"](x["tabs"], x["windows"])
-
     object.each(x["windows"], function (x) {
-      var y = deserialize.window(x)
-      oWins[y.id] = y
+      addWindow(x)
     })
-
     object.each(x["tabs"], function (x) {
-      var y = deserialize.tab(x, oWins)
-      oTabs[y.id] = y
+      addTab(x)
     })
-
     tabs.loaded.set(true)
   })
 
@@ -50,8 +56,7 @@ goog.scope(function () {
         , x    = o["value"]
 
       if (type === "window-opened") {
-        var y = deserialize.window(x)
-        oWins[y.id] = y
+        addWindow(x)
 
       } else if (type === "window-closed") {
         delete oWins[x]
@@ -61,18 +66,16 @@ goog.scope(function () {
         oWins[x["id"]].name.set(x["name"])
 
       } else {
-        var y = deserialize.tab(x, oWins)
-
         if (type === "created"     ||
             type === "updated"     ||
             type === "moved"       ||
             type === "updateIndex" ||
             type === "focused"     ||
             type === "unfocused") {
-          oTabs[y.id] = y
+          addTab(x)
 
         } else if (type === "removed") {
-          delete oTabs[y.id]
+          delete oTabs[x["id"]]
 
         } else {
           fail()
