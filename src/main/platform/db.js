@@ -4,7 +4,6 @@ goog.require("util.Symbol")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.log")
-goog.require("util.func")
 goog.require("util.type")
 
 goog.scope(function () {
@@ -12,7 +11,7 @@ goog.scope(function () {
     , cell   = util.cell
     , array  = util.array
     , log    = util.log.log
-    , func   = util.func
+    , assert = util.log.assert
     , type   = util.type
 
   var store = chrome["storage"]["local"]
@@ -50,9 +49,7 @@ goog.scope(function () {
   }
 
   function checkLoaded() {
-    if (!platform.db.loaded.get()) {
-      throw new Error("platform.db not loaded")
-    }
+    assert(platform.db.loaded.get(), "platform.db")
   }
 
   platform.db.loaded = cell.dedupe(false)
@@ -169,29 +166,29 @@ goog.scope(function () {
   platform.db.raw = function (s, f) {
     checkLoaded()
 
-    if (type.isString(s)) {
-      s = [s]
+    assert(type.isString(s))
+
+    var o = new Raw(s)
+    if (f != null) {
+      f(o)
     }
-    func.apply(f, null, array.map(s, function (s) {
-      return new Raw(s)
-    }))
+    return o
   }
 
   platform.db.open = function (s, f) {
     checkLoaded()
 
-    if (type.isString(s)) {
-      s = [s]
+    assert(type.isString(s))
+
+    var o = new Open(s)
+    if (f != null) {
+      f(o)
     }
-    func.apply(f, null, array.map(s, function (s) {
-      return new Open(s)
-    }))
+    return o
   }
 
   platform.db.del = function (sDB) {
-    platform.db.raw(sDB, function (o) {
-      o.del()
-    })
+    platform.db.raw(sDB).del()
   }
 
   platform.db.getAll = function () {

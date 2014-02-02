@@ -6,7 +6,7 @@ goog.require("util.object")
 goog.require("util.log")
 goog.require("platform.db")
 goog.require("platform.manifest")
-goog.require("tabs.serialize")
+goog.require("serialize")
 
 goog.scope(function () {
   var cell      = util.cell
@@ -15,7 +15,7 @@ goog.scope(function () {
     , db        = platform.db
     , manifest  = platform.manifest
     , log       = util.log.log
-    , tabToDisk = tabs.serialize.tabToDisk
+    , tabToDisk = serialize.tabToDisk
 
   var version = manifest.get("version") + "b5"
 

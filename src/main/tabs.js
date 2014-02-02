@@ -3,20 +3,21 @@ goog.provide("tabs")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.log")
-goog.require("tabs.serialize")
 goog.require("platform.tabs")
 goog.require("platform.util")
 goog.require("platform.port")
+goog.require("platform.db")
+goog.require("serialize")
 goog.require("migrate")
 goog.require("opt")
 
 goog.scope(function () {
-  var cell      = util.cell
-    , array     = util.array
-    , assert    = util.log.assert
-    , fail      = util.log.fail
-    , log       = util.log.log
-    , serialize = tabs.serialize.serialize
+  var cell   = util.cell
+    , array  = util.array
+    , assert = util.log.assert
+    , fail   = util.log.fail
+    , log    = util.log.log
+    , db     = platform.db
 
   var popupId = platform.util.getURL("../panel.html")
 
@@ -33,41 +34,73 @@ goog.scope(function () {
   }
 
   function set(type, t) {
-    send(type, (oTabs[t.id] = serialize(t)))
+    send(type, (oTabs[t.id] = serialize.tab(t)))
   }
 
   function rem(type, t) {
     delete oTabs[t.id]
-    send(type, serialize(t))
+    send(type, serialize.tab(t))
   }
 
   var oTabs = {}
 
   tabs.init = function () {
-    cell.when(cell.and(migrate.loaded, opt.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
-      var aNames = []
+    cell.when(cell.and(db.loaded, migrate.loaded, opt.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
+      var aNames = db.raw("window.titles")
+      aNames.setNew([])
+
+      var oWins = {}
 
       function getWindowName(win) {
-        return aNames[win.index] || "" + (win.index + 1)
+        return aNames.get()[win.index] || "" + (win.index + 1)
+      }
+
+      function addWin(win) {
+        return (oWins[win.id] = serialize.window(win))
       }
 
       array.each(platform.windows.getAll(), function (win) {
         win.name = getWindowName(win)
+        addWin(win)
       })
 
       cell.event([platform.windows.on.created], function (win) {
         win.name = getWindowName(win)
+        platform.port.message("tabs", {
+          "type": "window-opened",
+          "value": addWin(win)
+        })
       })
 
       cell.event([platform.windows.on.removed], function (win) {
-        array.removeAt(aNames, win.index)
+        array.removeAt(aNames.get(), win.index)
+        aNames.set(aNames)
+
+        delete oWins[win.id]
+        platform.port.message("tabs", {
+          "type": "window-closed",
+          "value": win.id
+        })
+
+        // TODO platform.windows.on.updateIndex
+        array.each(platform.windows.getAll(), function (win) {
+          assert(win.id in oWins)
+          var name = getWindowName(win)
+          if (win.name !== name) {
+            win.name = name
+            platform.port.message("tabs", {
+              "type": "window-renamed",
+              "value": addWin(win)
+            })
+          }
+        })
       })
 
 
 
       array.each(platform.tabs.getAll(), function (t) {
         if (isValidURL(t.url)) {
-          oTabs[t.id] = serialize(t)
+          oTabs[t.id] = serialize.tab(t)
         } else {
           delete oTabs[t.id]
         }
@@ -114,7 +147,7 @@ goog.scope(function () {
       })
 
       cell.event([platform.port.on.connect("tabs")], function (port) {
-        port.message(oTabs)
+        port.message({ "tabs": oTabs, "windows": oWins })
       })
 
       cell.event([platform.port.on.message("tabs")], function (a) {

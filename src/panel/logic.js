@@ -128,13 +128,12 @@ goog.scope(function () {
         tabSort: function (x, y) {
           return f(x.info) > f(y.info)
         },
-        id: function (tab) {
+        init: function (tab) {
+          var id = midnight(f(tab))
           return [{
-            id: midnight(f(tab))
+            id: id,
+            name: cell.dedupe(getDate(new Date(id), new Date()))
           }]
-        },
-        name: function (x) {
-          return getDate(new Date(x.id), new Date())
         }
       }
     }
@@ -174,43 +173,38 @@ goog.scope(function () {
     var groupSort = e.bind([opt.get("group.sort.type")], lookup({
       "window": {
         groupSort: function (x, y) {
-          if (x.id === null) {
+          if (x.index === null) {
             return false
-          } else if (y.id === null) {
+          } else if (y.index === null) {
             return true
           } else {
-            return x.id < y.id
+            return x.index <= y.index
           }
         },
         tabSort: function (x, y) {
           x = x.info
           y = y.info
           if (x.active && y.active) {
-            return x.active.index < y.active.index
+            return x.active.index <= y.active.index
           } else {
-            return (x.time.unloaded || x.time.focused || x.time.created) >
+            return (x.time.unloaded || x.time.focused || x.time.created) >=
                    (y.time.unloaded || y.time.focused || y.time.created)
           }
         },
-        id: function (tab) {
+        init: function (tab) {
           if (tab.active == null || tab.active.window == null) {
             return [{
               id: null,
-              window: {
-                name: ""
-              }
+              name: cell.dedupe(""),
+              index: null
             }]
           } else {
             return [{
-              id: tab.active.window.time.created,
-              window: {
-                name: tab.active.window.name
-              }
+              id: tab.active.window.id,
+              name: tab.active.window.name,
+              index: tab.active.window.time.created
             }]
           }
-        },
-        name: function (x) {
-          return x.window.name
         }
       },
       "group": {
@@ -220,25 +214,22 @@ goog.scope(function () {
           } else if (y.id === "") {
             return true
           } else {
-            return x.id < y.id
+            return x.id <= y.id
           }
         },
         // TODO should sort by time added to the group
         tabSort: function (x, y) {
-          return x.info.time.created > y.info.time.created
+          return x.info.time.created >= y.info.time.created
         },
-        id: function (tab) {
+        init: function (tab) {
           var r = []
           object.each(tab.groups, function (_, s) {
-            array.push(r, { id: s })
+            array.push(r, { id: s, name: cell.dedupe(s) })
           })
           if (array.len(r) === 0) {
-            array.push(r, { id: "" })
+            array.push(r, { id: "", name: cell.dedupe("") })
           }
           return r
-        },
-        name: function (x) {
-          return (x.id === "" ? " " : x.id)
         }
       },
       "created": makeGroupSort(function (o) {
@@ -249,21 +240,18 @@ goog.scope(function () {
       }),
       "name": {
         groupSort: function (x, y) {
-          return x.id < y.id
+          return x.id <= y.id
         },
         tabSort: function (x, y) {
-          return x.info.title["toLocaleUpperCase"]() < y.info.title["toLocaleUpperCase"]()
+          return x.info.title["toLocaleUpperCase"]() <= y.info.title["toLocaleUpperCase"]()
         },
-        id: function (tab) {
+        init: function (tab) {
           if (tab.title === "") {
-            return [{ id: "" }]
+            return [{ id: "", name: cell.dedupe("") }]
           } else {
             var s = tab.title[0]["toLocaleUpperCase"]()
-            return [{ id: s }]
+            return [{ id: s, name: cell.dedupe(s) }]
           }
-        },
-        name: function (x) {
-          return x.id
         }
       },
       "url": {
@@ -273,32 +261,29 @@ goog.scope(function () {
           } else if (y.id === "chrome://") {
             return false
           } else {
-            return x.id["toLocaleUpperCase"]() < y.id["toLocaleUpperCase"]()
+            return x.id["toLocaleUpperCase"]() <= y.id["toLocaleUpperCase"]()
           }
         },
         tabSort: function (x, y) {
-          return x.info.url < y.info.url
+          return x.info.url <= y.info.url
           // TODO pretty inefficient
           // return url.printURI(url.simplify(x.info.location)) < url.printURI(url.simplify(y.info.location))
         },
-        id: function (tab) {
+        init: function (tab) {
           var s = url.simplify(tab.location)
+          var name
           if (s.scheme === "chrome") {
-            // TODO should always be sorted first
-            return [{
-              id: "chrome://"
-            }]
+            name = "chrome://"
           } else {
             delete s.path
             delete s.query
             delete s.fragment
-            return [{
-              id: url.printURI(s)
-            }]
+            name = url.printURI(s)
           }
-        },
-        name: function (x) {
-          return x.id
+          return [{
+            id: name,
+            name: cell.dedupe(name)
+          }]
         }
       }
     }))
@@ -398,11 +383,10 @@ goog.scope(function () {
 
     function addGroups(e, tab, animate, f) {
       var sort = groupSort.get()
-      array.each(sort.id(tab), function (o) {
+      array.each(sort.init(tab), function (o) {
         f(setNew(oGroups, o.id, function () {
-          o.name    = cell.dedupe(sort.name(o))
-          o.oTabs   = {}
-          o.aTabs   = []
+          o.oTabs = {}
+          o.aTabs = []
           o.element = ui.group.make(o.name, o, function (e) {
             o.tabList = e
           })
@@ -636,11 +620,11 @@ goog.scope(function () {
           addTab(e, x, true)
         } else if (type === "updated" || type === "moved" || type === "focused") {
           updateTab(e, x, true)
-        } else if (type === "updateIndex" || type === "unfocused") {
+        } else if (type === "updateIndex" || type === "unfocused" || type === "selected" || type === "deselected") {
           updateWithoutMoving(x)
         } else if (type === "removed") {
           removeTab(x)
-        /*} else if (type === "midnight") {
+        /*} else if (type === "windowName") {
           var sort = groupSort.get()
           array.each(aGroups, function (group) {
             group.name.set(sort.name(group))
@@ -651,6 +635,31 @@ goog.scope(function () {
       })
       searchTabs(search.on.get(), opt.get("groups.layout").get())
     })
+
+    /*;(function () {
+      function add(x) {
+        addTab(e, x, true)
+      }
+      function update(x) {
+        updateTab(e, x, true)
+      }
+      function updateRaw(x) {
+        updateWithoutMoving(x)
+      }
+      function remove(x) {
+        removeTab(x)
+      }
+
+      e.event([tabs.on.opened], add)
+      e.event([tabs.on.updated], update)
+      e.event([tabs.on.moved], update)
+      e.event([tabs.on.focused], update)
+      e.event([tabs.on.updateIndex], updateRaw)
+      e.event([tabs.on.unfocused], updateRaw)
+      e.event([tabs.on.selected], updateRaw)
+      e.event([tabs.on.deselected], updateRaw)
+      e.event([tabs.on.removed], remove)
+    })()*/
 
     e.event([search.on, opt.get("groups.layout")], function (f, layout) {
       searchTabs(f, layout)

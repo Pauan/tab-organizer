@@ -2,6 +2,7 @@ goog.provide("menus.tab")
 
 goog.require("util.cell")
 goog.require("util.array")
+goog.require("util.object")
 goog.require("util.log")
 goog.require("ui.animate")
 goog.require("ui.menu")
@@ -11,6 +12,7 @@ goog.require("groups")
 goog.scope(function () {
   var cell   = util.cell
     , array  = util.array
+    , object = util.object
     , assert = util.log.assert
     , log    = util.log.log
 
@@ -47,6 +49,8 @@ goog.scope(function () {
       })
 
       ui.menu.separator(o, function (eSeparator) {
+        eSeparator.hide()
+
         var aGroups = []
           , oGroups = {}
 
@@ -144,20 +148,16 @@ goog.scope(function () {
         }
 
         cell.when(groups.loaded, function () {
-          array.each(groups.getAll(), function (s) {
+          object.each(groups.getAll(), function (_, s) {
             makeCheckbox(s, false)
           })
 
-          o.event([groups.on], function (a) {
-            array.each(a, function (o) {
-              var type = o["type"]
-                , x    = o["value"]
-              if (type === "added") {
-                makeCheckbox(x, true)
-              } else if (type === "removed") {
-                removeCheckbox(x)
-              }
-            })
+          o.event([groups.on.added], function (s) {
+            makeCheckbox(s, true)
+          })
+
+          o.event([groups.on.removed], function (s) {
+            removeCheckbox(s)
           })
         })
       })

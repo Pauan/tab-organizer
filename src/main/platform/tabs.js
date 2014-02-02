@@ -46,12 +46,14 @@ goog.scope(function () {
     this.id    = this.time.created
 
     var self = this
-    array.each(x["tabs"], function (t) {
-      var tab = new Tab(t, self)
-      tab.id = tab.time.created = time.timestamp()
-      ids[tab.id] = tab
-      array.push(self.tabs, tab)
-    })
+    if (x["tabs"] != null) {
+      array.each(x["tabs"], function (t) {
+        var tab = new Tab(t, self)
+        tab.id = tab.time.created = time.timestamp()
+        ids[tab.id] = tab
+        array.push(self.tabs, tab)
+      })
+    }
 
     cWins[this[_id]] = this
     ids[this.id] = this
@@ -196,6 +198,13 @@ goog.scope(function () {
     return r
   }
 
+  function updateWindowIndices(a, iMin) {
+    /*var r = */updateIndices(a, iMin)
+    /*if (array.len(r)) {
+      platform.windows.on.updateIndex.set(r)
+    }*/
+  }
+
   function updateTabIndices(a, iMin) {
     var r = updateIndices(a, iMin)
     if (array.len(r)) {
@@ -292,7 +301,7 @@ goog.scope(function () {
           assert(win.index < array.len(aWins))
 
           array.removeAt(aWins, win.index)
-          updateIndices(aWins, win.index)
+          updateWindowIndices(aWins, win.index)
 
           win.time.removed = time.timestamp()
           platform.windows.on.removed.set(win)
@@ -374,6 +383,7 @@ goog.scope(function () {
           assert(win[_id] === info["newWindowId"])
 
           tab.window = win
+
           array.insertAt(win.tabs, tab.index, tab)
           updateTabIndices(win.tabs, tab.index + 1)
 

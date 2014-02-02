@@ -3,6 +3,7 @@ goog.provide("panel")
 goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
+goog.require("util.object")
 goog.require("ui.menu")
 goog.require("ui.urlBar")
 goog.require("ui.common")
@@ -15,12 +16,12 @@ goog.require("cache")
 goog.require("logic")
 goog.require("tabs")
 goog.require("search")
-//goog.require("groups")
 
 goog.scope(function () {
-  var dom   = util.dom
-    , cell  = util.cell
-    , array = util.array
+  var dom    = util.dom
+    , cell   = util.cell
+    , array  = util.array
+    , object = util.object
 
   var searchHeight = 23
 
@@ -33,7 +34,7 @@ goog.scope(function () {
     e.height("100%")*/
 
     // TODO it might not need to wait for "tab.loaded" until after
-    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, /*groups.loaded, */search.loaded), function () {
+    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, search.loaded), function () {
       ui.menu.initialize(e)
       ui.urlBar.initialize(e)
 
@@ -110,7 +111,7 @@ goog.scope(function () {
           menus.button.initialize(e, menus.global.menu, function () {
             var normal   = []
               , selected = []
-            array.each(tabs.getAll(), function (x) {
+            object.each(tabs.getAll(), function (x) {
               if (x.isVisible) {
                 if (x.selected) {
                   array.push(selected, x)

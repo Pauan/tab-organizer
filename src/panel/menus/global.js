@@ -1,13 +1,15 @@
 goog.provide("menus.global")
 
+goog.require("util.cell")
+goog.require("util.array")
 goog.require("menus.tab")
 goog.require("menus.option")
-goog.require("util.cell")
 goog.require("ui.menu")
 goog.require("opt")
 
 goog.scope(function () {
-  var cell = util.cell
+  var cell  = util.cell
+    , array = util.array
 
   menus.global.state = cell.value({ selected: [], normal: [] })
 
@@ -31,9 +33,7 @@ goog.scope(function () {
       o.event([o.activate], function () {
         // TODO remove this once undo is implemented
         if (confirm("Are you sure? This will rearrange the tabs in Chrome and cannot be undone.")) {
-          cell.when(opt.loaded, function () {
-            //tabs.moveBasedOnSort(opt.get("group.sort.type").get())
-          })
+          //tabs.moveBasedOnSort(opt.get("group.sort.type").get())
           ui.menu.hide()
         }
       })
@@ -43,13 +43,13 @@ goog.scope(function () {
 
     ui.menu.submenu(o, menus.tab.menu, function (o) {
       o.bind([menus.global.state], function (state) {
-        if (state.selected.length) {
+        if (array.len(state.selected)) {
           o.text("All selected tabs...")
           menus.tab.state.set({ tabs: state.selected })
           o.enabled.set(true)
         } else {
           o.text("All tabs...")
-          if (state.normal.length) {
+          if (array.len(state.normal)) {
             menus.tab.state.set({ tabs: state.normal })
             o.enabled.set(true)
           } else {
