@@ -142,13 +142,13 @@ goog.scope(function () {
     })
   }
 
-  platform.windows.maximize = function (id) {
-    windows["update"](get(id)[_id], { "state": "maximized" })
-  }
-
   function get(i) {
     assert(i in ids)
     return ids[i]
+  }
+
+  platform.windows.maximize = function (id) {
+    windows["update"](get(id)[_id], { "state": "maximized" })
   }
 
   /**

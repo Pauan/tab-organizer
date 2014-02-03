@@ -43,14 +43,14 @@ function mkdir(name) {
   }
 }
 
-function build(name, file) {
+function build(folder, name, file) {
   mkdir(path.join(OUTDIR, "gsap"))
   mkdir(path.join(OUTDIR, "js"))
   mkdir(path.join(OUTDIR, "map"))
 
   var sourcemap = path.join(OUTDIR,  "map", file + ".map")
 
-  var command = ["java", "-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(name))
+  var command = ["java", "-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(folder))
   command.push("--only_closure_dependencies")
   command.push("--closure_entry_point='" + name + "'")
   command.push("--js_output_file='" + path.join(OUTDIR, "js", file) + "'")
@@ -143,6 +143,6 @@ function build(name, file) {
 }
 
 
-build("main",    "main.js")
-build("panel",   "panel.js")
-//build("options", "options.js")
+build("server", "main",    "main.js")
+build("client", "panel",   "panel.js")
+build("client", "options", "options.js")

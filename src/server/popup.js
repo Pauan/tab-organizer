@@ -133,7 +133,7 @@ goog.scope(function () {
       function makeTab() {
         if (oTab === null) {
           // TODO what if update/remove is called before the tab is created ?
-          platform.tabs.open("data/panel.html", false, function (t) {
+          platform.tabs.open("panel.html", false, function (t) {
             oTab = t
           })
         } else {
@@ -270,7 +270,7 @@ goog.scope(function () {
 
       cell.bind([type], function (type) {
         if (type === "bubble") {
-          platform.button.setURL("data/panel.html")
+          platform.button.setURL("panel.html")
         } else {
           platform.button.setURL("")
         }

@@ -25,7 +25,7 @@ goog.scope(function () {
       ["Name", "name"]
     ])
 
-    ui.menu.separator(o)
+    /*ui.menu.separator(o)
 
     ui.menu.item(o, function (o) {
       o.text("Move tabs based on sort")
@@ -37,7 +37,7 @@ goog.scope(function () {
           ui.menu.hide()
         }
       })
-    })
+    })*/
 
     ui.menu.separator(o)
 

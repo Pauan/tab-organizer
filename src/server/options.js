@@ -115,8 +115,8 @@ optionMaker.make(cache, "options.cache", "cache", {
   "screen.available.checked" : false,
   "screen.available.left"    : 0,
   "screen.available.top"     : 0,
-  "screen.available.width"   : screen["width"],
-  "screen.available.height"  : screen["height"]
+  "screen.available.width"   : screen["width"], // TODO ew
+  "screen.available.height"  : screen["height"] // TODO ew
 })
 
 
@@ -132,7 +132,7 @@ optionMaker.make(opt, "options.user", "options", {
   "size.bubble.width"     : 300,
   "size.bubble.height"    : 600,
 
-  "popup.type"            : "sidebar", // TODO bubble
+  "popup.type"            : "bubble",
 
   "popup.hotkey.ctrl"     : true,
   "popup.hotkey.shift"    : true,
