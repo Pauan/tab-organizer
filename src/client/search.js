@@ -5,6 +5,8 @@ goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
 goog.require("util.log")
+goog.require("util.re")
+goog.require("tabs")
 goog.require("cache")
 
 goog.scope(function () {
@@ -12,12 +14,8 @@ goog.scope(function () {
     , array  = util.array
     , object = util.object
     , log    = util.log.log
-
-  // [\^$.|?*+()
-  function reQuote(s) {
-    // TODO util.string or util.regexp
-    return s["replace"](/[\[\\\^\$\.\|\?\*\+\(\)]/g, "\\$&")
-  }
+    , assert = util.log.assert
+    , re     = util.re
 
   function iterator(s) {
     var i = 0
@@ -35,78 +33,84 @@ goog.scope(function () {
   }
 
   function same(f) {
-    /*var o = {}
-    tab.each(function (x) {
-      var title = f(x)
-      if (o[title] == null) {
-        o[title] = 0
+    return function () {
+      var o = {}
+      // TODO
+      object.each(tabs.getAll(), function (x) {
+        var title = f(x)
+        if (o[title] == null) {
+          o[title] = 0
+        }
+        ++o[title]
+      })
+      return function (x) {
+        return o[f(x.info)] >= 2
       }
-      ++o[title]
-    })
-    return function (x) {
-      return o[f(x.info)] >= 2
-    }*/
+    }
   }
 
   function tester(name, o) {
     var keys = sortedKeys(o)
     return function (test) {
-      test = test()
       // TODO util.array
       for (var i = 0, iLen = array.len(keys); i < iLen; ++i) {
-        if (test(keys[i])) {
-          return o[keys[i]]
-        } else {
-          throw new SyntaxError(name + ": expected any of [" + array.join(keys, ", ") + "]")
+        if (re.test(keys[i], test)) {
+          return o[keys[i]]()
         }
       }
+      throw new SyntaxError(name + ": expected any of [" + array.join(keys, ", ") + "]")
     }
   }
 
   var specials = {
     "is": tester("is", {
       "any": function () {
-        return true
+        return function () {
+          return true
+        }
       },
-      "bookmarked": (function () {
+      "bookmarked": function () {
         // TODO have it make the tabs hidden, THEN get all the bookmarks, THEN do the search
         //var o = LUSH.bookmark.getAll()
         return function (x) {
           return x.info.url in o
         }
-      })(),
+      },
 
-      "broken": (function () {
+      "broken": function () {
         var r = [/^404 Not Found$/,
                  /^Oops! (?:Google Chrome could not |This link appears to be broken)/,
                  / is not available$/,
                  / failed to load$/]
         return function (x) {
           return array.some(r, function (r) {
-            // TODO util.regexp
-            return r["test"](x.info.title)
+            return re.test(x.info.title, r)
           })
         }
-      })(),
+      },
 
       "child": null, // TODO
 
-      "duplicated": function (x) {
-        // TODO
-        return x.info.inChrome > 1
+      "duplicated": function () {
+        return function (x) {
+          // TODO
+          return x.info.inChrome > 1
+        }
       },
 
-      "image": (function () {
+      "image": function () {
         var url   = /\.\w+(?=[#?]|$)/
           , title = /\(\d+×\d+\)$/
         return function (x) {
           // TODO util.regexp
-          return url["test"](x.info.url) && title["test"](x.info.title)
+          return re.test(x.info.url, url) && re.test(x.info.title, title)
         }
-      })(),
+      },
 
-      "pinned": function (x) {
-        return x.info.pinned
+      "pinned": function () {
+        return function (x) {
+          return x.info.pinned
+        }
       },
 
       // TODO
@@ -114,9 +118,11 @@ goog.scope(function () {
         return $.hasClass(x, "selected")
       },*/
 
-      "unloaded": function (x) {
-        // TODO
-        return x.info.inChrome === 0
+      "unloaded": function () {
+        return function (x) {
+          // TODO
+          return x.info.inChrome === 0
+        }
       }
     }),
     "same": tester("same", {
@@ -135,6 +141,10 @@ goog.scope(function () {
 
       "title": same(function (x) {
         return x.title
+      }),
+
+      "url": same(function (x) {
+        return x.url
       })
     }),
     /*"has": function (self, test) {
@@ -149,7 +159,7 @@ goog.scope(function () {
     },*/
     "inurl": function (test) {
       test = test(function (x) {
-        var r = new RegExp(x.regexp, x.flags)
+        var r = re.make(x.regexp, x.flags)
         return function (x) {
           // TODO util.regexp
           return r["test"](x)
@@ -161,7 +171,7 @@ goog.scope(function () {
     },
     "intitle": function (test) {
       test = test(function (x) {
-        var r = new RegExp(x.regexp, x.flags)
+        var r = re.make(x.regexp, x.flags)
         return function (x) {
           // TODO util.regexp
           return r["test"](x)
@@ -205,91 +215,147 @@ goog.scope(function () {
     return aKeys
   }
 
+  function negate(left, x) {
+    if (x.op === "-") {
+      return {
+        op: "-",
+        right: negate(left, x.right)
+      }
+    } else {
+      assert(x.string != null)
+      return {
+        op: ":",
+        left: left,
+        right: x
+      }
+    }
+  }
+
+  function comma(r, left, x) {
+    if (x.op === ",") {
+      comma(r, left, x.left)
+      comma(r, left, x.right)
+    } else {
+      array.push(r, negate(left, x))
+    }
+  }
+
   var tokens = {
     /*",": {
-      priority: 50,
-      infix: function (a, left, right) {
-        left  = left()
-        right = right()
-        return function (x) {
-          return left(x) || right(x)
-        }
+      // TODO
+      priority: Infinity,
+      infix: function () {
+        throw new SyntaxError(", can only be used on the right side of :")
       }
     },*/
     ":": {
-      name: ":",
-      priority: 40,
-      infix: function (a, left, right) {
-        left = left(function (x) {
-          return x.regexp
+      priority: 10,
+      infix: function (x, a, left) {
+        assert(left.string != null)
+
+        var right = parse(a, x.priority)
+
+        var r = []
+        comma(r, left.string, right)
+
+        return array.foldl1(r, function (x, y) {
+          return {
+            op: "|",
+            left: x,
+            right: y
+          }
         })
+      },
+      compile: function (x) {
+        var left  = x.left
+          , right = x.right
 
-        log(left)
+        assert(right.string != null)
 
-        if (typeof left !== "string" || !specials[left]) {
+        if (typeof left !== "string" || specials[left] == null) {
           throw new SyntaxError("expected any of [" + array.join(sortedKeys(specials), ", ") + "] but got " + left)
         }
 
-        return specials[left](function (gen) {
-          if (gen == null) {
-            return right(function (x) {
-              var r = new RegExp("^" + x.regexp)
-              return function (x) {
-                // TODO util.regexp
-                return r["test"](x)
-              }
-            })
-          } else {
-            return right(gen)
-          }
-        })
+        return specials[left](re.make("^" + re.escape(right.string)))
       }
     },
     "-": {
-      name: "-",
       priority: 30,
-      prefix: function (a, right) {
-        right = right()
-        return function (x) {
-          return !right(x)
+      prefix: function (x, a) {
+        return {
+          op: "-",
+          right: parse(a, x.priority)
+        }
+      },
+      compile: function (x) {
+        var right = compile(x.right)
+        return function (tab) {
+          return !right(tab)
         }
       }
     },
     " ": {
-      name: " ",
       priority: 20,
-      infix: function (a, left, right) {
-        left  = left()
-        right = right()
-        return function (x) {
-          return left(x) && right(x)
+      infix: function (x, a, left) {
+        return {
+          op: " ",
+          left: left,
+          right: parse(a, x.priority)
+        }
+      },
+      compile: function (x) {
+        var left  = compile(x.left)
+          , right = compile(x.right)
+        return function (tab) {
+          return left(tab) && right(tab)
         }
       }
     },
     "|": {
-      name: "|",
       priority: 10,
-      infix: function (a, left, right) {
-        left  = left()
-        right = right()
-        return function (x) {
-          return left(x) || right(x)
+      infix: function (x, a, left) {
+        return {
+          op: "|",
+          left: left,
+          right: parse(a, x.priority)
+        }
+      },
+      compile: function (x) {
+        var left  = compile(x.left)
+          , right = compile(x.right)
+        return function (tab) {
+          return left(tab) || right(tab)
+        }
+      }
+    },
+    ",": {
+      priority: 20,
+      infix: function (x, a, left) {
+        return {
+          op: ",",
+          left: left,
+          right: parse(a, x.priority)
+        }
+      },
+      compile: function (x) {
+        var left  = compile(x.left)
+          , right = compile(x.right)
+        return function (tab) {
+          return left(tab) || right(tab)
         }
       }
     },
     "(": {
-      name: "(",
       priority: 0,
-      prefix: function (a, right) {
-        var x = right()
+      prefix: function (x, a) {
+        var right = parse(a, x.priority)
         if (a.peek() !== tokens[")"]) {
           throw new SyntaxError("expected ending )")
         }
-        return x
+        return right
       }
     },
     ")": {
-      name: ")",
       priority: 0
     }
   }
@@ -315,8 +381,7 @@ goog.scope(function () {
       }
     }
     r = array.join(r, "")
-             // TODO
-    return { name: r, regexp: "\\b" + reQuote(r) + "\\b", flags: "i" }
+    return { regexp: "\\b" + re.escape(r) + "\\b", flags: "i" }
   }
 
   function tokenizeRegexp(a) {
@@ -346,8 +411,7 @@ goog.scope(function () {
     }
     flags = array.join(flags, "")
     r     = array.join(r, "")
-             // TODO
-    return { name: r, regexp: r, flags: flags }
+    return { regexp: r, flags: flags }
   }
 
   function tokenize(s) {
@@ -377,7 +441,7 @@ goog.scope(function () {
           if (a === "OR") {
             array.push(r, tokens["|"])
           } else {
-            array.push(r, { name: a, regexp: reQuote(a), flags: "i" })
+            array.push(r, { string: a })
           }
         }
       }
@@ -396,72 +460,58 @@ goog.scope(function () {
     return iterator(a)
   }
 
-  function generate(gen, x) {
-    // TODO is this correct? used to be `"regexp" in x`
-    if (x.regexp != null) {
-      if (gen == null) {
-        var r = new RegExp(x.regexp, x.flags)
-        return function (x) {
-          // TODO util.regexp
-          return r["test"](x.info.url) || r["test"](x.info.title)
-        }
-      } else {
-        return gen(x)
-      }
-    } else {
-      return x
-    }
-  }
-
-  function expression(a, i) {
+  function parse(a, i) {
     if (a.has()) {
       var t, l = a.read()
 
-      // TODO is this correct? used to be `!("regexp" in x)`
-      if (l.regexp == null) {
+      if (l.string == null && l.regexp == null) {
         // TODO is this correct? used to be `!("prefix" in x)`
         if (l.prefix == null) {
           throw new SyntaxError("unexpected " + l.name)
         }
-        l = l.prefix(a, function (gen) {
-          return generate(gen, expression(a, l.priority))
-        })
+        l = l.prefix(l, a)
       }
 
       while (a.has() && i < a.peek().priority) {
         t = a.read()
-        l = t.infix(a, function (gen) {
-          return generate(gen, l)
-        }, function (gen) {
-          return generate(gen, expression(a, t.priority))
-        })
+        l = t.infix(t, a, l)
       }
-
       return l
     } else {
-      // TODO
-      return function () {
-        return true
-      }
+      return { string: "" }
     }
   }
 
-  function parse(s) {
-    return generate(null, expression(tokenize(s), 0))
+  function compile(x) {
+    if (x.string != null) {
+      x = { regexp: re.escape(x.string), flags: "i" }
+    }
+
+    if (x.regexp != null) {
+      var y = re.make(x.regexp, x.flags)
+      return function (tab) {
+        return re.test(tab.info.url, y) || re.test(tab.info.title, y)
+      }
+    } else {
+      assert(x.op in tokens)
+      return tokens[x.op].compile(x)
+    }
   }
 
   search.on = null
 
   search.loaded = cell.dedupe(false)
 
-  cell.when(cache.loaded, function () {
-    search.on = cell.bind([cache.get("search.last")], function (s) {
+  cell.when(cell.and(cache.loaded, tabs.loaded), function () {
+                                                     // TODO inefficient ?
+    search.on = cell.bind([cache.get("search.last"), tabs.on], function (s) {
       try {
-        return { value: parse(s) }
+        return { value: compile(parse(tokenize(s), 0)) }
       } catch (e) {
-        return { error: e }
+        return { error: e["message"] }
       }
     })
+
     search.loaded.set(true)
   })
 })

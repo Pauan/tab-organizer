@@ -11,17 +11,21 @@ goog.scope(function () {
     , array = util.array
 
   var hues = {
-    "pink": 0,
-    "red": 0,
-    "orange": 30,
-    "yellow": 60,
-    "green": 110,
-    "blue": 211,
-    "purple": 280,
+    "white": 0,     // #ebebeb husl(0,   0,   93)
+    "pink": 0,      // #ffe5e5 husl(12,  100, 93)
+    "yellow": 60,   // #f3f300 husl(86,  100, 93)
 
-    "black": 0,
-    "grey": 0,
-    "white": 0
+    "grey": 0,      // #a0a0a0 husl(0,   0,   66)
+    "orange": 30,   // #fb7e00 husl(30,  100, 66)
+    "green": 110,   // #19ba00 husl(127, 100, 66)
+    "blue": 211,    // #4ea4ff husl(249, 100, 66)
+
+    "purple": 280,  // #DD99FF husl(291.5,  100, 73.1)
+                    // #d779ff husl(292, 100, 66)
+
+    "red": 0,       // #fd030a husl(12,  100, 53)
+
+    "black": 0      // #1A1A1A husl(0,   0,   9)
   }
 
   var lightness = {

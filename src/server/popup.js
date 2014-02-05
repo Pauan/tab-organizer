@@ -53,6 +53,7 @@
  */
 goog.provide("popup")
 
+goog.require("platform.manifest")
 goog.require("platform.tabs")
 goog.require("platform.windows")
 goog.require("platform.popup")
@@ -328,7 +329,7 @@ goog.scope(function () {
         })
       })()
 
-      platform.button.setTitle("Tab Organizer")
+      platform.button.setTitle(platform.manifest.get("name"))
       platform.button.setIconURL("data/icons/icon19.png")
     })
   }

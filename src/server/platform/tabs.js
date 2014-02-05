@@ -143,6 +143,7 @@ goog.scope(function () {
   }
 
   function get(i) {
+    // TODO create two new tabs, close them, refresh the popup
     assert(i in ids)
     return ids[i]
   }

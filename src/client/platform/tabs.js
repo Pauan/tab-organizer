@@ -88,7 +88,9 @@ goog.scope(function () {
         })
       }
     })
-    tabs.on.set(r)
+    if (array.len(r)) {
+      tabs.on.set(r)
+    }
   })
 
   tabs.getAll = function () {

@@ -38,7 +38,7 @@ goog.scope(function () {
 
       e.bind([search.on], function (x) {
         if (x.value == null) {
-          e.title(x.error.message)
+          e.title(x.error)
           e.styleWhen(errorStyle, true)
         } else {
           e.title("")

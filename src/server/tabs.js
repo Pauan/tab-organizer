@@ -107,15 +107,17 @@ goog.scope(function () {
       })
       log(oTabs)
 
+      // TODO maybe this should do nothing if the URL is ""
       function onCreated(t) {
+        var old = oTabs[t.id]
         if (isValidURL(t.url)) {
-          if (oTabs[t.id] == null) {
+          if (old == null) {
             set("created", t)
           } else {
             set("updated", t)
           }
-        } else {
-          rem("removed", t)
+        } else if (old != null) {
+          rem("removed", old)
         }
       }
 
