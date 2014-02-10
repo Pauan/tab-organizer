@@ -111,8 +111,8 @@ goog.scope(function () {
           menus.button.initialize(e, menus.global.menu, function () {
             var normal   = []
               , selected = []
-            object.each(tabs.getAll(), function (x) {
-              if (x.isVisible) {
+            object.each(tabs.all.get(), function (x) {
+              if (x.visible) {
                 if (x.selected) {
                   array.push(selected, x)
                 } else {

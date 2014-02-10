@@ -100,7 +100,7 @@ goog.scope(function () {
   var modal = dom.box(function (e) {
     e.styles(modalStyle)
 
-    e.hide()
+    e.visible.set(false)
 
     e.event([e.mouseclick], function (click) {
       if (click.left) {
@@ -127,7 +127,7 @@ goog.scope(function () {
     var e = o[element]
     o.hiding = true
     ui.animate.to(e, 0.2, menuHidden, function () {
-      e.hide()
+      e.visible.set(false)
       delete o.hiding
     })
     hideSelected(o)
@@ -162,7 +162,7 @@ goog.scope(function () {
 
     array.push(menus, o)
     delete o.hiding
-    e.show()
+    e.visible.set(true)
 
     // Corrects the position if it's out of bounds
     var ePos = e.getPosition()
@@ -242,7 +242,7 @@ goog.scope(function () {
     /*ui.animate.to(modal, 0.2, modalHidden, function () {
       modal.hide()
     })*/
-    modal.hide()
+    modal.visible.set(false)
     array.each(menus, function (o) {
       hide1(o)
     })
@@ -251,7 +251,7 @@ goog.scope(function () {
 
   ui.menu.show = function (e, pos) {
     ui.menu.hide()
-    modal.show()
+    modal.visible.set(true)
     //ui.animate.from(modal, 0.2, modalHidden)
     show1(e, pos)
   }
@@ -328,7 +328,7 @@ goog.scope(function () {
       o.bind  = func.bind(e.bind, e)
       o.event = func.bind(e.event, e)
 
-      e.hide()
+      e.visible.set(false)
 
       cell.when(eParent, function (eParent) {
         e.move(eParent)
@@ -350,9 +350,7 @@ goog.scope(function () {
 
       var o = {}
 
-      // TODO a little hacky ?
-      o.hide = func.bind(e.hide, e)
-      o.show = func.bind(e.show, e)
+      o.visible = e.visible
 
       // TODO code duplication
       o.bind  = func.bind(e.bind, e)

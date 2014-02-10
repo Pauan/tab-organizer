@@ -649,11 +649,7 @@ goog.scope(function () {
               array.push(controls, e)
 
               e.bind([opt.get("popup.type")], function (type) {
-                if (type === s) {
-                  e.show()
-                } else {
-                  e.hide()
-                }
+                e.visible.set(type === s)
               })
 
               f(e)
@@ -864,12 +860,10 @@ goog.scope(function () {
       var maxHeight = 0
 
       array.each(controls, function (e) {
-        var b = e.isHidden()
-        e.show()
+        var b = e.visible.get()
+        e.visible.set(true)
         maxHeight = math.max(maxHeight, e.getPosition().height)
-        if (b) {
-          e.hide()
-        }
+        e.visible.set(b)
       })
 
       array.each(controls, function (e) {

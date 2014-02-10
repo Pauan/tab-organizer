@@ -4,9 +4,9 @@ goog.provide("search")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
+goog.require("util.string")
 goog.require("util.log")
 goog.require("util.re")
-goog.require("tabs")
 goog.require("cache")
 
 goog.scope(function () {
@@ -32,85 +32,78 @@ goog.scope(function () {
     }
   }
 
-  function same(f) {
-    return function () {
-      var o = {}
-      // TODO
-      object.each(tabs.getAll(), function (x) {
-        var title = f(x)
-        if (o[title] == null) {
-          o[title] = 0
-        }
-        ++o[title]
-      })
-      return function (x) {
-        return o[f(x.info)] >= 2
-      }
-    }
-  }
-
   function tester(name, o) {
     var keys = sortedKeys(o)
     return function (test) {
       // TODO util.array
       for (var i = 0, iLen = array.len(keys); i < iLen; ++i) {
         if (re.test(keys[i], test)) {
-          return o[keys[i]]()
+          return o[keys[i]]
         }
       }
       throw new SyntaxError(name + ": expected any of [" + array.join(keys, ", ") + "]")
     }
   }
 
+  /**
+   * @constructor
+   */
+  /*function Lazy(f) {
+    this.value = f
+    this.cached = false
+  }
+  Lazy.prototype.get = function () {
+    if (!this.cached) {
+      this.value = this.value()
+      this.cached = true
+    }
+    return this.value
+  }*/
+
   var specials = {
     "is": tester("is", {
       "any": function () {
-        return function () {
-          return true
-        }
+        return true
       },
-      "bookmarked": function () {
+      "bookmarked": (function () {
         // TODO have it make the tabs hidden, THEN get all the bookmarks, THEN do the search
         //var o = LUSH.bookmark.getAll()
         return function (x) {
-          return x.info.url in o
+          return x.url in o
         }
-      },
+      })(),
 
-      "broken": function () {
+      "broken": (function () {
         var r = [/^404 Not Found$/,
                  /^Oops! (?:Google Chrome could not |This link appears to be broken)/,
                  / is not available$/,
                  / failed to load$/]
         return function (x) {
           return array.some(r, function (r) {
-            return re.test(x.info.title, r)
+            return re.test(x.title, r)
           })
         }
-      },
+      })(),
 
       "child": null, // TODO
 
-      "duplicated": function () {
-        return function (x) {
-          // TODO
-          return x.info.inChrome > 1
-        }
+      // TODO isn't this just same:url ?
+      "duplicated": function (x) {
+        // TODO
+        return x.inChrome > 1
       },
 
-      "image": function () {
+      "image": (function () {
         var url   = /\.\w+(?=[#?]|$)/
           , title = /\(\d+×\d+\)$/
         return function (x) {
           // TODO util.regexp
-          return re.test(x.info.url, url) && re.test(x.info.title, title)
+          return re.test(x.url, url) && re.test(x.title, title)
         }
-      },
+      })(),
 
-      "pinned": function () {
-        return function (x) {
-          return x.info.pinned
-        }
+      "pinned": function (x) {
+        return x.pinned
       },
 
       // TODO
@@ -118,35 +111,84 @@ goog.scope(function () {
         return $.hasClass(x, "selected")
       },*/
 
-      "unloaded": function () {
-        return function (x) {
-          // TODO
-          return x.info.inChrome === 0
-        }
+      "unloaded": function (x) {
+        // TODO
+        return x.inChrome === 0
       }
     }),
-    "same": tester("same", {
-      // TODO
-      "domain": same(function (x) {
-        return x.location.domain
-      }),
+    /* TODO move this elsewhere, probably platform.tabs
+    "same": new Lazy(function () {
+      var funcs = {
+        // TODO
+        "domain": function (x) {
+          return x.location.domain
+        },
+        "file": function (x) {
+          return x.location.domain + x.location.path + x.location.file
+        },
+        "path": function (x) {
+          return x.location.domain + x.location.path
+        },
+        "title": function (x) {
+          return x.title
+        },
+        "url": function (x) {
+          return x.url
+        }
+      }
 
-      "file": same(function (x) {
-        return x.location.domain + x.location.path + x.location.file
-      }),
+      var aKeys = object.keys(funcs)
 
-      "path": same(function (x) {
-        return x.location.domain + x.location.path
-      }),
+      var types = {}
 
-      "title": same(function (x) {
-        return x.title
-      }),
-
-      "url": same(function (x) {
-        return x.url
+      var o = {}
+      array.each(aKeys, function (s) {
+        var f = funcs[s]
+        o[s] = function (x) {
+          return types[s][f(x)] >= 2
+        }
       })
-    }),
+
+      function add(x) {
+        array.each(aKeys, function (s) {
+          var title = funcs[s](x)
+            , o     = types[s]
+          if (o[title] == null) {
+            o[title] = 0
+          }
+          ++o[title]
+        })
+      }
+
+      function rem(x) {
+        object.each(funcs, function (f, s) {
+          var title = f(x)
+            , o     = types[s]
+          assert(o[title] != null)
+          assert(o[title] > 0)
+          --o[title]
+          if (o[title] === 0) {
+            delete o[title]
+          }
+        })
+      }
+
+      // TODO inefficient
+      cell.bind([tabs.all], function (o) {
+        array.each(aKeys, function (s) {
+          types[s] = {}
+        })
+        object.each(o, add)
+        log("HIYA!!!")
+      })
+
+      cell.event([tabs.on.opened], add)
+      cell.event([tabs.on.updated], add)
+      cell.event([tabs.on.updatedOld], rem)
+      cell.event([tabs.on.closed], rem)
+
+      return tester("same", o)
+    }),*/
     /*"has": function (self, test) {
       test = test()
       if (test("macro")) {
@@ -166,7 +208,7 @@ goog.scope(function () {
         }
       })
       return function (x) {
-        return test(x.info.url)
+        return test(x.url)
       }
     },
     "intitle": function (test) {
@@ -178,7 +220,7 @@ goog.scope(function () {
         }
       })
       return function (x) {
-        return test(x.info.title)
+        return test(x.title)
       }
     },
     "group": function (test) {
@@ -186,7 +228,7 @@ goog.scope(function () {
       return function (x) {
         var b
         // TODO inefficient
-        object.each(x.info.groups, function (_, s) {
+        object.each(x.groups, function (_, s) {
           if (test(s)) {
             b = true
           }
@@ -208,10 +250,7 @@ goog.scope(function () {
 
   function sortedKeys(o) {
     var aKeys = object.keys(o)
-    array.sort(aKeys, function (x, y) {
-      // TODO
-      return x["toLocaleUpperCase"]()["localeCompare"](y["toLocaleUpperCase"]())
-    })
+    array.sort(aKeys, util.string.upperSorter)
     return aKeys
   }
 
@@ -222,11 +261,12 @@ goog.scope(function () {
         right: negate(left, x.right)
       }
     } else {
+      // TODO test this and put in a better error message
       assert(x.string != null)
       return {
         op: ":",
         left: left,
-        right: x
+        right: x.string
       }
     }
   }
@@ -250,13 +290,16 @@ goog.scope(function () {
     },*/
     ":": {
       priority: 10,
-      infix: function (x, a, left) {
-        assert(left.string != null)
+      infix: function (x, a, l) {
+        var left  = l.string
+          , right = parse(a, x.priority)
 
-        var right = parse(a, x.priority)
+        if (left == null || typeof left !== "string" || specials[left] == null) {
+          throw new SyntaxError("expected any of [" + array.join(sortedKeys(specials), ", ") + "] but got " + left)
+        }
 
         var r = []
-        comma(r, left.string, right)
+        comma(r, left, right)
 
         return array.foldl1(r, function (x, y) {
           return {
@@ -270,13 +313,11 @@ goog.scope(function () {
         var left  = x.left
           , right = x.right
 
-        assert(right.string != null)
-
-        if (typeof left !== "string" || specials[left] == null) {
-          throw new SyntaxError("expected any of [" + array.join(sortedKeys(specials), ", ") + "] but got " + left)
-        }
-
-        return specials[left](re.make("^" + re.escape(right.string)))
+        var f = specials[left]
+        /*if (f instanceof Lazy) {
+          f = f.get()
+        }*/
+        return f(re.make("^" + re.escape(right)))
       }
     },
     "-": {
@@ -474,6 +515,9 @@ goog.scope(function () {
 
       while (a.has() && i < a.peek().priority) {
         t = a.read()
+        if (t.infix == null) {
+          throw new SyntaxError("expected infix operator but got " + t.name)
+        }
         l = t.infix(t, a, l)
       }
       return l
@@ -490,27 +534,66 @@ goog.scope(function () {
     if (x.regexp != null) {
       var y = re.make(x.regexp, x.flags)
       return function (tab) {
-        return re.test(tab.info.url, y) || re.test(tab.info.title, y)
+        return re.test(tab.url, y) || re.test(tab.title, y)
       }
     } else {
+      // TODO needs to be moved into the parse stage ?
       assert(x.op in tokens)
       return tokens[x.op].compile(x)
     }
   }
 
-  search.on = null
-
   search.loaded = cell.dedupe(false)
 
-  cell.when(cell.and(cache.loaded, tabs.loaded), function () {
-                                                     // TODO inefficient ?
-    search.on = cell.bind([cache.get("search.last"), tabs.on], function (s) {
+  cell.when(cache.loaded, function () {
+    var parsed = cell.bind([cache.get("search.last")], function (s) {
       try {
         return { value: compile(parse(tokenize(s), 0)) }
       } catch (e) {
-        return { error: e["message"] }
+        return { error: e["message"] || "" }
       }
     })
+
+    search.error = cell.bind([parsed], function (s) {
+      if (s.error != null) {
+        return s.error
+      } else {
+        return false
+      }
+    })
+
+
+    search.value = cell.bind([parsed], function (s) {
+      if (s.value != null) {
+        return s.value
+      } else {
+        return false
+      }
+    })
+
+    /*function check(f, x) {
+      if (f == null) {
+        x.visible.set(true)
+      } else {
+        x.visible.set(f(x))
+      }
+    }
+
+    function wrap(o) {
+      var r = cell.value(o.get())
+      cell.event([o], function (x) {
+        check(compiled.get(), x)
+        r.set(x)
+      })
+      return r
+    }
+
+    tabs.on.opened     = wrap(tabs.on.opened)
+    tabs.on.updated    = wrap(tabs.on.updated)
+    tabs.on.focused    = wrap(tabs.on.focused)
+    tabs.on.unfocused  = wrap(tabs.on.unfocused)
+    tabs.on.selected   = wrap(tabs.on.selected)
+    tabs.on.deselected = wrap(tabs.on.deselected)*/
 
     search.loaded.set(true)
   })

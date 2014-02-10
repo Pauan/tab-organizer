@@ -153,9 +153,9 @@ goog.scope(function () {
                   , s = x.name
                 if (o[s]) {
                   x.box.text(o[s])
-                  x.box.show()
+                  x.box.visible.set(true)
                 } else {
-                  x.box.hide()
+                  x.box.visible.set(false)
                 }
               }
             }
@@ -172,12 +172,12 @@ goog.scope(function () {
 
       e.bind([ui.urlBar.currentURL], function (current) {
         if (current === null) {
-          e.hide()
+          e.visible.set(false)
         } else {
-          e.show()
+          e.visible.set(true)
           var o = e.getPosition()
           if (current.mouseX <= o.right && current.mouseY >= o.top) {
-            e.hide()
+            e.visible.set(false)
           }
         }
       })

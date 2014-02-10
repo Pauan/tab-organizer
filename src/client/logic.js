@@ -293,13 +293,13 @@ goog.scope(function () {
 
     function hide(e, i, f) {
       ui.animate.to(e, i, hiddenGroupList, function () {
-        e.hide()
+        e.visible.set(false)
         f()
       })
     }
 
     function show(e, i) {
-      e.show()
+      e.visible.set(true)
       ui.animate.from(e, i, hiddenGroupList)
     }
 
@@ -334,40 +334,32 @@ goog.scope(function () {
       })
     }
 
-    function searchTabs(f, layout) {
-      var iTabs = 0
+    // TODO inefficient
+    function searchTabs(f) {
+      var iTabs   = 0
         , iGroups = 0
 
       var seen = {}
 
-      var last = null
-
       array.each(aGroups, function (group) {
-        group.element.hide()
-        array.each(group.aTabs, function (tab) {
-          if (f.value == null || f.value(tab)) {
-            if (!(tab.info.id in seen)) {
+        var visible = false
+
+        array.each(group.aTabs, function (x) {
+          x.info.visible = (f === false || f(x.info))
+          x.element.visible.set(x.info.visible)
+          if (x.info.visible) {
+            if (!seen[x.info.id]) {
               ++iTabs
             }
-            if (group.element.isHidden()) {
-              ++iGroups
-              group.element.show()
-
-              if (last !== null) {
-                last.styleObject(ui.layout.groupLast, layout, false)
-              }
-              last = group.element
-              last.styleObject(ui.layout.groupLast, layout, true)
-            }
-            // TODO is this correct ?
-            tab.info.isVisible = true
-            tab.element.show()
-          } else {
-            delete tab.info.isVisible
-            tab.element.hide()
+            visible = true
           }
-          seen[tab.info.id] = true
+          seen[x.info.id] = true
         })
+
+        if (visible) {
+          ++iGroups
+        }
+        group.element.visible.set(visible)
       })
 
       var sTabs = (iTabs === 1
@@ -504,7 +496,7 @@ goog.scope(function () {
         }
         menus.tab.state.set({
           tabs: array.filter(a, function (x) {
-            return x.isVisible
+            return x.visible
           })
         })
         ui.menu.show(menus.tab.menu, {
@@ -594,10 +586,10 @@ goog.scope(function () {
     }
 
     function init() {
-      object.each(tabs.getAll(), function (tab) {
+      object.each(tabs.all.get(), function (tab) {
         addTab(e, tab, false)
       })
-      searchTabs(search.on.get(), opt.get("groups.layout").get())
+      searchTabs(search.value.get(), opt.get("groups.layout").get())
     }
     init()
 
@@ -612,31 +604,7 @@ goog.scope(function () {
       })
     })
 
-    e.event([tabs.on], function (a) {
-      array.each(a, function (o) {
-        var type = o.type
-          , x    = o.value
-        if (type === "created") {
-          addTab(e, x, true)
-        } else if (type === "updated" || type === "moved" || type === "focused") {
-          updateTab(e, x, true)
-        } else if (type === "updateIndex" || type === "unfocused" || type === "selected" || type === "deselected") {
-          updateWithoutMoving(x)
-        } else if (type === "removed") {
-          removeTab(x)
-        /*} else if (type === "windowName") {
-          var sort = groupSort.get()
-          array.each(aGroups, function (group) {
-            group.name.set(sort.name(group))
-          })*/
-        } else {
-          fail()
-        }
-      })
-      searchTabs(search.on.get(), opt.get("groups.layout").get())
-    })
-
-    /*;(function () {
+    ;(function () {
       function add(x) {
         addTab(e, x, true)
       }
@@ -650,6 +618,12 @@ goog.scope(function () {
         removeTab(x)
       }
 
+      /*} else if (type === "windowName") {
+          var sort = groupSort.get()
+          array.each(aGroups, function (group) {
+            group.name.set(sort.name(group))
+          })*/
+
       e.event([tabs.on.opened], add)
       e.event([tabs.on.updated], update)
       e.event([tabs.on.moved], update)
@@ -658,10 +632,11 @@ goog.scope(function () {
       e.event([tabs.on.unfocused], updateRaw)
       e.event([tabs.on.selected], updateRaw)
       e.event([tabs.on.deselected], updateRaw)
-      e.event([tabs.on.removed], remove)
-    })()*/
+      e.event([tabs.on.closed], remove)
+    })()
 
-    e.event([search.on, opt.get("groups.layout")], function (f, layout) {
+                                                     // TODO inefficient
+    e.event([search.value, opt.get("groups.layout"), tabs.all], function (f, layout) {
       searchTabs(f, layout)
     })
   }

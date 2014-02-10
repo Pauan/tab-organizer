@@ -49,7 +49,7 @@ goog.scope(function () {
   }
 
   cell.when(tabs.loaded, function () {
-    object.each(tabs.getAll(), function (x) {
+    object.each(tabs.all.get(), function (x) {
       object.each(x.groups, function (_, s) {
         addGroup(s, false)
       })

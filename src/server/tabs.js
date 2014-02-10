@@ -105,7 +105,6 @@ goog.scope(function () {
           delete oTabs[t.id]
         }
       })
-      log(oTabs)
 
       // TODO maybe this should do nothing if the URL is ""
       function onCreated(t) {
@@ -116,8 +115,12 @@ goog.scope(function () {
           } else {
             set("updated", t)
           }
+        // TODO test this
         } else if (old != null) {
-          rem("removed", old)
+          assert(false, "REMOVING " + old.url + " " + t.url)
+          // TODO code duplication
+          delete oTabs[t.id]
+          send("removed", old)
         }
       }
 
@@ -125,30 +128,41 @@ goog.scope(function () {
       cell.event([platform.tabs.on.updated], onCreated)
 
       cell.event([platform.tabs.on.moved], function (t) {
-        set("moved", t)
+        if (oTabs[t.id] != null) {
+          set("moved", t)
+        }
       })
 
       cell.event([platform.tabs.on.updateIndex], function (a) {
         array.each(a, function (t) {
-          set("updateIndex", t)
+          if (oTabs[t.id] != null) {
+            set("updateIndex", t)
+          }
         })
       })
 
       cell.event([platform.tabs.on.removed], function (info) {
         log(info.windowClosing)
         var t = info.tab
-        rem("removed", t)
+        if (oTabs[t.id] != null) {
+          rem("removed", t)
+        }
       })
 
       cell.event([platform.tabs.on.unfocused], function (t) {
-        set("unfocused", t)
+        if (oTabs[t.id] != null) {
+          set("unfocused", t)
+        }
       })
 
       cell.event([platform.tabs.on.focused], function (t) {
-        set("focused", t)
+        if (oTabs[t.id] != null) {
+          set("focused", t)
+        }
       })
 
       cell.event([platform.port.on.connect("tabs")], function (port) {
+        log("CONNECT", oTabs)
         port.message({ "tabs": oTabs, "windows": oWins })
       })
 

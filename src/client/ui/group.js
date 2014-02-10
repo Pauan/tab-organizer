@@ -128,7 +128,7 @@ goog.scope(function () {
               , selected = []
             array.each(oGroup.aTabs, function (x) {
               x = x.info
-              if (x.isVisible) {
+              if (x.visible) {
                 if (x.selected) {
                   array.push(selected, x)
                 } else {

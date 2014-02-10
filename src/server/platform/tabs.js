@@ -59,21 +59,27 @@ goog.scope(function () {
     ids[this.id] = this
   }
 
+  // TODO handle lastFocusedTab ?
+  function transfer(tab, t) {
+    tab[_id]    = t["id"]
+    tab.focused = t["active"]
+    tab.index   = t["index"]
+    tab.pinned  = t["pinned"]
+    tab.url     = t["url"]   || ""
+    tab.title   = t["title"] || tab.url
+  }
+
   /**
    * @constructor
    */
   function Tab(x, win) {
-    this[_id]    = x["id"]
-    this.window  = win
-    this.focused = x["active"]
-    this.index   = x["index"]
-    this.pinned  = x["pinned"]
-    this.url     = x["url"]   || ""
-    this.title   = x["title"] || this.url
-    this.time    = {}
+    this.window = win
+    this.time   = {}
+    transfer(this, x)
 
-    if (this.focused && win != null) {
-      win.lastFocusedTab = this
+    // TODO what if a tab is already focused ?
+    if (this.focused && this.window != null) {
+      this.window.lastFocusedTab = this
     }
 
     cTabs[this[_id]] = this
@@ -213,22 +219,16 @@ goog.scope(function () {
     }
   }
 
-  function updateTab(old, t) {
-    var win = old.window
+  function updateTab(tab, t) {
+    assert(tab.index === t["index"])
 
-    delete cTabs[old[_id]]
-    delete ids[old.id]
-    var tab = new Tab(t, win)
-    tab.id           = old.id
-    tab.time.created = old.time.created
+    delete cTabs[tab[_id]]
+    transfer(tab, t)
+    cTabs[tab[_id]] = tab
     tab.time.updated = time.timestamp()
-    ids[tab.id] = tab
 
-    if (win != null) {
-      assert(win[_id] === t["windowId"])
-      assert(old.index === tab.index)
-
-      win.tabs[old.index] = tab
+    if (tab.window != null) {
+      assert(tab.window[_id] === t["windowId"])
     }
 
     platform.tabs.on.updated.set(tab)
@@ -317,6 +317,7 @@ goog.scope(function () {
       tabs["onRemoved"]["addListener"](function (id, info) {
         var tab = cTabs[id]
         if (tab != null) {
+          assert(id === tab[_id])
           delete cTabs[id]
           delete ids[tab.id]
 

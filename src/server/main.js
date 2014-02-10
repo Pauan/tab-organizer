@@ -1,3 +1,4 @@
+// TODO after focusing a tab in TO, it should then focus the popup
 // TODO animation for menu show/hide is screwed up
 // TODO check to see that updating a tab's info works correctly with "logic"
 // TODO proper coloring for selected tabs

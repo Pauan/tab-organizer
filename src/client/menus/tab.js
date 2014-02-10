@@ -49,7 +49,7 @@ goog.scope(function () {
       })
 
       ui.menu.separator(o, function (eSeparator) {
-        eSeparator.hide()
+        eSeparator.visible.set(false)
 
         var aGroups = []
           , oGroups = {}
@@ -71,7 +71,7 @@ goog.scope(function () {
         }
 
         function showSeparator(bAnimate) {
-          eSeparator.show()
+          eSeparator.visible.set(true)
           if (bAnimate) {
             ui.animate.from(eSeparator, iAnim, animHidden)
           }
@@ -79,7 +79,7 @@ goog.scope(function () {
 
         function hideSeparator() {
           ui.animate.to(eSeparator, iAnim, animHidden, function () {
-            eSeparator.hide()
+            eSeparator.visible.set(false)
           })
         }
 

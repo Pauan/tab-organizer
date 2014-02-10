@@ -249,13 +249,8 @@ goog.scope(function () {
       e.event([e.mouseover], mouseover)
 
       e.bind([e.mouseover, opt.get("tabs.close.display")], function (over, display) {
-        if (display === "every") {
-          close.show()
-        } else if (display === "hover" && over) {
-          close.show()
-        } else {
-          close.hide()
-        }
+        close.visible.set(display === "every" ||
+                          display === "hover" && over)
       })
 
       e.bind([e.mouseover, dom.exclude(e.mousedown, close)], function (over, down) {

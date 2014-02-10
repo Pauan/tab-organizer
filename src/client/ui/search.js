@@ -36,13 +36,13 @@ goog.scope(function () {
         t.color(color.hsl(211, 100, 65)) // TODO code duplication with "common-ui" module
       })*/
 
-      e.bind([search.on], function (x) {
-        if (x.value == null) {
-          e.title(x.error)
-          e.styleWhen(errorStyle, true)
-        } else {
+      e.bind([search.error], function (x) {
+        if (x === false) {
           e.title("")
           e.styleWhen(errorStyle, false)
+        } else {
+          e.title(x)
+          e.styleWhen(errorStyle, true)
         }
       })
 
