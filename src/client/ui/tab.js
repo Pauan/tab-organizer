@@ -3,6 +3,7 @@ goog.provide("ui.tab")
 goog.require("util.Symbol")
 goog.require("util.dom")
 goog.require("util.array")
+goog.require("util.log")
 goog.require("ui.urlBar")
 goog.require("ui.common")
 goog.require("ui.animate")
@@ -13,6 +14,7 @@ goog.scope(function () {
   var Symbol = util.Symbol
     , dom    = util.dom
     , array  = util.array
+    , log    = util.log.log
 
   var fn = Symbol("fn")
 

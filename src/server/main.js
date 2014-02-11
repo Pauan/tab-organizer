@@ -1,3 +1,4 @@
+// TODO while typing in the search box, the text cursor gets messed up, probably has to do with the dual cell bind sync
 // TODO after focusing a tab in TO, it should then focus the popup
 // TODO animation for menu show/hide is screwed up
 // TODO check to see that updating a tab's info works correctly with "logic"

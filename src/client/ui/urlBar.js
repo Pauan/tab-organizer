@@ -5,6 +5,7 @@ goog.require("util.cell")
 goog.require("util.dom")
 goog.require("util.re")
 goog.require("util.array")
+goog.require("util.log")
 
 goog.scope(function () {
   var url   = util.url
@@ -12,6 +13,7 @@ goog.scope(function () {
     , dom   = util.dom
     , re    = util.re
     , array = util.array
+    , log   = util.log.log
 
   ui.urlBar.currentURL = cell.value(null) // TODO maybe this shouldn't include duplicates ?
 
@@ -130,44 +132,57 @@ goog.scope(function () {
       dom.box(function (e) {
         e.styles(dom.horiz)
 
-        /**
-         * TODO more specific type for first argument
-         * @param {!Object} e
-         * @param {...!Array} var_args
-         */
-        function boxes(e, var_args) {
-          var a = array.map(array.slice(arguments, 1), function (a) {
-            return {
-              name: a[0],
-              box: dom.box(function (e) {
-                e.styles(a[1])
-              }).move(e)
-            }
-          })
-          e.event([parsedURL], function (o) {
-            if (o !== null) {
-              // TODO util.array.eachReverse
-              var i = array.len(a)
-              while (i--) {
-                var x = a[i]
-                  , s = x.name
-                if (o[s]) {
-                  x.box.text(o[s])
-                  x.box.visible.set(true)
-                } else {
-                  x.box.visible.set(false)
-                }
-              }
-            }
+        var a = []
+
+        function box(style, f) {
+          array.push(a, {
+            name: f,
+            box: dom.box(function (e) {
+              e.styles(style)
+            }).move(e)
           })
         }
 
-        boxes(e, ["scheme",   protocolStyle],
-                 ["hostname", domainStyle],
-                 ["path",     pathStyle],
-                 ["file",     fileStyle],
-                 ["query",    queryStyle],
-                 ["fragment", hashStyle])
+        box(protocolStyle, function (x) {
+          return x.scheme
+        })
+
+        box(domainStyle, function (x) {
+          return x.hostname
+        })
+
+        box(pathStyle, function (x) {
+          return x.path
+        })
+
+        box(fileStyle, function (x) {
+          return x.file
+        })
+
+        box(queryStyle, function (x) {
+          return x.query
+        })
+
+        box(hashStyle, function (x) {
+          return x.fragment
+        })
+
+        e.event([parsedURL], function (o) {
+          if (o !== null) {
+            // TODO util.array.eachReverse
+            var i = array.len(a)
+            while (i--) {
+              var x = a[i]
+                , s = x.name(o)
+              if (s != null) {
+                x.box.text(s)
+                x.box.visible.set(true)
+              } else {
+                x.box.visible.set(false)
+              }
+            }
+          }
+        })
       }).move(e)
 
       e.bind([ui.urlBar.currentURL], function (current) {
