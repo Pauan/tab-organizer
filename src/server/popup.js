@@ -310,8 +310,7 @@ goog.scope(function () {
           if (ctrl.get()   === e["ctrl"] &&
               shift.get()  === e["shift"] &&
               alt.get()    === e["alt"] &&
-                               // TODO util.string
-              letter.get() === String["fromCharCode"](e["key"])["toUpperCase"]()) {
+              letter.get() === util.string.upper(util.string.fromUnicode(e["key"]))) {
             if (type.get() === "bubble") {
               // TODO should update oWin.type synchronously
               getSize(function (aLeft, aTop, aWidth) {

@@ -4,6 +4,7 @@ goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
 goog.require("util.log")
+goog.require("util.string")
 goog.require("ui.animate")
 goog.require("ui.menu")
 goog.require("tabs")
@@ -66,8 +67,7 @@ goog.scope(function () {
         })
 
         function sort(x, y) {
-          // TODO can probably just use < rather than localeCompare
-          return x["toLocaleUpperCase"]()["localeCompare"](y["toLocaleUpperCase"]()) < 0
+          return util.string.upperSorter(x, y) <= 0
         }
 
         function showSeparator(bAnimate) {

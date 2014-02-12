@@ -51,12 +51,51 @@ goog.scope(function () {
 
       var oWins = {}
 
+      function getDefaultName(win) {
+        return "" + (win.index + 1)
+      }
+
       function getWindowName(win) {
-        return aNames.get()[win.index] || "" + (win.index + 1)
+        return aNames.get()[win.index] || getDefaultName(win)
       }
 
       function addWin(win) {
         return (oWins[win.id] = serialize.window(win))
+      }
+
+      function getLength(a) {
+        var i = array.len(a)
+        while (i--) {
+          if (a[i] != null) {
+            return i + 1
+          }
+        }
+        return 0
+      }
+
+      function renameWin(win, name) {
+        if (win.name !== name) {
+          var a = aNames.get()
+          if (name === getDefaultName(win)) {
+            a[win.index] = null
+            array.resize(a, getLength(a))
+          } else {
+            a[win.index] = name
+          }
+          aNames.set(array.map(a, function (x) {
+            if (x == null) {
+              return null
+            } else {
+              return x
+            }
+          }))
+
+          win.name = name
+          platform.port.message("tabs", {
+            "type": "window-renamed",
+            "value": addWin(win)
+          })
+        }
       }
 
       array.each(platform.windows.getAll(), function (win) {
@@ -73,8 +112,10 @@ goog.scope(function () {
       })
 
       cell.event([platform.windows.on.removed], function (win) {
-        array.removeAt(aNames.get(), win.index)
-        aNames.set(aNames)
+        var a = aNames.get()
+        array.removeAt(a, win.index)
+        array.resize(a, getLength(a))
+        aNames.set(a)
 
         delete oWins[win.id]
         platform.port.message("tabs", {
@@ -85,14 +126,7 @@ goog.scope(function () {
         // TODO platform.windows.on.updateIndex
         array.each(platform.windows.getAll(), function (win) {
           assert(win.id in oWins)
-          var name = getWindowName(win)
-          if (win.name !== name) {
-            win.name = name
-            platform.port.message("tabs", {
-              "type": "window-renamed",
-              "value": addWin(win)
-            })
-          }
+          renameWin(win, getWindowName(win))
         })
       })
 
@@ -179,6 +213,8 @@ goog.scope(function () {
 
           } else if (type === "unload") {
 
+          } else if (type === "window-rename") {
+            renameWin(platform.windows.get(o["id"]), value)
 
           } else {
             fail()

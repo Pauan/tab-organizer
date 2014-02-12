@@ -8,6 +8,7 @@ goog.require("util.url")
 goog.require("util.math")
 goog.require("util.dom")
 goog.require("util.log")
+goog.require("util.string")
 goog.require("menus.tab")
 goog.require("ui.menu")
 goog.require("ui.group")
@@ -56,7 +57,9 @@ goog.scope(function () {
       , hour   = 60 * minute
       , day    = 24 * hour
 
+    // TODO this whole thing should probably be in util.date
     function getDate(t1, t2) {
+                    // TODO util.date
       var i1 = t1 - t1["getTimezoneOffset"]() * minute
         , i2 = t2 - t2["getTimezoneOffset"]() * minute
       i1 = math.floor(i1 / day)
@@ -109,6 +112,7 @@ goog.scope(function () {
       }*/
     }
 
+    // TODO util.date
     function midnight(x) {
       var t = new Date(x)
       t["setHours"](0)
@@ -120,8 +124,6 @@ goog.scope(function () {
 
     return function (f) {
       return {
-        hide: false,
-        rename: false,
         groupSort: function (x, y) {
           return x.id > y.id
         },
@@ -132,7 +134,9 @@ goog.scope(function () {
           var id = midnight(f(tab))
           return [{
             id: id,
-            name: cell.dedupe(getDate(new Date(id), new Date()))
+            // TODO update on midnight
+            name: cell.dedupe(getDate(new Date(id), new Date())),
+            rename: false
           }]
         }
       }
@@ -196,13 +200,15 @@ goog.scope(function () {
             return [{
               id: null,
               name: cell.dedupe(""),
-              index: null
+              index: null,
+              rename: false
             }]
           } else {
             return [{
               id: tab.active.window.id,
               name: tab.active.window.name,
-              index: tab.active.window.time.created
+              index: tab.active.window.time.created,
+              rename: true
             }]
           }
         }
@@ -224,10 +230,18 @@ goog.scope(function () {
         init: function (tab) {
           var r = []
           object.each(tab.groups, function (_, s) {
-            array.push(r, { id: s, name: cell.dedupe(s) })
+            array.push(r, {
+              id: s,
+              name: cell.dedupe(s),
+              rename: true
+            })
           })
           if (array.len(r) === 0) {
-            array.push(r, { id: "", name: cell.dedupe("") })
+            array.push(r, {
+              id: "",
+              name: cell.dedupe(""),
+              rename: false // TODO allow for renaming this...?
+            })
           }
           return r
         }
@@ -243,14 +257,22 @@ goog.scope(function () {
           return x.id <= y.id
         },
         tabSort: function (x, y) {
-          return x.info.title["toLocaleUpperCase"]() <= y.info.title["toLocaleUpperCase"]()
+          return util.string.upper(x.info.title) <= util.string.upper(y.info.title)
         },
         init: function (tab) {
           if (tab.title === "") {
-            return [{ id: "", name: cell.dedupe("") }]
+            return [{
+              id: "",
+              name: cell.dedupe(""),
+              rename: false
+            }]
           } else {
-            var s = tab.title[0]["toLocaleUpperCase"]()
-            return [{ id: s, name: cell.dedupe(s) }]
+            var s = util.string.upper(tab.title[0])
+            return [{
+              id: s,
+              name: cell.dedupe(s),
+              rename: false
+            }]
           }
         }
       },
@@ -261,7 +283,7 @@ goog.scope(function () {
           } else if (y.id === "chrome://") {
             return false
           } else {
-            return x.id["toLocaleUpperCase"]() <= y.id["toLocaleUpperCase"]()
+            return util.string.upper(x.id) <= util.string.upper(y.id)
           }
         },
         tabSort: function (x, y) {
@@ -282,7 +304,8 @@ goog.scope(function () {
           }
           return [{
             id: name,
-            name: cell.dedupe(name)
+            name: cell.dedupe(name),
+            rename: false
           }]
         }
       }

@@ -116,6 +116,10 @@ goog.scope(function () {
     return r
   }
 
+  platform.windows.get = function (id) {
+    return get(id)
+  }
+
   platform.windows.getAll = function () {
     assert(platform.windows.loaded.get(), "platform.windows.loaded")
     return aWins

@@ -50,6 +50,7 @@ goog.scope(function () {
     this.right = right
   }
   parse.Infix.prototype["toString"] = function () {
+    // TODO gross, should instead wrap in parens based on precedence
     if (this.op === " ") {
       return "(" + this.left + this.op + this.right + ")"
     } else {

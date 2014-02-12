@@ -4,6 +4,7 @@ goog.require("util.Symbol")
 goog.require("util.cell")
 goog.require("util.dom")
 goog.require("util.array")
+goog.require("util.log")
 goog.require("ui.animate")
 goog.require("ui.common")
 goog.require("ui.layout")
@@ -16,6 +17,8 @@ goog.scope(function () {
     , cell   = util.cell
     , dom    = util.dom
     , array  = util.array
+    , log    = util.log.log
+    , assert = util.log.assert
 
   var info = Symbol("info")
 
@@ -78,6 +81,8 @@ goog.scope(function () {
   }
 
   ui.group.make = function (sTitle, oGroup, f) {
+    assert(typeof oGroup.rename === "boolean")
+
     return dom.box(function (eTop) {
       eTop[info] = {}
 
@@ -92,9 +97,10 @@ goog.scope(function () {
       eTop.bind([opt.get("groups.layout")], function (layout) {
         eTop.styleObject(ui.layout.group, layout, true)
       })
-      eTop.bind([opt.get("groups.layout"), eTop.focused], function (layout, focused) {
+      // TODO why does this break group name renaming?
+      /*eTop.bind([opt.get("groups.layout"), eTop.focused], function (layout, focused) {
         eTop.styleObject(ui.layout.groupFocused, layout, focused)
-      })
+      })*/
 
       dom.box(function (e) {
         eTop[info].groupTop = e
@@ -114,14 +120,30 @@ goog.scope(function () {
             e.styleObject(ui.layout.groupTopInner, layout, true)
           })
 
-          dom.box(function (e) {
-            // TODO dom.style for this one
-            e.styles(dom.stretch, dom.clip)
+          var rename
+          if (oGroup.rename) {
+            rename = dom.textbox(function (e) {
+              // TODO dom.style for this one
+              e.styles(dom.stretch, dom.clip)
 
-            e.bind([sTitle], function (s) {
-              e.text(s)
-            })
-          }).move(e)
+              e.bind([sTitle], function (s) {
+                e.value.set(s)
+              })
+              e.event([e.changed], function (s) {
+                sTitle.set(s)
+              })
+            }).move(e)
+          } else {
+            rename = false
+            dom.box(function (e) {
+              // TODO dom.style for this one
+              e.styles(dom.stretch, dom.clip)
+
+              e.bind([sTitle], function (s) {
+                e.text(s)
+              })
+            }).move(e)
+          }
 
           menus.button.make(menus.group.menu, function () {
             var normal   = []
@@ -136,7 +158,11 @@ goog.scope(function () {
                 }
               }
             })
-            menus.group.state.set({ normal: normal, selected: selected })
+            menus.group.state.set({
+              normal: normal,
+              selected: selected,
+              rename: rename
+            })
           }).move(e)
         }).move(e)
       }).move(eTop)

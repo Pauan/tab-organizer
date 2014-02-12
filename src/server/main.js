@@ -1,3 +1,7 @@
+// TODO disable dragging a tab's favicon
+// TODO assertion failed with the search syntax `-is:selected`
+// TODO when serializing syntax errors in the search box, should wrap in parens according to the precedence. e.g. `foo:(bar|qux)` should serialize as `foo:(bar|qux)` but currently serializes as `foo:bar|qux`
+// TODO test that `foo:bar|qux` parses correctly, should be `(foo:bar) | qux`
 // TODO while typing in the search box, the text cursor gets messed up, probably has to do with the dual cell bind sync
 // TODO after focusing a tab in TO, it should then focus the popup
 // TODO animation for menu show/hide is screwed up

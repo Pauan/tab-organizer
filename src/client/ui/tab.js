@@ -199,8 +199,8 @@ goog.scope(function () {
 
         if (over) {
           ui.urlBar.currentURL.set({ mouseX:   over.mouseX
-                                   , mouseY:   over.mouseY
-                                   , location: oTab.location })
+                                    , mouseY:   over.mouseY
+                                    , location: oTab.location })
         } else {
           ui.urlBar.currentURL.set(null)
         }
@@ -256,8 +256,33 @@ goog.scope(function () {
       })
 
       e.bind([e.mouseover, dom.exclude(e.mousedown, close)], function (over, down) {
-        e.styleWhen(ui.common.click, over && down.left)
-        e.styleWhen(tabClickStyle,   over && down.left)
+        var b = (over && down.left)
+        e.styleWhen(ui.common.click, b)
+        e.styleWhen(tabClickStyle,   b)
+      })
+
+      e.drag({
+        threshold: 10,
+        start: function (info) {
+          var pos = e.getPosition()
+
+          e.styleWhen(util.dom.fixedPanel, true)
+          e.style(function (e) {
+            e.set("width", pos.width + "px")
+          })
+        },
+        move: function (info) {
+          e.style(function (e) {
+            e.set("top", (info.mouseY - info.halfY) + "px")
+          })
+        },
+        end: function () {
+          e.styleWhen(util.dom.fixedPanel, false)
+          e.style(function (e) {
+            e.set("width", "")
+            e.set("top", "")
+          })
+        }
       })
     })
   }

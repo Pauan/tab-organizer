@@ -13,6 +13,7 @@ goog.scope(function () {
     , object = util.object
     , assert = util.log.assert
     , fail   = util.log.fail
+    , log    = util.log.log
 
   var oTabs = {}
     , oWins = {}
@@ -41,7 +42,11 @@ goog.scope(function () {
 
   function addWindow(x) {
     var y = deserialize.window(x)
-    y.name = cell.dedupe(y.name)
+    y.name = cell.dedupe(y.name, {
+      set: function (self, x) {
+        port.message({ "type": "window-rename", "id": y.id, "value": x })
+      }
+    })
     oWins[y.id] = y
   }
 
@@ -88,9 +93,9 @@ goog.scope(function () {
         } else if (type === "updated") {
           var old = oTabs[y.id]
           assert(old != null)
-          tabs.on.updatedOld.set(old)
           addTab(y)
           tabs.on.updated.set(y)
+          tabs.on.updatedOld.set(old)
 
         } else if (type === "moved") {
           addTab(y)

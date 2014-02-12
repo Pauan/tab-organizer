@@ -5,6 +5,7 @@ goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.math")
+goog.require("util.string")
 goog.require("opt")
 goog.require("cache")
 goog.require("lib.options")
@@ -515,8 +516,7 @@ goog.scope(function () {
             lib.options.textbox(e, "popup.hotkey.letter", {
               width: "2em",
               set: function (x) {
-                // TODO util.string
-                return x["toUpperCase"]()
+                return util.string.upper(x)
               }
             })
           }).move(e)
@@ -607,8 +607,7 @@ goog.scope(function () {
                     e.styles(popupPopupText)
 
                     e.bind([opt.get("popup.type")], function (type) {
-                      // TODO util.string
-                      e.text(type["toLocaleUpperCase"]()) // TODO use normal upper-case?
+                      e.text(util.string.upper(type))
                     })
                   }).move(e)
                 }).move(e)
