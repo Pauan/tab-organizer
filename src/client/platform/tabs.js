@@ -147,6 +147,11 @@ goog.scope(function () {
     port.message({ "type": "unload", "value": getIds(a) })
   }
 
+  tabs.move = function (a, i) {
+    assert(tabs.loaded.get(), "tabs")
+    port.message({ "type": "move", "value": getIds(a), "index": i })
+  }
+
   tabs.select = function (a) {
     if (array.len(a)) {
       array.each(a, function (x) {

@@ -158,6 +158,12 @@ goog.scope(function () {
     return ids[i]
   }
 
+  function getAll(a) {
+    return array.map(a, function (i) {
+      return get(i)[_id]
+    })
+  }
+
   platform.windows.maximize = function (id) {
     windows["update"](get(id)[_id], { "state": "maximized" })
   }
@@ -166,9 +172,7 @@ goog.scope(function () {
    * @param {!Array.<number>} a
    */
   platform.tabs.close = function (a) {
-    tabs["remove"](array.map(a, function (i) {
-      return get(i)[_id]
-    }))
+    tabs["remove"](getAll(a))
   }
 
   // TODO update an existing New Tab page, if it exists ?
@@ -184,6 +188,14 @@ goog.scope(function () {
     }, function (o) {
       log("1", o)
     })
+  }
+
+  /**
+   * @param {!Array.<number>} a
+   * @param {number} index
+   */
+  platform.tabs.move = function (a, index) {
+    tabs["move"](getAll(a), { "index": index })
   }
 
   /**

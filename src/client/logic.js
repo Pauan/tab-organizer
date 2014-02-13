@@ -128,7 +128,8 @@ goog.scope(function () {
           return x.id > y.id
         },
         tabSort: function (x, y) {
-          return f(x.info) > f(y.info)
+          return f(x[ui.tab.info].get()) >=
+                 f(y[ui.tab.info].get())
         },
         init: function (tab) {
           var id = midnight(f(tab))

@@ -211,6 +211,9 @@ goog.scope(function () {
           } else if (type === "focus") {
             platform.tabs.focus(value)
 
+          } else if (type === "move") {
+            platform.tabs.move(value, o["index"])
+
           } else if (type === "unload") {
 
           } else if (type === "window-rename") {

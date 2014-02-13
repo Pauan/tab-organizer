@@ -4,6 +4,7 @@ goog.require("util.Symbol")
 goog.require("util.dom")
 goog.require("util.array")
 goog.require("util.log")
+goog.require("util.cell")
 goog.require("ui.urlBar")
 goog.require("ui.common")
 goog.require("ui.animate")
@@ -15,8 +16,9 @@ goog.scope(function () {
     , dom    = util.dom
     , array  = util.array
     , log    = util.log.log
+    , cell   = util.cell
 
-  var fn = Symbol("fn")
+  ui.tab.info = Symbol("info")
 
   var hiddenTab = ui.animate.object({
     //transform: "scale(0)",
@@ -119,8 +121,8 @@ goog.scope(function () {
                                       dom.hsl(0, 0,  80, 0.75)], " "))
   })
 
-  ui.tab.update = function (e, oTab) {
-    e[fn](oTab)
+  ui.tab.update = function (e, x) {
+    e[ui.tab.info].set(x)
   }
 
   ui.tab.show = function (e, i) {
@@ -136,8 +138,13 @@ goog.scope(function () {
     })
   }
 
-  ui.tab.make = function (oTab, oGroup, fClick) {
+  ui.tab.dragging = cell.value(false)
+
+  ui.tab.make = function (oInfo, oGroup, fClick) {
+    oInfo = cell.value(oInfo)
     return dom.box(function (e) {
+      e[ui.tab.info] = oInfo
+
       e.styles(tabStyle)
 
       /*e.background(function (t) {
@@ -177,63 +184,61 @@ goog.scope(function () {
         // TODO this is behavior, so should be abstracted out into logic
         e.event([e.mouseclick], function (click) {
           if (click.left) {
-            tabs.close([oTab])
+            tabs.close([oInfo.get()])
           }
         })
       })
 
-      function mouseover(over) {
-        e.styleWhen(ui.common.hover, over)
-        e.styleWhen(tabHoverStyle, over)
-
-        e.styleWhen(tabInactiveHoverStyle, oTab.active == null && over)
-        e.styleWhen(tabInactiveStyle,      oTab.active == null && !over)
-
-        // TODO a bit hacky
-        // TODO inefficient
-        var isFocused = (oTab.active != null &&
-                         oTab.active.focused &&
-                         opt.get("group.sort.type").get() === "window")
-        e.styleWhen(tabFocusedStyle, isFocused)
-        e.styleWhen(tabFocusedHoverStyle, isFocused && over)
-
-        if (over) {
-          ui.urlBar.currentURL.set({ mouseX:   over.mouseX
-                                    , mouseY:   over.mouseY
-                                    , location: oTab.location })
-        } else {
-          ui.urlBar.currentURL.set(null)
-        }
-      }
-
-      e[fn] = function (tab) {
+      // TODO about half of this stuff only needs to change when oInfo changes
+      function mouseover(over, tab) {
         // TODO is this correct ?
+        /*
         if (oGroup.previouslySelected === oTab.id) {
           oGroup.previouslySelected = tab.id
-        }
-        oTab = tab
+        }*/
 
         // TODO setTimeout is necessary to avoid a crash in Chrome
         setTimeout(function () {
           favicon.src("chrome://favicon/" + tab.url)
         }, 0)
 
-        favicon.styleWhen(faviconInactiveStyle, oTab.active == null)
-        e.styleWhen(tabSelectedStyle, oTab.selected)
+        favicon.styleWhen(faviconInactiveStyle, tab.active == null)
+        e.styleWhen(tabSelectedStyle, tab.selected)
 
-        if (oTab.active != null) {
-          text.text(oTab.title)
+        if (tab.active != null) {
+          text.text(tab.title)
         } else {
-          text.text("➔ " + oTab.title)
+          text.text("➔ " + tab.title)
         }
-        text.title(oTab.title)
+        text.title(tab.title)
 
-        mouseover(e.mouseover.get())
+
+        e.styleWhen(ui.common.hover, over)
+        e.styleWhen(tabHoverStyle, over)
+
+        e.styleWhen(tabInactiveHoverStyle, tab.active == null && over)
+        e.styleWhen(tabInactiveStyle,      tab.active == null && !over)
+
+        // TODO a bit hacky
+        // TODO inefficient
+        var isFocused = (tab.active != null &&
+                         tab.active.focused &&
+                         opt.get("group.sort.type").get() === "window")
+        e.styleWhen(tabFocusedStyle, isFocused)
+        e.styleWhen(tabFocusedHoverStyle, isFocused && over)
+
+        if (over) {
+          ui.urlBar.currentURL.set({ mouseX:   over.mouseX
+                                   , mouseY:   over.mouseY
+                                   , location: tab.location })
+        } else {
+          ui.urlBar.currentURL.set(null)
+        }
       }
-      e[fn](oTab)
 
       e.event([dom.exclude(e.mouseclick, close)], function (click) {
-        fClick(oTab, oGroup, click)
+               // TODO
+        fClick(oInfo.get(), oGroup, click)
       })
 
       e.bind([opt.get("tabs.close.location")], function (location) {
@@ -248,8 +253,6 @@ goog.scope(function () {
         }
       })
 
-      e.event([e.mouseover], mouseover)
-
       e.bind([e.mouseover, opt.get("tabs.close.display")], function (over, display) {
         close.visible.set(display === "every" ||
                           display === "hover" && over)
@@ -261,25 +264,79 @@ goog.scope(function () {
         e.styleWhen(tabClickStyle,   b)
       })
 
+      // TODO slightly inefficient ...?
+      e.bind([e.mouseover, oInfo, ui.tab.dragging], function (over, tab, drag) {
+        if (drag) {
+          // TODO ew
+          if (e !== drag.tabs[0]) {
+            mouseover(false, tab)
+          }
+          if (over) {
+            var s = e.compare(drag.tabs[0])
+            if (s === "before") {
+              array.each(drag.tabs, function (x) {
+                x.style(function (e) {
+                  e.set("top", "")
+                })
+                x.moveBefore(e.parent(), e)
+              })
+              drag.info = oInfo
+              drag.position = drag.tabs[0].getPosition()
+
+            } else if (s === "after") {
+              array.each(drag.tabs, function (x) {
+                x.style(function (e) {
+                  e.set("top", "")
+                })
+                x.moveAfter(e.parent(), e)
+              })
+              drag.info = oInfo
+              drag.position = drag.tabs[0].getPosition()
+            }
+          }
+        } else {
+          mouseover(over, tab)
+        }
+      })
+
+      var groupType = opt.get("group.sort.type")
+        , dragging  = null
+
       e.drag({
         threshold: 10,
-        start: function (info) {
-          var pos = e.getPosition()
+        when: function () {
+          var s = groupType.get()
+          return s === "window" || s === "group"
+        },
+        start: function () {
+          dragging = {
+            tabs: [e],
+            info: oInfo,
+            position: e.getPosition()
+          }
+          ui.tab.dragging.set(dragging)
 
-          e.styleWhen(util.dom.fixedPanel, true)
-          e.style(function (e) {
-            e.set("width", pos.width + "px")
-          })
+          //e.styleWhen(util.dom.fixedPanel, true)
+          /*e.style(function (e) {
+          })*/
         },
         move: function (info) {
           e.style(function (e) {
-            e.set("top", (info.mouseY - info.halfY) + "px")
+            e.set("top", (info.mouseY - info.halfY - dragging.position.top) + "px")
           })
         },
         end: function () {
-          e.styleWhen(util.dom.fixedPanel, false)
+          var info = dragging.info.get()
+          tabs.move(array.map(dragging.tabs, function (x) {
+            return x[ui.tab.info].get()
+          }), info.active.index)
+
+          dragging = null
+          ui.tab.dragging.set(false)
+
+          //e.styleWhen(util.dom.fixedPanel, false)
           e.style(function (e) {
-            e.set("width", "")
+            //e.set("width", "")
             e.set("top", "")
           })
         }

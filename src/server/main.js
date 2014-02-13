@@ -1,3 +1,4 @@
+// TODO when starting to rename a group, it should select all the text in the textbox, like in TO 4
 // TODO disable dragging a tab's favicon
 // TODO assertion failed with the search syntax `-is:selected`
 // TODO when serializing syntax errors in the search box, should wrap in parens according to the precedence. e.g. `foo:(bar|qux)` should serialize as `foo:(bar|qux)` but currently serializes as `foo:bar|qux`

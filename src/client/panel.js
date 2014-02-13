@@ -26,8 +26,6 @@ goog.scope(function () {
   var searchHeight = 23
 
   dom.initialize(function (e) {
-    e.stopDragging()
-
     //e.clip()
 
     /*e.width("100%")
