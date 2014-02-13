@@ -18,7 +18,7 @@ goog.scope(function () {
     , log    = util.log.log
     , cell   = util.cell
 
-  ui.tab.info = Symbol("info")
+  var info = Symbol("info")
 
   var hiddenTab = ui.animate.object({
     //transform: "scale(0)",
@@ -122,7 +122,7 @@ goog.scope(function () {
   })
 
   ui.tab.update = function (e, x) {
-    e[ui.tab.info].set(x)
+    e[info].set(x)
   }
 
   ui.tab.show = function (e, i) {
@@ -143,7 +143,7 @@ goog.scope(function () {
   ui.tab.make = function (oInfo, oGroup, fClick) {
     oInfo = cell.value(oInfo)
     return dom.box(function (e) {
-      e[ui.tab.info] = oInfo
+      e[info] = oInfo
 
       e.styles(tabStyle)
 
@@ -326,10 +326,10 @@ goog.scope(function () {
           })
         },
         end: function () {
-          var info = dragging.info.get()
+          var oInfo = dragging.info.get()
           tabs.move(array.map(dragging.tabs, function (x) {
-            return x[ui.tab.info].get()
-          }), info.active.index)
+            return x[info].get()
+          }), oInfo.active.index)
 
           dragging = null
           ui.tab.dragging.set(false)

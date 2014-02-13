@@ -1,6 +1,7 @@
 goog.provide("logic")
 
 goog.require("platform.manifest")
+goog.require("util.Symbol")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
@@ -28,7 +29,10 @@ goog.scope(function () {
     , log      = util.log.log
     , assert   = util.log.assert
     , fail     = util.log.fail
+    , Symbol   = util.Symbol
     , manifest = platform.manifest
+
+  var info = Symbol("info")
 
   util.dom.title(manifest.get("name"))
 
@@ -128,8 +132,7 @@ goog.scope(function () {
           return x.id > y.id
         },
         tabSort: function (x, y) {
-          return f(x[ui.tab.info].get()) >=
-                 f(y[ui.tab.info].get())
+          return f(x[info]) >= f(y[info])
         },
         init: function (tab) {
           var id = midnight(f(tab))
@@ -151,27 +154,12 @@ goog.scope(function () {
     }
   }
 
-  function moveElement(e, a, o, index) {
-    var x = a[index + 1]
-    o.element.moveBefore(e, x && x.element)
-  }
-
-  function insertElement(e, a, o, sort) {
-    moveElement(e, a, o, array.insertSorted(a, o, sort))
-  }
-
   // TODO generic utility
   function setNew(o, k, f) {
     if (o[k] == null) {
       o[k] = f()
     }
     return o[k]
-  }
-
-  function removeElement(x) {
-    if (x != null) {
-      ui.tab.hide(x, 1)
-    }
   }
 
   logic.initialize = function (e) {
@@ -187,8 +175,8 @@ goog.scope(function () {
           }
         },
         tabSort: function (x, y) {
-          x = x.info
-          y = y.info
+          x = x[info]
+          y = y[info]
           if (x.active && y.active) {
             return x.active.index <= y.active.index
           } else {
@@ -226,7 +214,7 @@ goog.scope(function () {
         },
         // TODO should sort by time added to the group
         tabSort: function (x, y) {
-          return x.info.time.created >= y.info.time.created
+          return x[info].time.created >= y[info].time.created
         },
         init: function (tab) {
           var r = []
@@ -258,7 +246,7 @@ goog.scope(function () {
           return x.id <= y.id
         },
         tabSort: function (x, y) {
-          return util.string.upper(x.info.title) <= util.string.upper(y.info.title)
+          return util.string.upper(x[info].title) <= util.string.upper(y[info].title)
         },
         init: function (tab) {
           if (tab.title === "") {
@@ -288,7 +276,7 @@ goog.scope(function () {
           }
         },
         tabSort: function (x, y) {
-          return x.info.url <= y.info.url
+          return x[info].url <= y[info].url
           // TODO pretty inefficient
           // return url.printURI(url.simplify(x.info.location)) < url.printURI(url.simplify(y.info.location))
         },
@@ -341,8 +329,7 @@ goog.scope(function () {
         var o = group.oTabs[tab.id]
         if (o != null && f(group)) {
           delete group.oTabs[tab.id]
-          array.remove(group.aTabs, o)
-          ui.tab.hide(o.element, 1)
+          removeTabFrom(o, group)
 
           if (array.len(group.aTabs) === 0) {
             log(group.id)
@@ -369,15 +356,15 @@ goog.scope(function () {
         var visible = false
 
         array.each(group.aTabs, function (x) {
-          x.info.visible = (f === false || f(x.info))
-          x.element.visible.set(x.info.visible)
-          if (x.info.visible) {
-            if (!seen[x.info.id]) {
+          x[info].visible = (f === false || f(x[info]))
+          x.visible.set(x[info].visible)
+          if (x[info].visible) {
+            if (!seen[x[info].id]) {
               ++iTabs
             }
             visible = true
           }
-          seen[x.info.id] = true
+          seen[x[info].id] = true
         })
 
         if (visible) {
@@ -406,7 +393,11 @@ goog.scope(function () {
           o.element = ui.group.make(o.name, o, function (e) {
             o.tabList = e
           })
-          insertElement(e, aGroups, o, sort.groupSort)
+
+          var a     = aGroups
+          var index = array.insertSorted(a, o, sort.groupSort)
+          o.element.moveBefore(e, a[index + 1])
+
           if (animate) {
             ui.group.show(o.element, 1)
           }
@@ -420,8 +411,8 @@ goog.scope(function () {
       delete oGroup.previouslySelected
       var r = []
       array.each(oGroup.aTabs, function (x) {
-        if (x.info.selected) {
-          array.push(r, x.info)
+        if (x[info].selected) {
+          array.push(r, x[info])
         }
       })
       tabs.deselect(r)
@@ -453,7 +444,7 @@ goog.scope(function () {
               , aNo   = []
             array.each(oGroup.aTabs, function (x) {
               // TODO what if previouslySelected is oTab?
-              var i = x.info.id
+              var i = x[info].id
                 , b = (i === oTab.id || i === oGroup.previouslySelected)
 
                        // TODO inefficient
@@ -462,12 +453,12 @@ goog.scope(function () {
               }
 
               if (b || start) {
-                if (!x.info.selected) {
-                  array.push(aYes, x.info)
+                if (!x[info].selected) {
+                  array.push(aYes, x[info])
                 }
               } else {
-                if (x.info.selected) {
-                  array.push(aNo, x.info)
+                if (x[info].selected) {
+                  array.push(aNo, x[info])
                 }
               }
             })
@@ -507,10 +498,10 @@ goog.scope(function () {
         var a
         if (oTab.selected) {
           a = array.filter(oGroup.aTabs, function (x) {
-            return x.info.selected
+            return x[info].selected
           })
           a = array.map(a, function (x) {
-            return x.info
+            return x[info]
           })
           assert(!!array.len(a))
           assert(array.indexOf(a, oTab) !== -1)
@@ -535,56 +526,65 @@ goog.scope(function () {
     }
 
 
+    function addTabTo(sort, tab, group, animate) {
+      var o = makeTab(tab, group)
+      o[info] = tab
+      group.oTabs[tab.id] = o
+
+      var a     = group.aTabs
+      var index = array.insertSorted(a, o, sort)
+      o.moveBefore(group.tabList, a[index + 1])
+
+      if (animate) {
+        ui.tab.show(o, 1)
+      }
+    }
+
+    function removeTabFrom(tab, group) {
+      array.remove(group.aTabs, tab)
+      ui.tab.hide(tab, 1)
+    }
+
     function addTab(e, tab, animate) {
       var sort = groupSort.get().tabSort
       addGroups(e, tab, animate, function (group) {
-        setNew(group.oTabs, tab.id, function () {
-          var o = {
-            info: tab,
-            element: makeTab(tab, group)
-          }
-          insertElement(group.tabList, group.aTabs, o, sort)
-          if (animate) {
-            ui.tab.show(o.element, 1)
-          }
-          return o
-        })
+        assert(!(tab.id in group.oTabs))
+        addTabTo(sort, tab, group, animate)
       })
     }
 
-    function updateTab(e, tab, animate) {
+    function updateTab(e, tab) {
       var sort = groupSort.get().tabSort
 
       var seen = {}
-      addGroups(e, tab, animate, function (group) {
+      addGroups(e, tab, true, function (group) {
         seen[group.id] = true
 
-        var o = setNew(group.oTabs, tab.id, function () {
-          return {}
-        })
+        var old = group.oTabs[tab.id]
+        if (old != null) {
+          assert(old[info].id === tab.id)
 
-        var old = o.element
+          var b = (old[info].url      === tab.url &&
+                   !!old[info].active === !!tab.active)
 
-        var b = (old             != null &&
-                 o.info          != null &&
-                 o.info.url      === tab.url &&
-                 !!o.info.active === !!tab.active)
+          old[info] = tab
 
-        o.info = tab
+          // Doesn't move the tab, just updates in place
+          if (b && array.isElementSorted(group.aTabs, old, sort)) {
+            ui.tab.update(old, old[info])
 
-        if (b && array.isElementSorted(group.aTabs, o, sort)) {
-          ui.tab.update(old, o.info)
-        } else {
-          o.element = makeTab(o.info, group)
-          // TODO inefficient
-          array.remove(group.aTabs, o)
-          insertElement(group.tabList, group.aTabs, o, sort)
-          removeElement(old)
-          if (animate) {
-            ui.tab.show(o.element, 1)
+          // Moves the tab
+          } else {
+            removeTabFrom(old, group)
+            addTabTo(sort, tab, group, true)
           }
+
+        } else {
+          // Adds the tab
+          addTabTo(sort, tab, group, true)
         }
       })
+
       removeTabIf(tab, function (group) {
         return !(group.id in seen)
       })
@@ -596,9 +596,8 @@ goog.scope(function () {
       array.each(aGroups, function (group) {
         var o = group.oTabs[tab.id]
         if (o != null) {
-          assert(o.element != null)
-          o.info = tab
-          ui.tab.update(o.element, o.info)
+          o[info] = tab
+          ui.tab.update(o, o[info])
         }
       })
     }
@@ -633,7 +632,7 @@ goog.scope(function () {
         addTab(e, x, true)
       }
       function update(x) {
-        updateTab(e, x, true)
+        updateTab(e, x)
       }
       function updateRaw(x) {
         updateWithoutMoving(x)
