@@ -194,8 +194,11 @@ goog.scope(function () {
    * @param {!Array.<number>} a
    * @param {number} index
    */
-  platform.tabs.move = function (a, index) {
-    tabs["move"](getAll(a), { "index": index })
+  platform.tabs.move = function (a, index, win) {
+    tabs["move"](getAll(a), {
+      "index": index,
+      "windowId": get(win)[_id]
+    })
   }
 
   /**
@@ -379,7 +382,8 @@ goog.scope(function () {
           var win = tab.window
           assert(win != null)
 
-          delete tab.window
+          // TODO remove all the checks that see if tab.window is null or not ?
+          //delete tab.window
 
           assert(win[_id] === info["oldWindowId"])
           assert(tab.index === info["oldPosition"])

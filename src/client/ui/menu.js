@@ -271,7 +271,8 @@ goog.scope(function () {
     o.moveBefore = function (x) {
       // TODO is this correct?
       if (x) {
-        e.moveBefore(eParent[element], x[element])
+        // eParent[element]
+        e.moveBefore(x[element])
       } else {
         e.move(eParent[element])
       }

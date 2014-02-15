@@ -1,3 +1,5 @@
+// TODO in TO, move a tab into a different window, then move it back to the old window, assertion failed
+// TODO create a window with a single tab, (in TO) move the tab into another window, there is now an empty group
 // TODO when starting to rename a group, it should select all the text in the textbox, like in TO 4
 // TODO disable dragging a tab's favicon
 // TODO assertion failed with the search syntax `-is:selected`

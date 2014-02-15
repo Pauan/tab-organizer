@@ -212,7 +212,7 @@ goog.scope(function () {
             platform.tabs.focus(value)
 
           } else if (type === "move") {
-            platform.tabs.move(value, o["index"])
+            platform.tabs.move(value, o["index"], o["window"])
 
           } else if (type === "unload") {
 

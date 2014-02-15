@@ -1,14 +1,14 @@
 #! /usr/bin/env node
 
-var exec = require("child_process").exec
-  , fs   = require("fs")
-  , path = require("path")
+var spawn = require("child_process").spawn
+  , fs    = require("fs")
+  , path  = require("path")
 
 var LIBDIR     = "lib"
   , INDIR      = "src"
   , OUTDIR     = "build"
   , debug      = true
-  , prettified = true
+  , prettified = false
 
 function getFilesInDir(p) {
   var r = []
@@ -28,9 +28,12 @@ function getFilesInDir(p) {
 var libs = getFilesInDir(LIBDIR)
 
 function getFiles(name) {
-  return getFilesInDir(path.join(INDIR, name)).concat(libs).map(function (x) {
-    return "--js '" + x + "'"
+  var r = []
+  getFilesInDir(path.join(INDIR, name)).concat(libs).map(function (x) {
+    r.push("--js")
+    r.push(x)
   })
+  return r
 }
 
 function mkdir(name) {
@@ -43,106 +46,115 @@ function mkdir(name) {
   }
 }
 
-function build(folder, name, file) {
+function build() {
   mkdir(path.join(OUTDIR, "gsap"))
   mkdir(path.join(OUTDIR, "js"))
   mkdir(path.join(OUTDIR, "map"))
 
-  var sourcemap = path.join(OUTDIR,  "map", file + ".map")
+  var commands = [].map.call(arguments, function (a) {
+    var folder = a[0]
+      , name   = a[1]
+      , file   = a[2]
 
-  var command = ["java", "-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(folder))
-  command.push("--only_closure_dependencies")
-  command.push("--closure_entry_point='" + name + "'")
-  command.push("--js_output_file='" + path.join(OUTDIR, "js", file) + "'")
-  command.push("--define='util.log.DEBUG=" + debug + "'")
-  command.push("--externs='extern.js'")
-  command.push("--use_types_for_optimization")
-  command.push("--compilation_level=ADVANCED_OPTIMIZATIONS")
-  command.push("--use_only_custom_externs")
-  //--process_closure_primitives
-  /*if (uncompiled) {
-    command.push("--compiler_flags=--output_manifest='" + deps + ".deps'")
-  }*/
-  if (prettified) {
-    command.push("--debug")
-    command.push("--formatting=PRETTY_PRINT")
-  }
-  if (debug) {
-    ;[//"reportUnknownTypes",
-      "accessControls",
-      "ambiguousFunctionDecl",
-      "checkEventfulObjectDisposal",
-      "checkRegExp",
-      "checkStructDictInheritance",
-      "checkTypes",
-      "checkVars",
-      "const",
-      "constantProperty",
-      "deprecated",
-      "duplicateMessage",
-      "es3",
-      "es5Strict",
-      "externsValidation",
-      "fileoverviewTags",
-      "globalThis",
-      "internetExplorerChecks",
-      "invalidCasts",
-      "misplacedTypeAnnotation",
-      "missingProperties",
-      "missingProvide",
-      "missingRequire",
-      "missingReturn",
-      "nonStandardJsDocs",
-      "suspiciousCode",
-      "strictModuleDepCheck",
-      "typeInvalidation",
-      "undefinedNames",
-      "undefinedVars",
-      "unknownDefines",
-      "uselessCode",
-      "visibility"].forEach(function (x) {
-      command.push("--jscomp_warning=" + x)
-    })
-    command.push("--summary_detail_level=3")
-    //command.push("--warning_level=VERBOSE")
-    //command.push("--output_manifest manifest.MF")
+    var sourcemap = path.join(OUTDIR,  "map", file + ".map")
 
-    command.push("--create_source_map='" + sourcemap + "'")
-    command.push("--source_map_format=V3")
-    command.push("--output_wrapper='%output%//# sourceMappingURL=../map/" + file + ".map'")
-  }
-
-  exec(command.join(" "), function (error, stdout, stderr) {
-    if (error) {
-      throw error
+    var command = ["-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(folder))
+    //command.push("--process_closure_primitives")
+    command.push("--only_closure_dependencies")
+    command.push("--closure_entry_point", name)
+    command.push("--js_output_file", path.join(OUTDIR, "js", file))
+    command.push("--define", "util.log.DEBUG=" + debug)
+    command.push("--externs", "extern.js")
+    command.push("--use_types_for_optimization")
+    command.push("--compilation_level", "ADVANCED_OPTIMIZATIONS")
+    command.push("--use_only_custom_externs")
+    if (prettified) {
+      command.push("--debug")
+      command.push("--formatting", "PRETTY_PRINT")
     }
     if (debug) {
-      //console.log(stdout)
-      console.log(stderr)
+      ;[//"reportUnknownTypes",
+        "accessControls",
+        "ambiguousFunctionDecl",
+        "checkEventfulObjectDisposal",
+        "checkRegExp",
+        "checkStructDictInheritance",
+        "checkTypes",
+        "checkVars",
+        "const",
+        "constantProperty",
+        "deprecated",
+        "duplicateMessage",
+        "es3",
+        "es5Strict",
+        "externsValidation",
+        "fileoverviewTags",
+        "globalThis",
+        "internetExplorerChecks",
+        "invalidCasts",
+        "misplacedTypeAnnotation",
+        "missingProperties",
+        "missingProvide",
+        "missingRequire",
+        "missingReturn",
+        "nonStandardJsDocs",
+        "suspiciousCode",
+        "strictModuleDepCheck",
+        "typeInvalidation",
+        "undefinedNames",
+        "undefinedVars",
+        "unknownDefines",
+        "uselessCode",
+        "visibility"].forEach(function (x) {
+          command.push("--jscomp_warning", x)
+        })
+      command.push("--summary_detail_level", "3")
+      //command.push("--warning_level", "VERBOSE")
+      //command.push("--output_manifest", "manifest.MF")
+
+      command.push("--create_source_map", sourcemap)
+      command.push("--source_map_format", "V3")
+      command.push("--output_wrapper", "%output%\n//# sourceMappingURL=../map/" + file + ".map")
     }
 
-    /*if (uncompiled) {
-      // Generate HTML file for non-compiled usage
-      var x = fs.readFileSync(deps + ".deps", { encoding: "utf8" })
-      x = x.replace(/^src\/(.*)$/gm, "    <script src=\"$1\"></script>")
-      x = "<!DOCTYPE html>\n<html>\n  <head>\n    <meta charset=\"utf-8\" />\n  </head>\n  <body>\n" + x + "  </body>\n</html>"
-      fs.writeFileSync(deps + ".html", x)
-      fs.unlinkSync(deps + ".deps")
-    }*/
+    return {
+      command: command,
+      sourcemap: sourcemap
+    }
+  })
 
-    if (debug) {
-      // Add "sourcesContent" to source map
-      var y = JSON.parse(fs.readFileSync(sourcemap, { encoding: "utf8" }))
-      y["sourceRoot"] = "../"
-      y["sourcesContent"] = y["sources"].map(function (x) {
-        return fs.readFileSync(x, { encoding: "utf8" })
+  commands.forEach(function (info) {
+    setTimeout(function () {
+      var io = spawn("java", info.command, { stdio: "inherit" })
+
+      /*io.stdout.on("data", function (data) {
+        console.log("stdout: " + data)
       })
-      fs.writeFileSync(sourcemap, JSON.stringify(y))
-    }
+
+      io.stderr.on("data", function (data) {
+        console.log("stderr: " + data)
+      })*/
+
+      io.on("exit", function (code) {
+        if (code !== 0) {
+          console.log("exited with code " + code)
+        }
+
+        if (debug) {
+          // Add "sourcesContent" to source map
+          var y = JSON.parse(fs.readFileSync(info.sourcemap, { encoding: "utf8" }))
+          y["sourceRoot"] = "../"
+          y["sourcesContent"] = y["sources"].map(function (x) {
+            return fs.readFileSync(x, { encoding: "utf8" })
+          })
+          fs.writeFileSync(info.sourcemap, JSON.stringify(y))
+        }
+      })
+    }, 0)
   })
 }
 
 
-build("server", "main",    "main.js")
-build("client", "panel",   "panel.js")
-build("client", "options", "options.js")
+build(["server", "main",    "main.js"],
+      ["client", "panel",   "panel.js"],
+      ["client", "options", "options.js"])

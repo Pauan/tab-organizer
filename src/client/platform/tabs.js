@@ -147,9 +147,9 @@ goog.scope(function () {
     port.message({ "type": "unload", "value": getIds(a) })
   }
 
-  tabs.move = function (a, i) {
+  tabs.move = function (a, i, win) {
     assert(tabs.loaded.get(), "tabs")
-    port.message({ "type": "move", "value": getIds(a), "index": i })
+    port.message({ "type": "move", "value": getIds(a), "index": i, "window": win })
   }
 
   tabs.select = function (a) {
