@@ -69,6 +69,9 @@ goog.scope(function () {
 
         "broken": (function () {
           // TODO are these still valid ?
+          /**
+           * @type {!Array.<!RegExp>}
+           */
           var r = [/^404 Not Found$/,
                    /^Oops! (?:Google Chrome could not |This link appears to be broken)/,
                    / is not available$/,

@@ -157,7 +157,6 @@ goog.scope(function () {
           send("removed", old)
         }
       }
-
       cell.event([platform.tabs.on.created], onCreated)
       cell.event([platform.tabs.on.updated], onCreated)
 

@@ -152,27 +152,26 @@ goog.scope(function () {
     port.message({ "type": "move", "value": getIds(a), "index": i, "window": win })
   }
 
-  tabs.select = function (a) {
-    if (array.len(a)) {
+  function makeSelector(oCell, b) {
+    return function (a) {
+      assert(!!array.len(a))
+      var seen = false
       array.each(a, function (x) {
-        x.selected = true
-        tabs.on.selected.set(x)
+        if (!!x.selected !== b) {
+          x.selected = b
+          oCell.set(x)
+          seen = true
+        }
       })
-      tabs.all.set(tabs.all.get())
+      if (seen) {
+        tabs.all.set(tabs.all.get())
+      }
       //port.message({ "type": "select", "value": getIds(a) })
     }
   }
 
-  tabs.deselect = function (a) {
-    if (array.len(a)) {
-      array.each(a, function (x) {
-        delete x.selected
-        tabs.on.deselected.set(x)
-      })
-      tabs.all.set(tabs.all.get())
-      //port.message({ "type": "deselect", "value": getIds(a) })
-    }
-  }
+  tabs.select   = makeSelector(tabs.on.selected,   true)
+  tabs.deselect = makeSelector(tabs.on.deselected, false)
 
   tabs.addToGroup = function (s, a) {
     assert(!!array.len(a))

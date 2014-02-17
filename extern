@@ -1,0 +1,37 @@
+/** @const @dict @type {function (new:SyntaxError, *=, *=, *=): SyntaxError} */
+function SyntaxError() {}
+
+
+/** @const @dict */
+var chrome = {}
+
+/** @const @dict */
+var localStorage = {}
+
+/** @const @dict */
+var window = {}
+
+/** @const @dict */
+var TweenLite = {}
+
+/** @const @dict */
+var Power3 = {}
+
+
+/** @const */
+function alert(x) {}
+
+/** @const */
+function setTimeout(f, i) {}
+
+/** @const */
+function clearTimeout(i) {}
+
+/** @const */
+function decodeURIComponent(x) {}
+
+/** @const */
+function prompt(x, y) {}
+
+/** @const */
+function confirm(x) {}

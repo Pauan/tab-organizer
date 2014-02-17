@@ -1,14 +1,15 @@
 goog.provide("options")
 goog.provide("space")
 
+goog.require("platform.manifest")
 goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.math")
 goog.require("util.string")
+goog.require("util.options")
 goog.require("opt")
 goog.require("cache")
-goog.require("lib.options")
 
 goog.scope(function () {
   var dom  = util.dom
@@ -36,6 +37,8 @@ goog.scope(function () {
     , dom   = util.dom
     , array = util.array
     , math  = util.math
+
+  dom.title(platform.manifest.get("name") + " - Options")
 
   var changes = {
     screenBackground: dom.hsl(211, 13, 55),
@@ -145,7 +148,7 @@ goog.scope(function () {
   var controls = []
 
   cell.when(cell.and(opt.loaded, cache.loaded), function () {
-    lib.options.initialize({
+    util.options.initialize({
       get: function (s) {
         return opt.get(s)
       },
@@ -282,19 +285,19 @@ goog.scope(function () {
       })
 
 
-      lib.options.category(e, "Theme", function (e) {
-        lib.options.checkbox(e, "theme.animation", {
+      util.options.category(e, "Theme", function (e) {
+        util.options.checkbox(e, "theme.animation", {
           text: "Animation enabled"
         })
 
-        lib.options.separator(e)
+        util.options.separator(e)
 
         dom.box(function (e) {
           e.styles(dom.horiz)
 
           e.addText("Color... ")
 
-          lib.options.list(e, "theme.color", {
+          util.options.list(e, "theme.color", {
             items: [{
               group: "Color",
               items: [
@@ -353,7 +356,7 @@ goog.scope(function () {
             })
 
             cell(e, function (e) {
-              lib.options.textbox(e, "theme.hue", {
+              util.options.textbox(e, "theme.hue", {
                 width: "2.5em",
                 // 480  = 120
                 // 20   = 20
@@ -381,7 +384,7 @@ goog.scope(function () {
             })
 
             cell(e, function (e) {
-              lib.options.textbox(e, "theme.saturation", {
+              util.options.textbox(e, "theme.saturation", {
                 width: "2.5em",
                 set: function (x) {
                   return +x
@@ -396,7 +399,7 @@ goog.scope(function () {
             })
 
             cell(e, function (e) {
-              lib.options.textbox(e, "theme.lightness", {
+              util.options.textbox(e, "theme.lightness", {
                 width: "2.5em",
                 set: function (x) {
                   return +x
@@ -407,9 +410,9 @@ goog.scope(function () {
         }).move(e)*/
       })
 
-      lib.options.category(e, "Groups", function (e) {
-        lib.options.subgroup(e, "Display groups:", function (e) {
-          lib.options.radio(e, "groups.layout", {
+      util.options.category(e, "Groups", function (e) {
+        util.options.subgroup(e, "Display groups:", function (e) {
+          util.options.radio(e, "groups.layout", {
             items: [
               { name: "Vertically",   value: "vertical"   },
               { name: "Horizontally", value: "horizontal" },
@@ -419,13 +422,13 @@ goog.scope(function () {
         })
       })
 
-      lib.options.category(e, "Tabs", function (e) {
+      util.options.category(e, "Tabs", function (e) {
         dom.box(function (e) {
           e.styles(dom.horiz)
 
           e.addText("Sort tabs by... ")
 
-          lib.options.list(e, "group.sort.type", {
+          util.options.list(e, "group.sort.type", {
             items: [
               { name: "Window",  value: "window"  },
               { name: "Group",   value: "group"   },
@@ -439,7 +442,7 @@ goog.scope(function () {
           })
         }).move(e)
 
-        lib.options.separator(e)
+        util.options.separator(e)
 
         dom.box(function (e) {
           e.styles(dom.horiz)
@@ -454,7 +457,7 @@ goog.scope(function () {
 
           e.addText(" button on the ")
 
-          lib.options.list(e, "tabs.close.location", {
+          util.options.list(e, "tabs.close.location", {
             items: [
               { name: "right", value: "right" },
               { name: "left",  value: "left"  }
@@ -463,7 +466,7 @@ goog.scope(function () {
 
           e.addText(" side ")
 
-          lib.options.list(e, "tabs.close.display", {
+          util.options.list(e, "tabs.close.display", {
             items: [
               { name: "while hovering", value: "hover" },
               //o.item("of the focused tab", "focused") TODO
@@ -472,10 +475,10 @@ goog.scope(function () {
           })
         }).move(e)
 
-        lib.options.separator(e)
+        util.options.separator(e)
 
-        lib.options.subgroup(e, "Click behavior:", function (e) {
-          lib.options.radio(e, "tabs.click.type", {
+        util.options.subgroup(e, "Click behavior:", function (e) {
+          util.options.radio(e, "tabs.click.type", {
             items: [
               { name: "1 click to focus",                     value: "focus"        },
               { name: "1 click to select, 2 clicks to focus", value: "select-focus" }
@@ -483,37 +486,37 @@ goog.scope(function () {
           })
         })
 
-        lib.options.separator(e)
+        util.options.separator(e)
 
-        lib.options.checkbox(e, "tabs.close.duplicates", {
+        util.options.checkbox(e, "tabs.close.duplicates", {
           text: "Automatically close duplicate tabs"
         })
       })
 
-      lib.options.category(e, "Popup", function (e) {
-        lib.options.subgroup(e, "Open the popup with:", function (e) {
+      util.options.category(e, "Popup", function (e) {
+        util.options.subgroup(e, "Open the popup with:", function (e) {
           dom.box(function (e) {
             e.styles(dom.horiz)
 
-            lib.options.checkbox(e, "popup.hotkey.ctrl", {
+            util.options.checkbox(e, "popup.hotkey.ctrl", {
               text: "Ctrl / ⌘"
             })
 
             space.horiz("15px").move(e)
 
-            lib.options.checkbox(e, "popup.hotkey.shift", {
+            util.options.checkbox(e, "popup.hotkey.shift", {
               text: "Shift"
             })
 
             space.horiz("12px").move(e)
 
-            lib.options.checkbox(e, "popup.hotkey.alt", {
+            util.options.checkbox(e, "popup.hotkey.alt", {
               text: "Alt"
             })
 
             space.horiz("10px").move(e)
 
-            lib.options.textbox(e, "popup.hotkey.letter", {
+            util.options.textbox(e, "popup.hotkey.letter", {
               width: "2em",
               set: function (x) {
                 return util.string.upper(x)
@@ -522,12 +525,12 @@ goog.scope(function () {
           }).move(e)
         })
 
-        /*lib.options.separator(e)
+        /*util.options.separator(e)
 
         dom.box(function (e) {
           e.styles(dom.horiz)
 
-          lib.options.list(e, "popup.switch.action", function (o) {
+          util.options.list(e, "popup.switch.action", function (o) {
             o.item("Minimize", "minimize")
             o.item("Close", "close")
             o.item("Show", "show")
@@ -537,18 +540,18 @@ goog.scope(function () {
             e.text(" the popup ")
           }).move(e)
 
-          lib.options.list(e, "popup.close.when", function (o) {
+          util.options.list(e, "popup.close.when", function (o) {
             o.item("when switching tabs", "switch-tab")
             o.item("when switching windows", "switch-window")
             o.item("when losing focus", "lose-focus")
           })
         }).move(e)*/
 
-        /*lib.options.separator(e)
+        /*util.options.separator(e)
 
-        lib.options.checkbox(e, "popup.close.escape", "Use the Escape key to close the popup")*/
+        util.options.checkbox(e, "popup.close.escape", "Use the Escape key to close the popup")*/
 
-        lib.options.separator(e)
+        util.options.separator(e)
 
         dom.box(function (e) {
           e.styles(popupContainer)
@@ -558,7 +561,7 @@ goog.scope(function () {
 
             e.addText("Open as a... ")
 
-            lib.options.list(e, "popup.type", {
+            util.options.list(e, "popup.type", {
               items: [
                 { name: "bubble",  value: "bubble"  },
                 { name: "sidebar", value: "sidebar" },
@@ -572,7 +575,7 @@ goog.scope(function () {
               e.styles(dom.stretch)
             }).move(e)
 
-            lib.options.button(e, "Check monitor size", function () {
+            util.options.button(e, "Check monitor size", function () {
               // TODO
               /*chrome.runtime.sendMessage({ type: "checkMonitor" }, function () {
                 alert("Success!")
@@ -675,7 +678,7 @@ goog.scope(function () {
               info.type = "number"
 
               // TODO
-              lib.options.textbox(e, sOpt, info).style(function (e) {
+              util.options.textbox(e, sOpt, info).style(function (e) {
                 e.set(["margin-left", "margin-right"], "3px")
               })
 
@@ -683,7 +686,11 @@ goog.scope(function () {
             })
           }
 
-          function makeRows(e) {
+          /**
+           * @param {!Object} e
+           * @param {...!Array.<!Object>} var_args
+           */
+          function makeRows(e, var_args) {
             var a = array.slice(arguments, 1)
             array.each(a, function (a) {
               dom.row(function (e) {
@@ -748,7 +755,7 @@ goog.scope(function () {
                          }),
                          space.horiz("25px"),
                          text("Position: "),
-                         lib.options.list(e, "size.sidebar.position", {
+                         util.options.list(e, "size.sidebar.position", {
                            items: [
                              { name: "Left",   value: "left"   },
                              { name: "Right",  value: "right"  },
@@ -762,10 +769,10 @@ goog.scope(function () {
         }).move(e)
       })
 
-      /*lib.options.category(e, "Privacy", function (e) {
+      /*util.options.category(e, "Privacy", function (e) {
         e.width(containerWidth + "px")
 
-        lib.options.subgroup(e, "Usage tracking:", function (e) {
+        util.options.subgroup(e, "Usage tracking:", function (e) {
           dom.box(function (e) {
             e.text("By default, we track how frequently you open the popup and options page, and also what settings you have chosen in the options page.")
           }).move(e)
@@ -803,16 +810,16 @@ goog.scope(function () {
             e.height("1.25em")
           }).move(e)
 
-          lib.options.checkbox(e, "usage-tracking", "Allow for usage tracking")
+          util.options.checkbox(e, "usage-tracking", "Allow for usage tracking")
         })
       })*/
 
-      lib.options.category(e, "User Data", function (e) {
+      util.options.category(e, "User Data", function (e) {
         dom.box(function (e) {
           e.styles(dom.horiz)
 
           // TODO
-          /*lib.options.button(e, "Export", function () {
+          /*util.options.button(e, "Export", function () {
             chrome.runtime.sendMessage({ type: "db.export" }, function (s) {
               s = JSON.stringify(s, null, 2)
               s = new Blob([s], { type: "application/json" })
@@ -830,7 +837,7 @@ goog.scope(function () {
 
           space.horiz("10px").move(e)
 
-          lib.options.button(e, "Import", function () {
+          util.options.button(e, "Import", function () {
             dom.file(function (e) {
               e.accept("application/json")
               e.event([e.changed], function (s) {
@@ -844,7 +851,7 @@ goog.scope(function () {
 
           space.horiz("20px").move(e)*/
 
-          lib.options.button(e, "Reset options to default", function () {
+          util.options.button(e, "Reset options to default", function () {
             if (confirm("Are you sure?\n\nThis will reset all options to default.\n\nThis cannot be undone.\n\nThis does NOT reset tabs, groups, or macros.")) {
               opt.reset()
               cache.reset()

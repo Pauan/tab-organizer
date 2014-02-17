@@ -8,7 +8,7 @@ var LIBDIR     = "lib"
   , INDIR      = "src"
   , OUTDIR     = "build"
   , debug      = true
-  , prettified = false
+  , prettified = true
 
 function getFilesInDir(p) {
   var r = []
@@ -64,7 +64,8 @@ function build() {
     command.push("--closure_entry_point", name)
     command.push("--js_output_file", path.join(OUTDIR, "js", file))
     command.push("--define", "util.log.DEBUG=" + debug)
-    command.push("--externs", "extern.js")
+    command.push("--externs", "extern")
+    command.push("--externs", path.join(LIBDIR, "util", "extern"))
     command.push("--use_types_for_optimization")
     command.push("--compilation_level", "ADVANCED_OPTIMIZATIONS")
     command.push("--use_only_custom_externs")
@@ -73,6 +74,7 @@ function build() {
       command.push("--formatting", "PRETTY_PRINT")
     }
     if (debug) {
+      // TODO
       ;[//"reportUnknownTypes",
         "accessControls",
         "ambiguousFunctionDecl",
@@ -109,7 +111,7 @@ function build() {
           command.push("--jscomp_warning", x)
         })
       command.push("--summary_detail_level", "3")
-      //command.push("--warning_level", "VERBOSE")
+      command.push("--warning_level", "VERBOSE")
       //command.push("--output_manifest", "manifest.MF")
 
       command.push("--create_source_map", sourcemap)
@@ -126,14 +128,6 @@ function build() {
   commands.forEach(function (info) {
     setTimeout(function () {
       var io = spawn("java", info.command, { stdio: "inherit" })
-
-      /*io.stdout.on("data", function (data) {
-        console.log("stdout: " + data)
-      })
-
-      io.stderr.on("data", function (data) {
-        console.log("stderr: " + data)
-      })*/
 
       io.on("exit", function (code) {
         if (code !== 0) {

@@ -54,6 +54,11 @@ goog.scope(function () {
 
   platform.db.loaded = cell.dedupe(false)
 
+  /**
+   * @param {string|!Array.<string>} s
+   * @param {number} i
+   * @param {function():void} f
+   */
   platform.db.delay = function (s, i, f) {
     checkLoaded()
 
@@ -163,6 +168,11 @@ goog.scope(function () {
     }
   }
 
+  /**
+   * @param {string} s
+   * @param {function(!Raw):void=} f
+   * @return {!Raw}
+   */
   platform.db.raw = function (s, f) {
     checkLoaded()
 
@@ -175,6 +185,11 @@ goog.scope(function () {
     return o
   }
 
+  /**
+   * @param {string} s
+   * @param {function(!Open):void=} f
+   * @return {!Open}
+   */
   platform.db.open = function (s, f) {
     checkLoaded()
 
@@ -187,6 +202,9 @@ goog.scope(function () {
     return o
   }
 
+  /**
+   * @param {string} sDB
+   */
   platform.db.del = function (sDB) {
     platform.db.raw(sDB).del()
   }

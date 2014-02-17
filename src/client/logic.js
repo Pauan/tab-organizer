@@ -415,13 +415,9 @@ goog.scope(function () {
     // TODO this whole thing dealing with selection is hacky, try and refactor it
     function deselectAllTabs(oGroup) {
       delete oGroup.previouslySelected
-      var r = []
-      array.each(oGroup.aTabs, function (x) {
-        if (x[info].selected) {
-          array.push(r, x[info])
-        }
-      })
-      tabs.deselect(r)
+      tabs.deselect(array.map(oGroup.aTabs, function (x) {
+        return x[info]
+      }))
     }
 
     function selectTab(oGroup, oTab) {
@@ -433,7 +429,9 @@ goog.scope(function () {
     }
 
     // TODO
-    function tabClick(oTab, click) {
+    function tabClick(tab, click) {
+      var oGroup = tab[group]
+        , oTab   = tab[info]
       if (click.left) {
         if (click.ctrl) {
           if (oTab.selected) {
@@ -493,7 +491,6 @@ goog.scope(function () {
             if (!oTab.selected) {
               deselectAllTabs(oGroup)
             }
-            // TODO unselect other tabs
             tabs.focus(oTab)
           }
         }
@@ -528,32 +525,50 @@ goog.scope(function () {
       }
     }
 
+    function getTabs(e) {
+      if (e[info].selected) {
+        return array.filter(e[group].aTabs, function (e) {
+          return e[info].selected
+        })
+      } else {
+        return [e]
+      }
+    }
+
     function moveTab(a, index, to) {
       var oTo = to[group]
-      array.each(a, function (x) {
+      array.each(a, function (x, i) {
         var oFrom = x[group]
           , oInfo = x[info]
           , curr  = oInfo.active.index
 
+        if (curr < index) {
+          --index
+        }
         x[group] = oTo
 
         assert(oFrom.oTabs[oInfo.id] === x)
-        assert(oFrom.aTabs[curr] === x)
+        assert(array.indexOf(oFrom.aTabs, x) !== -1)
+        //assert(oFrom.aTabs[curr] === x)
 
         delete oFrom.oTabs[oInfo.id]
         assert(oTo.oTabs[oInfo.id] == null)
         oTo.oTabs[oInfo.id] = x
 
-        array.removeAt(oFrom.aTabs, curr)
-        array.insertAt(oTo.aTabs, index, x)
+        array.remove(oFrom.aTabs, x)
+        //array.removeAt(oFrom.aTabs, curr)
+        array.insertAt(oTo.aTabs, index + i, x)
+
+        tabs.move(oInfo, index, oTo.id)
       })
-      tabs.move(array.map(a, function (x) {
-        return x[info]
-      }), index + 1, oTo.id)
     }
 
     function makeTab(tab) {
-      return ui.tab.make(tab, tabClick, moveTab)
+      return ui.tab.make(tab, {
+        click: tabClick,
+        getTabs: getTabs,
+        move: moveTab
+      })
     }
 
 

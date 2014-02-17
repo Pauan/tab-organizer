@@ -143,7 +143,7 @@ goog.scope(function () {
 
   ui.tab.dragging = cell.value(false)
 
-  ui.tab.make = function (oInfo, fClick, fMove) {
+  ui.tab.make = function (oInfo, oCall) {
     oInfo = cell.value(oInfo)
     return dom.box(function (e) {
       e[info] = oInfo
@@ -268,7 +268,7 @@ goog.scope(function () {
       })
 
       e.event([dom.exclude(e.mouseclick, close)], function (click) {
-        fClick(e, click)
+        oCall.click(e, click)
       })
 
       e.bind([opt.get("tabs.close.location")], function (location) {
@@ -330,7 +330,7 @@ goog.scope(function () {
 
       // TODO make the tab dom.fixedPanel and insert a placeholder element
       e.drag({
-        threshold: 10,
+        threshold: 5,
         when: function () {
           var s = groupType.get()
           // TODO
@@ -339,16 +339,21 @@ goog.scope(function () {
         start: function () {
           dragging = {
             type: "before",
-            tabs: [e],
+            tabs: oCall.getTabs(e),
             to: e
             //position: e.getPosition(),
           }
 
-          var width  = 0
+          var top    = null
+            , width  = 0
             , height = 0
 
           dragging.container = dom.box(function (e) {
             e.styles(dom.fixedPanel, dom.noMouse)
+            // TODO use dom.style
+            e.style(function (e) {
+              e.set("opacity", "0.75")
+            })
           }).moveBefore(e)
 
           dragging.placeholder = dom.box().moveBefore(e)
@@ -357,10 +362,18 @@ goog.scope(function () {
 
           array.each(dragging.tabs, function (e) {
             var pos = e.getPosition()
+            if (top === null) {
+              top = pos.top
+            } else {
+              top = math.min(top, pos.top)
+            }
             width   = math.max(width, pos.width)
             height += pos.height
             e.move(dragging.container)
           })
+
+          dragging.top    = top // TODO this isn't the same as dragging.container.getPosition().top
+          dragging.height = height
 
           dragging.container.style(function (e) {
             e.set("width", width + "px")
@@ -371,7 +384,14 @@ goog.scope(function () {
         },
         move: function (info) {
           dragging.container.style(function (e) {
-            e.set("top", (info.mouseY - info.halfY/* - dragging.position.top*/) + "px")
+            var minY = dragging.top + info.halfY
+              , maxY = dragging.top + dragging.height - info.halfY
+            if (info.mouseY < minY) {
+              dragging.top = (info.mouseY - info.halfY)
+            } else if (info.mouseY > maxY) {
+              dragging.top = (info.mouseY + info.halfY - dragging.height)
+            }
+            e.set("top", dragging.top + "px")
           })
         },
         end: function () {
@@ -390,10 +410,10 @@ goog.scope(function () {
             return x[info].get()
           })*/
 
-          fMove(dragging.tabs, index, dragging.to)
+          oCall.move(dragging.tabs, index, dragging.to)
 
           array.each(dragging.tabs, function (e) {
-            e.moveAfter(dragging.placeholder)
+            e.moveBefore(dragging.placeholder)
           })
 
           dragging.container.remove()

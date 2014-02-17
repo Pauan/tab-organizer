@@ -195,9 +195,16 @@ goog.scope(function () {
    * @param {number} index
    */
   platform.tabs.move = function (a, index, win) {
-    tabs["move"](getAll(a), {
-      "index": index,
-      "windowId": get(win)[_id]
+    win = get(win)[_id]
+    array.each(a, function (x, i) {
+      x = get(x)
+      if (x.index < index) {
+        --index
+      }
+      tabs["move"](x[_id], {
+        "index": index + i,
+        "windowId": win
+      })
     })
   }
 

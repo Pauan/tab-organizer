@@ -2,6 +2,7 @@ goog.provide("ui.urlBar")
 
 goog.require("util.url")
 goog.require("util.cell")
+//goog.require("util.cell.Signal")
 goog.require("util.dom")
 goog.require("util.re")
 goog.require("util.array")
@@ -15,6 +16,7 @@ goog.scope(function () {
     , array = util.array
     , log   = util.log.log
 
+  //@type {!util.cell.Signal.<null|{ location }>}
   ui.urlBar.currentURL = cell.value(null) // TODO maybe this shouldn't include duplicates ?
 
   function spacify(x) {
