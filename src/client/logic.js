@@ -535,32 +535,59 @@ goog.scope(function () {
       }
     }
 
-    function moveTab(a, index, to) {
-      var oTo = to[group]
+    function moveTab(a, index, oTo) {
+      var oGroup = oTo[group]
+      //assert(oGroup.aTabs[index] === oTo)
+
+      var iTo = index
+
       array.each(a, function (x, i) {
         var oFrom = x[group]
           , oInfo = x[info]
-          , curr  = oInfo.active.index
+          , curr  = array.indexOf(oFrom.aTabs, x)
 
-        if (curr < index) {
-          --index
+        assert(curr !== -1)
+        assert(oFrom.aTabs[curr] === x)
+
+        if (oFrom.aTabs === oGroup.aTabs && curr < iTo) {
+          --iTo
         }
-        x[group] = oTo
+
+        x[group] = oGroup
+
+        x.TITLE = oInfo.title
 
         assert(oFrom.oTabs[oInfo.id] === x)
-        assert(array.indexOf(oFrom.aTabs, x) !== -1)
-        //assert(oFrom.aTabs[curr] === x)
-
         delete oFrom.oTabs[oInfo.id]
-        assert(oTo.oTabs[oInfo.id] == null)
-        oTo.oTabs[oInfo.id] = x
+        assert(oGroup.oTabs[oInfo.id] == null)
+        oGroup.oTabs[oInfo.id] = x
 
-        array.remove(oFrom.aTabs, x)
-        //array.removeAt(oFrom.aTabs, curr)
-        array.insertAt(oTo.aTabs, index + i, x)
-
-        tabs.move(oInfo, index, oTo.id)
+        array.removeAt(oFrom.aTabs, curr)
       })
+
+      array.each(a, function (x, i) {
+        log(x[info].active.index, iTo + i)
+        array.insertAt(oGroup.aTabs, iTo + i, x)
+      })
+
+      //log(array.copy(oGroup.aTabs))
+
+      var min = array.indexOf(oGroup.aTabs, a[0])
+        , max = array.indexOf(oGroup.aTabs, array.last(a))
+      assert(min !== -1)
+      assert(max !== -1)
+      log(array.slice(oGroup.aTabs, math.min(min, max) - 1,
+                                    math.max(min, max) + 2))
+
+      /*log(array.filter(oGroup.aTabs, function (x) {
+        return array.some(a, function (y) {
+          return x === y
+        })
+      }))*/
+
+      tabs.move(array.map(a, function (x) {
+        return x[info]
+      }), index, oGroup.id)
     }
 
     function makeTab(tab) {
@@ -685,6 +712,7 @@ goog.scope(function () {
         addTab(e, x, true)
       }
       function update(x) {
+        log(x)
         updateTab(e, x)
       }
       function updateRaw(x) {

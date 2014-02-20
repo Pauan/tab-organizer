@@ -193,18 +193,26 @@ goog.scope(function () {
   /**
    * @param {!Array.<number>} a
    * @param {number} index
+   * @param {number} win
    */
   platform.tabs.move = function (a, index, win) {
     win = get(win)[_id]
-    array.each(a, function (x, i) {
+    var len = array.len(a)
+    array.eachReverse(a, function (x, i) {
       x = get(x)
-      if (x.index < index) {
+      // TODO is this correct ?
+      //if (x.index !== index) {
+      /*if (x.index < index) {
         --index
-      }
+      }*/
+      log(x.title, index, index)
       tabs["move"](x[_id], {
-        "index": index + i,
+        "index": (x.index < index
+                   ? index
+                   : index),
         "windowId": win
       })
+      //}
     })
   }
 
@@ -368,14 +376,14 @@ goog.scope(function () {
           assert(win != null)
 
           var oldIndex = tab.index
-          tab.index = info["toIndex"]
-
-          assert(oldIndex === info["fromIndex"])
-          assert(oldIndex !== tab.index)
 
           array.removeAt(win.tabs, oldIndex)
-          array.insertAt(win.tabs, tab.index, tab)
+          tab.index = array.insertAt(win.tabs, info["toIndex"], tab)
           updateTabIndices(win.tabs, math.min(oldIndex, tab.index + 1))
+
+          log(tab.title, tab.index, info["toIndex"])
+          assert(oldIndex === info["fromIndex"])
+          assert(oldIndex !== tab.index)
 
           tab.time.moved = time.timestamp()
           platform.tabs.on.moved.set(tab)
@@ -404,8 +412,6 @@ goog.scope(function () {
       tabs["onAttached"]["addListener"](function (id, info) {
         var tab = cTabs[id]
         if (tab != null) {
-          tab.index = info["newPosition"]
-
           var win = cWins[info["newWindowId"]]
           assert(win != null)
 
@@ -413,7 +419,7 @@ goog.scope(function () {
 
           tab.window = win
 
-          array.insertAt(win.tabs, tab.index, tab)
+          tab.index = array.insertAt(win.tabs, info["newPosition"], tab)
           updateTabIndices(win.tabs, tab.index + 1)
 
           tab.time.moved = time.timestamp()

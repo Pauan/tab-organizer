@@ -7,6 +7,7 @@ goog.require("util.log")
 goog.require("deserialize")
 goog.require("platform.port")
 
+// TODO batch
 goog.scope(function () {
   var cell   = util.cell
     , array  = util.array
