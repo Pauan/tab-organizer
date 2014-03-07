@@ -196,21 +196,17 @@ goog.scope(function () {
    * @param {number} win
    */
   platform.tabs.move = function (a, index, win) {
-    win = get(win)[_id]
-    var len = array.len(a)
-    array.eachReverse(a, function (x, i) {
+    win = get(win)
+    array.each(a, function (x, i) {
       x = get(x)
       // TODO is this correct ?
       //if (x.index !== index) {
-      /*if (x.index < index) {
-        --index
-      }*/
-      log(x.title, index, index)
+      //log(x.title, index, index)
       tabs["move"](x[_id], {
         "index": (x.index < index
-                   ? index
-                   : index),
-        "windowId": win
+                   ? index - 1
+                   : index + i),
+        "windowId": win[_id]
       })
       //}
     })
@@ -369,63 +365,95 @@ goog.scope(function () {
         }
       })
 
-      tabs["onMoved"]["addListener"](function (id, info) {
-        var tab = cTabs[id]
-        if (tab != null) {
-          var win = tab.window
-          assert(win != null)
+      /*;(function () {
+        var a = null
 
-          var oldIndex = tab.index
+        function push(f) {
+          if (a === null) {
+            a = []
+            setTimeout(function () {
+              array.each(a, function (f) {
+                f()
+              })
+              a = null
+            }, 100)
+          }
+          array.push(a, f)
+        }*/
 
-          array.removeAt(win.tabs, oldIndex)
-          tab.index = array.insertAt(win.tabs, info["toIndex"], tab)
-          updateTabIndices(win.tabs, math.min(oldIndex, tab.index + 1))
+        tabs["onMoved"]["addListener"](function (id, info) {
+          var tab = cTabs[id]
+          if (tab != null) {
+            tabs["get"](id, function (t) {
+              assert(tab.index === info["fromIndex"])
 
-          log(tab.title, tab.index, info["toIndex"])
-          assert(oldIndex === info["fromIndex"])
-          assert(oldIndex !== tab.index)
+              var win = tab.window
+              assert(win != null)
 
-          tab.time.moved = time.timestamp()
-          platform.tabs.on.moved.set(tab)
-        }
-      })
+              var oldIndex = tab.index
 
-      // TODO what about detaching a focused tab ?
-      tabs["onDetached"]["addListener"](function (id, info) {
-        var tab = cTabs[id]
-        if (tab != null) {
-          var win = tab.window
-          assert(win != null)
+              array.removeAt(win.tabs, oldIndex)
+              array.insertAt(win.tabs, info["toIndex"], tab)
+              updateTabIndices(win.tabs, math.min(oldIndex, info["toIndex"] + 1))
 
-          // TODO remove all the checks that see if tab.window is null or not ?
-          //delete tab.window
+              // TODO is this reliable ?
+              //tab.index = t["index"]
+              tab.index = info["toIndex"]
 
-          assert(win[_id] === info["oldWindowId"])
-          assert(tab.index === info["oldPosition"])
+              log(tab.title, info["toIndex"], t["index"])
 
-          array.removeAt(win.tabs, tab.index)
-          updateTabIndices(win.tabs, tab.index)
-        }
-      })
+              assert(oldIndex !== tab.index)
 
-      // TODO what about attaching a focused tab ?
-      tabs["onAttached"]["addListener"](function (id, info) {
-        var tab = cTabs[id]
-        if (tab != null) {
-          var win = cWins[info["newWindowId"]]
-          assert(win != null)
+              tab.time.moved = time.timestamp()
+              platform.tabs.on.moved.set(tab)
+            })
+          }
+        })
 
-          assert(win[_id] === info["newWindowId"])
+        // TODO what about detaching a focused tab ?
+        tabs["onDetached"]["addListener"](function (id, info) {
+          var tab = cTabs[id]
+          if (tab != null) {
+            var win = tab.window
+            assert(win != null)
 
-          tab.window = win
+            // TODO remove all the checks that see if tab.window is null or not ?
+            //delete tab.window
 
-          tab.index = array.insertAt(win.tabs, info["newPosition"], tab)
-          updateTabIndices(win.tabs, tab.index + 1)
+            assert(win[_id] === info["oldWindowId"])
+            assert(tab.index === info["oldPosition"])
 
-          tab.time.moved = time.timestamp()
-          platform.tabs.on.moved.set(tab)
-        }
-      })
+            array.removeAt(win.tabs, tab.index)
+            updateTabIndices(win.tabs, tab.index)
+          }
+        })
+
+        // TODO what about attaching a focused tab ?
+        tabs["onAttached"]["addListener"](function (id, info) {
+          var tab = cTabs[id]
+          if (tab != null) {
+            tabs["get"](id, function (t) {
+              var win = cWins[info["newWindowId"]]
+              assert(win != null)
+
+              assert(win[_id] === info["newWindowId"])
+
+              tab.window = win
+
+              array.insertAt(win.tabs, info["newPosition"], tab)
+              updateTabIndices(win.tabs, info["newPosition"] + 1)
+
+              // TODO is this reliable ?
+              tab.index = t["index"]
+
+              log(tab.title, info["newPosition"], t["index"])
+
+              tab.time.moved = time.timestamp()
+              platform.tabs.on.moved.set(tab)
+            })
+          }
+        })
+      //})()
 
       tabs["onActivated"]["addListener"](function (info) {
         var tab = cTabs[info["tabId"]]

@@ -33,7 +33,7 @@ goog.scope(function () {
 
   tabs.loaded = cell.dedupe(false)
 
-  tabs.all = null
+  tabs.all = cell.value(oTabs)
 
   function getIds(a) {
     return array.map(a, function (x) {
@@ -57,7 +57,6 @@ goog.scope(function () {
   }
 
   var port = platform.port.connect("tabs", function (x) {
-    tabs.all = cell.value(oTabs)
     object.each(x["windows"], function (x) {
       addWindow(x)
     })
@@ -68,6 +67,8 @@ goog.scope(function () {
   })
 
   cell.event([port.on.message], function (x) {
+    assert(tabs.loaded.get(), "tabs")
+
     var seen = false
 
     array.each(x, function (o) {
@@ -155,6 +156,7 @@ goog.scope(function () {
 
   function makeSelector(oCell, b) {
     return function (a) {
+      assert(tabs.loaded.get(), "tabs")
       assert(!!array.len(a))
       var seen = false
       array.each(a, function (x) {

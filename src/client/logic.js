@@ -539,8 +539,7 @@ goog.scope(function () {
       var oGroup = oTo[group]
       //assert(oGroup.aTabs[index] === oTo)
 
-      var iTo = index
-
+      var len = array.len(a)
       array.each(a, function (x, i) {
         var oFrom = x[group]
           , oInfo = x[info]
@@ -548,10 +547,6 @@ goog.scope(function () {
 
         assert(curr !== -1)
         assert(oFrom.aTabs[curr] === x)
-
-        if (oFrom.aTabs === oGroup.aTabs && curr < iTo) {
-          --iTo
-        }
 
         x[group] = oGroup
 
@@ -563,11 +558,15 @@ goog.scope(function () {
         oGroup.oTabs[oInfo.id] = x
 
         array.removeAt(oFrom.aTabs, curr)
-      })
 
-      array.each(a, function (x, i) {
-        log(x[info].active.index, iTo + i)
-        array.insertAt(oGroup.aTabs, iTo + i, x)
+        if (/*oFrom.aTabs === oGroup.aTabs && */curr < index) {
+          array.insertAt(oGroup.aTabs, index - 1, x)
+          // TODO this seems a bit hacky...
+          oInfo.active.index = index + i// - len
+        } else {
+          array.insertAt(oGroup.aTabs, index + i, x)
+          oInfo.active.index = index + i
+        }
       })
 
       //log(array.copy(oGroup.aTabs))
@@ -576,8 +575,10 @@ goog.scope(function () {
         , max = array.indexOf(oGroup.aTabs, array.last(a))
       assert(min !== -1)
       assert(max !== -1)
-      log(array.slice(oGroup.aTabs, math.min(min, max) - 1,
-                                    math.max(min, max) + 2))
+      array.each(array.slice(oGroup.aTabs, math.min(min, max) - 1,
+                                    math.max(min, max) + 2), function (x) {
+        log(x[info].title, x[info].active.index)
+      })
 
       /*log(array.filter(oGroup.aTabs, function (x) {
         return array.some(a, function (y) {
@@ -712,7 +713,6 @@ goog.scope(function () {
         addTab(e, x, true)
       }
       function update(x) {
-        log(x)
         updateTab(e, x)
       }
       function updateRaw(x) {
@@ -721,6 +721,9 @@ goog.scope(function () {
       function remove(x) {
         removeTab(x)
       }
+
+      //e.event([tabs.on.moved], log)
+      e.event([tabs.on.updateIndex], log)
 
       /*} else if (type === "windowName") {
           var sort = groupSort.get()

@@ -74,7 +74,6 @@ function build() {
       command.push("--formatting", "PRETTY_PRINT")
     }
     if (debug) {
-      // TODO
       ;[//"reportUnknownTypes",
         "accessControls",
         "ambiguousFunctionDecl",
