@@ -203,7 +203,7 @@ goog.scope(function () {
       //if (x.index !== index) {
       //log(x.title, index, index)
       tabs["move"](x[_id], {
-        "index": (x.index < index
+        "index": (win === x.window && x.index < index
                    ? index - 1
                    : index + i),
         "windowId": win[_id]
@@ -384,7 +384,7 @@ goog.scope(function () {
         tabs["onMoved"]["addListener"](function (id, info) {
           var tab = cTabs[id]
           if (tab != null) {
-            tabs["get"](id, function (t) {
+            //tabs["get"](id, function (t) {
               assert(tab.index === info["fromIndex"])
 
               var win = tab.window
@@ -400,13 +400,13 @@ goog.scope(function () {
               //tab.index = t["index"]
               tab.index = info["toIndex"]
 
-              log(tab.title, info["toIndex"], t["index"])
+              //log(tab.title, info["toIndex"], t["index"])
 
               assert(oldIndex !== tab.index)
 
               tab.time.moved = time.timestamp()
               platform.tabs.on.moved.set(tab)
-            })
+            //})
           }
         })
 
@@ -432,7 +432,7 @@ goog.scope(function () {
         tabs["onAttached"]["addListener"](function (id, info) {
           var tab = cTabs[id]
           if (tab != null) {
-            tabs["get"](id, function (t) {
+            //tabs["get"](id, function (t) {
               var win = cWins[info["newWindowId"]]
               assert(win != null)
 
@@ -443,14 +443,13 @@ goog.scope(function () {
               array.insertAt(win.tabs, info["newPosition"], tab)
               updateTabIndices(win.tabs, info["newPosition"] + 1)
 
-              // TODO is this reliable ?
-              tab.index = t["index"]
+              tab.index = info["newPosition"]
 
-              log(tab.title, info["newPosition"], t["index"])
+              //log(tab.title, info["newPosition"], t["index"])
 
               tab.time.moved = time.timestamp()
               platform.tabs.on.moved.set(tab)
-            })
+            //})
           }
         })
       //})()

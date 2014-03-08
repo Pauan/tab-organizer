@@ -324,19 +324,23 @@ goog.scope(function () {
       aGroups = []
     }
 
-    function removeTabIf(tab, f) {
+    function removeTabIf(tab, animate, f) {
       var toRemove = []
       array.each(aGroups, function (oGroup) {
         var o = oGroup.oTabs[tab.id]
         if (o != null && f(oGroup)) {
           delete oGroup.oTabs[tab.id]
-          removeTabFrom(o, oGroup)
+          removeTabFrom(o, oGroup, animate)
 
           if (array.len(oGroup.aTabs) === 0) {
             log(oGroup.id)
             delete oGroups[group.id]
             array.push(toRemove, oGroup)
-            ui.group.hide(oGroup.element, 1)
+            if (animate) {
+              ui.group.hide(oGroup.element, 1)
+            } else {
+              oGroup.element.remove()
+            }
           }
         }
       })
@@ -539,7 +543,7 @@ goog.scope(function () {
       var oGroup = oTo[group]
       //assert(oGroup.aTabs[index] === oTo)
 
-      var len = array.len(a)
+      /*var len = array.len(a)
       array.each(a, function (x, i) {
         var oFrom = x[group]
           , oInfo = x[info]
@@ -559,7 +563,7 @@ goog.scope(function () {
 
         array.removeAt(oFrom.aTabs, curr)
 
-        if (/*oFrom.aTabs === oGroup.aTabs && */curr < index) {
+        if (/*oFrom.aTabs === oGroup.aTabs && *//*curr < index) {
           array.insertAt(oGroup.aTabs, index - 1, x)
           // TODO this seems a bit hacky...
           oInfo.active.index = index + i// - len
@@ -578,7 +582,7 @@ goog.scope(function () {
       array.each(array.slice(oGroup.aTabs, math.min(min, max) - 1,
                                     math.max(min, max) + 2), function (x) {
         log(x[info].title, x[info].active.index)
-      })
+      })*/
 
       /*log(array.filter(oGroup.aTabs, function (x) {
         return array.some(a, function (y) {
@@ -620,9 +624,13 @@ goog.scope(function () {
       }
     }
 
-    function removeTabFrom(tab, oGroup) {
+    function removeTabFrom(tab, oGroup, animate) {
       array.remove(oGroup.aTabs, tab)
-      ui.tab.hide(tab, 1)
+      if (animate) {
+        ui.tab.hide(tab, 1)
+      } else {
+        tab.remove()
+      }
     }
 
     function addTab(e, tab, animate) {
@@ -633,11 +641,11 @@ goog.scope(function () {
       })
     }
 
-    function updateTab(e, tab) {
+    function updateTab(e, tab, animate) {
       var sort = groupSort.get().tabSort
 
       var seen = {}
-      addGroups(e, tab, true, function (oGroup) {
+      addGroups(e, tab, animate, function (oGroup) {
         seen[oGroup.id] = true
 
         var old = oGroup.oTabs[tab.id]
@@ -656,17 +664,17 @@ goog.scope(function () {
 
           // Moves the tab
           } else {
-            removeTabFrom(old, oGroup)
-            addTabTo(sort, tab, oGroup, true)
+            removeTabFrom(old, oGroup, animate)
+            addTabTo(sort, tab, oGroup, animate)
           }
 
         } else {
           // Adds the tab
-          addTabTo(sort, tab, oGroup, true)
+          addTabTo(sort, tab, oGroup, animate)
         }
       })
 
-      removeTabIf(tab, function (oGroup) {
+      removeTabIf(tab, animate, function (oGroup) {
         return !(oGroup.id in seen)
       })
     }
@@ -684,7 +692,7 @@ goog.scope(function () {
     }
 
     function removeTab(tab) {
-      removeTabIf(tab, function () {
+      removeTabIf(tab, true, function () {
         return true
       })
     }
@@ -713,7 +721,10 @@ goog.scope(function () {
         addTab(e, x, true)
       }
       function update(x) {
-        updateTab(e, x)
+        updateTab(e, x, true)
+      }
+      function move(x) {
+        updateTab(e, x, false)
       }
       function updateRaw(x) {
         updateWithoutMoving(x)
@@ -723,7 +734,7 @@ goog.scope(function () {
       }
 
       //e.event([tabs.on.moved], log)
-      e.event([tabs.on.updateIndex], log)
+      //e.event([tabs.on.updateIndex], log)
 
       /*} else if (type === "windowName") {
           var sort = groupSort.get()
@@ -733,7 +744,7 @@ goog.scope(function () {
 
       e.event([tabs.on.opened], add)
       e.event([tabs.on.updated], update)
-      e.event([tabs.on.moved], update)
+      e.event([tabs.on.moved], move)
       e.event([tabs.on.focused], update)
       e.event([tabs.on.updateIndex], updateRaw)
       e.event([tabs.on.unfocused], updateRaw)
