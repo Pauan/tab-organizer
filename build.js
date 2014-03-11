@@ -49,14 +49,13 @@ function mkdir(name) {
 function build() {
   mkdir(path.join(OUTDIR, "gsap"))
   mkdir(path.join(OUTDIR, "js"))
-  mkdir(path.join(OUTDIR, "map"))
 
   var commands = [].map.call(arguments, function (a) {
     var folder = a[0]
       , name   = a[1]
       , file   = a[2]
 
-    var sourcemap = path.join(OUTDIR,  "map", file + ".map")
+    var sourcemap = path.join(OUTDIR, "js", file + ".map.json")
 
     var command = ["-jar", path.join("closure-compiler", "compiler.jar")].concat(getFiles(folder))
     //command.push("--process_closure_primitives")
@@ -115,7 +114,7 @@ function build() {
 
       command.push("--create_source_map", sourcemap)
       command.push("--source_map_format", "V3")
-      command.push("--output_wrapper", "%output%\n//# sourceMappingURL=../map/" + file + ".map")
+      command.push("--output_wrapper", "%output%\n//# sourceMappingURL=" + file + ".map.json")
     }
 
     return {
@@ -123,6 +122,12 @@ function build() {
       sourcemap: sourcemap
     }
   })
+
+  function shift(x, s) {
+    var old = x[s]
+    delete x[s]
+    x[s] = old
+  }
 
   commands.forEach(function (info) {
     setTimeout(function () {
@@ -133,6 +138,7 @@ function build() {
           console.log("exited with code " + code)
         }
 
+        // TODO generic source map code
         if (debug) {
           // Add "sourcesContent" to source map
           var y = JSON.parse(fs.readFileSync(info.sourcemap, { encoding: "utf8" }))
@@ -140,7 +146,10 @@ function build() {
           y["sourcesContent"] = y["sources"].map(function (x) {
             return fs.readFileSync(x, { encoding: "utf8" })
           })
-          fs.writeFileSync(info.sourcemap, JSON.stringify(y))
+          shift(y, "sourcesContent")
+          shift(y, "mappings")
+          shift(y, "names")
+          fs.writeFileSync(info.sourcemap, JSON.stringify(y, null, 4))
         }
       })
     }, 0)

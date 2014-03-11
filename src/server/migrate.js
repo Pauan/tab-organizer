@@ -6,18 +6,40 @@ goog.require("util.object")
 goog.require("util.log")
 goog.require("platform.db")
 goog.require("platform.manifest")
-goog.require("serialize")
 
 goog.scope(function () {
-  var cell      = util.cell
-    , array     = util.array
-    , object    = util.object
-    , db        = platform.db
-    , manifest  = platform.manifest
-    , log       = util.log.log
-    , tabToDisk = serialize.tabToDisk
+  var cell     = util.cell
+    , array    = util.array
+    , object   = util.object
+    , db       = platform.db
+    , manifest = platform.manifest
+    , log      = util.log.log
 
   var version = manifest.get("version") + "b5"
+
+  function set(o, tab, s) {
+    if (tab["time"][s] != null) {
+      o["time"][s] = tab["time"][s]
+    }
+  }
+
+  function diskToDisk(tab) {
+    /** @dict */
+    var o       = {}
+    o["time"]   = {}
+    o["groups"] = tab["groups"] // TODO migrate the old groups which only used 1 to indicate the group existed, migrate them to use the new system which uses timestamps
+    o["title"]  = tab["title"]
+
+    /*if (tab["pinned"]) {
+      o["pinned"] = 1
+    }*/
+
+    set(o, tab, "created")
+    set(o, tab, "updated")
+    set(o, tab, "focused")
+    set(o, tab, "unloaded")
+    return o
+  }
 
   migrate.loaded = cell.dedupe(false)
 
@@ -33,10 +55,10 @@ goog.scope(function () {
           var x = o[s]
           if (x["url"] != null && s !== x["url"]) {
             log(s, x["url"])
-            d.set(x["url"], tabToDisk(x))
+            d.set(x["url"], diskToDisk(x))
             d.del(s)
           } else {
-            d.set(s, tabToDisk(x))
+            d.set(s, diskToDisk(x))
           }
         })
       })
