@@ -2,12 +2,14 @@ goog.provide("options")
 goog.provide("space")
 
 goog.require("platform.manifest")
+goog.require("platform.port")
 goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.math")
 goog.require("util.string")
 goog.require("util.options")
+goog.require("util.log")
 goog.require("opt")
 goog.require("cache")
 
@@ -33,10 +35,12 @@ goog.scope(function () {
 })
 
 goog.scope(function () {
-  var cell  = util.cell
-    , dom   = util.dom
-    , array = util.array
-    , math  = util.math
+  var cell   = util.cell
+    , dom    = util.dom
+    , array  = util.array
+    , math   = util.math
+    , log    = util.log.log
+    , assert = util.log.assert
 
   dom.title(platform.manifest.get("name") + " - Options")
 
@@ -576,10 +580,9 @@ goog.scope(function () {
             }).move(e)
 
             util.options.button(e, "Check monitor size", function () {
-              // TODO
-              /*chrome.runtime.sendMessage({ type: "checkMonitor" }, function () {
+              platform.port.request("checkMonitor", null, function () {
                 alert("Success!")
-              })*/
+              })
             // TODO dom.style, maybe ?
             }).style(function (e) {
               e.set("height", "20px")
@@ -818,18 +821,20 @@ goog.scope(function () {
         dom.box(function (e) {
           e.styles(dom.horiz)
 
-          // TODO
-          /*util.options.button(e, "Export", function () {
-            chrome.runtime.sendMessage({ type: "db.export" }, function (s) {
-              s = JSON.stringify(s, null, 2)
-              s = new Blob([s], { type: "application/json" })
-              s = URL.createObjectURL(s)
+          util.options.button(e, "Export", function () {
+            platform.port.request("db.export", null, function (s) {
+              assert(s != null)
+              // TODO
+              s = JSON["stringify"](s, null, 2)
+              s = new Blob([s], { "type": "application/json" })
+              s = URL["createObjectURL"](s)
 
               dom.link(function (e) {
                 // "data:application/json," + encodeURIComponent(s)
                 e.src(s)
                 e.download("Tab Organizer - User Data.json")
                 e.click()
+                // TODO ?
                 //URL.revokeObjectURL(s)
               })
             })
@@ -841,7 +846,8 @@ goog.scope(function () {
             dom.file(function (e) {
               e.accept("application/json")
               e.event([e.changed], function (s) {
-                chrome.runtime.sendMessage({ type: "db.import", value: JSON.parse(s) }, function () {
+                                                   // TODO
+                platform.port.request("db.import", JSON["parse"](s), function () {
                   alert("Success!")
                 })
               })
@@ -849,7 +855,7 @@ goog.scope(function () {
             })
           })
 
-          space.horiz("20px").move(e)*/
+          space.horiz("20px").move(e)
 
           util.options.button(e, "Reset options to default", function () {
             if (confirm("Are you sure?\n\nThis will reset all options to default.\n\nThis cannot be undone.\n\nThis does NOT reset tabs, groups, or macros.")) {

@@ -39,4 +39,12 @@ goog.scope(function () {
 
     return self
   }
+
+  platform.port.request = function (s, o, f) {
+    chrome["runtime"]["sendMessage"]({ "type": s, "value": o }, function (s) {
+      if (f != null) {
+        f(s)
+      }
+    })
+  }
 })

@@ -11,11 +11,24 @@ goog.scope(function () {
     , assert = util.log.assert
 
   var ports    = {}
+  var oRequest = {}
   var oMessage = {}
   var oConnect = {}
   var oBatch   = {}
 
   platform.port.on = {}
+
+  /**
+   * @param {string} s
+   * @param {function(*, function(*):void):(void|boolean)} f
+   */
+  platform.port.onRequest = function (s, f) {
+    chrome["runtime"]["onMessage"]["addListener"](function (x, _, send) {
+      if (x["type"] === s) {
+        return f(x["value"], send)
+      }
+    })
+  }
 
   /**
    * @param {string} s

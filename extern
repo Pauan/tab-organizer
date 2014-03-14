@@ -1,6 +1,15 @@
 /** @const @dict @type {function (new:SyntaxError, *=, *=, *=): SyntaxError} */
 function SyntaxError() {}
 
+/** @const @constructor */
+function Blob(x, y) {}
+
+
+/** @const @dict */
+var JSON = {}
+
+/** @const @dict */
+var URL = {}
 
 /** @const @dict */
 var chrome = {}

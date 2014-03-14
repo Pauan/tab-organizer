@@ -104,14 +104,12 @@ goog.scope(function () {
       }
 
 
-      /*chrome.runtime.onMessage.addListener(function (o, info, send) {
-        if (o.type === "checkMonitor") {
-          checkMonitor(function () {
-            send()
-          })
-          return true
-        }
-      })*/
+      platform.port.onRequest("checkMonitor", function (_, send) {
+        checkMonitor(function () {
+          send(null)
+        })
+        return true
+      })
 
 
       var oPopup  = null

@@ -33,8 +33,8 @@
 goog.provide("main")
 
 goog.require("tabs")
-//goog.require("importExport")
 goog.require("popup")
+goog.require("importExport")
 
 tabs.init()
 //importExport.init()
