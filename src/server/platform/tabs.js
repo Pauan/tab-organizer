@@ -2,16 +2,12 @@ goog.provide("platform.tabs")
 goog.provide("platform.windows")
 
 goog.require("util.cell")
-goog.require("util.time")
 goog.require("util.math")
-goog.require("util.Symbol")
 goog.require("util.log")
 goog.require("util.array")
 
 goog.scope(function () {
   var cell   = util.cell
-    , time   = util.time
-    , Symbol = util.Symbol
     , array  = util.array
     , log    = util.log.log
     , assert = util.log.assert
@@ -23,9 +19,6 @@ goog.scope(function () {
   var aWins = []
   var cWins = {}
   var cTabs = {}
-  var ids   = {}
-
-  var _id = Symbol("_id")
 
   var windows = chrome["windows"]
     , tabs    = chrome["tabs"]
@@ -34,34 +27,27 @@ goog.scope(function () {
    * @constructor
    */
   function Win(x) {
-    this[_id]  = x["id"]
     /**
      * @type {!Array.<!Tab>}
      */
     this.tabs  = []
-    this.state = x["state"]
+    this.id    = x["id"]
+    this.state = x["state"] // TODO is this necessary/useful...?
     this.index = array.push(aWins, this)
-    this.time  = {}
-    this.time.created = time.timestamp()
-    this.id    = this.time.created
 
     var self = this
     if (x["tabs"] != null) {
       array.each(x["tabs"], function (t) {
-        var tab = new Tab(t, self)
-        tab.id = tab.time.created = time.timestamp()
-        ids[tab.id] = tab
-        array.push(self.tabs, tab)
+        array.push(self.tabs, new Tab(t, self))
       })
     }
 
-    cWins[this[_id]] = this
-    ids[this.id] = this
+    cWins[this.id] = this
   }
 
   // TODO handle lastFocusedTab ?
   function transfer(tab, t) {
-    tab[_id]    = t["id"]
+    tab.id      = t["id"]
     tab.focused = t["active"]
     tab.index   = t["index"]
     tab.pinned  = t["pinned"]
@@ -73,34 +59,41 @@ goog.scope(function () {
    * @constructor
    */
   function Tab(x, win) {
+    assert(win != null)
+
     this.window = win
-    this.time   = {}
     transfer(this, x)
 
     // TODO what if a tab is already focused ?
-    if (this.focused && this.window != null) {
+    if (this.focused) {
       this.window.lastFocusedTab = this
     }
 
-    cTabs[this[_id]] = this
+    cTabs[this.id] = this
   }
 
-  platform.tabs.on               = {}
-  platform.tabs.on.created       = cell.value(undefined)
-  platform.tabs.on.updated       = cell.value(undefined)
-  platform.tabs.on.removed       = cell.value(undefined)
-  platform.tabs.on.focused       = cell.value(undefined)
-  platform.tabs.on.unfocused     = cell.value(undefined)
-  platform.tabs.on.moved         = cell.value(undefined)
-  platform.tabs.on.updateIndex   = cell.value(undefined)
-  platform.tabs.on.windowCreated = cell.value(undefined)
-  platform.tabs.on.windowRemoved = cell.value(undefined)
+  platform.tabs.on             = {}
+  platform.tabs.on.created     = cell.value(undefined)
+  platform.tabs.on.updated     = cell.value(undefined)
+  platform.tabs.on.removed     = cell.value(undefined)
+  platform.tabs.on.focused     = cell.value(undefined)
+  platform.tabs.on.unfocused   = cell.value(undefined)
+  platform.tabs.on.moved       = cell.value(undefined)
+  platform.tabs.on.updateIndex = cell.value(undefined)
 
-  platform.windows.on         = {}
-  platform.windows.on.created = cell.value(undefined)
-  platform.windows.on.removed = cell.value(undefined)
+  platform.windows.on          = {}
+  platform.windows.on.created  = cell.value(undefined)
+  platform.windows.on.removed  = cell.value(undefined)
 
   platform.tabs.loaded = platform.windows.loaded = cell.dedupe(false)
+
+  /**
+   * @return {!Array.<!Win>}
+   */
+  platform.windows.getAll = function () {
+    assert(platform.windows.loaded.get(), "platform.windows.loaded")
+    return aWins
+  }
 
   /**
    * @return {!Array.<!Tab>}
@@ -116,13 +109,16 @@ goog.scope(function () {
     return r
   }
 
-  platform.windows.get = function (id) {
-    return get(id)
+  // TODO create two new tabs, close them, refresh the popup
+
+  platform.windows.get = function (i) {
+    assert(i in cWins)
+    return cWins[i]
   }
 
-  platform.windows.getAll = function () {
-    assert(platform.windows.loaded.get(), "platform.windows.loaded")
-    return aWins
+  platform.tabs.get = function (i) {
+    assert(i in cTabs)
+    return cTabs[i]
   }
 
   /**
@@ -131,7 +127,7 @@ goog.scope(function () {
    * @param {function():void=} f
    */
   function moveWindow(id, o, f) {
-    windows["update"](get(id)[_id], {
+    windows["update"](id, {
       "top":    o.top,
       "left":   o.left,
       "width":  o.width,
@@ -152,27 +148,15 @@ goog.scope(function () {
     })
   }
 
-  function get(i) {
-    // TODO create two new tabs, close them, refresh the popup
-    assert(i in ids)
-    return ids[i]
-  }
-
-  function getAll(a) {
-    return array.map(a, function (i) {
-      return get(i)[_id]
-    })
-  }
-
   platform.windows.maximize = function (id) {
-    windows["update"](get(id)[_id], { "state": "maximized" })
+    windows["update"](id, { "state": "maximized" })
   }
 
   /**
    * @param {!Array.<number>} a
    */
   platform.tabs.close = function (a) {
-    tabs["remove"](getAll(a))
+    tabs["remove"](a)
   }
 
   // TODO update an existing New Tab page, if it exists ?
@@ -180,7 +164,7 @@ goog.scope(function () {
    * @param {string} url
    * @param {boolean} pinned
    */
-  platform.tabs.open = function (url, pinned, f) {
+  platform.tabs.open = function (url, pinned) {
     tabs["create"]({
       "url":    url,
       "active": true,
@@ -196,17 +180,18 @@ goog.scope(function () {
    * @param {number} win
    */
   platform.tabs.move = function (a, index, win) {
-    win = get(win)
+    assert(win in cWins)
     array.each(a, function (x, i) {
-      x = get(x)
+      var tab = platform.tabs.get(x)
+      log(tab.window.id, win)
       // TODO is this correct ?
       //if (x.index !== index) {
       //log(x.title, index, index)
-      tabs["move"](x[_id], {
-        "index": (win === x.window && x.index < index
+      tabs["move"](tab.id, {
+        "index": (tab.window.id === win && tab.index < index
                    ? index - 1
                    : index + i),
-        "windowId": win[_id]
+        "windowId": win
       })
       //}
     })
@@ -216,11 +201,10 @@ goog.scope(function () {
    * @param {number} i
    */
   platform.tabs.focus = function (i) {
-    var tab = get(i)
-    tabs["update"](tab[_id], { "active": true })
-    if (tab.window != null) {
-      windows["update"](tab.window[_id], { "focused": true })
-    }
+    var tab = platform.tabs.get(i)
+    tabs["update"](tab.id, { "active": true })
+    assert(tab.window != null)
+    windows["update"](tab.window.id, { "focused": true })
   }
 
   function updateIndices(a, iMin) {
@@ -252,14 +236,12 @@ goog.scope(function () {
   function updateTab(tab, t) {
     assert(tab.index === t["index"])
 
-    delete cTabs[tab[_id]]
+    delete cTabs[tab.id]
     transfer(tab, t)
-    cTabs[tab[_id]] = tab
-    tab.time.updated = time.timestamp()
+    cTabs[tab.id] = tab
 
-    if (tab.window != null) {
-      assert(tab.window[_id] === t["windowId"])
-    }
+    assert(tab.window != null)
+    assert(tab.window.id === t["windowId"])
 
     platform.tabs.on.updated.set(tab)
   }
@@ -267,7 +249,6 @@ goog.scope(function () {
   function focus1(tab, win) {
     win.lastFocusedTab = tab
     tab.focused = true
-    tab.time.focused = time.timestamp()
     platform.tabs.on.focused.set(tab)
   }
 
@@ -279,7 +260,6 @@ goog.scope(function () {
         focus1(tab, win)
       } else if (old !== tab) {
         old.focused = false
-        old.time.unfocused = time.timestamp()
         platform.tabs.on.unfocused.set(old)
         focus1(tab, win)
       }
@@ -293,8 +273,6 @@ goog.scope(function () {
       var win = cWins[t["windowId"]]
       if (win != null) {
         var tab = new Tab(t, win)
-        tab.id = tab.time.created = time.timestamp()
-        ids[tab.id] = tab
 
         array.insertAt(win.tabs, tab.index, tab)
         updateTabIndices(win.tabs, tab.index + 1)
@@ -325,7 +303,6 @@ goog.scope(function () {
         var win = cWins[id]
         if (win != null) {
           delete cWins[id]
-          delete ids[win.id]
 
           assert(typeof win.index === "number")
           assert(win.index >= 0)
@@ -334,7 +311,6 @@ goog.scope(function () {
           array.removeAt(aWins, win.index)
           updateWindowIndices(aWins, win.index)
 
-          win.time.removed = time.timestamp()
           platform.windows.on.removed.set(win)
         }
       })
@@ -347,17 +323,14 @@ goog.scope(function () {
       tabs["onRemoved"]["addListener"](function (id, info) {
         var tab = cTabs[id]
         if (tab != null) {
-          assert(id === tab[_id])
+          assert(id === tab.id)
           delete cTabs[id]
-          delete ids[tab.id]
 
           var win = tab.window
-          if (win != null) {
-            array.removeAt(win.tabs, tab.index)
-            updateTabIndices(win.tabs, tab.index)
-          }
+          assert(win != null)
+          array.removeAt(win.tabs, tab.index)
+          updateTabIndices(win.tabs, tab.index)
 
-          tab.time.removed = time.timestamp()
           platform.tabs.on.removed.set({
             windowClosing: info["isWindowClosing"],
             tab: tab
@@ -404,7 +377,6 @@ goog.scope(function () {
 
               assert(oldIndex !== tab.index)
 
-              tab.time.moved = time.timestamp()
               platform.tabs.on.moved.set(tab)
             //})
           }
@@ -420,7 +392,7 @@ goog.scope(function () {
             // TODO remove all the checks that see if tab.window is null or not ?
             //delete tab.window
 
-            assert(win[_id] === info["oldWindowId"])
+            assert(win.id === info["oldWindowId"])
             assert(tab.index === info["oldPosition"])
 
             array.removeAt(win.tabs, tab.index)
@@ -436,7 +408,7 @@ goog.scope(function () {
               var win = cWins[info["newWindowId"]]
               assert(win != null)
 
-              assert(win[_id] === info["newWindowId"])
+              assert(win.id === info["newWindowId"])
 
               tab.window = win
 
@@ -447,7 +419,6 @@ goog.scope(function () {
 
               //log(tab.title, info["newPosition"], t["index"])
 
-              tab.time.moved = time.timestamp()
               platform.tabs.on.moved.set(tab)
             //})
           }
@@ -458,7 +429,7 @@ goog.scope(function () {
         var tab = cTabs[info["tabId"]]
         if (tab != null) {
           assert(tab.window != null)
-          assert(tab.window[_id] === info["windowId"])
+          assert(tab.window.id === info["windowId"])
           focus(tab)
         }
       })
@@ -467,8 +438,8 @@ goog.scope(function () {
         tabs["get"](addedId, function (tab) {
           var old = cTabs[removedId]
           if (old != null) {
-            assert(old[_id] !== tab["id"])
-            assert(old[_id] === removedId)
+            assert(old.id !== tab["id"])
+            assert(old.id === removedId)
             assert(tab["id"] === addedId)
             updateTab(old, tab)
           }

@@ -178,15 +178,15 @@ goog.scope(function () {
         tabSort: function (x, y) {
           x = x[info]
           y = y[info]
-          if (x.active && y.active) {
-            return x.active.index <= y.active.index
+          if (x.type === "active" && y.type === "active") {
+            return x.index <= y.index
           } else {
             return (x.time.unloaded || x.time.focused || x.time.created) >=
                    (y.time.unloaded || y.time.focused || y.time.created)
           }
         },
         init: function (tab) {
-          if (tab.active == null || tab.active.window == null) {
+          if (tab.type === "unloaded") {
             return [{
               id: null,
               name: cell.dedupe(""),
@@ -194,10 +194,11 @@ goog.scope(function () {
               rename: false
             }]
           } else {
+            assert(tab.window != null)
             return [{
-              id: tab.active.window.id,
-              name: tab.active.window.name,
-              index: tab.active.window.time.created,
+              id: tab.window.id,
+              name: tab.window.name,
+              index: tab.window.time.created,
               rename: true
             }]
           }
@@ -653,8 +654,8 @@ goog.scope(function () {
           assert(old[info].id === tab.id)
           assert(old[group] === oGroup)
 
-          var b = (old[info].url      === tab.url &&
-                   !!old[info].active === !!tab.active)
+          var b = (old[info].url  === tab.url &&
+                   old[info].type === tab.type)
 
           old[info] = tab
 

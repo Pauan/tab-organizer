@@ -103,7 +103,7 @@ goog.scope(function () {
 
         // TODO test this
         "unloaded": function (x) {
-          return x.active == null
+          return x.type === "unloaded"
         }
       }),
       // TODO slightly awkward implementation, maybe move into platform.tabs ?

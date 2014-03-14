@@ -193,8 +193,8 @@ goog.scope(function () {
       })
 
       var isFocused = cell.bind([oInfo, opt.get("group.sort.type")], function (tab, sort) {
-        return (tab.active != null &&
-                tab.active.focused &&
+        return (tab.type === "active" &&
+                tab.focused &&
                 sort === "window")
       })
 
@@ -238,10 +238,10 @@ goog.scope(function () {
           favicon.src("chrome://favicon/" + tab.url)
         }, 0)
 
-        favicon.styleWhen(faviconInactiveStyle, tab.active == null)
+        favicon.styleWhen(faviconInactiveStyle, tab.type === "unloaded")
         e.styleWhen(tabSelectedStyle, tab.selected)
 
-        if (tab.active != null) {
+        if (tab.type === "active") {
           text.text(tab.title)
         } else {
           text.text("➔ " + tab.title)
@@ -250,8 +250,8 @@ goog.scope(function () {
       })
 
       e.bind([oInfo, mouseover], function (tab, over) {
-        e.styleWhen(tabInactiveHoverStyle, tab.active == null && over)
-        e.styleWhen(tabInactiveStyle,      tab.active == null && !over)
+        e.styleWhen(tabInactiveHoverStyle, tab.type === "unloaded" && over)
+        e.styleWhen(tabInactiveStyle,      tab.type === "unloaded" && !over)
 
         if (over) {
           ui.urlBar.currentURL.set({ mouseX:   over.mouseX
@@ -397,9 +397,10 @@ goog.scope(function () {
         end: function () {
           var oInfo = dragging.to[info].get()
 
+          // TODO what if oInfo is unloaded ?
           var index = (dragging.type === "after"
-                        ? oInfo.active.index + 1
-                        : oInfo.active.index)
+                        ? oInfo.index + 1
+                        : oInfo.index)
 /*
           // TODO hacky, should be handled by server/platform/tabs
           if (index > curr && oInfo.active.window === oOld.active.window) {

@@ -167,7 +167,7 @@ goog.scope(function () {
       o.text("Unload")
 
       function isActive(x) {
-        return x.active
+        return x.type === "active"
       }
 
       o.bind([menus.tab.state], function (state) {

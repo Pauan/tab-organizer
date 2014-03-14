@@ -1,3 +1,4 @@
+// TODO the "calibrate screen size" popup seems to break an assertion in deserialize.tab
 // TODO in a window with a pinned tab, try to move (in TO) multiple non-pinned tabs above the pinned tab
 // TODO in TO, move a tab into a different window, then move it back to the old window, assertion failed
 // TODO create a window with a single tab, (in TO) move the tab into another window, there is now an empty group
