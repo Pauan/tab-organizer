@@ -406,7 +406,7 @@ goog.scope(function () {
           if (elem == null) {
             o.element.move(e)
           } else {
-            o.element.moveBefore(elem)
+            o.element.moveBefore(elem.element)
           }
 
           if (animate) {
