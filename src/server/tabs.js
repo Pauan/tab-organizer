@@ -223,8 +223,12 @@ goog.scope(function () {
         return dTabs.getAll()
       }
 
-      window["delTabs"] = function () {
+      /*window["delTabs"] = function () {
         dTabs.delAll()
+      }*/
+
+      window["delTab"] = function (s) {
+        dTabs.del(s)
       }
 
       /*function set(t, dTabs) {
@@ -260,6 +264,14 @@ goog.scope(function () {
         return t
       }*/
 
+      function removeActiveAndSave(s, o) {
+        removeActive(s, o)
+        if (oActive[s] == null) {
+          assert(dTabs.has(s))
+          dTabs.del(s)
+        }
+      }
+
       function updateTab(o, t) {
         assert(oUnloaded[t.id] == null)
         assert(oTabs[t.id] != null)
@@ -271,7 +283,8 @@ goog.scope(function () {
           assert(typeof o["url"] === "string")
           assert(typeof t.url === "string")
           addActive(t.url, o)
-          removeActive(o["url"], o)
+          // TODO I don't like how removeActive saves but addActive doesn't
+          removeActiveAndSave(o["url"], o)
           o["url"] = t.url
         }
 
@@ -288,7 +301,8 @@ goog.scope(function () {
         assert(a != null)
         if (array.len(a) === 1) {
           assert(a[0] === o)
-          dTabs.set(o["url"], serialize.tabToDisk(a[0]))
+          assert(o["groups"] != null, o["url"])
+          dTabs.set(o["url"], serialize.tabToDisk(o))
         } else {
           assert(array.indexOf(a, o) !== -1)
           dTabs.set(o["url"], array.foldl1(a, serialize.merge))
@@ -346,10 +360,7 @@ goog.scope(function () {
 
         delete oTabs[o["id"]]
 
-        removeActive(o["url"], o)
-        if (oActive[o["url"]] == null) {
-          dTabs.del(o["url"])
-        }
+        removeActiveAndSave(o["url"], o)
 
         return o
       }

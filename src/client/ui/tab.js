@@ -352,7 +352,7 @@ goog.scope(function () {
             e.styles(dom.fixedPanel, dom.noMouse)
             // TODO use dom.style
             e.style(function (e) {
-              e.set("opacity", "0.75")
+              e.set("opacity", "0.94")
             })
           }).moveBefore(e)
 

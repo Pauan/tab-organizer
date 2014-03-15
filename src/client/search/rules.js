@@ -63,7 +63,7 @@ goog.scope(function () {
           // TODO have it make the tabs hidden, THEN get all the bookmarks, THEN do the search
           //var o = LUSH.bookmark.getAll()
           return function (x) {
-            return x.url in o
+            //return x.url in o
           }
         })(),
 

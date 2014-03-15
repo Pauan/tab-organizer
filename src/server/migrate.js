@@ -14,8 +14,9 @@ goog.scope(function () {
     , db       = platform.db
     , manifest = platform.manifest
     , log      = util.log.log
+    , assert   = util.log.assert
 
-  var version = manifest.get("version") + "b5"
+  var version = manifest.get("version") + "b6"
 
   function set(o, tab, s) {
     if (tab["time"][s] != null) {
@@ -24,6 +25,8 @@ goog.scope(function () {
   }
 
   function diskToDisk(tab) {
+    assert(tab["groups"] != null, tab["title"])
+
     /** @dict */
     var o       = {}
     o["time"]   = {}

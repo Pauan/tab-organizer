@@ -181,8 +181,9 @@ goog.scope(function () {
           if (x.type === "active" && y.type === "active") {
             return x.index <= y.index
           } else {
-            return (x.time.unloaded || x.time.focused || x.time.created) >=
-                   (y.time.unloaded || y.time.focused || y.time.created)
+            // TODO is this right ?
+            return (x.time.unloaded || x.time.focused || x.time.updated || x.time.created) >=
+                   (y.time.unloaded || y.time.focused || y.time.updated || y.time.created)
           }
         },
         init: function (tab) {

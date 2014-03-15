@@ -139,8 +139,7 @@ goog.scope(function () {
           } else {
             rename = false
             dom.box(function (e) {
-              // TODO dom.style for this one
-              e.styles(dom.stretch, dom.clip)
+              e.styles(groupText)
 
               e.bind([sTitle], function (s) {
                 e.text(s)
