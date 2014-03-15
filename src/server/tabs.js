@@ -65,6 +65,59 @@ goog.scope(function () {
     return oActive
   }
 
+  function newTabFromDisk(saved, s) {
+    var x = serialize.tabFromDisk(saved, s)
+    assert(x["id"] === s)
+    assert(oTabs[s] == null)
+    oTabs[s] = x
+    return x
+  }
+
+  // TODO shouldn't this call saveTab ?
+  function importFromDisk(s, saved) {
+    var a = oActive[s]
+    if (a == null) {
+      var o = oTabs[s]
+      if (o == null) {
+        send("created", newTabFromDisk(saved, s))
+      } else {
+        serialize.setFromDisk(o, saved)
+        send("updated", o)
+      }
+    } else {
+      var min = null
+      array.each(a, function (x) {
+        if (min === null || x["time"]["created"] < min["time"]["created"]) {
+          min = x
+        }
+      })
+      assert(min !== null)
+      serialize.setFromDisk(min, saved)
+      send("updated", min)
+    }
+  }
+
+  tabs.fromDisk = function (oNew) {
+    var l = cell.dedupe(false)
+    if ("current.tabs" in oNew) {
+      cell.when(cell.and(db.loaded, migrate.loaded), function () {
+        var dTabs = db.open("current.tabs")
+        object.each(oNew["current.tabs"], function (x, s) {
+          if (dTabs.has(s)) {
+            dTabs.set(s, serialize.merge(x, dTabs.get(s)))
+          } else {
+            dTabs.set(s, x)
+          }
+          importFromDisk(s, dTabs.get(s))
+        })
+        l.set(true)
+      })
+    } else {
+      l.set(true)
+    }
+    return l
+  }
+
   tabs.init = function () {
     cell.when(cell.and(db.loaded, migrate.loaded, opt.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
       var aNames = db.raw("window.titles")
@@ -212,15 +265,16 @@ goog.scope(function () {
         assert(oTabs[t.id] != null)
         assert(o["type"] === "active")
 
-        if (o["url"] == null) {
-          addActive(t.url, o)
-        } else if (o["url"] !== t.url) {
+        assert(!!o["url"])
+        assert(!!t.url)
+        if (o["url"] !== t.url) {
           assert(typeof o["url"] === "string")
+          assert(typeof t.url === "string")
           addActive(t.url, o)
           removeActive(o["url"], o)
+          o["url"] = t.url
         }
 
-        o["url"]          = t.url
         o["title"]        = t.title
         o["pinned"]       = t.pinned
         o["index"]        = t.index
@@ -246,11 +300,10 @@ goog.scope(function () {
         assert(oUnloaded[t.id] == null)
         assert(oTabs[t.id] == null)
 
-        var shouldLoad = (dTabs.has(t.url) && oActive[t.url] == null)
-
         var o = {
           "type": "active",
           "id": t.id,
+          "url": t.url,
           "groups": {},
           "time": {
             "created": time.timestamp()
@@ -259,9 +312,7 @@ goog.scope(function () {
         }
         oTabs[t.id] = o
 
-        updateTab(o, t)
-
-        if (shouldLoad) {
+        if (dTabs.has(t.url) && oActive[t.url] == null) {
           assert(oTabs[t.url] != null)
           assert(t.url === o["url"])
           // shouldn't this use oTabs[t.url] instead of dTabs.get(t.url) ?
@@ -271,7 +322,8 @@ goog.scope(function () {
           serialize.setFromDisk(o, saved)
         }
 
-        return o
+        addActive(t.url, o)
+        return updateTab(o, t)
       }
 
       function unloadTab(o) {
@@ -302,6 +354,20 @@ goog.scope(function () {
         return o
       }
 
+      function closeUnloadedTab(o) {
+        assert(oUnloaded[o["id"]] == null)
+        assert(o["url"] === o["id"])
+        assert(oTabs[o["url"]] === o)
+        assert(oTabs[o["id"]] != null)
+        assert(o["type"] === "unloaded")
+        assert(oActive[o["url"]] == null)
+
+        delete oTabs[o["id"]]
+        dTabs.del(o["url"])
+
+        return o
+      }
+
       function updateAndSend(s, t) {
         assert(oUnloaded[t.id] == null)
 
@@ -312,8 +378,7 @@ goog.scope(function () {
       }
 
       object.each(dTabs.getAll(), function (x, s) {
-        x = serialize.tabFromDisk(x, s)
-        oTabs[x["id"]] = x
+        newTabFromDisk(x, s)
       })
 
       array.each(platform.tabs.getAll(), function (t) {
@@ -321,9 +386,8 @@ goog.scope(function () {
 
         if (isValidURL(t.url)) {
           saveTab(newTab(t))
-        // TODO is this correct ?
         } else {
-          delete oTabs[t.id]
+          assert(oTabs[t.id] == null)
         }
       })
 
@@ -415,8 +479,14 @@ goog.scope(function () {
               if (x["type"] === "active") {
                 assert(value === x["id"])
                 return true
+              } else if (x["type"] === "unloaded") {
+                assert(x["id"] === value)
+                assert(x["url"] === value)
+                log(x)
+                send("removed", closeUnloadedTab(x))
+                return false
               } else {
-                // TODO
+                fail()
                 return false
               }
             }))
@@ -427,8 +497,10 @@ goog.scope(function () {
             if (x["type"] === "active") {
               assert(value === x["id"])
               platform.tabs.focus(value)
-            } else {
+            } else if (x["type"] === "unloaded") {
               platform.tabs.open(x["url"], x["pinned"])
+            } else {
+              fail()
             }
 
           } else if (op === "move") {
@@ -441,22 +513,20 @@ goog.scope(function () {
           } else if (op === "unload") {
             array.each(value, function (i) {
               var t = oTabs[i]
-              var s = t["url"]
               assert(t != null)
               assert(t["type"] === "active")
-              var a = oActive[s]
-              delete oActive[s]
-              assert(a != null)
-              assert(array.indexOf(a, t) !== -1)
 
+              var s = t["url"]
               assert(dTabs.has(s))
               var saved = dTabs.get(s)
               saved["time"]["unloaded"] = time.timestamp()
               dTabs.set(s, saved)
-              log(saved)
-              saved = serialize.tabFromDisk(saved, s)
-              assert(oTabs[saved["id"]] == null)
-              send("created", (oTabs[saved["id"]] = saved))
+              send("created", newTabFromDisk(saved, s))
+
+              var a = oActive[s]
+              delete oActive[s]
+              assert(a != null)
+              assert(array.indexOf(a, t) !== -1)
 
               platform.tabs.close(array.map(a, function (x) {
                 assert(x["id"] !== saved["id"])

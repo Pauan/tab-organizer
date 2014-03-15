@@ -15,7 +15,9 @@ goog.scope(function () {
     , object = util.object
     , port   = platform.port
     , db     = platform.db
+    , log    = util.log.log
     , fail   = util.log.fail
+    , assert = util.log.assert
     , array  = util.array
 
   optionMaker.make = function (exports, sOpt, sPort, defs) {
@@ -31,27 +33,31 @@ goog.scope(function () {
       return cOpts[s]
     }
 
-    /* TODO
     exports.fromDisk = function (oNew) {
       var l = cell.dedupe(false)
       if (sOpt in oNew) {
         cell.when(exports.loaded, function () {
-          object.forEach(oNew[sOpt], function (x, s) {
-            var o = cOpts[s]
-            if (o == null) {
-              // TODO this should probably fail silently or something ?
-              throw new Error("invalid option for " + sOpt + ": " + s)
-            } else {
-              o.set(x)
-            }
+          var o = oNew[sOpt]
+          // TODO should this use this behavior, or the commented out code below ...?
+          object.each(o, function (x, s) {
+            // TODO this should probably fail silently or something ?
+            assert(s in cOpts)
+            cOpts[s].set(x)
           })
+          /*object.each(cOpts, function (x, s) {
+            if (s in o) {
+              x.set(o[s])
+            } else {
+              x.set(defs[s])
+            }
+          })*/
           l.set(true)
         })
       } else {
         l.set(true)
       }
       return l
-    }*/
+    }
 
     cell.when(migrate.loaded, function () {
       db.open(sOpt, function (dOpts) {

@@ -47,7 +47,6 @@ function mkdir(name) {
 }
 
 function build() {
-  mkdir(path.join(OUTDIR, "gsap"))
   mkdir(path.join(OUTDIR, "js"))
 
   var commands = [].map.call(arguments, function (a) {

@@ -47,8 +47,12 @@ goog.scope(function () {
   })
 
   var groupTop = dom.style(function (e) {
-    e.set("font-size", "11px")
     e.set("height", "16px") // TODO I don't like this hardcoding, but it's to avoid using ui.vert, which is slow (?)
+  })
+
+  var groupText = dom.style(function (e) {
+    e.styles(dom.stretch, dom.clip)
+    e.set("font-size", "11px")
   })
 
   var groupTopInner = dom.style(function (e) {
@@ -123,8 +127,7 @@ goog.scope(function () {
           var rename
           if (oGroup.rename) {
             rename = dom.textbox(function (e) {
-              // TODO dom.style for this one
-              e.styles(dom.stretch, dom.clip)
+              e.styles(groupText)
 
               e.bind([sTitle], function (s) {
                 e.value.set(s)
