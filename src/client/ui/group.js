@@ -84,7 +84,7 @@ goog.scope(function () {
     ui.animate.from(e, i, hiddenGroup)
   }
 
-  ui.group.make = function (sTitle, oGroup, f) {
+  ui.group.make = function (sTitle, oGroup, f, fShow) {
     assert(typeof oGroup.rename === "boolean")
 
     return dom.box(function (eTop) {
@@ -150,16 +150,7 @@ goog.scope(function () {
           menus.button.make(menus.group.menu, function () {
             var normal   = []
               , selected = []
-            array.each(oGroup.aTabs, function (x) {
-              x = x.info
-              if (x.visible) {
-                if (x.selected) {
-                  array.push(selected, x)
-                } else {
-                  array.push(normal, x)
-                }
-              }
-            })
+            fShow(normal, selected)
             menus.group.state.set({
               normal: normal,
               selected: selected,

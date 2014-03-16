@@ -35,6 +35,8 @@ goog.scope(function () {
   var info  = Symbol("info")
     , group = Symbol("group")
 
+  logic.info = info
+
   util.dom.title(manifest.get("name"))
 
   var hiddenGroupList = ui.animate.object({
@@ -212,12 +214,13 @@ goog.scope(function () {
           } else if (y.id === "") {
             return true
           } else {
-            return x.id <= y.id
+            return util.string.upperSorter(x.id, y.id) <= 0
           }
         },
-        // TODO should sort by time added to the group
+        // TODO should sort by time added to the group ?
+        // TODO code duplication with "name" sort
         tabSort: function (x, y) {
-          return x[info].time.created >= y[info].time.created
+          return util.string.upperSorter(x[info].title, y[info].title) <= 0
         },
         init: function (tab) {
           var r = []
@@ -246,10 +249,10 @@ goog.scope(function () {
       }),
       "name": {
         groupSort: function (x, y) {
-          return x.id <= y.id
+          return util.string.upperSorter(x.id, y.id) <= 0
         },
         tabSort: function (x, y) {
-          return util.string.upper(x[info].title) <= util.string.upper(y[info].title)
+          return util.string.upperSorter(x[info].title, y[info].title) <= 0
         },
         init: function (tab) {
           if (tab.title === "") {
@@ -275,7 +278,7 @@ goog.scope(function () {
           } else if (y.id === "chrome://") {
             return false
           } else {
-            return util.string.upper(x.id) <= util.string.upper(y.id)
+            return util.string.upperSorter(x.id, y.id) <= 0
           }
         },
         tabSort: function (x, y) {
@@ -399,6 +402,17 @@ goog.scope(function () {
           o.aTabs = []
           o.element = ui.group.make(o.name, o, function (e) {
             o.tabList = e
+          }, function (normal, selected) {
+            array.each(o.aTabs, function (x) {
+              x = x[info]
+              if (x.visible) {
+                if (x.selected) {
+                  array.push(selected, x)
+                } else {
+                  array.push(normal, x)
+                }
+              }
+            })
           })
 
           var a     = aGroups

@@ -33,8 +33,7 @@ goog.scope(function () {
 
   function isValidURL(s) {
     return s !== "" &&
-           s !== popupId// &&
-           //s !== "chrome://newtab/"
+           s !== popupId
   }
 
   tabs.loaded = cell.dedupe(false)
@@ -223,46 +222,9 @@ goog.scope(function () {
         return dTabs.getAll()
       }
 
-      /*window["delTabs"] = function () {
-        dTabs.delAll()
-      }*/
-
       window["delTab"] = function (s) {
         dTabs.del(s)
       }
-
-      /*function set(t, dTabs) {
-        var o = serialize.tab(t)
-
-        var old = oTabs[o["id"]]
-        oTabs[o["id"]] = o
-
-        addActive(o)
-        if (old != null) {
-          removeActive(old)
-        }
-
-        var a = oActive[o["url"]]
-        assert(a != null)
-        assert(array.indexOf(a, o) !== -1)
-        if (array.len(a) === 1) {
-          assert(a[0] === o)
-          dTabs.set(o["url"], serialize.tabToDisk(a[0]))
-        } else {
-          dTabs.set(o["url"], array.foldl1(a, serialize.merge))
-        }
-
-        return o
-      }
-
-      function rem(t, dTabs) {
-        delete oTabs[t["id"]]
-        removeActive(t)
-        if (oActive[t["url"]] == null) {
-          dTabs.del(t["url"])
-        }
-        return t
-      }*/
 
       function removeActiveAndSave(s, o) {
         removeActive(s, o)
@@ -297,17 +259,52 @@ goog.scope(function () {
       }
 
       function saveTab(o) {
+        assert(!!o["url"])
         var a = oActive[o["url"]]
-        assert(a != null)
-        if (array.len(a) === 1) {
-          assert(a[0] === o)
-          assert(o["groups"] != null, o["url"])
+        if (a == null) {
+          assert(o["type"] === "unloaded")
+          assert(dTabs.has(o["url"]))
+          var saved = dTabs.get(o["url"])
+          assert(saved["time"]["created"] === o["time"]["created"])
+          assert(saved["time"]["updated"] === o["time"]["updated"])
+          assert(saved["time"]["focused"] === o["time"]["focused"])
+          assert(saved["time"]["unloaded"] === o["time"]["unloaded"])
+          assert(saved["groups"] === o["groups"])
+          assert(saved["title"] === o["title"])
+          log(o, saved)
           dTabs.set(o["url"], serialize.tabToDisk(o))
         } else {
-          assert(array.indexOf(a, o) !== -1)
-          dTabs.set(o["url"], array.foldl1(a, serialize.merge))
+          assert(o["type"] === "active")
+          if (array.len(a) === 1) {
+            assert(a[0] === o)
+            assert(o["groups"] != null, o["url"])
+            dTabs.set(o["url"], serialize.tabToDisk(o))
+          } else {
+            assert(array.indexOf(a, o) !== -1)
+            dTabs.set(o["url"], array.foldl1(a, serialize.merge))
+          }
         }
         return o
+      }
+
+      // TODO when closing duplicates, shouldn't it merge the data for the tabs together ?
+      function closeDuplicates(o) {
+        var a = oActive[o["url"]]
+        assert(a != null)
+        if (array.len(a) > 1 && opt.get("tabs.close.duplicates").get()) {
+          var aClose = array.filter(a, function (x) {
+            return x !== o
+          })
+          assert(array.len(aClose) === array.len(a) - 1)
+          assert(array.len(aClose) >= 1)
+          platform.tabs.close(array.map(aClose, function (x) {
+            assert(x["url"] === o["url"])
+            assert(x["type"] === "active")
+            assert(x["id"] !== o["id"])
+            return x["id"]
+          }))
+        }
+        return saveTab(o)
       }
 
       function newTab(t) {
@@ -409,10 +406,10 @@ goog.scope(function () {
         var old = oTabs[t.id]
         if (isValidURL(t.url)) {
           if (old == null) {
-            send("created", saveTab(newTab(t)))
+            send("created", closeDuplicates(newTab(t)))
           } else {
             old["time"]["updated"] = time.timestamp()
-            send("updated", saveTab(updateTab(old, t)))
+            send("updated", closeDuplicates(updateTab(old, t)))
           }
         // TODO test this
         } else if (old != null) {
@@ -493,7 +490,6 @@ goog.scope(function () {
               } else if (x["type"] === "unloaded") {
                 assert(x["id"] === value)
                 assert(x["url"] === value)
-                log(x)
                 send("removed", closeUnloadedTab(x))
                 return false
               } else {
@@ -505,8 +501,8 @@ goog.scope(function () {
           } else if (op === "focus") {
             assert(oTabs[value] != null)
             var x = oTabs[value]
+            assert(value === x["id"])
             if (x["type"] === "active") {
-              assert(value === x["id"])
               platform.tabs.focus(value)
             } else if (x["type"] === "unloaded") {
               platform.tabs.open(x["url"], x["pinned"])
@@ -544,6 +540,31 @@ goog.scope(function () {
                 send("removed", unloadTab(x))
                 return x["id"]
               }))
+            })
+
+          } else if (op === "addToGroup") {
+            var s = o["group"]
+            assert(typeof s === "string")
+            var timestamp = time.timestamp()
+            array.each(value, function (i) {
+              var t = oTabs[i]
+              assert(t != null)
+              if (t["groups"][s] == null) {
+                t["groups"][s] = timestamp
+                send("updated", saveTab(t))
+              }
+            })
+
+          } else if (op === "removeFromGroup") {
+            var s = o["group"]
+            assert(typeof s === "string")
+            array.each(value, function (i) {
+              var t = oTabs[i]
+              assert(t != null)
+              if (t["groups"][s] != null) {
+                delete t["groups"][s]
+                send("updated", saveTab(t))
+              }
             })
 
           } else if (op === "window-rename") {

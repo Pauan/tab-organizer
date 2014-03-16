@@ -89,8 +89,6 @@ goog.scope(function () {
           ui.menu.checkbox(o, function (o) {
             oGroups[s] = o
 
-            var i = array.insertSorted(aGroups, s, sort)
-
             function hasGroup(x) {
               return x.groups[s] != null
             }
@@ -116,11 +114,13 @@ goog.scope(function () {
 
             o.text(s)
 
+            var i = array.insertSorted(aGroups, s, sort)
             i = aGroups[i + 1]
             if (i != null) {
-              i = oGroups[i]
+              assert(oGroups[i] != null)
+              log(s, oGroups[i])
+              o.moveBefore(oGroups[i])
             }
-            o.moveBefore(i)
 
             showSeparator(bAnimate)
             //o.show(iAnim, animate)

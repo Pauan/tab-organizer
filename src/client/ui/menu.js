@@ -269,13 +269,7 @@ goog.scope(function () {
 
     // TODO hacky
     o.moveBefore = function (x) {
-      // TODO is this correct?
-      if (x) {
-        // eParent[element]
-        e.moveBefore(x[element])
-      } else {
-        e.move(eParent[element])
-      }
+      e.moveBefore(x[element])
     }
 
     o.enabled = cell.dedupe(true, {
@@ -432,8 +426,11 @@ goog.scope(function () {
 
       o.remove = func.bind(e.remove, e)
 
+      // TODO
+      e.move(eParent[element])
+
       f(o)
-    }).move(eParent[element])
+    })
   }
 
   ui.menu.submenu = function (eParent, eMenu, f) {

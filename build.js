@@ -9,6 +9,7 @@ var LIBDIR     = "lib"
   , OUTDIR     = "build"
   , debug      = true
   , prettified = true
+  , sources    = false
 
 function getFilesInDir(p) {
   var r = []
@@ -142,10 +143,12 @@ function build() {
           // Add "sourcesContent" to source map
           var y = JSON.parse(fs.readFileSync(info.sourcemap, { encoding: "utf8" }))
           y["sourceRoot"] = "../"
-          y["sourcesContent"] = y["sources"].map(function (x) {
-            return fs.readFileSync(x, { encoding: "utf8" })
-          })
-          shift(y, "sourcesContent")
+          if (sources) {
+            y["sourcesContent"] = y["sources"].map(function (x) {
+              return fs.readFileSync(x, { encoding: "utf8" })
+            })
+            shift(y, "sourcesContent")
+          }
           shift(y, "mappings")
           shift(y, "names")
           fs.writeFileSync(info.sourcemap, JSON.stringify(y, null, 4))
