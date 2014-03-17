@@ -89,7 +89,7 @@ goog.scope(function () {
       eTop.styles(ui.common.group)
 
       ui.layout.group(eTop)
-      //eTop.clip(true) // TODO is this ever necessary ?
+      ui.layout.groupFocused(eTop)
 
       /*e.background(function (t) {
         t.color("inherit") // TODO

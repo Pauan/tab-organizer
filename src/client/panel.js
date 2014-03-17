@@ -130,7 +130,6 @@ goog.scope(function () {
         e.styles(bottom)
 
         ui.layout.groupList(e)
-        //e.stretch()
 
         logic.initialize(e)
 

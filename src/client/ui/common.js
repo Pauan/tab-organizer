@@ -187,7 +187,7 @@ goog.scope(function () {
     e.set("background-position", "0px 1px")
 
     e.set("background-image", array.join([dom.gradient("to bottom", ["0%",   dom.hsl(0, 0, 100, 0.2)  ],
-                                                                    ["49%",  "transparent"           ],
+                                                                    ["49%",  "transparent"            ],
                                                                     ["50%",  dom.hsl(0, 0,   0, 0.075)],
                                                                     ["80%",  dom.hsl(0, 0, 100, 0.1)  ],
                                                                     ["100%", dom.hsl(0, 0, 100, 0.2)  ]),
@@ -202,6 +202,33 @@ goog.scope(function () {
     cell.when(opt.loaded, function () {
       cell.bind([opt.get("theme.color")], function (hue) {
         e.set("border-color", skewHue(hue, 50, 75))
+      })
+    })
+  })
+
+  // TODO should probably merge layout.js and common.js
+  ui.common.groupHorizontal = dom.style(function (e) {
+    // TODO a bit hacky
+    cell.when(opt.loaded, function () {
+      cell.bind([opt.get("theme.color")], function (hue) {
+        e.set("border-color", array.join([skew(hue, 35, 55),        // top
+                                          skew(hue, 30, 40),        // right
+                                          skew(hue, 30, 40),        // bottom
+                                          skew(hue, 35, 55)], " ")) // left
+        e.set("box-shadow", "-1px 1px 5px " + skew(hue, 15, 50, 0.5))
+      })
+    })
+  })
+
+  ui.common.groupFocused = dom.style(function (e) {
+    // TODO a bit hacky
+    cell.when(opt.loaded, function () {
+      cell.bind([opt.get("theme.color")], function (hue) {
+        e.set("border-color", array.join([skew(hue, 80, 50),        // top
+                                          skew(hue, 70, 45),        // right
+                                          skew(hue, 70, 45),        // bottom
+                                          skew(hue, 80, 50)], " ")) // left
+        e.set("box-shadow", "0px 0px 5px 1px " + skew(hue, 50, 50))
       })
     })
   })
