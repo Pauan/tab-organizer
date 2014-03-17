@@ -23,7 +23,7 @@ goog.scope(function () {
     , time   = util.time
     , db     = platform.db
 
-  var popupId = platform.util.getURL("../panel.html")
+  var popupId = platform.util.getURL("panel.html")
 
   var oTabs  = {}
 
@@ -418,9 +418,8 @@ goog.scope(function () {
             old["time"]["updated"] = time.timestamp()
             send("updated", closeDuplicates(saveTab(updateTab(old, t))))
           }
-        // TODO test this
         } else if (old != null) {
-          assert(false, "REMOVING " + old.url + " " + t.url)
+          // TODO maybe it should keep the stuff like time created, updated, etc. ?
           send("removed", removeTab(old))
         }
       }

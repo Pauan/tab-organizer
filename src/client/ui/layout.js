@@ -110,6 +110,7 @@ goog.scope(function () {
       e.set("margin-left", "-1px")
       e.set("border-bottom-width", "1px")
       e.set("border-left-width", "1px")
+      e.set("padding-right", "1px")
       //e.set("border-width", "1px")
 
       //e.set("max-width",  "100%")
@@ -131,8 +132,8 @@ goog.scope(function () {
             iWidth  = iCol
             iHeight = iRow
           }
-          e.set("width",  ((1 / iWidth)  * 100) + "%")
-          e.set("height", ((1 / iHeight) * 100) + "%")
+          e.set("width",  dom.calc(((1 / iWidth)  * 100) + "%", "+", "1px"))
+          e.set("height", dom.calc(((1 / iHeight) * 100) + "%", "+", "1px"))
         })
       })
     })
@@ -157,7 +158,7 @@ goog.scope(function () {
     "grid": dom.style(function (e) {
       e.set("overflow", "auto")
       e.set("width", "100%")
-      e.set("height", dom.calc("100%", "-", "18px")) // TODO why is this hardcoded as 18px ?
+      e.set("height", dom.calc("100%", "-", "16px")) // TODO why is this hardcoded as 16px ?
       //e.set("height", "100%")
     })
   })
