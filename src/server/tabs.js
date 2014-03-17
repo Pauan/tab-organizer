@@ -287,11 +287,16 @@ goog.scope(function () {
         return o
       }
 
-      // TODO when closing duplicates, shouldn't it merge the data for the tabs together ?
+      // TODO I don't like that this needs to be run after saveTab
       function closeDuplicates(o) {
         var a = oActive[o["url"]]
         assert(a != null)
         if (array.len(a) > 1 && opt.get("tabs.close.duplicates").get()) {
+          assert(dTabs.has(o["url"]))
+          assert(oTabs[o["url"]] == null)
+          var saved = dTabs.get(o["url"])
+          serialize.setFromDisk(o, saved)
+
           var aClose = array.filter(a, function (x) {
             return x !== o
           })
@@ -301,10 +306,11 @@ goog.scope(function () {
             assert(x["url"] === o["url"])
             assert(x["type"] === "active")
             assert(x["id"] !== o["id"])
+            assert(o["time"]["created"] <= x["time"]["created"])
             return x["id"]
           }))
         }
-        return saveTab(o)
+        return o
       }
 
       function newTab(t) {
@@ -350,6 +356,7 @@ goog.scope(function () {
         return o
       }
 
+      // TODO this should call saveTab or something ?
       function removeTab(o) {
         assert(oUnloaded[o["id"]] == null)
         assert(oTabs[o["id"]] != null)
@@ -406,10 +413,10 @@ goog.scope(function () {
         var old = oTabs[t.id]
         if (isValidURL(t.url)) {
           if (old == null) {
-            send("created", closeDuplicates(newTab(t)))
+            send("created", closeDuplicates(saveTab(newTab(t))))
           } else {
             old["time"]["updated"] = time.timestamp()
-            send("updated", closeDuplicates(updateTab(old, t)))
+            send("updated", closeDuplicates(saveTab(updateTab(old, t))))
           }
         // TODO test this
         } else if (old != null) {

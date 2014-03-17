@@ -118,7 +118,6 @@ goog.scope(function () {
             i = aGroups[i + 1]
             if (i != null) {
               assert(oGroups[i] != null)
-              log(s, oGroups[i])
               o.moveBefore(oGroups[i])
             }
 
