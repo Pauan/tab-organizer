@@ -127,38 +127,40 @@ optionMaker.make(cache, "options.cache", "cache", {
 
 
 optionMaker.make(opt, "options.user", "options", {
-  "size.sidebar"          : 300,
-  "size.sidebar.position" : "left",
+  "size.sidebar"              : 300,
+  "size.sidebar.position"     : "left",
 
-  "size.popup.left"       : 0.5,
-  "size.popup.top"        : 0.5,
-  "size.popup.width"      : 920,
-  "size.popup.height"     : 496,
+  "size.popup.left"           : 0.5,
+  "size.popup.top"            : 0.5,
+  "size.popup.width"          : 920,
+  "size.popup.height"         : 496,
 
-  "size.bubble.width"     : 300,
-  "size.bubble.height"    : 600,
+  "size.bubble.width"         : 300,
+  "size.bubble.height"        : 600,
 
-  "popup.type"            : "bubble",
+  "popup.type"                : "bubble",
 
-  "popup.hotkey.ctrl"     : true,
-  "popup.hotkey.shift"    : true,
-  "popup.hotkey.alt"      : false,
-  "popup.hotkey.letter"   : "E",
+  "popup.hotkey.ctrl"         : true,
+  "popup.hotkey.shift"        : true,
+  "popup.hotkey.alt"          : false,
+  "popup.hotkey.letter"       : "E",
 
-  "popup.close.escape"    : false,
-  "popup.switch.action"   : "minimize",
-  "popup.close.when"      : "switch-tab", // "manual",
+  "popup.close.escape"        : false,
+  "popup.switch.action"       : "minimize",
+  "popup.close.when"          : "switch-tab", // "manual",
 
-  "group.sort.type"       : "window",
-  "groups.layout"         : "vertical",
+  "group.sort.type"           : "window",
+  "groups.layout"             : "vertical",
+  "groups.layout.grid.column" : 3,
+  "groups.layout.grid.row"    : 2,
 
-  "tabs.close.location"   : "right",
-  "tabs.close.display"    : "hover",
-  "tabs.close.duplicates" : false,
-  "tabs.click.type"       : "focus",
+  "tabs.close.location"       : "right",
+  "tabs.close.display"        : "hover",
+  "tabs.close.duplicates"     : false,
+  "tabs.click.type"           : "focus",
 
-  "theme.animation"       : true,
-  "theme.color"           : "blue",
+  "theme.animation"           : true,
+  "theme.color"               : "blue",
 
-  "usage-tracking"        : true
+  "usage-tracking"            : true
 })

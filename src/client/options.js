@@ -423,6 +423,32 @@ goog.scope(function () {
               { name: "In a grid",    value: "grid"       }
             ]
           })
+
+          util.options.subgroup(e, "", function (e) {
+            dom.box(function (e) {
+              e.styles(dom.horiz)
+              util.options.textbox(e, "groups.layout.grid.column", {
+                width: "2em",
+                type: "number",
+                set: function (x) {
+                  return +x
+                }
+              })
+              e.addText("columns")
+            }).move(e)
+
+            dom.box(function (e) {
+              e.styles(dom.horiz)
+              util.options.textbox(e, "groups.layout.grid.row", {
+                width: "2em",
+                type: "number",
+                set: function (x) {
+                  return +x
+                }
+              })
+              e.addText("rows")
+            }).move(e)
+          })
         })
       })
 

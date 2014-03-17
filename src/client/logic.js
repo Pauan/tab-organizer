@@ -358,7 +358,7 @@ goog.scope(function () {
     // TODO inefficient
     function searchTabs(f) {
       var iTabs   = 0
-        , iGroups = 0
+        , rGroups = []
 
       var seen = {}
 
@@ -378,18 +378,24 @@ goog.scope(function () {
         })
 
         if (visible) {
-          ++iGroups
+          array.push(rGroups, oGroup.element)
         }
         oGroup.element.visible.set(visible)
       })
 
+      var iGroups = array.len(rGroups)
+
+      // TODO code duplication
       var sTabs = (iTabs === 1
                     ? iTabs + " tab"
                     : iTabs + " tabs")
 
+      // TODO code duplication
       var sGroups = (iGroups === 1
                       ? iGroups + " group"
                       : iGroups + " groups")
+
+      ui.layout.visibleGroups.set(rGroups)
 
       util.dom.title(manifest.get("name") + " - " + sTabs + " in " + sGroups)
     }
@@ -717,7 +723,7 @@ goog.scope(function () {
       object.each(tabs.all.get(), function (tab) {
         addTab(e, tab, false)
       })
-      searchTabs(search.value.get(), opt.get("groups.layout").get())
+      searchTabs(search.value.get())
     }
     init()
 
@@ -769,9 +775,9 @@ goog.scope(function () {
       e.event([tabs.on.closed], remove)
     })()
 
-                                                     // TODO inefficient
-    e.event([search.value, opt.get("groups.layout"), tabs.all], function (f, layout) {
-      searchTabs(f, layout)
+                           // TODO inefficient
+    e.event([search.value, tabs.all], function (f) {
+      searchTabs(f)
     })
   }
 })

@@ -128,11 +128,9 @@ goog.scope(function () {
       // TODO try making this vert and stretch
       dom.box(function (e) {
         e.styles(bottom)
-        //e.stretch()
 
-        e.bind([opt.get("groups.layout")], function (x) {
-          e.styleObject(ui.layout.groupList, x, true)
-        })
+        ui.layout.groupList(e)
+        //e.stretch()
 
         logic.initialize(e)
 

@@ -42,10 +42,6 @@ goog.scope(function () {
   })
 
 
-  var group = dom.style(function (e) {
-    e.styles(dom.clip)
-  })
-
   var groupTop = dom.style(function (e) {
     e.set("height", "16px") // TODO I don't like this hardcoding, but it's to avoid using ui.vert, which is slow (?)
   })
@@ -90,7 +86,9 @@ goog.scope(function () {
     return dom.box(function (eTop) {
       eTop[info] = {}
 
-      eTop.styles(group, ui.common.group)
+      eTop.styles(ui.common.group)
+
+      ui.layout.group(eTop)
       //eTop.clip(true) // TODO is this ever necessary ?
 
       /*e.background(function (t) {
@@ -98,9 +96,6 @@ goog.scope(function () {
         t.image("inherit") // TODO
       })*/
 
-      eTop.bind([opt.get("groups.layout")], function (layout) {
-        eTop.styleObject(ui.layout.group, layout, true)
-      })
       // TODO why does this break group name renaming?
       /*eTop.bind([opt.get("groups.layout"), eTop.focused], function (layout, focused) {
         eTop.styleObject(ui.layout.groupFocused, layout, focused)
@@ -111,18 +106,14 @@ goog.scope(function () {
 
         e.styles(groupTop)
 
-        e.bind([opt.get("groups.layout")], function (layout) {
-          e.styleObject(ui.layout.groupTop, layout, true)
-        })
+        ui.layout.groupTop(e)
 
         dom.box(function (e) {
           eTop[info].groupTopInner = e
 
           e.styles(groupTopInner)
 
-          e.bind([opt.get("groups.layout")], function (layout) {
-            e.styleObject(ui.layout.groupTopInner, layout, true)
-          })
+          ui.layout.groupTopInner(e)
 
           var rename
           if (oGroup.rename) {
@@ -165,9 +156,8 @@ goog.scope(function () {
 
         e.styles(groupTabs)
 
-        e.bind([opt.get("groups.layout")], function (layout) {
-          e.styleObject(ui.layout.groupTabs, layout, true)
-        })
+        ui.layout.groupTabs(e)
+
         f(e)
       }).move(eTop)
     })
