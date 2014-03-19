@@ -16,7 +16,9 @@ goog.scope(function () {
     , fail   = util.log.fail
 
   cell.when(cell.and(opt.loaded, tabs.loaded, platform.tabs.loaded), function () {
-    cell.bind([opt.get("counter.type")], function (type) {
+    var type = opt.get("counter.type")
+
+    cell.bind([type], function (type) {
       if (type === "in-chrome" || type === "total") {
         platform.button.setColor(0, 0, 0, 0.9)
       } else {
@@ -24,13 +26,37 @@ goog.scope(function () {
       }
     })
 
-    var tabCount = cell.bind([opt.get("counter.type")], function (type) {
+    var tabCount = cell.bind([type], function (type) {
       if (type === "in-chrome") {
         return array.len(platform.tabs.getAll())
       } else if (type === "total") {
-        return object.len(tabs.all.get())
+        return object.len(tabs.getAll())
       } else {
         fail()
+      }
+    })
+
+    cell.event([tabs.on.created], function () {
+      if (type.get() === "total") {
+        tabCount.set(tabCount.get() + 1)
+      }
+    })
+
+    cell.event([tabs.on.removed], function () {
+      if (type.get() === "total") {
+        tabCount.set(tabCount.get() - 1)
+      }
+    })
+
+    cell.event([platform.tabs.on.created], function () {
+      if (type.get() === "in-chrome") {
+        tabCount.set(tabCount.get() + 1)
+      }
+    })
+
+    cell.event([platform.tabs.on.removed], function () {
+      if (type.get() === "in-chrome") {
+        tabCount.set(tabCount.get() - 1)
       }
     })
 

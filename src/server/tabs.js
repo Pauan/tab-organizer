@@ -69,6 +69,7 @@ goog.scope(function () {
     assert(x["id"] === s)
     assert(oTabs[s] == null)
     oTabs[s] = x
+    tabs.on.created.set(x)
     return x
   }
 
@@ -109,7 +110,6 @@ goog.scope(function () {
           }
           importFromDisk(s, dTabs.get(s))
         })
-        tabs.all.set(oTabs)
         l.set(true)
       })
     } else {
@@ -118,7 +118,9 @@ goog.scope(function () {
     return l
   }
 
-  tabs.all = cell.value(oTabs)
+  tabs.on         = {}
+  tabs.on.created = cell.value(undefined)
+  tabs.on.removed = cell.value(undefined)
 
   tabs.getAll = function () {
     assert(tabs.loaded.get())
@@ -262,8 +264,6 @@ goog.scope(function () {
       o["index"]        = t.index
       o["window"]["id"] = t.window.id
       o["focused"]      = t.focused
-
-      tabs.all.set(oTabs)
       return o
     }
 
@@ -337,14 +337,17 @@ goog.scope(function () {
         "window": {}
       }
       oTabs[t.id] = o
+      tabs.on.created.set(o)
 
       if (dTabs.has(t.url) && oActive[t.url] == null) {
         assert(oTabs[t.url] != null)
         assert(t.url === o["url"])
         // shouldn't this use oTabs[t.url] instead of dTabs.get(t.url) ?
         var saved = dTabs.get(t.url)
-        send("removed", oTabs[t.url])
+          , old   = oTabs[t.url]
         delete oTabs[t.url]
+        send("removed", old)
+        tabs.on.removed.set(old)
         serialize.setFromDisk(o, saved)
       }
 
@@ -362,6 +365,8 @@ goog.scope(function () {
 
       assert(oActive[o["url"]] == null)
 
+      tabs.on.removed.set(o)
+
       return o
     }
 
@@ -375,7 +380,7 @@ goog.scope(function () {
 
       removeActiveAndSave(o["url"], o)
 
-      tabs.all.set(oTabs)
+      tabs.on.removed.set(o)
 
       return o
     }
@@ -390,6 +395,8 @@ goog.scope(function () {
 
       delete oTabs[o["id"]]
       dTabs.del(o["url"])
+
+      tabs.on.removed.set(o)
 
       return o
     }
@@ -514,7 +521,6 @@ goog.scope(function () {
               return false
             }
           }))
-          tabs.all.set(oTabs)
 
         } else if (op === "focus") {
           assert(oTabs[value] != null)
@@ -559,7 +565,6 @@ goog.scope(function () {
               return x["id"]
             }))
           })
-          tabs.all.set(oTabs)
 
         } else if (op === "addToGroup") {
           var s = o["group"]
@@ -573,7 +578,6 @@ goog.scope(function () {
               send("updated", saveTab(t))
             }
           })
-          tabs.all.set(oTabs)
 
         } else if (op === "removeFromGroup") {
           var s = o["group"]
@@ -586,7 +590,6 @@ goog.scope(function () {
               send("updated", saveTab(t))
             }
           })
-          tabs.all.set(oTabs)
 
         } else if (op === "window-rename") {
           renameWin(platform.windows.get(o["id"]), value)
