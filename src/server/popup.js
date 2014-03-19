@@ -72,228 +72,227 @@ goog.scope(function () {
     , log   = util.log.log
     , fail  = util.log.fail
 
-  popup.init = function () {
-    cell.when(cell.and(platform.tabs.loaded, platform.windows.loaded, tabs.loaded, cache.loaded, opt.loaded), function () {
-      var avail = {
-        left:    cache.get("screen.available.left"),
-        top:     cache.get("screen.available.top"),
-        width:   cache.get("screen.available.width"),
-        height:  cache.get("screen.available.height"),
-        checked: cache.get("screen.available.checked")
-      }
+  cell.when(cell.and(platform.tabs.loaded, platform.windows.loaded, tabs.loaded, cache.loaded, opt.loaded), function () {
+    var avail = {
+      left:    cache.get("screen.available.left"),
+      top:     cache.get("screen.available.top"),
+      width:   cache.get("screen.available.width"),
+      height:  cache.get("screen.available.height"),
+      checked: cache.get("screen.available.checked")
+    }
 
-      // TODO handle race conditions better, using cells
-      function checkMonitor(f) {
-        platform.popup.getSize(function (left, top, width, height) {
-          avail.left.set(left)
-          avail.top.set(top)
-          avail.width.set(width)
-          avail.height.set(height)
-          avail.checked.set(true)
-          f(left, top, width, height)
+    // TODO handle race conditions better, using cells
+    function checkMonitor(f) {
+      platform.popup.getSize(function (left, top, width, height) {
+        avail.left.set(left)
+        avail.top.set(top)
+        avail.width.set(width)
+        avail.height.set(height)
+        avail.checked.set(true)
+        f(left, top, width, height)
+      })
+    }
+
+    function getSize(f) {
+      if (avail.checked.get()) {
+        f(avail.left.get(), avail.top.get(), avail.width.get(), avail.height.get())
+      } else {
+        //alert("Tab Organizer needs to check your monitor's size. This will take about 1 second.")
+        checkMonitor(f)
+      }
+    }
+
+
+    platform.port.onRequest("checkMonitor", function (_, send) {
+      checkMonitor(function () {
+        send(null)
+      })
+      return true
+    })
+
+
+    var oPopup  = null
+      , oTab    = null
+      , oldType = null
+      , oSize   = null
+
+    var type = opt.get("popup.type")
+
+    function makePopup(oSize) {
+      if (oPopup === null) {
+        oPopup = platform.popup.open("panel.html", oSize)
+      } else {
+        platform.popup.move(oPopup, oSize)
+      }
+      oPopup.type = type.get()
+    }
+
+    // TODO
+    function makeTab() {
+      if (oTab === null) {
+        // TODO what if update/remove is called before the tab is created ?
+        platform.tabs.open("panel.html", false, function (t) {
+          oTab = t
         })
+      } else {
+        platform.tabs.focus(oTab.id)
       }
+    }
 
-      function getSize(f) {
-        if (avail.checked.get()) {
-          f(avail.left.get(), avail.top.get(), avail.width.get(), avail.height.get())
-        } else {
-          //alert("Tab Organizer needs to check your monitor's size. This will take about 1 second.")
-          checkMonitor(f)
-        }
-      }
-
-
-      platform.port.onRequest("checkMonitor", function (_, send) {
-        checkMonitor(function () {
-          send(null)
-        })
-        return true
+    function toAll(f) {
+      array.each(platform.windows.getAll(), function (x) {
+        f(x)
       })
+    }
 
-
-      var oPopup  = null
-        , oTab    = null
-        , oldType = null
-        , oSize   = null
-
-      var type = opt.get("popup.type")
-
-      function makePopup(oSize) {
-        if (oPopup === null) {
-          oPopup = platform.popup.open("panel.html", oSize)
-        } else {
-          platform.popup.move(oPopup, oSize)
-        }
-        oPopup.type = type.get()
-      }
-
-      // TODO
-      function makeTab() {
-        if (oTab === null) {
-          // TODO what if update/remove is called before the tab is created ?
-          platform.tabs.open("panel.html", false, function (t) {
-            oTab = t
-          })
-        } else {
-          platform.tabs.focus(oTab.id)
+    function resizeWindow(w) {
+      if (oSize !== null) {
+        if (w.state === "maximized" || w.state === "normal") {
+          platform.windows.move(w.id, oSize)
         }
       }
+    }
 
-      function toAll(f) {
-        array.each(platform.windows.getAll(), function (x) {
-          f(x)
-        })
+    function unresizeWindow(w) {
+      if (w.state === "normal") {
+        platform.windows.maximize(w.id)
       }
+    }
 
-      function resizeWindow(w) {
-        if (oSize !== null) {
-          if (w.state === "maximized" || w.state === "normal") {
-            platform.windows.move(w.id, oSize)
-          }
-        }
+    function removeAll() {
+      if (oPopup !== null) {
+        platform.popup.close(oPopup)
+        oPopup = null
       }
-
-      function unresizeWindow(w) {
-        if (w.state === "normal") {
-          platform.windows.maximize(w.id)
-        }
+      if (oTab !== null) {
+        platform.tabs.close(oTab.id)
+        oTab = null
       }
+    }
 
-      function removeAll() {
-        if (oPopup !== null) {
-          platform.popup.close(oPopup)
-          oPopup = null
-        }
-        if (oTab !== null) {
-          platform.tabs.close(oTab.id)
-          oTab = null
-        }
-      }
+    function openPopup() {
+      var newType = type.get()
 
-      function openPopup() {
-        var newType = type.get()
-
-        if (oldType !== null && oldType !== newType) {
-          if (oldType === "sidebar") {
-            toAll(unresizeWindow)
-            oSize = null
-          }
-          removeAll() // TODO is this correct?
-        }
-
-        oldType = newType
-
-        if (newType === "popup") {
-          // TODO should update oWin.type synchronously
-          getSize(function (aLeft, aTop, aWidth, aHeight) {
-            var left   = opt.get("size.popup.left").get()
-              , top    = opt.get("size.popup.top").get()
-              , width  = opt.get("size.popup.width").get()
-              , height = opt.get("size.popup.height").get()
-            makePopup({ left:   aLeft + (aWidth  * left) - (width  * left),
-                        top:    aTop  + (aHeight * top)  - (height * top),
-                        width:  width,
-                        height: height })
-          })
-
-        } else if (newType === "sidebar") {
-          getSize(function (aLeft, aTop, aWidth, aHeight) {
-            var size = opt.get("size.sidebar").get()
-              , pos  = opt.get("size.sidebar.position").get()
-              , o
-            if (pos === "top") {
-              o = {
-                left:   aLeft,
-                top:    aTop,
-                width:  aWidth,
-                height: size
-              }
-              oSize = {
-                left:   o.left,
-                top:    aTop + size,
-                width:  o.width,
-                height: aHeight - size
-              }
-            } else if (pos === "bottom") {
-              o = {
-                left:   aLeft,
-                top:    aTop + aHeight - size,
-                width:  aWidth,
-                height: size
-              }
-              oSize = {
-                left:   o.left,
-                top:    aTop,
-                width:  o.width,
-                height: aHeight - size
-              }
-            } else if (pos === "left") {
-              o = {
-                left:   aLeft,
-                top:    aTop,
-                width:  size,
-                height: aHeight
-              }
-              oSize = {
-                left:   aLeft + size,
-                top:    o.top,
-                width:  aWidth - size,
-                height: o.height
-              }
-            } else if (pos === "right") {
-              o = {
-                left:   aLeft + aWidth - size,
-                top:    aTop,
-                width:  size,
-                height: aHeight
-              }
-              oSize = {
-                left:   aLeft,
-                top:    o.top,
-                width:  aWidth - size,
-                height: o.height
-              }
-            }
-            makePopup(o)
-            toAll(resizeWindow)
-          })
-
-        } else if (newType === "tab") {
-          makeTab()
-
-        } else {
-          fail()
-        }
-      }
-
-      cell.bind([type], function (type) {
-        if (type === "bubble") {
-          platform.button.setURL("panel.html")
-        } else {
-          platform.button.setURL("")
-        }
-      })
-
-      cell.event([platform.button.on.clicked], function () {
-        openPopup()
-      })
-
-      cell.event([platform.windows.on.created], function (w) {
-        if (oPopup !== null && oPopup.type === "sidebar") {
-          resizeWindow(w)
-        }
-      })
-
-      cell.event([platform.popup.on.closed], function (popup) {
-        if (popup.type === "sidebar") {
+      if (oldType !== null && oldType !== newType) {
+        if (oldType === "sidebar") {
           toAll(unresizeWindow)
           oSize = null
         }
-        oPopup = null
-      })
+        removeAll() // TODO is this correct?
+      }
 
-      /*chrome.tabs.onRemoved.addListener(function (id) {
+      oldType = newType
+
+      if (newType === "popup") {
+        // TODO should update oWin.type synchronously
+        getSize(function (aLeft, aTop, aWidth, aHeight) {
+          var left   = opt.get("size.popup.left").get()
+            , top    = opt.get("size.popup.top").get()
+            , width  = opt.get("size.popup.width").get()
+            , height = opt.get("size.popup.height").get()
+          makePopup({ left:   aLeft + (aWidth  * left) - (width  * left),
+                     top:    aTop  + (aHeight * top)  - (height * top),
+                     width:  width,
+                     height: height })
+        })
+
+      } else if (newType === "sidebar") {
+        getSize(function (aLeft, aTop, aWidth, aHeight) {
+          var size = opt.get("size.sidebar").get()
+            , pos  = opt.get("size.sidebar.position").get()
+            , o
+          if (pos === "top") {
+            o = {
+              left:   aLeft,
+              top:    aTop,
+              width:  aWidth,
+              height: size
+            }
+            oSize = {
+              left:   o.left,
+              top:    aTop + size,
+              width:  o.width,
+              height: aHeight - size
+            }
+          } else if (pos === "bottom") {
+            o = {
+              left:   aLeft,
+              top:    aTop + aHeight - size,
+              width:  aWidth,
+              height: size
+            }
+            oSize = {
+              left:   o.left,
+              top:    aTop,
+              width:  o.width,
+              height: aHeight - size
+            }
+          } else if (pos === "left") {
+            o = {
+              left:   aLeft,
+              top:    aTop,
+              width:  size,
+              height: aHeight
+            }
+            oSize = {
+              left:   aLeft + size,
+              top:    o.top,
+              width:  aWidth - size,
+              height: o.height
+            }
+          } else if (pos === "right") {
+            o = {
+              left:   aLeft + aWidth - size,
+              top:    aTop,
+              width:  size,
+              height: aHeight
+            }
+            oSize = {
+              left:   aLeft,
+              top:    o.top,
+              width:  aWidth - size,
+              height: o.height
+            }
+          }
+          makePopup(o)
+          toAll(resizeWindow)
+        })
+
+      } else if (newType === "tab") {
+        makeTab()
+
+      } else {
+        fail()
+      }
+    }
+
+    cell.bind([type], function (type) {
+      if (type === "bubble") {
+        platform.button.setURL("panel.html")
+      } else {
+        platform.button.setURL("")
+      }
+    })
+
+    cell.event([platform.button.on.clicked], function () {
+      openPopup()
+    })
+
+    cell.event([platform.windows.on.created], function (w) {
+      if (oPopup !== null && oPopup.type === "sidebar") {
+        resizeWindow(w)
+      }
+    })
+
+    cell.event([platform.popup.on.closed], function (popup) {
+      if (popup.type === "sidebar") {
+        toAll(unresizeWindow)
+        oSize = null
+      }
+      oPopup = null
+    })
+
+    /*chrome.tabs.onRemoved.addListener(function (id) {
         if (oTab !== null && oTab.id != null && oTab.id === id) {
           oTab = null
         }
@@ -315,9 +314,9 @@ goog.scope(function () {
                 var width  = opt.get("size.bubble.width").get()
                   , height = opt.get("size.bubble.height").get()
                 makePopup({ left:   aLeft + aWidth - 33 - width,
-                            top:    aTop + 62,
-                            width:  width,
-                            height: height })
+                           top:    aTop + 62,
+                           width:  width,
+                           height: height })
               })
             } else {
               openPopup()
@@ -329,5 +328,4 @@ goog.scope(function () {
       platform.button.setTitle(platform.manifest.get("name"))
       platform.button.setIconURL("data/icons/icon19.png")
     })
-  }
 })

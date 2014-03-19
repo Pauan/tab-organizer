@@ -96,11 +96,6 @@ goog.scope(function () {
         t.image("inherit") // TODO
       })*/
 
-      // TODO why does this break group name renaming?
-      /*eTop.bind([opt.get("groups.layout"), eTop.focused], function (layout, focused) {
-        eTop.styleObject(ui.layout.groupFocused, layout, focused)
-      })*/
-
       dom.box(function (e) {
         eTop[info].groupTop = e
 

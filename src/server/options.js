@@ -118,6 +118,8 @@ optionMaker.make(cache, "options.cache", "cache", {
   "popup.scroll"             : 0,
   "search.last"              : "",
 
+  "counter.session"          : null,
+
   "screen.available.checked" : false,
   "screen.available.left"    : 0,
   "screen.available.top"     : 0,
@@ -127,6 +129,9 @@ optionMaker.make(cache, "options.cache", "cache", {
 
 
 optionMaker.make(opt, "options.user", "options", {
+  "counter.enabled"           : true,
+  "counter.type"              : "in-chrome",
+
   "size.sidebar"              : 300,
   "size.sidebar.position"     : "left",
 

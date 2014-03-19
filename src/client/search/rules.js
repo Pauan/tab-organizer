@@ -158,7 +158,7 @@ goog.scope(function () {
           array.each(aKeys, function (s) {
             var title = funcs[s](x)
               , o     = types[s]
-            assert(o[title] != null)
+            assert(o[title] != null) // TODO this assertion failed
             assert(o[title] > 0)
             --o[title]
             if (o[title] === 0) {

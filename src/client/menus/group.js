@@ -20,7 +20,7 @@ goog.scope(function () {
       o.event([o.activate], function () {
         var state = menus.group.state.get()
         if (state.rename) {
-          state.rename.focused.set(true)
+          state.rename.select()
         }
         ui.menu.hide()
       })

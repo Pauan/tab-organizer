@@ -415,7 +415,8 @@ goog.scope(function () {
       })
 
       util.options.category(e, "Groups", function (e) {
-        util.options.subgroup(e, "Display groups:", function (e) {
+        util.options.header(e, "Display groups:")
+        util.options.indent(e, function (e) {
           util.options.radio(e, "groups.layout", {
             items: [
               { name: "Vertically",   value: "vertical"   },
@@ -424,7 +425,9 @@ goog.scope(function () {
             ]
           })
 
-          util.options.subgroup(e, "", function (e) {
+          space.vert("2px").move(e)
+
+          util.options.indent(e, function (e) {
             dom.box(function (e) {
               e.styles(dom.horiz)
               util.options.textbox(e, "groups.layout.grid.column", {
@@ -507,7 +510,8 @@ goog.scope(function () {
 
         util.options.separator(e)
 
-        util.options.subgroup(e, "Click behavior:", function (e) {
+        util.options.header(e, "Click behavior:")
+        util.options.indent(e, function (e) {
           util.options.radio(e, "tabs.click.type", {
             items: [
               { name: "1 click to focus",                     value: "focus"        },
@@ -524,7 +528,8 @@ goog.scope(function () {
       })
 
       util.options.category(e, "Popup", function (e) {
-        util.options.subgroup(e, "Open the popup with:", function (e) {
+        util.options.header(e, "Open the popup with:")
+        util.options.indent(e, function (e) {
           dom.box(function (e) {
             e.styles(dom.horiz)
 
@@ -801,7 +806,8 @@ goog.scope(function () {
       /*util.options.category(e, "Privacy", function (e) {
         e.width(containerWidth + "px")
 
-        util.options.subgroup(e, "Usage tracking:", function (e) {
+        util.options.header(e, "Usage tracking:")
+        util.options.indent(e, function (e) {
           dom.box(function (e) {
             e.text("By default, we track how frequently you open the popup and options page, and also what settings you have chosen in the options page.")
           }).move(e)
@@ -842,6 +848,25 @@ goog.scope(function () {
           util.options.checkbox(e, "usage-tracking", "Allow for usage tracking")
         })
       })*/
+
+      util.options.category(e, "Counter", function (e) {
+        dom.box(function (e) {
+          e.styles(dom.horiz)
+
+          util.options.checkbox(e, "counter.enabled", {
+            text: "Display a counter that shows how many tabs you have"
+          })
+
+          space.horiz("1px").move(e)
+
+          util.options.list(e, "counter.type", {
+            items: [
+              { name: "in Chrome", value: "in-chrome" },
+              { name: "total",     value: "total"     }
+            ]
+          })
+        }).move(e)
+      })
 
       util.options.category(e, "User Data", function (e) {
         dom.box(function (e) {

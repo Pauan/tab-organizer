@@ -1,6 +1,7 @@
 goog.provide("platform.button")
 
 goog.require("util.cell")
+goog.require("util.math")
 
 goog.scope(function () {
   var cell = util.cell
@@ -33,5 +34,13 @@ goog.scope(function () {
 
   platform.button.setIconURL = function (s) {
     button["setIcon"]({ "path": s })
+  }
+
+  platform.button.setText = function (s) {
+    button["setBadgeText"]({ "text": "" + s })
+  }
+
+  platform.button.setColor = function (r, g, b, a) {
+    button["setBadgeBackgroundColor"]({ "color": [r, g, b, util.math.round(255 * a)] })
   }
 })

@@ -35,7 +35,4 @@ goog.provide("main")
 goog.require("tabs")
 goog.require("popup")
 goog.require("importExport")
-
-tabs.init()
-//importExport.init()
-popup.init()
+goog.require("counter")
