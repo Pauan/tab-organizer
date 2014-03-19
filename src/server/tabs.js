@@ -24,6 +24,7 @@ goog.scope(function () {
     , db     = platform.db
 
   var popupId = platform.util.getURL("panel.html")
+    , emptyId = platform.util.getURL("data/empty.html")
 
   var oTabs  = {}
 
@@ -33,7 +34,8 @@ goog.scope(function () {
 
   function isValidURL(s) {
     return s !== "" &&
-           s !== popupId
+           s !== popupId &&
+           s !== emptyId
   }
 
   tabs.loaded = cell.dedupe(false)
