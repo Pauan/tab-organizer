@@ -65,6 +65,7 @@ goog.require("util.array")
 goog.require("tabs")
 goog.require("cache")
 goog.require("opt")
+goog.require("undo")
 
 goog.scope(function () {
   var cell  = util.cell
@@ -72,7 +73,7 @@ goog.scope(function () {
     , log   = util.log.log
     , fail  = util.log.fail
 
-  cell.when(cell.and(platform.tabs.loaded, platform.windows.loaded, tabs.loaded, cache.loaded, opt.loaded), function () {
+  cell.when(cell.and(platform.tabs.loaded, platform.windows.loaded, tabs.loaded, cache.loaded, opt.loaded, undo.loaded), function () {
     var avail = {
       left:    cache.get("screen.available.left"),
       top:     cache.get("screen.available.top"),
@@ -131,9 +132,9 @@ goog.scope(function () {
     function makeTab() {
       if (oTab === null) {
         // TODO what if update/remove is called before the tab is created ?
-        platform.tabs.open("panel.html", false, function (t) {
+        /*platform.tabs.open("panel.html", false, function (t) {
           oTab = t
-        })
+        })*/
       } else {
         platform.tabs.focus(oTab.id)
       }

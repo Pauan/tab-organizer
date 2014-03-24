@@ -9,6 +9,7 @@ goog.require("platform.tabs")
 goog.require("platform.util")
 goog.require("platform.port")
 goog.require("platform.db")
+goog.require("titles")
 goog.require("serialize")
 goog.require("migrate")
 goog.require("opt")
@@ -129,10 +130,7 @@ goog.scope(function () {
     return oTabs
   }
 
-  cell.when(cell.and(db.loaded, migrate.loaded, opt.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
-    var aNames = db.raw("window.titles")
-    aNames.setNew([])
-
+  cell.when(cell.and(db.loaded, migrate.loaded, opt.loaded, titles.loaded, platform.tabs.loaded, platform.windows.loaded), function () {
     var oWins = {}
 
     function getDefaultName(win) {
@@ -140,7 +138,7 @@ goog.scope(function () {
     }
 
     function getWindowName(win) {
-      return aNames.get()[win.index] || getDefaultName(win)
+      return titles.get()[win.index] || getDefaultName(win)
     }
 
     function addWin(win) {
@@ -171,7 +169,7 @@ goog.scope(function () {
       var old = oWins[win.id]
 
       if (old["name"] !== name) {
-        var a = aNames.get()
+        var a = titles.get()
         if (name === getDefaultName(win)) {
           a[win.index] = null
           array.resize(a, getLength(a))
@@ -180,7 +178,7 @@ goog.scope(function () {
         }
 
         // TODO is this necessary...?
-        aNames.set(array.map(a, function (x) {
+        titles.set(array.map(a, function (x) {
           if (x == null) {
             return null
           } else {
@@ -208,10 +206,10 @@ goog.scope(function () {
     })
 
     cell.event([platform.windows.on.removed], function (win) {
-      var a = aNames.get()
+      var a = titles.get()
       array.removeAt(a, win.index)
       array.resize(a, getLength(a))
-      aNames.set(a)
+      titles.set(a)
 
       delete oWins[win.id]
       platform.port.message("tabs", {
