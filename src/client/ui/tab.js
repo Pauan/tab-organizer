@@ -235,6 +235,7 @@ goog.scope(function () {
 
         // TODO setTimeout is necessary to avoid a crash in Chrome
         setTimeout(function () {
+          favicon.src("") // TODO this is trying to solve the problem where a favicon isn't updated correctly; does it work?
           favicon.src("chrome://favicon/" + tab.url)
         }, 0)
 

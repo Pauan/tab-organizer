@@ -28,31 +28,28 @@ goog.scope(function () {
 
     var query = y.query
       , path  = y.path
+      , file  = y.file
 
-    y.query = null
-    y.path  = null
-    y.file  = null
+    y.query = ""
+    y.path  = ""
+    y.file  = ""
 
     if (query) {
-      y.query = spacify(re.replace(re.replace(re.replace(decodeURIComponent(query), /^[\+&;]/, ""),
-                                                                                    /[\+&;]/g, " "),
-                                                                                    /=/g, ":"))
+      y.query = re.replace(query,   /^\?/, "")
+      y.query = re.replace(y.query, /^[\+&;]/, "")
+      y.query = re.replace(y.query, /[\+&;]/g, " ")
+      y.query = re.replace(y.query, /=/g, ":")
+      y.query = spacify(decodeURIComponent(y.query))
+    } else if (file) {
+      y.file = spacify(decodeURIComponent(re.replace(file, /\.(?:html?|php|asp)$/, "")))
     } else if (path) {
-      var last = array.last(path)
-      if (array.len(path) && last !== "") {
-        y.file = spacify(re.replace(decodeURIComponent(last), /\.(?:html?|php|asp)$/, ""))
-      } else {
-        y.path = spacify(decodeURIComponent(array.join(path, "/")))
-        // TODO a bit hacky
-        if (y.path === "/") {
-          y.path = null
-        }
+      y.path = spacify(decodeURIComponent(path))
+      if (y.path === "/") {
+        y.path = ""
       }
     }
 
-    if (y.fragment) {
-      y.fragment = spacify(decodeURIComponent(y.fragment))
-    }
+    y.fragment = spacify(decodeURIComponent(re.replace(y.fragment, /^\#/, "")))
 
     return y
   }
@@ -176,7 +173,7 @@ goog.scope(function () {
             while (i--) {
               var x = a[i]
                 , s = x.name(o)
-              if (s != null) {
+              if (s) {
                 x.box.text(s)
                 x.box.visible.set(true)
               } else {

@@ -113,13 +113,13 @@ goog.scope(function () {
         var funcs = {
           // TODO
           "domain": function (x) {
-            return x.location.domain
-          },
-          "file": function (x) {
-            return x.location.domain + x.location.path + x.location.file
+            return x.location.hostname + x.location.port
           },
           "path": function (x) {
-            return x.location.domain + x.location.path
+            return x.location.hostname + x.location.port + x.location.path
+          },
+          "file": function (x) {
+            return x.location.hostname + x.location.port + x.location.path + x.location.file
           },
           "title": function (x) {
             return x.title
@@ -158,6 +158,7 @@ goog.scope(function () {
           array.each(aKeys, function (s) {
             var title = funcs[s](x)
               , o     = types[s]
+            log(x, o, title)
             assert(o[title] != null) // TODO this assertion failed
             assert(o[title] > 0)
             --o[title]

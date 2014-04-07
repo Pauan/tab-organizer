@@ -16,6 +16,7 @@ goog.require("cache")
 goog.require("logic")
 goog.require("tabs")
 goog.require("search")
+goog.require("undo")
 
 goog.scope(function () {
   var dom    = util.dom
@@ -32,7 +33,7 @@ goog.scope(function () {
     e.height("100%")*/
 
     // TODO it might not need to wait for "tab.loaded" until after
-    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, search.loaded), function () {
+    cell.when(cell.and(cache.loaded, opt.loaded, tabs.loaded, search.loaded, undo.loaded), function () {
       ui.menu.initialize(e)
       ui.urlBar.initialize(e)
 

@@ -288,15 +288,9 @@ goog.scope(function () {
         },
         init: function (tab) {
           var s = url.simplify(tab.location)
-          var name
-          if (s.scheme === "chrome") {
-            name = "chrome://"
-          } else {
-            delete s.path
-            delete s.query
-            delete s.fragment
-            name = url.printURI(s)
-          }
+          var name = (s.scheme === "chrome:"
+                       ? "chrome://"
+                       : s.scheme + s.separator + s.authority + s.hostname + s.port)
           return [{
             id: name,
             name: cell.dedupe(name),

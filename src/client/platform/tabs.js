@@ -6,6 +6,7 @@ goog.require("util.object")
 goog.require("util.log")
 goog.require("deserialize")
 goog.require("platform.port")
+goog.require("undo")
 
 // TODO batch
 goog.scope(function () {
@@ -135,6 +136,16 @@ goog.scope(function () {
   tabs.close = function (a) {
     assert(tabs.loaded.get(), "tabs")
     assert(!!array.len(a))
+    // TODO it should ideally recreate the tab exactly as-is when undoing it
+    undo.create({
+      "type": "close",
+      "tabs": array.map(a, function (x) {
+        return {
+          "url": x.url,
+          "pinned": x.pinned
+        }
+      })
+    })
     port.message({ "type": "close", "value": getIds(a) })
   }
 
