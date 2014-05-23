@@ -192,13 +192,13 @@ goog.scope(function () {
         })
       })
 
-      var isFocused = cell.bind([oInfo, opt.get("group.sort.type")], function (tab, sort) {
+      var isFocused = e.bind([oInfo, opt.get("group.sort.type")], function (tab, sort) {
         return (tab.type === "active" &&
                 tab.focused &&
                 sort === "window")
       })
 
-      var isDragging = cell.bind([ui.tab.dragging], function (drag) {
+      var isDragging = e.bind([ui.tab.dragging], function (drag) {
         if (drag) {
           return array.some(drag.tabs, function (x) {
             return x === e
@@ -208,7 +208,7 @@ goog.scope(function () {
         }
       })
 
-      var mouseover = cell.bind([e.mouseover, isDragging], function (over, dragging) {
+      var mouseover = e.bind([e.mouseover, isDragging], function (over, dragging) {
         if (dragging === true) {
           return true
         } else if (dragging === false) {

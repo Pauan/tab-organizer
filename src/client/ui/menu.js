@@ -399,6 +399,7 @@ goog.scope(function () {
         o.checked = e.checked
 
         // TODO is this correct ?
+        // TODO I think this leaks memory since it's using cell.filter ?
         o.activate = cell.filter(e.changed.get(), e.changed, function () {
           return o.enabled.get()
         })

@@ -268,11 +268,12 @@ goog.scope(function () {
       priority: 30,
       infix: parse.infix,
       compile: function (x) {
-        var left  = parse.compile(x.left)
-          , right = parse.compile(x.right)
-        return function (tab) {
-          return left(tab) || right(tab)
-        }
+        throw new Error("the , syntax is no longer supported: use | instead")
+        //var left  = parse.compile(x.left)
+        //  , right = parse.compile(x.right)
+        //return function (tab) {
+        //  return left(tab) || right(tab)
+        //}
       }
     })
 

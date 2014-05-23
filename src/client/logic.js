@@ -344,6 +344,7 @@ goog.scope(function () {
         }
       })
       // TODO can be slightly more efficient
+      // TODO use array.removeSorted ?
       array.each(toRemove, function (oGroup) {
         array.remove(aGroups, oGroup)
       })
@@ -641,6 +642,7 @@ goog.scope(function () {
     }
 
     function removeTabFrom(tab, oGroup, animate) {
+      // TODO use array.removeSorted ?
       array.remove(oGroup.aTabs, tab)
       if (animate) {
         ui.tab.hide(tab, 1)

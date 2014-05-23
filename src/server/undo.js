@@ -18,7 +18,8 @@ goog.scope(function () {
 
   cell.when(db.loaded, function () {
     var aUndo = db.raw("undo")
-    aUndo.setNew([])
+    //aUndo.setNew([])
+    aUndo.set([])
 
     cell.event([platform.port.on.connect("undo")], function (port) {
       log("UNDO", aUndo.get())
