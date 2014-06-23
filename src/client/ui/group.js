@@ -46,6 +46,11 @@ goog.scope(function () {
     e.set("height", "16px") // TODO I don't like this hardcoding, but it's to avoid using ui.vert, which is slow (?)
   })
 
+  var groupType = dom.style(function (e) {
+    e.styles(ui.common.groupType)
+    e.set("font-size", "11px")
+  })
+
   var groupText = dom.style(function (e) {
     e.styles(dom.stretch, dom.clip)
     e.set("font-size", "11px")
@@ -109,6 +114,17 @@ goog.scope(function () {
           e.styles(groupTopInner)
 
           ui.layout.groupTopInner(e)
+
+          dom.box(function (e) {
+            e.styles(groupType)
+
+            if (oGroup.type === "window") {
+              e.text("window: ")
+                                                  // TODO this isn't quite correct
+            } else if (oGroup.type === "group" && sTitle.get() !== "") {
+              e.text("group: ")
+            }
+          }).move(e)
 
           var rename
           if (oGroup.rename) {

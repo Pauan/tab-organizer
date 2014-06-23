@@ -167,14 +167,21 @@ goog.scope(function () {
 
   logic.initialize = function (e) {
     var groupSort = e.bind([opt.get("group.sort.type")], lookup({
-      "window": {
+      "group": {
         groupSort: function (x, y) {
-          if (x.index === null) {
+          if (x.type === "window" && y.type === "window") {
+            return x.index <= y.index
+          } else if (x.type === "window") {
+            return true
+          } else if (y.type === "window") {
             return false
-          } else if (y.index === null) {
+          } else if (x.id === "") {
+            return false
+          } else if (y.id === "") {
             return true
           } else {
-            return x.index <= y.index
+            // TODO code duplication with "name" sort
+            return util.string.upperSorter(x.id, y.id) <= 0
           }
         },
         tabSort: function (x, y) {
@@ -182,50 +189,32 @@ goog.scope(function () {
           y = y[info]
           if (x.type === "active" && y.type === "active") {
             return x.index <= y.index
+          } else if (x.type === "active") {
+            return true
+          } else if (y.type === "active") {
+            return false
           } else {
             // TODO is this right ?
+            // TODO should sort by time added to the group ?
             return (x.time.unloaded || x.time.focused || x.time.updated || x.time.created) >=
                    (y.time.unloaded || y.time.focused || y.time.updated || y.time.created)
           }
         },
         init: function (tab) {
-          if (tab.type === "unloaded") {
-            return [{
-              id: null,
-              name: cell.dedupe(""),
-              index: null,
-              rename: false
-            }]
-          } else {
+          var r = []
+          if (tab.type !== "unloaded") {
             assert(tab.window != null)
-            return [{
+            array.push(r, {
+              type: "window",
               id: tab.window.id,
               name: tab.window.name,
               index: tab.window.time.created,
               rename: true
-            }]
+            })
           }
-        }
-      },
-      "group": {
-        groupSort: function (x, y) {
-          if (x.id === "") {
-            return false
-          } else if (y.id === "") {
-            return true
-          } else {
-            return util.string.upperSorter(x.id, y.id) <= 0
-          }
-        },
-        // TODO should sort by time added to the group ?
-        // TODO code duplication with "name" sort
-        tabSort: function (x, y) {
-          return util.string.upperSorter(x[info].title, y[info].title) <= 0
-        },
-        init: function (tab) {
-          var r = []
           object.each(tab.groups, function (_, s) {
             array.push(r, {
+              type: "group",
               id: s,
               name: cell.dedupe(s),
               rename: true
@@ -233,6 +222,7 @@ goog.scope(function () {
           })
           if (array.len(r) === 0) {
             array.push(r, {
+              type: "group",
               id: "",
               name: cell.dedupe(""),
               rename: false // TODO allow for renaming this...?

@@ -195,7 +195,7 @@ goog.scope(function () {
       var isFocused = e.bind([oInfo, opt.get("group.sort.type")], function (tab, sort) {
         return (tab.type === "active" &&
                 tab.focused &&
-                sort === "window")
+                sort === "group")
       })
 
       var isDragging = e.bind([ui.tab.dragging], function (drag) {

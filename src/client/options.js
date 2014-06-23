@@ -463,7 +463,6 @@ goog.scope(function () {
 
           util.options.list(e, "group.sort.type", {
             items: [
-              { name: "Window",  value: "window"  },
               { name: "Group",   value: "group"   },
               { separator: true },
               { name: "Focused", value: "focused" },

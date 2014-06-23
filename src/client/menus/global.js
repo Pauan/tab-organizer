@@ -36,7 +36,6 @@ goog.scope(function () {
 
   menus.global.menu = ui.menu.make(function (o) {
     menus.option.make(o, "Sort tabs by...", "group.sort.type", [
-      ["Window", "window"],
       ["Group", "group"],
       [],
       ["Focused", "focused"],

@@ -16,7 +16,7 @@ goog.scope(function () {
     , log      = util.log.log
     , assert   = util.log.assert
 
-  var version = manifest.get("version") + "b6"
+  var version = manifest.get("version") + "b7"
 
   function set(o, tab, s) {
     if (tab["time"][s] != null) {
@@ -70,6 +70,7 @@ goog.scope(function () {
         o.del("tab.sort.type")
         o.del("tab.show.in-chrome")
         o.del("groups.move-with-window")
+        o.moveValue("group.sort.type", "window", "group")
         o.moveValue("group.sort.type", "domain", "url")
         o.moveValue("group.sort.type", "loaded", "created")
         //o.moveValue("tab.sort.type",   "loaded", "created")

@@ -1,6 +1,6 @@
 #! /usr/bin/env node
 
-var build = require("./lib/util/build")
+var build = require("./lib/util/node/build")
 
 build(function (o) {
   o.pull("lib/util")

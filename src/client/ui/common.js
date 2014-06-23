@@ -76,9 +76,19 @@ goog.scope(function () {
     return hsl(hues[hue], sat, light, alpha)
   }*/
 
+  /**
+   * @param {string} hue
+   * @param {number} sat
+   * @param {number} light
+   * @param {number=} alpha
+   * @return {string}
+   */
   function text(hue, sat, light, alpha) {
     if (hue === "yellow" || hue === "pink" || hue === "white") {
       light = 100 - light
+    }
+    if (hue === "black" || hue === "grey" || hue === "white") {
+      sat = 0
     }
     return dom.hsl(hues[hue], sat, light, alpha)
   }
@@ -202,6 +212,15 @@ goog.scope(function () {
     cell.when(opt.loaded, function () {
       cell.bind([opt.get("theme.color")], function (hue) {
         e.set("border-color", skewHue(hue, 50, 75))
+      })
+    })
+  })
+
+  ui.common.groupType = dom.style(function (e) {
+    // TODO a bit hacky
+    cell.when(opt.loaded, function () {
+      cell.bind([opt.get("theme.color")], function (hue) {
+        e.set("color", text(hue, 40, 35))
       })
     })
   })

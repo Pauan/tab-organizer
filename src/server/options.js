@@ -154,7 +154,7 @@ optionMaker.make(opt, "options.user", "options", {
   "popup.switch.action"       : "minimize",
   "popup.close.when"          : "switch-tab", // "manual",
 
-  "group.sort.type"           : "window",
+  "group.sort.type"           : "group",
   "groups.layout"             : "vertical",
   "groups.layout.grid.column" : 3,
   "groups.layout.grid.row"    : 2,
