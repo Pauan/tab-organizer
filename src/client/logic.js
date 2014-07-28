@@ -10,6 +10,7 @@ goog.require("util.math")
 goog.require("util.dom")
 goog.require("util.log")
 goog.require("util.string")
+goog.require("util.time")
 goog.require("menus.tab")
 goog.require("ui.menu")
 goog.require("ui.group")
@@ -58,40 +59,50 @@ goog.scope(function () {
   //var hiddenGroupList2 = Object.create(hiddenGroupList)
   //hiddenGroupList2.clearProps = "scale,opacity"
 
+  // TODO util.string ?
+  function pluralize(x, s) {
+    if (x === 1) {
+      return x + s
+    } else {
+      return x + s + "s"
+    }
+  }
+
+  var defaultTabSort = function (x, y) {
+    x = x[info]
+    y = y[info]
+    if (x.type === "active" && y.type === "active") {
+      return x.index <= y.index
+    } else if (x.type === "active") {
+      return true
+    } else if (y.type === "active") {
+      return false
+    } else {
+      // TODO is this right ?
+      // TODO should sort by time added to the group ?
+      return (x.time.unloaded || x.time.focused || x.time.updated || x.time.created) >=
+             (y.time.unloaded || y.time.focused || y.time.updated || y.time.created)
+    }
+  }
+
   var makeGroupSort = (function () {
-    var second = 1000
-      , minute = 60 * second
-      , hour   = 60 * minute
-      , day    = 24 * hour
-
-    // TODO this whole thing should probably be in util.date
-    function getDate(t1, t2) {
-                    // TODO util.date
-      var i1 = t1 - t1["getTimezoneOffset"]() * minute
-        , i2 = t2 - t2["getTimezoneOffset"]() * minute
-      i1 = math.floor(i1 / day)
-      i2 = math.floor(i2 / day)
-      var i = i2 - i1
-
-      var /*year  = 0
-        , month = 0
-        , */days  = 0
-        //, rem
-
-      if (i === 0) {
-        return "Today"
-      /*} else if (i > 364) { // 1 year
-        year  = Math.floor(i / 364)
-        rem   = i - year * 364
-        month = Math.floor(rem / 12)
-        days  = rem - month * 12
-      } else if (i > 30) { // 1 month
-        month = Math.floor(i / 30)
-        days  = i - month * 30
-        //return getFullDate(t1)*/
+    function getDate(diff) {
+      if (diff.day === 0) {
+        if (diff.hour === 0) {
+          return "Less than an hour ago"
+        } else {
+          return pluralize(diff.hour, " hour") + " ago"
+        }
       } else {
-        days = i
+        var hours = diff.hour - (diff.day * 24)
+        return pluralize(diff.day, " day") + " " + pluralize(hours, " hour") + " ago"
       }
+
+      /*var i1 = util.time.toLocalTime(t1)
+        , i2 = util.time.toLocalTime(t2)
+      i1 = math.floor(i1 / util.time.day)
+      i2 = math.floor(i2 / util.time.day)
+      var i = i2 - i1*/
 
       /*year = (year === 0
                ? ""
@@ -104,29 +115,6 @@ goog.scope(function () {
                 : (month === 1
                     ? month + " month "
                     : month + " months "))*/
-
-
-      days = (days === 0
-               ? ""
-               : (days === 1
-                   ? days + " day "
-                   : days + " days "))
-
-      return days + "ago"
-      //return year + month + days + "ago"
-      /*if (t1.getFullYear() === t2.getFullYear() &&
-          t1.getMonth()    === t2.getMonth()) {
-      }*/
-    }
-
-    // TODO util.date
-    function midnight(x) {
-      var t = new Date(x)
-      t["setHours"](0)
-      t["setMinutes"](0)
-      t["setSeconds"](0)
-      t["setMilliseconds"](0)
-      return +t
     }
 
     return function (f) {
@@ -134,15 +122,21 @@ goog.scope(function () {
         groupSort: function (x, y) {
           return x.id > y.id
         },
-        tabSort: function (x, y) {
+        tabSort: defaultTabSort,
+        /*function (x, y) {
           return f(x[info]) >= f(y[info])
-        },
+        },*/
         init: function (tab) {
-          var id = midnight(f(tab))
+          var now = util.time.roundToHour(util.time.now())
+          var id = util.time.roundToHour(f(tab))
+          var diff = util.time.difference(id, now)
+                   /*(diff.day === 0
+                     ?
+                     : util.time.roundToDay(then))*/
           return [{
             id: id,
-            // TODO update on midnight
-            name: cell.dedupe(getDate(new Date(id), new Date())),
+            // TODO update every 5 minutes or whatever
+            name: cell.dedupe(getDate(diff)),
             rename: false
           }]
         }
@@ -184,22 +178,7 @@ goog.scope(function () {
             return util.string.upperSorter(x.id, y.id) <= 0
           }
         },
-        tabSort: function (x, y) {
-          x = x[info]
-          y = y[info]
-          if (x.type === "active" && y.type === "active") {
-            return x.index <= y.index
-          } else if (x.type === "active") {
-            return true
-          } else if (y.type === "active") {
-            return false
-          } else {
-            // TODO is this right ?
-            // TODO should sort by time added to the group ?
-            return (x.time.unloaded || x.time.focused || x.time.updated || x.time.created) >=
-                   (y.time.unloaded || y.time.focused || y.time.updated || y.time.created)
-          }
-        },
+        tabSort: defaultTabSort,
         init: function (tab) {
           var r = []
           if (tab.type !== "unloaded") {
@@ -231,10 +210,15 @@ goog.scope(function () {
           return r
         }
       },
+      // TODO o.time.session
+      "session": makeGroupSort(function (o) {
+        return o.time.session || o.time.unloaded || o.time.created
+      }),
       "created": makeGroupSort(function (o) {
         return o.time.created
       }),
       "focused": makeGroupSort(function (o) {
+        //return o.time.updated || o.time.created
         return o.time.focused || o.time.created
       }),
       "name": {

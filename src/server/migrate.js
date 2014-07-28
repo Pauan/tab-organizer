@@ -41,6 +41,7 @@ goog.scope(function () {
     set(o, tab, "updated")
     set(o, tab, "focused")
     set(o, tab, "unloaded")
+    set(o, tab, "session")
     return o
   }
 

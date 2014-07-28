@@ -96,6 +96,7 @@ goog.scope(function () {
         } else if (type === "updated") {
           var old = oTabs[y.id]
           assert(old != null)
+          assert(old !== y)
           addTab(y)
           tabs.on.updated.set(y)
           tabs.on.updatedOld.set(old)

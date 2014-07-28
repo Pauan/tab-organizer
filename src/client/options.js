@@ -464,6 +464,7 @@ goog.scope(function () {
           util.options.list(e, "group.sort.type", {
             items: [
               { name: "Group",   value: "group"   },
+              { name: "Session", value: "session" },
               { separator: true },
               { name: "Focused", value: "focused" },
               { name: "Created", value: "created" },

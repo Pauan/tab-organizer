@@ -278,6 +278,7 @@ goog.scope(function () {
         assert(saved["time"]["updated"] === o["time"]["updated"])
         assert(saved["time"]["focused"] === o["time"]["focused"])
         assert(saved["time"]["unloaded"] === o["time"]["unloaded"])
+        assert(saved["time"]["session"] === o["time"]["session"])
         assert(saved["groups"] === o["groups"])
         assert(saved["title"] === o["title"])
         log(o, saved)
@@ -336,6 +337,7 @@ goog.scope(function () {
         },
         "window": {}
       }
+      o["time"]["session"] = o["time"]["created"]
       oTabs[t.id] = o
       tabs.on.created.set(o)
 
@@ -599,6 +601,27 @@ goog.scope(function () {
         }
       })
     })
+
+    function updateSession() {
+      // TODO code duplication
+      array.each(platform.tabs.getAll(), function (t) {
+        assert(oUnloaded[t.id] == null)
+
+        if (isValidURL(t.url)) {
+          var o = oTabs[t.id]
+          assert(o != null)
+          o["time"]["session"] = time.timestamp()
+          send("updated", saveTab(o))
+        } else {
+          assert(oTabs[t.id] == null)
+        }
+      })
+
+      // 5 minutes
+      setTimeout(updateSession, 1000 * 60 * 5)
+    }
+    // 5 minutes
+    setTimeout(updateSession, 1000 * 60 * 5)
 
     tabs.loaded.set(true)
   })

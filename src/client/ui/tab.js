@@ -335,7 +335,7 @@ goog.scope(function () {
         when: function () {
           var s = groupType.get()
           // TODO
-          return s === "window"// || s === "group"
+          return s === "group" && oInfo.get().type === "active"
         },
         start: function () {
           dragging = {

@@ -143,36 +143,43 @@ goog.scope(function () {
           }
         })
 
-        function add(x) {
-          array.each(aKeys, function (s) {
-            var title = funcs[s](x)
-              , o     = types[s]
-            if (o[title] == null) {
-              o[title] = 0
-            }
-            ++o[title]
-          })
+        function add(type) {
+          return function (x) {
+            array.each(aKeys, function (s) {
+              var title = funcs[s](x)
+                , o     = types[s]
+              if (type) {
+                log(type, s, title, o[title])
+              }
+              if (o[title] == null) {
+                o[title] = 0
+              }
+              ++o[title]
+            })
+          }
         }
 
-        function rem(x) {
-          array.each(aKeys, function (s) {
-            var title = funcs[s](x)
-              , o     = types[s]
-            log(x, o, title)
-            assert(o[title] != null) // TODO this assertion failed
-            assert(o[title] > 0)
-            --o[title]
-            if (o[title] === 0) {
-              delete o[title]
-            }
-          })
+        function rem(type) {
+          return function (x) {
+            array.each(aKeys, function (s) {
+              var title = funcs[s](x)
+                , o     = types[s]
+              log(type, s, title, o[title])
+              assert(o[title] != null) // TODO this assertion failed
+              assert(o[title] > 0)
+              --o[title]
+              if (o[title] === 0) {
+                delete o[title]
+              }
+            })
+          }
         }
 
-        object.each(tabs.all.get(), add)
-        cell.event([tabs.on.opened], add)
-        cell.event([tabs.on.updated], add)
-        cell.event([tabs.on.updatedOld], rem)
-        cell.event([tabs.on.closed], rem)
+        object.each(tabs.all.get(), add(null))
+        cell.event([tabs.on.opened], add("opened"))
+        cell.event([tabs.on.updated], add("updated"))
+        cell.event([tabs.on.updatedOld], rem("updatedOld"))
+        cell.event([tabs.on.closed], rem("closed"))
 
         return tester("same", r)
       })(),

@@ -4,6 +4,7 @@ goog.require("util.dom")
 goog.require("util.cell")
 goog.require("util.array")
 goog.require("util.object")
+goog.require("util.log")
 goog.require("ui.menu")
 goog.require("ui.urlBar")
 goog.require("ui.common")
@@ -54,6 +55,10 @@ goog.scope(function () {
             e.set("height", "")
           }
         })
+
+        util.log.onAssertFail = function () {
+          e.set("background-color", "red")
+        }
       })
 
       var top = dom.style(function (e) {
