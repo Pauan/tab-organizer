@@ -58,6 +58,7 @@ goog.scope(function () {
 
         util.log.onAssertFail = function () {
           e.set("background-color", "red")
+          //alert("Something went wrong with the popup page")
         }
       })
 

@@ -37,3 +37,9 @@ goog.require("tabs")
 goog.require("popup")
 goog.require("importExport")
 goog.require("counter")
+goog.require("util.log")
+
+// TODO
+util.log.onAssertFail = function () {
+  throw new Error("Something went wrong with the background page")
+}
