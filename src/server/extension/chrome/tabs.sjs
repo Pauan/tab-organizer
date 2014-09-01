@@ -17,6 +17,7 @@ exports.tabs.on.remove = @Emitter()
 exports.tabs.on.focus = @Emitter()
 exports.tabs.on.move = @Emitter()
 
+var windows    = []
 var windows_id = {}
 var tabs_id    = {}
 
@@ -124,13 +125,45 @@ function removeTab(tab) {
 
 exports.tabs.getCurrent = function () {
   var result = []
-  getAllWindows() ..@each(function (window) {
-    if (window.type === "normal") {
-      window.tabs ..@each(function (tab) {
-        result.push(convertTab(tab))
-      })
-    }
+  windows ..@each(function (window) {
+    window.tabs ..@each(function (tab) {
+      result.push(tab)
+    })
   })
+  return result
+}
+
+exports.tabs.open = function (options) {
+  if (options == null) {
+    options = {}
+  }
+
+  if (options.url == null) {
+    options.url = @url.newTab
+  }
+
+  if (options.pinned == null) {
+    options.pinned = false
+  }
+
+  if (options.focused == null) {
+    options.focused = true
+  }
+
+  // TODO what about retraction ?
+  waitfor (var result) {
+    chrome.tabs.create({
+      url: options.url,
+      pinned: options.pinned,
+      active: options.focused
+    }, function (tab) {
+      @checkError()
+      if (options.focused) {
+        chrome.windows.update(tab.windowId, { focused: true })
+      }
+      resume(convertTab(tab))
+    })
+  }
   return result
 }
 
@@ -316,37 +349,3 @@ chrome.windows.onRemoved.addListener(function (id) {
     delete windows_id[id]
   }
 })
-
-exports.tabs.open = function (options) {
-  if (options == null) {
-    options = {}
-  }
-
-  if (options.url == null) {
-    options.url = @url.newTab
-  }
-
-  if (options.pinned == null) {
-    options.pinned = false
-  }
-
-  if (options.focused == null) {
-    options.focused = true
-  }
-
-  // TODO what about retraction ?
-  waitfor (var result) {
-    chrome.tabs.create({
-      url: options.url,
-      pinned: options.pinned,
-      active: options.focused
-    }, function (tab) {
-      @checkError()
-      if (options.focused) {
-        chrome.windows.update(tab.windowId, { focused: true })
-      }
-      resume(convertTab(tab))
-    })
-  }
-  return result
-}

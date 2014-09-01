@@ -137,13 +137,12 @@ exports.init = function () {
 
   // This is necessary because Chrome sometimes changes a tab's ID
   function updateTabID(info) {
-    if (info.old.id !== info.tab.id) {
-      var old = back_front[info.old.id]
-      if (old != null) {
-        console.log("REPLACING", info.old, info.tab)
-        delete back_front[info.old.id]
-        back_front[info.tab.id] = old
-      }
+    @assert.isNot(info.old.id, info.tab.id)
+    var old = back_front[info.old.id]
+    if (old != null) {
+      console.log("REPLACING", info.old, info.tab)
+      delete back_front[info.old.id]
+      back_front[info.tab.id] = old
     }
   }
 
@@ -151,40 +150,31 @@ exports.init = function () {
     addTab(tab)
   })
 
-  console.log(db_tabs)
-  console.log(active)
-  console.log(back_front)
-  console.log(front_back)
-
+  // TODO is using an infinite buffer a problem?
   // TODO is there a better way than using spawn?
-  spawn (function () {
-    // TODO is using an infinite buffer a problem?
-    // TODO should these be using waitfor/and ?
-    waitfor {
-      @tabs.on.add ..@buffer(Infinity) ..@each(function (info) {
-        //console.log("ADD", info)
-        addTab(info.tab)
-      })
+  spawn @tabs.on.add ..@buffer(Infinity) ..@each(function (info) {
+    //console.log("ADD", info)
+    addTab(info.tab)
+  })
 
-    } and {
-      @tabs.on.update ..@buffer(Infinity) ..@each(function (info) {
-        //console.log("UPDATE", info)
-        updateTabID(info)
-        addOrUpdateTab(info.tab)
-      })
+  spawn @tabs.on.update ..@buffer(Infinity) ..@each(function (info) {
+    //console.log("UPDATE", info)
+    addOrUpdateTab(info.tab)
+  })
 
-    } and {
-      @tabs.on.remove ..@buffer(Infinity) ..@each(function (info) {
-        //console.log("REMOVE", info)
-        removeTab(info.tab)
-      })
+  spawn @tabs.on.replace ..@buffer(Infinity) ..@each(function (info) {
+    updateTabID(info)
+    addOrUpdateTab(info.tab)
+  })
 
-    } and {
-      @tabs.on.focus ..@buffer(Infinity) ..@each(function (info) {
-        console.log("FOCUS", info.old, info.tab)
-      })
-    }
-  })()
+  spawn @tabs.on.remove ..@buffer(Infinity) ..@each(function (info) {
+    //console.log("REMOVE", info)
+    removeTab(info.tab)
+  })
+
+  spawn @tabs.on.focus ..@buffer(Infinity) ..@each(function (info) {
+    console.log("FOCUS", info.old, info.tab)
+  })
 
   console.log("started tabs")
 }
