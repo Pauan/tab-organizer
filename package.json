@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "name": "tab-organizer",
+  "version": "5.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pauan/tab-organizer.git"
+  },
+  "dependencies": {
+    "uglify-js": "^2.4.15",
+    "conductance": "^0.4.1"
+  },
+  "scripts": {
+    "postinstall": "npm run build",
+    "build": "./build.sjs",
+    "watch": "./build.sjs --watch"
+  }
+}
