@@ -115,7 +115,10 @@ var compile = @exclusive(function (files, opts) {
           resources: { ".": "" },
           compile: true,
           sources: [ from, "sjs:xbrowser/dom" ] // TODO get rid of this dependency
-        }) ..@join("\n")
+        })
+
+        output = output ..@join("\n")
+        //output = "\"use strict\";var __oni_rt_bundle;" + output
 
         if (opts.minify) {
           console.log("#{Date.now()} Minifying \"#{to}\"")
