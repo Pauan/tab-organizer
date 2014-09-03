@@ -140,7 +140,7 @@ var compile = @exclusive(function (files, opts) {
 function watch(files, opts) {
   files ..@ownPropertyPairs ..@each(function ([from, to]) {
     getAllDirs(@path.dirname(from)) ..@each(function (path) {
-      console.log("#{Date.now()} Watching path #{path}")
+      console.log("#{Date.now()} Watching folder #{path}")
       // TODO use function/exclusive here, rather than in compile?
       @nodefs.watch(path, function (event, filename) {
         compile(files, opts)

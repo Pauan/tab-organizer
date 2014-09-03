@@ -158,8 +158,10 @@ exports.init = function () {
     }
   }
 
-  @tabs.getCurrent() ..@each(function (tab) {
-    addTab(tab)
+  @windows.getCurrent() ..@each(function (window) {
+    window.tabs ..@each(function (tab) {
+      addTab(tab)
+    })
   })
 
   @tabs.on.add ..@listen(function (info) {

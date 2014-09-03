@@ -61,6 +61,7 @@ function checkFocus(tab) {
  */
 function checkTab(tab, info) {
   @assert.ok(tabs_id ..@has(tab.id))
+  @assert.is(tab.closed, false)
   @assert.ok(info.index != null)
   @assert.ok(tab.window != null)
   @assert.is(tab.window.tabs[info.index], tab)
@@ -86,6 +87,7 @@ function updateIndexes(array, index) {
   return result
 }
 
+// TODO normalize URL?
 function setTab(tab, info) {
   tab.url = info.url
   tab.favicon = "chrome://favicon/" + info.url
@@ -141,22 +143,20 @@ function focusTab(tab) {
     })
   }
 
-  // There are two circumstances where a window does not have a focused tab...
-  // A) the window was just created (e.g. the tab is being moved to a different window)
-  // B) the tab that is currently focused was just closed;
-  //    this is to avoid sending an unfocus event for the closed tab
+  // There won't be an old focused tab when the window was just created
+  // (e.g. when the tab is being moved to a different window)
   if (old != null) {
     @assert.isNot(old, tab)
+    @assert.ok(old.window != null)
     @assert.ok(tab.window != null)
-    // When a tab is moved to a different window, we don't want to unfocus it
-    // So we make sure to only unfocus it if it's in the same window
-    if (old.window === tab.window) {
+    @assert.is(old.window, tab.window)
+    // When a tab is moved to a different window or closed, we don't want to unfocus it
+    if (!(old.detached || old.closed)) {
       unfocusTab(old)
     }
   }
 }
 
-// TODO normalize URL?
 function addTab(info) {
   var window = windows_id ..@get(info.windowId)
 
@@ -165,7 +165,9 @@ function addTab(info) {
     window: window,
     focused: info.active,
     children: [],
-    index: info.index
+    index: info.index,
+    detached: false,
+    closed: false
   }
 
   if (info.openerTabId == null) {
@@ -206,13 +208,13 @@ function shiftChildrenUp(tab, event) {
 
   if (tab.parentTab != null) {
     tab.parentTab.children ..@remove(tab)
-  }
-  tab.parentTab = null
+    tab.parentTab = null
 
-  if (event) {
-    exports.tabs.on.changeParent ..@emit({
-      tab: tab
-    })
+    if (event) {
+      exports.tabs.on.changeParent ..@emit({
+        tab: tab
+      })
+    }
   }
 }
 
@@ -224,12 +226,12 @@ function removeTab(tab, info) {
   //   3) send the unfocus event for the closed tab
   //
   // We don't want to send any events after a tab has been closed,
-  // so this code block prevents #3 from happening
+  // so this code prevents #3 from happening
+  //
   // TODO add in assertions to guarantee that events are not sent
   //      for closed tabs
-  if (tab.window.focusedTab === tab) {
-    tab.window.focusedTab = null
-  }
+  @assert.is(tab.closed, false)
+  tab.closed = true
 
   tabs_id ..@delete(tab.id)
   @assert.ok(tab.index != null)
@@ -494,6 +496,7 @@ chrome.tabs.onReplaced.addListener(function (added, removed) {
     var old = tabs_id[removed]
     if (old != null) {
       // Since the ID of the tab has changed, we give app code a chance to update any ID references it might have
+      // TODO should this be moved to after the ID is changed, but before updateTab is called?
       exports.tabs.on.changeId ..@emit({
         oldId: removed,
         newId: added
@@ -507,8 +510,12 @@ chrome.tabs.onReplaced.addListener(function (added, removed) {
       @assert.is(windows_id[tab.windowId], old.window)
       console.log("PLATFORM: REPLACING", old, tab)
 
-      // Update the ID and then treat it as a normal tab update
+      // Update the ID...
+      tabs_id ..@delete(old.id)
       old.id = tab.id
+      tabs_id ..@setNew(old.id, old)
+
+      // ...and then treat it as a normal tab update
       updateTab(old, tab)
     }
   })
@@ -549,7 +556,11 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     shiftChildrenUp(tab, true)
 
     exports.tabs.on.move ..@emit({
-      tab: tab
+      tab: tab,
+      old: {
+        window: tab.window,
+        index: info.fromIndex
+      }
     })
   }
 })
@@ -568,11 +579,8 @@ chrome.tabs.onDetached.addListener(function (id, info) {
     tab.window.tabs ..@remove(tab)
     updateIndexes(tab.window.tabs, tab.index)
 
-    // A detached tab technically doesn't belong to a window, nor does it have an index
-    tab.window = null
-    tab.index = null
-
-    shiftChildrenUp(tab, true)
+    @assert.is(tab.detached, false)
+    tab.detached = true
   }
 })
 
@@ -582,8 +590,13 @@ chrome.tabs.onAttached.addListener(function (id, info) {
   var tab = tabs_id[id]
   if (tab != null) {
     @assert.is(tab.id, id)
-    @assert.ok(tab.window == null)
-    @assert.ok(tab.index == null)
+    @assert.ok(tab.window != null)
+    @assert.ok(tab.index != null)
+
+    var old = {
+      window: tab.window,
+      index: tab.index
+    }
 
     var window = windows_id ..@get(info.newWindowId)
     tab.window = window
@@ -594,8 +607,14 @@ chrome.tabs.onAttached.addListener(function (id, info) {
     @assert.is(tab.window.tabs[tab.index], tab)
     updateIndexes(tab.window.tabs, tab.index + 1)
 
+    @assert.is(tab.detached, true)
+    tab.detached = false
+
+    shiftChildrenUp(tab, true)
+
     exports.tabs.on.move ..@emit({
-      tab: tab
+      tab: tab,
+      old: old
     })
   }
 })
