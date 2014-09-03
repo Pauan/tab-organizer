@@ -2,16 +2,17 @@
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "sjs:object" },
-  { id: "./timestamp" },
-  { id: "./extension/main" },
-  { id: "./extension/chrome/util" }
+  { id: "../util/timestamp" },
+  { id: "../util/util" },
+  { id: "../util/event" },
+  { id: "../extension/main" }
 ])
 
 exports.init = function () {
   var url_popup = @url.get("panel.html")
     , url_empty = @url.get("data/empty.html")
 
-  var db_tabs = @db.get("current.tabs", {})
+  var db_tabs = @db.get("current.windows", [])
 
   // Which tabs are active (grouped by URL)
   var active = {}
@@ -46,39 +47,6 @@ exports.init = function () {
     }
   }
 
-  function updateLinks(front, back) {
-    @assert.is(back.window.tabs[back.index], back)
-
-    var prev = (back.window.tabs[back.index - 1] || null)
-    if (prev != null) {
-      prev = back_front ..@get(prev.id)
-      @assert.ok(prev.next == null || prev.next === front)
-      prev.next = front
-    }
-
-    var next = (back.window.tabs[back.index + 1] || null)
-    if (next != null) {
-      next = back_front ..@get(next.id)
-      @assert.ok(next.prev == null || next.prev === front)
-      next.prev = front
-    }
-
-    front.prev = prev
-    front.next = next
-  }
-
-  function removeLinks(front) {
-    var prev = (front.prev || null)
-    var next = (front.next || null)
-
-    if (prev != null) {
-      prev.next = next
-    }
-    if (next != null) {
-      next.prev = prev
-    }
-  }
-
   function setFromBack(front, back) {
     @assert.is(front.active, true, "can't change info of an unloaded tab")
     @assert.is(front.focused, back.focused)
@@ -109,11 +77,6 @@ exports.init = function () {
       } else {
         front.parent = null
       }
-
-      // TODO this is pretty hacky...
-      setTimeout(function () {
-        updateLinks(front, back)
-      }, 0)
 
       setFromBack(front, back)
 
@@ -164,7 +127,6 @@ exports.init = function () {
       back_front ..@delete(back.id)
       front_back ..@delete(front.id)
       removeActive(front)
-      removeLinks(front)
     }
   }
 
@@ -174,7 +136,6 @@ exports.init = function () {
       @assert.is(back.focused, true)
       front.focused = true
       front.time.focused = @timestamp()
-      console.log(back_front)
     }
   }
 
@@ -201,40 +162,42 @@ exports.init = function () {
     addTab(tab)
   })
 
-  // TODO is using an infinite buffer a problem?
-  // TODO is there a better way than using spawn?
-  spawn @tabs.on.add ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("ADD", info)
+  @tabs.on.add ..@listen(function (info) {
+    console.log("ADD", info)
     addTab(info.tab)
   })
 
-  spawn @tabs.on.update ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("UPDATE", info)
+  @tabs.on.update ..@listen(function (info) {
+    console.log("UPDATE", info)
     addOrUpdateTab(info.tab)
   })
 
-  spawn @tabs.on.changeId ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("CHANGEID", info)
+  @tabs.on.changeId ..@listen(function (info) {
+    console.log("CHANGEID", info)
     updateTabID(info.oldId, info.newId)
   })
 
-  spawn @tabs.on.remove ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("REMOVE", info)
+  @tabs.on.remove ..@listen(function (info) {
+    console.log("REMOVE", info)
     removeTab(info.tab)
   })
 
-  spawn @tabs.on.focus ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("FOCUS", info)
+  @tabs.on.focus ..@listen(function (info) {
+    console.log("FOCUS", info)
     focusTab(info.tab)
   })
 
-  spawn @tabs.on.unfocus ..@buffer(Infinity) ..@each(function (info) {
-    //console.log("UNFOCUS", info)
+  @tabs.on.unfocus ..@listen(function (info) {
+    console.log("UNFOCUS", info)
     unfocusTab(info.tab)
   })
 
-  spawn @tabs.on.move ..@buffer(Infinity) ..@each(function (info) {
+  @tabs.on.move ..@listen(function (info) {
     console.log("MOVE", info)
+  })
+
+  @tabs.on.changeParent ..@listen(function (info) {
+    console.log("CHANGEPARENT", info)
   })
 
   console.log("started tabs")

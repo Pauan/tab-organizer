@@ -1,10 +1,13 @@
+// TODO it's okay to remove the index property from tabs, if it's not needed
+
 @ = require([
+  { id: "../../util/util" },
+  { id: "../../util/event" },
   { id: "./util" },
   { id: "./url", name: "url" },
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
-  { id: "sjs:object" },
-  { id: "sjs:event" }
+  { id: "sjs:object" }
 ])
 
 exports.windows = {}
@@ -12,6 +15,7 @@ exports.windows = {}
 exports.tabs = {}
 exports.tabs.on = {}
 exports.tabs.on.changeId = @Emitter()
+exports.tabs.on.changeParent = @Emitter()
 exports.tabs.on.add = @Emitter()
 exports.tabs.on.update = @Emitter()
 exports.tabs.on.remove = @Emitter()
@@ -57,9 +61,9 @@ function checkFocus(tab) {
  */
 function checkTab(tab, info) {
   @assert.ok(tabs_id ..@has(tab.id))
+  @assert.ok(info.index != null)
   @assert.ok(tab.window != null)
-  @assert.is(tab.window.tabs[tab.index], tab)
-  @assert.ok(tab.index != null)
+  @assert.is(tab.window.tabs[info.index], tab)
 
   @assert.is(tab.id, info.id)
   @assert.is(tab.window.id, info.windowId)
@@ -101,7 +105,7 @@ function updateTab(tab, info) {
   if (shouldUpdate(tab, info)) {
     setTab(tab, info)
 
-    exports.tabs.on.update.emit({
+    exports.tabs.on.update ..@emit({
       tab: tab
     })
   }
@@ -111,7 +115,7 @@ function unfocusTab(tab) {
   @assert.is(tab.focused, true)
   tab.focused = false
   checkFocus(tab)
-  exports.tabs.on.unfocus.emit({
+  exports.tabs.on.unfocus ..@emit({
     tab: tab
   })
 }
@@ -132,7 +136,7 @@ function focusTab(tab) {
   } else {
     tab.focused = true
     checkFocus(tab)
-    exports.tabs.on.focus.emit({
+    exports.tabs.on.focus ..@emit({
       tab: tab
     })
   }
@@ -160,6 +164,7 @@ function addTab(info) {
     id: info.id,
     window: window,
     focused: info.active,
+    children: [],
     index: info.index
   }
 
@@ -167,6 +172,7 @@ function addTab(info) {
     tab.parentTab = null
   } else {
     tab.parentTab = tabs_id ..@get(info.openerTabId)
+    tab.parentTab.children ..@pushNew(tab)
   }
 
   if (tab.focused) {
@@ -175,6 +181,9 @@ function addTab(info) {
 
   tabs_id ..@setNew(tab.id, tab)
   tab.window.tabs ..@spliceNew(tab.index, tab)
+  @assert.is(tab.index, info.index)
+  @assert.is(tab.window.tabs[tab.index], tab)
+  updateIndexes(tab.window.tabs, tab.index + 1)
 
   checkTab(tab, info)
   setTab(tab, info)
@@ -182,7 +191,32 @@ function addTab(info) {
   return tab
 }
 
-function removeTab(tab) {
+function shiftChildrenUp(tab, event) {
+  @assert.isNot(tab.parentTab, tab)
+
+  tab.children ..@each(function (child) {
+    @assert.is(child.parentTab, tab)
+    child.parentTab = tab.parentTab
+
+    exports.tabs.on.changeParent ..@emit({
+      tab: child
+    })
+  })
+  tab.children = []
+
+  if (tab.parentTab != null) {
+    tab.parentTab.children ..@remove(tab)
+  }
+  tab.parentTab = null
+
+  if (event) {
+    exports.tabs.on.changeParent ..@emit({
+      tab: tab
+    })
+  }
+}
+
+function removeTab(tab, info) {
   // When closing a focused tab it will:
   //
   //   1) send the close event for the closed tab
@@ -196,8 +230,20 @@ function removeTab(tab) {
   if (tab.window.focusedTab === tab) {
     tab.window.focusedTab = null
   }
+
   tabs_id ..@delete(tab.id)
+  @assert.ok(tab.index != null)
+  @assert.is(tab.window.tabs[tab.index], tab)
   tab.window.tabs ..@remove(tab)
+  updateIndexes(tab.window.tabs, tab.index)
+
+  shiftChildrenUp(tab, false)
+
+  exports.tabs.on.remove ..@emit({
+    tab: tab,
+    // TODO this probably shouldn't be a part of the public API, because Jetpack may not be able to support it
+    isWindowClosing: info.isWindowClosing
+  })
 }
 
 function addWindow(info) {
@@ -227,14 +273,8 @@ function removeWindow(window) {
 }
 
 
-exports.tabs.getCurrent = function () {
-  var result = []
-  windows ..@each(function (window) {
-    window.tabs ..@each(function (tab) {
-      result.push(tab)
-    })
-  })
-  return result
+exports.windows.getCurrent = function () {
+  return windows
 }
 
 exports.tabs.open = function (options) {
@@ -414,7 +454,7 @@ chrome.tabs.onCreated.addListener(function (tab) {
   // This is to make sure that we only handle tabs that are in windows with type "normal"
   var window = windows_id[tab.windowId]
   if (window != null) {
-    exports.tabs.on.add.emit({
+    exports.tabs.on.add ..@emit({
       tab: addTab(tab)
     })
   }
@@ -437,13 +477,7 @@ chrome.tabs.onRemoved.addListener(function (id, info) {
   var tab = tabs_id[id]
   if (tab != null) {
     @assert.is(tab.id, id)
-    removeTab(tab)
-
-    exports.tabs.on.remove.emit({
-      tab: tab,
-      // TODO this probably shouldn't be a part of the public API, because Jetpack may not be able to support it
-      isWindowClosing: info.isWindowClosing
-    })
+    removeTab(tab, info)
   }
 })
 
@@ -460,7 +494,7 @@ chrome.tabs.onReplaced.addListener(function (added, removed) {
     var old = tabs_id[removed]
     if (old != null) {
       // Since the ID of the tab has changed, we give app code a chance to update any ID references it might have
-      exports.tabs.on.changeId.emit({
+      exports.tabs.on.changeId ..@emit({
         oldId: removed,
         newId: added
       })
@@ -500,21 +534,22 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     @assert.is(tab.id, id)
     @assert.ok(tab.window != null)
     @assert.is(tab.window.id, info.windowId)
+    @assert.isNot(info.fromIndex, info.toIndex)
     @assert.is(tab.index, info.fromIndex)
-    @assert.is(tab.window.tabs[info.fromIndex], tab)
+    @assert.is(tab.window.tabs[tab.index], tab)
 
     tab.window.tabs ..@remove(tab)
     tab.index = info.toIndex
     tab.window.tabs ..@spliceNew(tab.index, tab)
 
-    console.log(windows)
-    exports.tabs.on.move.emit({
-      tab: tab,
-      // TODO
-      old: {
-        window: tab.window,
-        index: info.fromIndex
-      }
+    @assert.is(tab.index, info.toIndex)
+    @assert.is(tab.window.tabs[tab.index], tab)
+    updateIndexes(tab.window.tabs, Math.min(info.fromIndex, info.toIndex + 1))
+
+    shiftChildrenUp(tab, true)
+
+    exports.tabs.on.move ..@emit({
+      tab: tab
     })
   }
 })
@@ -528,11 +563,16 @@ chrome.tabs.onDetached.addListener(function (id, info) {
     @assert.ok(tab.window != null)
     @assert.is(tab.window.id, info.oldWindowId)
     @assert.is(tab.index, info.oldPosition)
+    @assert.is(tab.window.tabs[tab.index], tab)
+
+    tab.window.tabs ..@remove(tab)
+    updateIndexes(tab.window.tabs, tab.index)
 
     // A detached tab technically doesn't belong to a window, nor does it have an index
-    tab.window.tabs ..@remove(tab)
     tab.window = null
     tab.index = null
+
+    shiftChildrenUp(tab, true)
   }
 })
 
@@ -550,13 +590,12 @@ chrome.tabs.onAttached.addListener(function (id, info) {
     tab.index = info.newPosition
     tab.window.tabs ..@spliceNew(tab.index, tab)
 
-    exports.tabs.on.move.emit({
-      tab: tab,
-      // TODO
-      old: {
-        window: null,
-        index: null
-      }
+    @assert.ok(tab.index != null)
+    @assert.is(tab.window.tabs[tab.index], tab)
+    updateIndexes(tab.window.tabs, tab.index + 1)
+
+    exports.tabs.on.move ..@emit({
+      tab: tab
     })
   }
 })
