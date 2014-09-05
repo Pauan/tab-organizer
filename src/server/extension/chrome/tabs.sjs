@@ -116,7 +116,9 @@ function updateTab(tab, info) {
 function unfocusTab(tab) {
   @assert.is(tab.focused, true)
   tab.focused = false
+
   checkFocus(tab)
+
   exports.tabs.on.unfocus ..@emit({
     tab: tab
   })
@@ -137,7 +139,9 @@ function focusTab(tab) {
   // B) the tab is unfocused and then becomes focused (e.g. by clicking on it)
   } else {
     tab.focused = true
+
     checkFocus(tab)
+
     exports.tabs.on.focus ..@emit({
       tab: tab
     })
@@ -150,6 +154,7 @@ function focusTab(tab) {
     @assert.ok(old.window != null)
     @assert.ok(tab.window != null)
     @assert.is(old.window, tab.window)
+
     // When a tab is moved to a different window or closed, we don't want to unfocus it
     if (!(old.detached || old.closed)) {
       unfocusTab(old)
@@ -183,6 +188,7 @@ function addTab(info) {
 
   tabs_id ..@setNew(tab.id, tab)
   tab.window.tabs ..@spliceNew(tab.index, tab)
+
   @assert.is(tab.index, info.index)
   @assert.is(tab.window.tabs[tab.index], tab)
   updateIndexes(tab.window.tabs, tab.index + 1)
@@ -204,6 +210,7 @@ function shiftChildrenUp(tab, event) {
       tab: child
     })
   })
+
   tab.children = []
 
   if (tab.parentTab != null) {
@@ -233,10 +240,12 @@ function removeTab(tab, info) {
   @assert.is(tab.closed, false)
   tab.closed = true
 
-  tabs_id ..@delete(tab.id)
   @assert.ok(tab.index != null)
   @assert.is(tab.window.tabs[tab.index], tab)
+
+  tabs_id ..@delete(tab.id)
   tab.window.tabs ..@remove(tab)
+
   updateIndexes(tab.window.tabs, tab.index)
 
   shiftChildrenUp(tab, false)
@@ -298,7 +307,6 @@ exports.tabs.open = function (options) {
     options.focused = true
   }
 
-  // TODO what about retraction ?
   waitfor (var result) {
     chrome.tabs.create({
       url: options.url,
@@ -321,6 +329,9 @@ exports.tabs.open = function (options) {
 
       resume(tab)
     })
+  // TODO test this
+  } retract {
+    throw new Error("cannot retract when creating a new tab")
   }
   return result
 }
@@ -469,6 +480,7 @@ chrome.tabs.onUpdated.addListener(function (id, info, tab) {
 
   var old = tabs_id[id]
   if (old != null) {
+    @assert.is(old.id, id)
     updateTab(old, tab)
   }
 })
@@ -528,7 +540,6 @@ chrome.tabs.onActivated.addListener(function (info) {
   if (tab != null) {
     @assert.is(tab.id, info.tabId)
     @assert.is(tab.window.id, info.windowId)
-
     focusTab(tab)
   }
 })
@@ -545,6 +556,11 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     @assert.is(tab.index, info.fromIndex)
     @assert.is(tab.window.tabs[tab.index], tab)
 
+    var old = {
+      window: tab.window,
+      index: tab.index
+    }
+
     tab.window.tabs ..@remove(tab)
     tab.index = info.toIndex
     tab.window.tabs ..@spliceNew(tab.index, tab)
@@ -557,10 +573,7 @@ chrome.tabs.onMoved.addListener(function (id, info) {
 
     exports.tabs.on.move ..@emit({
       tab: tab,
-      old: {
-        window: tab.window,
-        index: info.fromIndex
-      }
+      old: old
     })
   }
 })
@@ -577,6 +590,7 @@ chrome.tabs.onDetached.addListener(function (id, info) {
     @assert.is(tab.window.tabs[tab.index], tab)
 
     tab.window.tabs ..@remove(tab)
+
     updateIndexes(tab.window.tabs, tab.index)
 
     @assert.is(tab.detached, false)
