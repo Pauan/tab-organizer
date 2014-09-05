@@ -23,6 +23,9 @@ exports.set = function (name, value) {
     // TODO what about retraction ?
     chrome.storage.local.set(o, function () {
       @checkError()
+
+      console.info("db: saved #{name}")
+
       resume()
     })
   }

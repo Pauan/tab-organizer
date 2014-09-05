@@ -1,16 +1,18 @@
-// TODO it's okay to remove the index property from tabs, if it's not needed
-
 @ = require([
   { id: "../../util/util" },
   { id: "../../util/event" },
   { id: "./util" },
   { id: "./url", name: "url" },
+  { id: "./db", name: "db" },
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "sjs:object" }
 ])
 
 exports.windows = {}
+exports.windows.on = {}
+exports.windows.on.add = @Emitter()
+exports.windows.on.remove = @Emitter()
 
 exports.tabs = {}
 exports.tabs.on = {}
@@ -22,6 +24,8 @@ exports.tabs.on.remove = @Emitter()
 exports.tabs.on.focus = @Emitter()
 exports.tabs.on.unfocus = @Emitter()
 exports.tabs.on.move = @Emitter()
+
+var windows_saved = @db.get("__extension.chrome.tabs.windows__", [])
 
 var windows    = []
 var windows_id = {}
@@ -281,6 +285,10 @@ function addWindow(info) {
 function removeWindow(window) {
   windows_id ..@delete(window.id)
   windows ..@remove(window)
+
+  exports.windows.on.remove ..@emit({
+    window: window
+  })
 }
 
 
@@ -637,7 +645,9 @@ chrome.windows.onCreated.addListener(function (window) {
   @checkError()
 
   if (window.type === "normal") {
-    addWindow(window)
+    exports.windows.on.add ..@emit({
+      window: addWindow(window)
+    })
   }
 })
 

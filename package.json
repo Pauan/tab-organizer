@@ -13,6 +13,7 @@
   "scripts": {
     "postinstall": "npm run build",
     "build": "./build.sjs",
-    "watch": "./build.sjs --watch"
+    "watch": "./build.sjs --watch",
+    "test": "./test.sjs"
   }
 }
