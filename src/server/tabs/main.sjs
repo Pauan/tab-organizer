@@ -237,5 +237,5 @@ exports.init = function () {
     console.log("MOVE", info)
   })
 
-  console.info("started tabs")
+  console.info("tabs: started tabs")
 }

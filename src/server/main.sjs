@@ -10,7 +10,7 @@ exports.init = function () {
   } and {
 
   }
-  console.info("started main")
+  console.info("main: started main")
 }
 
 // TODO if (require.main === module) { ?

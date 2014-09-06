@@ -12,6 +12,100 @@
 
 var windows_saved = @db.get("__extension.chrome.tabs.windows__", [])
 
+function save() {
+  @db.set("__extension.chrome.tabs.windows__", windows_saved)
+}
+
+function tabMatchesOld(tab_old, tab_new) {
+  return tab_old.url === tab_new.url
+}
+
+function windowMatchesOld(window_old, window_new) {
+  var tabs_old = window_old.tabs
+  var tabs_new = window_new.tabs
+
+  @assert.ok(tabs_old.length > 0)
+
+  // Oddly enough, Chrome windows sometimes don't have a tabs property
+  if (tabs_new != null) {
+    @assert.ok(tabs_new.length > 0)
+
+    // Check that all the old tabs match with the new tabs
+    return @zip(tabs_old, tabs_new) ..@all(function ([tab_old, tab_new]) {
+      return tabMatchesOld(tab_old, tab_new)
+    })
+  } else {
+    return false
+  }
+}
+
+function mergeWindow(window_old, window_new) {
+  var window = addWindowWithId(window_old.id, window_new)
+
+  // TODO code duplication
+  var tabs_old = window_old.tabs
+  var tabs_new = window_new.tabs
+
+  @assert.ok(tabs_old.length > 0)
+
+  // Oddly enough, Chrome windows sometimes don't have a tabs property
+  if (tabs_new != null) {
+    @assert.ok(tabs_new.length > 0)
+
+    tabs_new ..@indexed ..@each(function ([i, tab_new]) {
+      // Merge with existing tab
+      if (i < tabs_old.length) {
+        var tab_old = tabs_old[i]
+        addTabWithId(tab_old.id, tab_new)
+
+      // Add new tab
+      } else {
+        addTab(tab_new)
+      }
+    })
+  }
+
+  return window
+}
+
+function mergeAllWindows(array_new) {
+  var array_old = windows_saved
+  windows_saved = []
+
+  // TODO maybe instead change it so db automatically merges concurrent changes into a single change?
+  @db.disable("__extension.chrome.tabs.windows__", function () {
+    // TODO replace with iterator or something
+    var i = 0
+
+    // Merge new windows into old windows
+    array_old ..@each { |window_old|
+      if (i < array_new.length) {
+        var window_new = array_new[i]
+
+        // New window matches the old window
+        if (windowMatchesOld(window_old, window_new)) {
+          mergeWindow(window_old, window_new)
+          console.info("extension.chrome.tabs: merged #{window_new.tabs.length} tabs into window #{window_old.id}")
+          ++i
+        }
+      } else {
+        break
+      }
+    }
+
+    // New windows
+    while (i < array_new.length) {
+      var window_new = array_new[i]
+      var window = addWindow(window_new)
+      console.info("extension.chrome.tabs: created new window #{window.id} with #{window.tabs.length} tabs")
+      ++i
+    }
+  })
+
+  save()
+}
+
+
 var windows    = []
 var windows_id = {}
 var tabs_id    = {}
@@ -54,7 +148,9 @@ function checkTab(tab, info) {
   @assert.is(tab.closed, false)
   @assert.ok(info.index != null)
   @assert.ok(tab.window != null)
+  @assert.is(tab.window.__id__, info.windowId)
   @assert.is(tab.window.tabs[info.index], tab)
+  @assert.is(tab.window.__saved__.tabs[info.index], tab.__saved__)
 
   @assert.is(tab.__id__, info.id)
   @assert.isNot(tab.id, info.id) // TODO should probably remove this
@@ -80,10 +176,18 @@ function updateIndexes(array, index) {
 
 // TODO normalize URL?
 function setTab(tab, info) {
+  if (info.url === void 0) {
+    delete tab.__saved__.url
+  } else {
+    tab.__saved__.url = info.url
+  }
+
   tab.url = info.url
   tab.favicon = "chrome://favicon/" + info.url
   tab.title = info.title
   tab.pinned = info.pinned
+
+  save()
 }
 
 function shouldUpdate(tab, info) {
@@ -153,13 +257,17 @@ function focusTab(tab) {
   }
 }
 
-function addTab(info) {
-  var window = windows_id ..@get(info.windowId)
+function addTabWithId(id, info) {
+  @assert.ok(id != null)
 
-  var id = @timestamp()
+  var window = windows_id ..@get(info.windowId)
 
   var tab = {
     __id__: info.id,
+
+    __saved__: {
+      id: id
+    },
 
     id: id,
     window: window,
@@ -175,15 +283,22 @@ function addTab(info) {
 
   tabs_id ..@setNew(tab.__id__, tab)
   tab.window.tabs ..@spliceNew(tab.index, tab)
+  tab.window.__saved__.tabs ..@spliceNew(tab.index, tab.__saved__)
 
   @assert.is(tab.index, info.index)
   @assert.is(tab.window.tabs[tab.index], tab)
+  @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
   updateIndexes(tab.window.tabs, tab.index + 1)
 
   checkTab(tab, info)
   setTab(tab, info)
 
   return tab
+}
+
+function addTab(info) {
+  var id = @timestamp()
+  return addTabWithId(id, info)
 }
 
 function removeTab(tab, info) {
@@ -203,11 +318,15 @@ function removeTab(tab, info) {
 
   @assert.ok(tab.index != null)
   @assert.is(tab.window.tabs[tab.index], tab)
+  @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
 
   tabs_id ..@delete(tab.__id__)
   tab.window.tabs ..@remove(tab)
+  tab.window.__saved__.tabs ..@remove(tab.__saved__)
 
   updateIndexes(tab.window.tabs, tab.index)
+
+  save()
 
   exports.tabs.on.remove ..@emit({
     tab: tab,
@@ -216,11 +335,17 @@ function removeTab(tab, info) {
   })
 }
 
-function addWindow(info) {
-  var id = @timestamp()
+// updateIndexes is unnecessary because windows are always added to the end
+function addWindowWithId(id, info) {
+  @assert.ok(id != null)
 
   var window = {
     __id__: info.id,
+
+    __saved__: {
+      id: id,
+      tabs: []
+    },
 
     id: id,
     focusedTab: null,
@@ -229,11 +354,24 @@ function addWindow(info) {
 
   windows_id ..@setNew(window.__id__, window)
   window.index = windows ..@pushNew(window) - 1
+  windows_saved ..@pushNew(window.__saved__)
+
+  @assert.is(windows[window.index], window)
+  @assert.is(windows_saved[window.index], window.__saved__)
+
+  save()
+
+  return window
+}
+
+function addWindow(info) {
+  var id = @timestamp()
+
+  var window = addWindowWithId(id, info)
 
   // Oddly enough, Chrome windows sometimes don't have a tabs property
   if (info.tabs != null) {
     info.tabs ..@each(function (info) {
-      @assert.is(info.windowId, window.__id__)
       addTab(info)
     })
   }
@@ -244,11 +382,15 @@ function addWindow(info) {
 function removeWindow(window) {
   @assert.ok(window.index != null)
   @assert.is(windows[window.index], window)
+  @assert.is(windows_saved[window.index], window.__saved__)
 
   windows_id ..@delete(window.__id__)
   windows ..@remove(window)
+  windows_saved ..@remove(window.__saved__)
 
   updateIndexes(windows, window.index)
+
+  save()
 
   exports.windows.on.remove ..@emit({
     window: window
@@ -427,11 +569,7 @@ setTimeout(function () {
  *       tabs.remove
  *       windows.onRemoved
  */
-@getAllWindows() ..@each(function (window) {
-  if (window.type === "normal") {
-    addWindow(window)
-  }
-})
+mergeAllWindows(@getAllWindows() ..@filter(window -> window.type === "normal") ..@toArray)
 
 chrome.tabs.onCreated.addListener(function (tab) {
   @checkError()
@@ -520,6 +658,7 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     @assert.isNot(info.fromIndex, info.toIndex)
     @assert.is(tab.index, info.fromIndex)
     @assert.is(tab.window.tabs[tab.index], tab)
+    @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
 
     var old = {
       window: tab.window,
@@ -527,12 +666,19 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     }
 
     tab.window.tabs ..@remove(tab)
+    tab.window.__saved__.tabs ..@remove(tab.__saved__)
+
     tab.index = info.toIndex
+
     tab.window.tabs ..@spliceNew(tab.index, tab)
+    tab.window.__saved__.tabs ..@spliceNew(tab.index, tab.__saved__)
 
     @assert.is(tab.index, info.toIndex)
     @assert.is(tab.window.tabs[tab.index], tab)
+    @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
     updateIndexes(tab.window.tabs, Math.min(info.fromIndex, info.toIndex + 1))
+
+    save()
 
     exports.tabs.on.move ..@emit({
       tab: tab,
@@ -551,13 +697,17 @@ chrome.tabs.onDetached.addListener(function (id, info) {
     @assert.is(tab.window.__id__, info.oldWindowId)
     @assert.is(tab.index, info.oldPosition)
     @assert.is(tab.window.tabs[tab.index], tab)
+    @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
 
     tab.window.tabs ..@remove(tab)
+    tab.window.__saved__.tabs ..@remove(tab.__saved__)
 
     updateIndexes(tab.window.tabs, tab.index)
 
     @assert.is(tab.detached, false)
     tab.detached = true
+
+    save()
   }
 })
 
@@ -578,14 +728,19 @@ chrome.tabs.onAttached.addListener(function (id, info) {
     var window = windows_id ..@get(info.newWindowId)
     tab.window = window
     tab.index = info.newPosition
+
     tab.window.tabs ..@spliceNew(tab.index, tab)
+    tab.window.__saved__.tabs ..@spliceNew(tab.index, tab.__saved__)
 
     @assert.ok(tab.index != null)
     @assert.is(tab.window.tabs[tab.index], tab)
+    @assert.is(tab.window.__saved__.tabs[tab.index], tab.__saved__)
     updateIndexes(tab.window.tabs, tab.index + 1)
 
     @assert.is(tab.detached, true)
     tab.detached = false
+
+    save()
 
     exports.tabs.on.move ..@emit({
       tab: tab,
