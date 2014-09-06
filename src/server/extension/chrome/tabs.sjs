@@ -16,6 +16,14 @@ function save() {
   @db.set("__extension.chrome.tabs.windows__", windows_saved)
 }
 
+function save_delay() {
+  // 10 seconds, so that when Chrome exits,
+  // it doesn't clobber the user's data
+  return @db.delay("__extension.chrome.tabs.windows__", 10000, function () {
+    return save()
+  })
+}
+
 function tabMatchesOld(tab_old, tab_new) {
   return tab_old.url === tab_new.url
 }
@@ -72,36 +80,34 @@ function mergeAllWindows(array_new) {
   var array_old = windows_saved
   windows_saved = []
 
-  // TODO maybe instead change it so db automatically merges concurrent changes into a single change?
-  @db.disable("__extension.chrome.tabs.windows__", function () {
-    // TODO replace with iterator or something
-    var i = 0
+  // TODO replace with iterator or something
+  var i = 0
 
-    // Merge new windows into old windows
-    array_old ..@each { |window_old|
-      if (i < array_new.length) {
-        var window_new = array_new[i]
-
-        // New window matches the old window
-        if (windowMatchesOld(window_old, window_new)) {
-          mergeWindow(window_old, window_new)
-          console.info("extension.chrome.tabs: merged #{window_new.tabs.length} tabs into window #{window_old.id}")
-          ++i
-        }
-      } else {
-        break
-      }
-    }
-
-    // New windows
-    while (i < array_new.length) {
+  // Merge new windows into old windows
+  array_old ..@each { |window_old|
+    if (i < array_new.length) {
       var window_new = array_new[i]
-      var window = addWindow(window_new)
-      console.info("extension.chrome.tabs: created new window #{window.id} with #{window.tabs.length} tabs")
-      ++i
-    }
-  })
 
+      // New window matches the old window
+      if (windowMatchesOld(window_old, window_new)) {
+        mergeWindow(window_old, window_new)
+        console.info("extension.chrome.tabs: merged #{window_new.tabs.length} tabs into window #{window_old.id}")
+        ++i
+      }
+    } else {
+      break
+    }
+  }
+
+  // New windows
+  while (i < array_new.length) {
+    var window_new = array_new[i]
+    var window = addWindow(window_new)
+    console.info("extension.chrome.tabs: created new window #{window.id} with #{window.tabs.length} tabs")
+    ++i
+  }
+
+  // TODO this probably isn't necessary, but I like it just in case
   save()
 }
 
@@ -202,7 +208,7 @@ function updateTab(tab, info) {
   if (shouldUpdate(tab, info)) {
     setTab(tab, info)
 
-    exports.tabs.on.update ..@emit({
+    exports.tabs.on.update ..@emitSync({
       tab: tab
     })
   }
@@ -214,7 +220,7 @@ function unfocusTab(tab) {
 
   checkFocus(tab)
 
-  exports.tabs.on.unfocus ..@emit({
+  exports.tabs.on.unfocus ..@emitSync({
     tab: tab
   })
 }
@@ -237,7 +243,7 @@ function focusTab(tab) {
 
     checkFocus(tab)
 
-    exports.tabs.on.focus ..@emit({
+    exports.tabs.on.focus ..@emitSync({
       tab: tab
     })
   }
@@ -326,9 +332,16 @@ function removeTab(tab, info) {
 
   updateIndexes(tab.window.tabs, tab.index)
 
-  save()
+  // TODO isBoolean check
+  @assert.ok(info.isWindowClosing === true || info.isWindowClosing === false)
 
-  exports.tabs.on.remove ..@emit({
+  if (info.isWindowClosing) {
+    save_delay()
+  } else {
+    save()
+  }
+
+  exports.tabs.on.remove ..@emitSync({
     tab: tab,
     // TODO this probably shouldn't be a part of the public API, because Jetpack may not be able to support it
     isWindowClosing: info.isWindowClosing
@@ -390,13 +403,29 @@ function removeWindow(window) {
 
   updateIndexes(windows, window.index)
 
-  save()
+  save_delay()
 
-  exports.windows.on.remove ..@emit({
+  exports.windows.on.remove ..@emitSync({
     window: window
   })
 }
 
+
+exports.tabs.has = function (id) {
+  return tabs_id ..@has(id)
+}
+
+exports.tabs.get = function (id) {
+  return tabs_id ..@get(id)
+}
+
+exports.windows.has = function (id) {
+  return windows_id ..@has(id)
+}
+
+exports.windows.get = function (id) {
+  return windows_id ..@get(id)
+}
 
 exports.windows.getCurrent = function () {
   return windows
@@ -445,71 +474,71 @@ exports.tabs.open = function (options) {
     })
   // TODO test this
   } retract {
-    throw new Error("cannot retract when creating a new tab")
+    throw new Error("extension.chrome.tabs: cannot retract when creating a new tab")
   }
   return result
 }
 
 
 /*chrome.tabs.onCreated.addListener(function (tab) {
-  console.log("tabs.onCreated")
+  console.debug("tabs.onCreated")
 })
 
 chrome.tabs.onUpdated.addListener(function (id, info, tab) {
-  console.log("tabs.onUpdated", tab)
+  console.debug("tabs.onUpdated", tab)
 })
 
 chrome.tabs.onRemoved.addListener(function (id, info) {
-  console.log("tabs.onRemoved")
+  console.debug("tabs.onRemoved")
 })
 
 chrome.tabs.onReplaced.addListener(function (added, removed) {
-  console.log("tabs.onReplaced")
+  console.debug("tabs.onReplaced")
 })
 
 chrome.tabs.onActivated.addListener(function (info) {
-  console.log("tabs.onActivated", info)
+  console.debug("tabs.onActivated", info)
 })
 
 chrome.tabs.onMoved.addListener(function (id, info) {
-  console.log("tabs.onMoved")
+  console.debug("tabs.onMoved")
 })
 
 chrome.tabs.onDetached.addListener(function (id, info) {
-  console.log("tabs.onDetached")
+  console.debug("tabs.onDetached")
 })
 
 chrome.tabs.onAttached.addListener(function (id, info) {
-  console.log("tabs.onAttached")
+  console.debug("tabs.onAttached")
 })
 
 chrome.windows.onCreated.addListener(function (window) {
-  console.log("windows.onCreated")
+  console.debug("windows.onCreated")
 })
 
 chrome.windows.onRemoved.addListener(function (id) {
-  console.log("windows.onRemoved")
+  console.debug("windows.onRemoved")
 })
 
 setTimeout(function () {
   chrome.tabs.create({}, function (tab) {
-    console.log("tabs.create", tab)
+    console.debug("tabs.create", tab)
 
     //chrome.windows.create({ tabId: tab.id }, function () {
       setTimeout(function () {
         chrome.tabs.move(tab.id, { index: 0 }, function (tab) {
-          console.log("tabs.move", tab)
+          console.debug("tabs.move", tab)
         })
         chrome.windows.getAll({ populate: true }, function (wins) {
           chrome.tabs.update(wins[0].tabs[0].id, { active: true }, function (tab) {
-            console.log("tabs.update", tab)
+            console.debug("tabs.update", tab)
           })
         })
         chrome.tabs.update(tab.id, { url: "http://google.com" }, function (tab) {
-          console.log("tabs.update", tab)
+          console.debug("tabs.update", tab)
         })
         chrome.tabs.remove(tab.id, function () {
-          console.log("tabs.remove")
+          console.debug("tabs.remove")
         })
       }, 5000)
     //})
@@ -577,7 +606,7 @@ chrome.tabs.onCreated.addListener(function (tab) {
   // This is to make sure that we only handle tabs that are in windows with type "normal"
   var window = windows_id[tab.windowId]
   if (window != null) {
-    exports.tabs.on.add ..@emit({
+    exports.tabs.on.add ..@emitSync({
       tab: addTab(tab)
     })
   }
@@ -611,7 +640,7 @@ chrome.tabs.onReplaced.addListener(function (added, removed) {
   @checkError()
 
   // Chrome only gives us the ID, not the actual tab, so we have to use this to get the tab
-  // TODO should this use waitfor or something?
+  // TODO should this use waitfor or something? what if something happens while this is being processed?
   chrome.tabs.get(added, function (tab) {
     @checkError()
 
@@ -680,7 +709,7 @@ chrome.tabs.onMoved.addListener(function (id, info) {
 
     save()
 
-    exports.tabs.on.move ..@emit({
+    exports.tabs.on.move ..@emitSync({
       tab: tab,
       old: old
     })
@@ -742,7 +771,7 @@ chrome.tabs.onAttached.addListener(function (id, info) {
 
     save()
 
-    exports.tabs.on.move ..@emit({
+    exports.tabs.on.move ..@emitSync({
       tab: tab,
       old: old
     })
@@ -753,7 +782,7 @@ chrome.windows.onCreated.addListener(function (window) {
   @checkError()
 
   if (window.type === "normal") {
-    exports.windows.on.add ..@emit({
+    exports.windows.on.add ..@emitSync({
       window: addWindow(window)
     })
   }

@@ -1,3 +1,5 @@
+// TODO test all of these functions
+
 @ = require([
   { id: "sjs:object" }
 ])
@@ -26,6 +28,20 @@ function reduceRight(seq, init, f) {
 }
 
 
+exports.indexOf = function (array, value, def) {
+  var index = array.indexOf(value)
+
+  if (index === -1) {
+    if (arguments.length === 3) {
+      return def
+    } else {
+      throw new Error("Array #{array} does not contain #{value}")
+    }
+  } else {
+    return index
+  }
+}
+
 // TODO standard library function for this
 exports.pushNew = function (array, value) {
   if (array.indexOf(value) !== -1) {
@@ -44,10 +60,7 @@ exports.spliceNew = function (array, index, value) {
 
 // TODO standard library function for this (the existing one doesn't throw an error)
 exports.remove = function (array, value) {
-  var index = array.indexOf(value)
-  if (index === -1) {
-    throw new Error("Array #{array} does not contain #{value}")
-  }
+  var index = array ..exports.indexOf(value)
   return array.splice(index, 1)
 }
 

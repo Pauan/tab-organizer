@@ -4,19 +4,34 @@
   { id: "sjs:object" },
   { id: "../util/util" },
   { id: "../util/event" },
-  { id: "../extension/main" },
-  { id: "./link", name: "link" }
+  { id: "../extension/main" }
 ])
 
 exports.init = function () {
   var url_popup = @url.get("panel.html")
     , url_empty = @url.get("data/empty.html")
 
-  var db_windows = @db.get("current.windows.array", [])
+  //@db["delete"]("current.windows.array")
+
+  var windows_db = @db.get("current.windows.array", [])
 
   function save() {
-    //@db.set("current.windows.array", db_windows)
+    @db.set("current.windows.array", windows_db)
   }
+
+  // TODO this is specific to Chrome...?
+  function save_delay() {
+    // 10 seconds, so that when Chrome exits,
+    // it doesn't clobber the user's data
+    return @db.delay("current.windows.array", 10000, function () {
+      return save()
+    })
+  }
+
+
+  var tabs_id    = {}
+  var windows_id = {}
+
 
   // TODO library function for this ?
   function setNull(obj, key, value) {
@@ -29,6 +44,8 @@ exports.init = function () {
 
   // TODO library function for this ?
   function setBoolean(obj, key, value) {
+    // TODO use isBoolean test for this
+    @assert.ok(value === true || value === false)
     if (value) {
       obj[key] = 1
     } else {
@@ -36,206 +53,258 @@ exports.init = function () {
     }
   }
 
-  function setFromBack(front, back) {
-    if (front.active == null) {
-      front.active = {}
+  function isBoolean(obj, key) {
+    var value = obj[key]
+    if (value === void 0) {
+      return false
+    } else if (value === 1) {
+      return true
+    } else {
+      throw new Error("invalid value #{value}")
     }
+  }
 
-    front.active.focused = back.focused
+  function setTab(tab_old, tab_new) {
+    @assert.ok(tab_old.active != null)
 
-    front ..setNull("url", back.url)
-    front ..setNull("favicon", back.favicon)
-    front ..setNull("title", back.title)
-    front ..setBoolean("pinned", back.pinned)
+    tab_old ..setNull("url", tab_new.url)
+    tab_old ..setNull("favicon", tab_new.favicon)
+    tab_old ..setNull("title", tab_new.title)
+    tab_old ..setBoolean("pinned", tab_new.pinned)
+    tab_old.active ..setBoolean("focused", tab_new.focused)
   }
 
 
-  function addWindow(tabs) {
+  function addWindow(window_new) {
     var created = @timestamp()
 
-    return {
-      id: created,
-      // This isn't here in order to cut down on db size
-      // name: null,
+    var window = {
+      id: window_new.id,
+      time: {
+        created: created
+      }
+    }
+
+    windows_id ..@setNew(window.id, window)
+    windows_db ..@pushNew(window)
+
+    window.children = []
+
+    window_new.tabs ..@each(function (tab_new) {
+      addTab(tab_new)
+    })
+
+    save()
+    return window
+  }
+
+  function removeWindow(window_new) {
+    var window_old = windows_id ..@get(window_new.id)
+
+    @assert.is(window_old.id, window_new.id)
+
+    windows_id ..@delete(window_old.id)
+    windows_db ..@remove(window_old)
+
+    window_old.children ..@each(function (tab_old) {
+      console.log("REMOVING UNLOADED CHILD #{tab_old.url}")
+      tabs_id ..@delete(tab_old.id)
+    })
+
+    save_delay()
+    return window_old
+  }
+
+  function addTab(tab_new) {
+    var created = @timestamp()
+
+    var tab = {
+      id: tab_new.id,
       time: {
         created: created
       },
-      children: tabs ..@map(function (back) {
-        var front = addTab(back)
-        @link.tabs.create(front, back)
-        return front
+      active: {}
+    }
+
+    setTab(tab, tab_new)
+    tabs_id ..@setNew(tab.id, tab)
+
+    // TODO assert that the window is correct somehow ?
+    var window_old = windows_id ..@get(tab_new.window.id)
+
+    var index = getIndexForTab(window_old, tab_new)
+    window_old.children ..@spliceNew(index, tab)
+
+    save()
+    return tab
+  }
+
+  function removeTab(tab_new, delay) {
+    // TODO replace with isBoolean test
+    @assert.ok(delay === true || delay === false)
+
+    var tab_old = tabs_id ..@get(tab_new.id)
+    var window_old = windows_id ..@get(tab_new.window.id)
+
+    @assert.is(tab_old.id, tab_new.id)
+
+    tabs_id ..@delete(tab_old.id)
+    window_old.children ..@remove(tab_old)
+
+    if (delay) {
+      save_delay()
+    } else {
+      save()
+    }
+    return tab_old
+  }
+
+  function updateTab(tab_old, tab_new) {
+    @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
+
+    setTab(tab_old, tab_new)
+    tab_old.time.updated = @timestamp()
+
+    save()
+    return tab_old
+  }
+
+  function getIndexForTab(window_old, tab_new) {
+    @assert.is(tab_new.window.tabs[tab_new.index], tab_new)
+
+    if (tab_new.index === 0) {
+      return 0
+    } else {
+      // Get the tab to the left
+      var prev = tab_new.window.tabs ..@get(tab_new.index - 1)
+      var prev_new = tabs_id ..@get(prev.id)
+      return window_old.children ..@indexOf(prev_new) + 1
+    }
+  }
+
+  // TODO it should probably take into account the direction of movement (left or right)
+  function moveTab(tab_new, info) {
+    var tab_old = tabs_id ..@get(tab_new.id)
+    // TODO assert that the window is correct somehow ?
+    var window_old = windows_id ..@get(info.window.id)
+    var window_new = windows_id ..@get(tab_new.window.id)
+
+    window_old.children ..@remove(tab_old)
+
+    var index = getIndexForTab(window_new, tab_new)
+    window_new.children ..@spliceNew(index, tab_old)
+
+    save()
+    return tab_old
+  }
+
+  function focusTab(tab_new) {
+    var tab_old = tabs_id ..@get(tab_new.id)
+
+    @assert.is(tab_new.focused, true)
+    @assert.ok(tab_old.active != null)
+    @assert.is(tab_old.active ..isBoolean("focused"), false)
+
+    tab_old.active ..setBoolean("focused", true)
+    tab_old.time.focused = @timestamp()
+
+    save()
+    return tab_old
+  }
+
+  // This doesn't need to save, because the only thing that changed is its active state, which is transient
+  function unfocusTab(tab_new) {
+    var tab_old = tabs_id ..@get(tab_new.id)
+
+    @assert.is(tab_new.focused, false)
+    @assert.ok(tab_old.active != null)
+    @assert.is(tab_old.active ..isBoolean("focused"), true)
+
+    tab_old.active ..setBoolean("focused", false)
+
+    return tab_old
+  }
+
+
+  // Load in saved tabs
+  windows_db ..@each(function (window_old) {
+    windows_id ..@setNew(window_old.id, window_old)
+
+    window_old.children ..@each(function (tab_old) {
+      delete tab_old.active
+      tabs_id ..@setNew(tab_old.id, tab_old)
+    })
+  })
+
+  // Load in new tabs
+  @windows.getCurrent() ..@each(function (window_new) {
+    if (windows_id ..@has(window_new.id)) {
+      window_new.tabs ..@each(function (tab_new) {
+        if (tabs_id ..@has(tab_new.id)) {
+          var tab_old = tabs_id ..@get(tab_new.id)
+
+          @assert.ok(tab_old.active == null)
+          // TODO is this a good idea?
+          tab_old.active = {}
+          tab_old.active ..setBoolean("focused", tab_new.focused)
+
+          // TODO check that the relative position of the tab is correct?
+          updateTab(tab_old, tab_new)
+        } else {
+          addTab(tab_new)
+        }
       })
-    }
-  }
-
-  function addTab(back) {
-    var created = @timestamp()
-
-    var front = {
-      // This isn't here in order to cut down on db size
-      // active: null,
-      id: created,
-      groups: {},
-      time: {
-        created: created
-      }
-    }
-
-    setFromBack(front, back)
-
-    return front
-  }
-
-  function getLastIndexForParent(tab, window) {
-    var index = window.children.indexOf(tab)
-    @assert.isNot(index, -1)
-
-    while (index < window.children.length) {
-
-      ++index
-    }
-
-    return index
-  }
-
-  function moveTab(front, back) {
-    @assert.is(back.window.tabs[back.index], back)
-
-    var window = @link.windows.fromBack(back.window)
-
-    var prev = back.window.tabs[back.index - 1]
-    if (prev != null) {
-      prev = @link.tabs.fromBack(prev)
-
-      var index = getLastIndexForParent(prev, window)
-      window.children ..@spliceNew(index, front)
     } else {
-      var next = back.window.tabs[back.index + 1]
-      if (next != null) {
-        next = @link.tabs.fromBack(next)
-
-      } else {
-        window.children ..@pushNew(front)
-      }
+      addWindow(window_new)
     }
+  })
 
-    /*if (back.parentTab == null) {
-      @assert.is(back.index, back.window.tabs.length - 1)
-      window.children ..@pushNew(front)
-    } else {
+  // TODO this probably isn't necessary, but I like it just in case
+  save()
+  console.log(windows_db)
 
-    }*/
-    //console.log(back.window, @link.windows.fromBack(back.window))
-  }
-
-  function updateTab(back) {
-    var front = @link.tabs.fromBack(back)
-
-    setFromBack(front, back)
-    front.time.updated = @timestamp()
-
-    return front
-  }
-
-  function focusTab(back) {
-    var front = @link.tabs.fromBack(back)
-
-    @assert.is(back.focused, true)
-    @assert.ok(front.active != null)
-    @assert.is(front.active.focused, false)
-
-    front.active.focused = true
-    front.time.focused = @timestamp()
-
-    return front
-  }
-
-  function unfocusTab(back) {
-    var front = @link.tabs.fromBack(back)
-
-    @assert.is(back.focused, false)
-    @assert.ok(front.active != null)
-    @assert.is(front.active.focused, true)
-
-    front.active.focused = false
-
-    return front
-  }
-
-  // { children: [addTab({ id: 9001, url: "https://trello.com/b/bblpxA84/tab-organizer" })] }
-
-  //mergeBack(db_windows, @windows.getCurrent())
-  //save()
-  console.log(db_windows)
 
   @windows.on.add ..@listen(function (info) {
-    console.log("ADD WINDOW", info)
-    /*var back = info.window
-    var front = addWindow(back.tabs)
-
-    @link.windows.create(front, back)
-    db_windows.push(front)
-    save()*/
+    console.debug("ADD WINDOW", info)
+    addWindow(info.window)
   })
 
   @windows.on.remove ..@listen(function (info) {
-    console.log("REMOVE WINDOW", info)
-    /*var back = info.window
-    var front = @link.windows.fromBack(back)
-
-    @link.windows.remove(front, back)
-    db_windows ..@remove(front)
-    save()
-
-    setTimeout(function () {
-      save()
-    }, 10000)*/
+    console.debug("REMOVE WINDOW", info)
+    removeWindow(info.window)
   })
 
   @tabs.on.add ..@listen(function (info) {
-    console.log("ADD", info)
-    /*var back = info.tab
-    var front = addTab(back)
-
-    @link.tabs.create(front, back)
-    @link.tabs.setWindow(front, @link.windows.fromBack(back.window))
-    moveTab(front, back)
-    save()*/
+    console.debug("ADD", info)
+    addTab(info.tab)
   })
 
-  // TODO remove from array too
   @tabs.on.remove ..@listen(function (info) {
-    console.log("REMOVE", info)
-    /*var back = info.tab
-    var front = @link.tabs.fromBack(back)
-
-    @link.tabs.remove(front, back)
-    @link.tabs.getWindow(front).children ..@remove(front)
-    setTimeout(function () {
-      save()
-    }, 10000)*/
+    console.debug("REMOVE", info)
+    removeTab(info.tab, info.isWindowClosing)
   })
 
   @tabs.on.update ..@listen(function (info) {
-    console.log("UPDATE", info)
-    /*updateTab(info.tab)
-    save()*/
+    console.debug("UPDATE", info)
+    var tab_new = info.tab
+    var tab_old = tabs_id ..@get(tab_new.id)
+    updateTab(tab_old, tab_new)
   })
 
   @tabs.on.focus ..@listen(function (info) {
-    console.log("FOCUS", info)
-    /*focusTab(info.tab)
-    save()*/
+    console.debug("FOCUS", info)
+    focusTab(info.tab)
   })
 
   @tabs.on.unfocus ..@listen(function (info) {
-    console.log("UNFOCUS", info)
-    //unfocusTab(info.tab)
+    console.debug("UNFOCUS", info)
+    unfocusTab(info.tab)
   })
 
   @tabs.on.move ..@listen(function (info) {
-    console.log("MOVE", info)
+    console.debug("MOVE", info)
+    moveTab(info.tab, info.old)
   })
 
-  console.info("tabs: started tabs")
+  console.info("tabs: finished")
 }

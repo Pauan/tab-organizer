@@ -16,3 +16,13 @@ exports.emit = function (emitter, value) {
     f(value)
   })
 }
+
+exports.emitSync = function (emitter, value) {
+  emitter ..@each(function (f) {
+    waitfor {
+      f(value)
+    } or {
+      throw new Error("event/emitSync: listener is not allowed to suspend")
+    }
+  })
+}
