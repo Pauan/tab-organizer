@@ -1,12 +1,12 @@
 @ = require([
-  { id: "../../util/util" },
-  { id: "../../util/event" },
-  { id: "./util" },
-  { id: "./url", name: "url" },
-  { id: "./db", name: "db" },
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
-  { id: "sjs:object" }
+  { id: "sjs:object" },
+  { id: "../../../util/util" },
+  { id: "../../../util/event" },
+  { id: "../util" },
+  { id: "../url", name: "url" },
+  { id: "../db", name: "db" }
 ])
 
 exports.windows = {}

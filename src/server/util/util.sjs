@@ -2,6 +2,30 @@
   { id: "sjs:object" }
 ])
 
+
+// TODO standard library for this
+// TODO this can stack overflow, since it's not tail recursive, and it's not a plain loop either
+function reduceRight(seq, init, f) {
+  var done = {}
+
+  function loop(next) {
+    var x = next()
+    if (x === done) {
+      return init
+    } else {
+      return f(x, loop(next))
+    }
+  }
+
+  // TODO this would be a bit cleaner if consume returned a value
+  @consume(seq, done, function (next) {
+    init = loop(next)
+  })
+
+  return init
+}
+
+
 // TODO standard library function for this
 exports.pushNew = function (array, value) {
   if (array.indexOf(value) !== -1) {
