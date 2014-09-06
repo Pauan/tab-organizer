@@ -49,16 +49,6 @@ exports.tabs.remove = function (front, back) {
   front_back_tabs ..@delete(front.id)
 }
 
-exports.tabs.moveId = function (oldId, newId) {
-  @assert.isNot(oldId, newId)
-
-  var old = back_front_tabs ..@get(oldId)
-
-  console.log("REPLACING", old, newId)
-  back_front_tabs ..@delete(oldId)
-  back_front_tabs ..@setNew(newId, old)
-}
-
 exports.tabs.fromBack = function (back) {
   @assert.ok(back.id != null)
   return back_front_tabs ..@get(back.id)

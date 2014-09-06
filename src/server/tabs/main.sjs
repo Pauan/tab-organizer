@@ -176,30 +176,25 @@ exports.init = function () {
     return front
   }
 
-  // This is necessary because Chrome sometimes changes a tab's ID
-  function updateTabID(oldId, newId) {
-    @link.tabs.moveId(oldId, newId)
-  }
-
   // { children: [addTab({ id: 9001, url: "https://trello.com/b/bblpxA84/tab-organizer" })] }
 
-  mergeBack(db_windows, @windows.getCurrent())
-  save()
+  //mergeBack(db_windows, @windows.getCurrent())
+  //save()
   console.log(db_windows)
 
   @windows.on.add ..@listen(function (info) {
     console.log("ADD WINDOW", info)
-    var back = info.window
+    /*var back = info.window
     var front = addWindow(back.tabs)
 
     @link.windows.create(front, back)
     db_windows.push(front)
-    save()
+    save()*/
   })
 
   @windows.on.remove ..@listen(function (info) {
     console.log("REMOVE WINDOW", info)
-    var back = info.window
+    /*var back = info.window
     var front = @link.windows.fromBack(back)
 
     @link.windows.remove(front, back)
@@ -208,57 +203,52 @@ exports.init = function () {
 
     setTimeout(function () {
       save()
-    }, 10000)
+    }, 10000)*/
   })
 
   @tabs.on.add ..@listen(function (info) {
     console.log("ADD", info)
-    var back = info.tab
+    /*var back = info.tab
     var front = addTab(back)
 
     @link.tabs.create(front, back)
     @link.tabs.setWindow(front, @link.windows.fromBack(back.window))
     moveTab(front, back)
-    save()
+    save()*/
   })
 
   // TODO remove from array too
   @tabs.on.remove ..@listen(function (info) {
     console.log("REMOVE", info)
-    var back = info.tab
+    /*var back = info.tab
     var front = @link.tabs.fromBack(back)
 
     @link.tabs.remove(front, back)
     @link.tabs.getWindow(front).children ..@remove(front)
     setTimeout(function () {
       save()
-    }, 10000)
+    }, 10000)*/
   })
 
   @tabs.on.update ..@listen(function (info) {
     console.log("UPDATE", info)
-    updateTab(info.tab)
-    save()
+    /*updateTab(info.tab)
+    save()*/
   })
 
   @tabs.on.focus ..@listen(function (info) {
     console.log("FOCUS", info)
-    focusTab(info.tab)
-    save()
+    /*focusTab(info.tab)
+    save()*/
   })
 
   @tabs.on.unfocus ..@listen(function (info) {
     console.log("UNFOCUS", info)
-    unfocusTab(info.tab)
+    //unfocusTab(info.tab)
   })
 
   @tabs.on.move ..@listen(function (info) {
     console.log("MOVE", info)
-  })
-
-  @tabs.on.changeId ..@listen(function (info) {
-    console.log("CHANGEID", info)
-    updateTabID(info.oldId, info.newId)
   })
 
   @tabs.on.changeParent ..@listen(function (info) {

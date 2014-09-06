@@ -9,21 +9,6 @@
   { id: "../db", name: "db" }
 ])
 
-exports.windows = {}
-exports.windows.on = {}
-exports.windows.on.add = @Emitter()
-exports.windows.on.remove = @Emitter()
-
-exports.tabs = {}
-exports.tabs.on = {}
-exports.tabs.on.changeId = @Emitter()
-exports.tabs.on.changeParent = @Emitter()
-exports.tabs.on.add = @Emitter()
-exports.tabs.on.update = @Emitter()
-exports.tabs.on.remove = @Emitter()
-exports.tabs.on.focus = @Emitter()
-exports.tabs.on.unfocus = @Emitter()
-exports.tabs.on.move = @Emitter()
 
 var windows_saved = @db.get("__extension.chrome.tabs.windows__", [])
 
@@ -31,20 +16,21 @@ var windows    = []
 var windows_id = {}
 var tabs_id    = {}
 
-function getAllWindows() {
-  // This is necessary because sometimes Chrome will give incorrect results for
-  // chrome.windows.getAll if you call it before the window.onload event
-  // TODO perhaps this was only true in old versions, and I can remove this now?
-  @waitUntilLoaded()
-  // TODO what about retraction?
-  waitfor (var result) {
-    chrome.windows.getAll({ populate: true }, function (windows) {
-      @checkError()
-      resume(windows)
-    })
-  }
-  return result
-}
+
+exports.windows = {}
+exports.windows.on = {}
+exports.windows.on.add = @Emitter()
+exports.windows.on.remove = @Emitter()
+
+exports.tabs = {}
+exports.tabs.on = {}
+exports.tabs.on.changeParent = @Emitter()
+exports.tabs.on.add = @Emitter()
+exports.tabs.on.update = @Emitter()
+exports.tabs.on.remove = @Emitter()
+exports.tabs.on.focus = @Emitter()
+exports.tabs.on.unfocus = @Emitter()
+exports.tabs.on.move = @Emitter()
 
 
 /**
@@ -64,14 +50,16 @@ function checkFocus(tab) {
  * Verifies that the tab's state is correct (compared to a Chrome tab)
  */
 function checkTab(tab, info) {
-  @assert.ok(tabs_id ..@has(tab.id))
+  @assert.ok(tabs_id ..@has(info.id))
+  @assert.ok(tabs_id ..@has(tab.__id__))
   @assert.is(tab.closed, false)
   @assert.ok(info.index != null)
   @assert.ok(tab.window != null)
   @assert.is(tab.window.tabs[info.index], tab)
 
-  @assert.is(tab.id, info.id)
-  @assert.is(tab.window.id, info.windowId)
+  @assert.is(tab.__id__, info.id)
+  @assert.isNot(tab.id, info.id) // TODO should probably remove this
+  @assert.is(tab.window.__id__, info.windowId)
   @assert.is(tab.focused, info.active)
   @assert.is(tab.index, info.index)
 
@@ -169,8 +157,12 @@ function focusTab(tab) {
 function addTab(info) {
   var window = windows_id ..@get(info.windowId)
 
+  var id = @timestamp()
+
   var tab = {
-    id: info.id,
+    __id__: info.id,
+
+    id: id,
     window: window,
     focused: info.active,
     children: [],
@@ -190,7 +182,7 @@ function addTab(info) {
     focusTab(tab)
   }
 
-  tabs_id ..@setNew(tab.id, tab)
+  tabs_id ..@setNew(tab.__id__, tab)
   tab.window.tabs ..@spliceNew(tab.index, tab)
 
   @assert.is(tab.index, info.index)
@@ -247,7 +239,7 @@ function removeTab(tab, info) {
   @assert.ok(tab.index != null)
   @assert.is(tab.window.tabs[tab.index], tab)
 
-  tabs_id ..@delete(tab.id)
+  tabs_id ..@delete(tab.__id__)
   tab.window.tabs ..@remove(tab)
 
   updateIndexes(tab.window.tabs, tab.index)
@@ -262,19 +254,23 @@ function removeTab(tab, info) {
 }
 
 function addWindow(info) {
+  var id = @timestamp()
+
   var window = {
-    id: info.id,
+    __id__: info.id,
+
+    id: id,
     focusedTab: null,
     tabs: []
   }
 
-  windows_id ..@setNew(window.id, window)
-  windows ..@pushNew(window)
+  windows_id ..@setNew(window.__id__, window)
+  window.index = windows ..@pushNew(window) - 1
 
   // Oddly enough, Chrome windows sometimes don't have a tabs property
   if (info.tabs != null) {
     info.tabs ..@each(function (info) {
-      @assert.is(info.windowId, window.id)
+      @assert.is(info.windowId, window.__id__)
       addTab(info)
     })
   }
@@ -283,8 +279,13 @@ function addWindow(info) {
 }
 
 function removeWindow(window) {
-  windows_id ..@delete(window.id)
+  @assert.ok(window.index != null)
+  @assert.is(windows[window.index], window)
+
+  windows_id ..@delete(window.__id__)
   windows ..@remove(window)
+
+  updateIndexes(windows, window.index)
 
   exports.windows.on.remove ..@emit({
     window: window
@@ -463,7 +464,7 @@ setTimeout(function () {
  *       tabs.remove
  *       windows.onRemoved
  */
-getAllWindows() ..@each(function (window) {
+@getAllWindows() ..@each(function (window) {
   if (window.type === "normal") {
     addWindow(window)
   }
@@ -488,7 +489,7 @@ chrome.tabs.onUpdated.addListener(function (id, info, tab) {
 
   var old = tabs_id[id]
   if (old != null) {
-    @assert.is(old.id, id)
+    @assert.is(old.__id__, id)
     updateTab(old, tab)
   }
 })
@@ -498,7 +499,7 @@ chrome.tabs.onRemoved.addListener(function (id, info) {
 
   var tab = tabs_id[id]
   if (tab != null) {
-    @assert.is(tab.id, id)
+    @assert.is(tab.__id__, id)
     removeTab(tab, info)
   }
 })
@@ -515,25 +516,18 @@ chrome.tabs.onReplaced.addListener(function (added, removed) {
 
     var old = tabs_id[removed]
     if (old != null) {
-      // Since the ID of the tab has changed, we give app code a chance to update any ID references it might have
-      // TODO should this be moved to after the ID is changed, but before updateTab is called?
-      exports.tabs.on.changeId ..@emit({
-        oldId: removed,
-        newId: added
-      })
-
-      @assert.ok(old.id != null)
-      @assert.isNot(old.id, tab.id)
-      @assert.is(old.id, removed)
+      @assert.ok(old.__id__ != null)
+      @assert.isNot(old.__id__, tab.id)
+      @assert.is(old.__id__, removed)
       @assert.is(tab.id, added)
       @assert.ok(windows_id[tab.windowId] != null)
       @assert.is(windows_id[tab.windowId], old.window)
       console.log("PLATFORM: REPLACING", old, tab)
 
       // Update the ID...
-      tabs_id ..@delete(old.id)
-      old.id = tab.id
-      tabs_id ..@setNew(old.id, old)
+      tabs_id ..@delete(old.__id__)
+      old.__id__ = tab.id
+      tabs_id ..@setNew(old.__id__, old)
 
       // ...and then treat it as a normal tab update
       updateTab(old, tab)
@@ -546,8 +540,8 @@ chrome.tabs.onActivated.addListener(function (info) {
 
   var tab = tabs_id[info.tabId]
   if (tab != null) {
-    @assert.is(tab.id, info.tabId)
-    @assert.is(tab.window.id, info.windowId)
+    @assert.is(tab.__id__, info.tabId)
+    @assert.is(tab.window.__id__, info.windowId)
     focusTab(tab)
   }
 })
@@ -557,9 +551,9 @@ chrome.tabs.onMoved.addListener(function (id, info) {
 
   var tab = tabs_id[id]
   if (tab != null) {
-    @assert.is(tab.id, id)
+    @assert.is(tab.__id__, id)
     @assert.ok(tab.window != null)
-    @assert.is(tab.window.id, info.windowId)
+    @assert.is(tab.window.__id__, info.windowId)
     @assert.isNot(info.fromIndex, info.toIndex)
     @assert.is(tab.index, info.fromIndex)
     @assert.is(tab.window.tabs[tab.index], tab)
@@ -591,9 +585,9 @@ chrome.tabs.onDetached.addListener(function (id, info) {
 
   var tab = tabs_id[id]
   if (tab != null) {
-    @assert.is(tab.id, id)
+    @assert.is(tab.__id__, id)
     @assert.ok(tab.window != null)
-    @assert.is(tab.window.id, info.oldWindowId)
+    @assert.is(tab.window.__id__, info.oldWindowId)
     @assert.is(tab.index, info.oldPosition)
     @assert.is(tab.window.tabs[tab.index], tab)
 
@@ -611,7 +605,7 @@ chrome.tabs.onAttached.addListener(function (id, info) {
 
   var tab = tabs_id[id]
   if (tab != null) {
-    @assert.is(tab.id, id)
+    @assert.is(tab.__id__, id)
     @assert.ok(tab.window != null)
     @assert.ok(tab.index != null)
 
@@ -656,7 +650,7 @@ chrome.windows.onRemoved.addListener(function (id) {
 
   var window = windows_id[id]
   if (window != null) {
-    @assert.is(id, window.id)
+    @assert.is(id, window.__id__)
     removeWindow(window)
   }
 })

@@ -21,3 +21,18 @@ exports.checkError = function () {
     throw chrome.runtime.lastError
   }
 }
+
+exports.getAllWindows = function () {
+  // This is necessary because sometimes Chrome will give incorrect results for
+  // chrome.windows.getAll if you call it before the window.onload event
+  // TODO perhaps this was only true in old versions, and I can remove this now?
+  exports.waitUntilLoaded()
+  // TODO what about retraction?
+  waitfor (var result) {
+    chrome.windows.getAll({ populate: true }, function (windows) {
+      exports.checkError()
+      resume(windows)
+    })
+  }
+  return result
+}
