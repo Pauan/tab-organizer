@@ -49,17 +49,6 @@ exports.init = function () {
     front ..setBoolean("pinned", back.pinned)
   }
 
-  function changeParent(back) {
-    var front = @link.tabs.fromBack(back)
-
-    // TODO test this
-    if (back.parentTab != null) {
-      front.parent = (@link.tabs.fromBack(back.parentTab)).id
-    } else {
-      delete front.parent
-    }
-  }
-
 
   function addWindow(tabs) {
     var created = @timestamp()
@@ -94,8 +83,6 @@ exports.init = function () {
 
     setFromBack(front, back)
 
-    //changeParent(back)
-
     return front
   }
 
@@ -128,7 +115,6 @@ exports.init = function () {
         next = @link.tabs.fromBack(next)
 
       } else {
-        @assert.ok(back.parentTab == null)
         window.children ..@pushNew(front)
       }
     }
@@ -249,11 +235,6 @@ exports.init = function () {
 
   @tabs.on.move ..@listen(function (info) {
     console.log("MOVE", info)
-  })
-
-  @tabs.on.changeParent ..@listen(function (info) {
-    console.log("CHANGEPARENT", info)
-    //changeParent(info.tab)
   })
 
   console.info("started tabs")

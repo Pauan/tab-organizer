@@ -24,7 +24,6 @@ exports.windows.on.remove = @Emitter()
 
 exports.tabs = {}
 exports.tabs.on = {}
-exports.tabs.on.changeParent = @Emitter()
 exports.tabs.on.add = @Emitter()
 exports.tabs.on.update = @Emitter()
 exports.tabs.on.remove = @Emitter()
@@ -165,17 +164,9 @@ function addTab(info) {
     id: id,
     window: window,
     focused: info.active,
-    children: [],
     index: info.index,
     detached: false,
     closed: false
-  }
-
-  if (info.openerTabId == null) {
-    tab.parentTab = null
-  } else {
-    tab.parentTab = tabs_id ..@get(info.openerTabId)
-    tab.parentTab.children ..@pushNew(tab)
   }
 
   if (tab.focused) {
@@ -193,32 +184,6 @@ function addTab(info) {
   setTab(tab, info)
 
   return tab
-}
-
-function shiftChildrenUp(tab, event) {
-  @assert.isNot(tab.parentTab, tab)
-
-  tab.children ..@each(function (child) {
-    @assert.is(child.parentTab, tab)
-    child.parentTab = tab.parentTab
-
-    exports.tabs.on.changeParent ..@emit({
-      tab: child
-    })
-  })
-
-  tab.children = []
-
-  if (tab.parentTab != null) {
-    tab.parentTab.children ..@remove(tab)
-    tab.parentTab = null
-
-    if (event) {
-      exports.tabs.on.changeParent ..@emit({
-        tab: tab
-      })
-    }
-  }
 }
 
 function removeTab(tab, info) {
@@ -243,8 +208,6 @@ function removeTab(tab, info) {
   tab.window.tabs ..@remove(tab)
 
   updateIndexes(tab.window.tabs, tab.index)
-
-  shiftChildrenUp(tab, false)
 
   exports.tabs.on.remove ..@emit({
     tab: tab,
@@ -571,8 +534,6 @@ chrome.tabs.onMoved.addListener(function (id, info) {
     @assert.is(tab.window.tabs[tab.index], tab)
     updateIndexes(tab.window.tabs, Math.min(info.fromIndex, info.toIndex + 1))
 
-    shiftChildrenUp(tab, true)
-
     exports.tabs.on.move ..@emit({
       tab: tab,
       old: old
@@ -625,8 +586,6 @@ chrome.tabs.onAttached.addListener(function (id, info) {
 
     @assert.is(tab.detached, true)
     tab.detached = false
-
-    shiftChildrenUp(tab, true)
 
     exports.tabs.on.move ..@emit({
       tab: tab,
