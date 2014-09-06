@@ -37,6 +37,8 @@ var timer = {}
 
 var delay = {}
 
+console.info("db:", db)
+
 
 exports.delay = function (name, ms, f) {
   // TODO object/has

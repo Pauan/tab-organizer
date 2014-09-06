@@ -65,13 +65,27 @@ exports.init = function () {
     }
   }
 
+  function shouldUpdate(tab_old, tab_new) {
+    @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
+
+    return (tab_old.url     !== tab_new.url) ||
+           (tab_old.favicon !== tab_new.favicon) ||
+           (tab_old.title   !== tab_new.title) ||
+           (tab_old ..isBoolean("pinned") !== tab_new.pinned)
+  }
+
   function setTab(tab_old, tab_new) {
-    @assert.ok(tab_old.active != null)
+    @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
 
     tab_old ..setNull("url", tab_new.url)
     tab_old ..setNull("favicon", tab_new.favicon)
     tab_old ..setNull("title", tab_new.title)
     tab_old ..setBoolean("pinned", tab_new.pinned)
+  }
+
+  function resetFocus(tab_old, tab_new) {
+    @assert.ok(tab_old.active == null)
+    tab_old.active = {}
     tab_old.active ..setBoolean("focused", tab_new.focused)
   }
 
@@ -123,10 +137,10 @@ exports.init = function () {
       id: tab_new.id,
       time: {
         created: created
-      },
-      active: {}
+      }
     }
 
+    resetFocus(tab, tab_new)
     setTab(tab, tab_new)
     tabs_id ..@setNew(tab.id, tab)
 
@@ -161,12 +175,11 @@ exports.init = function () {
   }
 
   function updateTab(tab_old, tab_new) {
-    @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
-
-    setTab(tab_old, tab_new)
-    tab_old.time.updated = @timestamp()
-
-    save()
+    if (shouldUpdate(tab_old, tab_new)) {
+      setTab(tab_old, tab_new)
+      tab_old.time.updated = @timestamp()
+      save()
+    }
     return tab_old
   }
 
@@ -244,10 +257,7 @@ exports.init = function () {
         if (tabs_id ..@has(tab_new.id)) {
           var tab_old = tabs_id ..@get(tab_new.id)
 
-          @assert.ok(tab_old.active == null)
-          // TODO is this a good idea?
-          tab_old.active = {}
-          tab_old.active ..setBoolean("focused", tab_new.focused)
+          resetFocus(tab_old, tab_new)
 
           // TODO check that the relative position of the tab is correct?
           updateTab(tab_old, tab_new)
@@ -262,6 +272,7 @@ exports.init = function () {
 
   // TODO this probably isn't necessary, but I like it just in case
   save()
+  console.info("tabs: saved windows", windows_db)
 
 
   @windows.on.add ..@listen(function (info) {

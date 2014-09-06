@@ -335,6 +335,7 @@ function removeTab(tab, info) {
   // TODO isBoolean check
   @assert.ok(info.isWindowClosing === true || info.isWindowClosing === false)
 
+  // TODO test whether this triggers or not when closing Chrome
   if (info.isWindowClosing) {
     save_delay()
   } else {
