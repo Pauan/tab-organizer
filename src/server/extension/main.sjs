@@ -1,6 +1,6 @@
 @ = require([
   { id: "./chrome/db", name: "db" },
-  { id: "./chrome/tabs/main" },
+  { id: "./chrome/tabs" },
   { id: "./chrome/url", name: "url" }
 ])
 
