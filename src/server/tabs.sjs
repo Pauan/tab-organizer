@@ -2,9 +2,9 @@
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "sjs:object" },
-  { id: "../util/util" },
-  { id: "../util/event" },
-  { id: "../extension/main" }
+  { id: "./util/util" },
+  { id: "./util/event" },
+  { id: "./extension/main" }
 ])
 
 exports.init = function () {
@@ -53,6 +53,7 @@ exports.init = function () {
     }
   }
 
+  // TODO library function for this ?
   function isBoolean(obj, key) {
     var value = obj[key]
     if (value === void 0) {
@@ -212,7 +213,7 @@ exports.init = function () {
     return tab_old
   }
 
-  // This doesn't need to save, because the only thing that changed is its active state, which is transient
+  // This doesn't need to save, because the only thing that changed is its focused state, which is transient
   function unfocusTab(tab_new) {
     var tab_old = tabs_id ..@get(tab_new.id)
 
@@ -261,7 +262,6 @@ exports.init = function () {
 
   // TODO this probably isn't necessary, but I like it just in case
   save()
-  console.log(windows_db)
 
 
   @windows.on.add ..@listen(function (info) {

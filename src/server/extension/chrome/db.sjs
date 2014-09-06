@@ -33,8 +33,6 @@ function getDB() {
 
 var db = getDB()
 
-var disabled = {}
-
 var timer = {}
 
 var delay = {}
@@ -77,37 +75,33 @@ exports.get = function (name, def) {
 
 // TODO what about retractions ?
 exports.set = function (name, value) {
-  if (disabled[name]) {
-    console.debug("db/set: #{name} is disabled")
-  } else {
-    db[name] = value
+  db[name] = value
 
-    // TODO object/has
-    if (!(name in timer)) {
-      var timeout = null
+  // TODO object/has
+  if (!(name in timer)) {
+    var timeout = null
 
-      timer ..@setNew(name, function () {
-        clearTimeout(timeout)
+    timer ..@setNew(name, function () {
+      clearTimeout(timeout)
 
-        timeout = setTimeout(function () {
-          var o = {}
-          o[name] = db[name]
+      timeout = setTimeout(function () {
+        var o = {}
+        o[name] = db[name]
 
-          // This has to be here in case exports.set is called after
-          // chrome.storage.local.set is called, but before it finishes
-          timer ..@delete(name)
-          delete delay[name]
+        // This has to be here in case exports.set is called after
+        // chrome.storage.local.set is called, but before it finishes
+        timer ..@delete(name)
+        delete delay[name]
 
-          chrome.storage.local.set(o, function () {
-            @checkError()
+        chrome.storage.local.set(o, function () {
+          @checkError()
 
-            console.info("db/set: #{name}")
-          })
-        }, delay[name] || 1000)
-      })
+          console.info("db/set: #{name}")
+        })
+      }, delay[name] || 1000)
+    })
 
-      timer[name]()
-    }
+    timer[name]()
   }
 }
 
@@ -115,38 +109,11 @@ exports.set = function (name, value) {
 // TODO what about retractions ?
 // TODO fix this
 exports["delete"] = function (name) {
-  if (disabled[name]) {
-    console.debug("db/delete: #{name} is disabled")
-  } else {
-    db ..@delete(name)
+  db ..@delete(name)
 
-    chrome.storage.local.remove(name, function () {
-      @checkError()
+  chrome.storage.local.remove(name, function () {
+    @checkError()
 
-      console.info("db/delete: #{name}")
-    })
-  }
-}
-
-// TODO should these be more lenient (i.e. not throwing an error if called multiple times)?
-exports.enable = function (name) {
-  disabled ..@delete(name)
-}
-
-exports.disable = function (name, f) {
-  if (arguments.length === 1) {
-    disabled ..@setNew(name, true)
-  } else {
-    // TODO better handling for nested disables
-    if (disabled[name]) {
-      return f()
-    } else {
-      exports.disable(name)
-      try {
-        return f()
-      } finally {
-        exports.enable(name)
-      }
-    }
-  }
+    console.info("db/delete: #{name}")
+  })
 }

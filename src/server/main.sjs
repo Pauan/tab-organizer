@@ -1,7 +1,7 @@
 require.hubs.addDefault(["mho:", "/"])
 
 @ = require([
-  { id: "./tabs/main", name: "tabs" }
+  { id: "./tabs", name: "tabs" }
 ])
 
 exports.init = function () {
