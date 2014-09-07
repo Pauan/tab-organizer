@@ -11,6 +11,7 @@ queue[name].value()
 
 @ = require([
   { id: "sjs:assert", name: "assert" },
+  { id: "sjs:sequence" },
   { id: "../../util/util" },
   { id: "./util" }
 ])
@@ -33,11 +34,57 @@ function getDB() {
 
 var db = getDB()
 
-var timer = {}
-
-var delay = {}
+var timer   = {}
+var delay   = {}
+var waiting = {}
 
 console.info("db:", db)
+
+
+exports.wait = function (f) {
+  var x = f()
+
+  var keys = []
+
+  // TODO disable setting new stuff until after this is completed ?
+  waitfor () {
+    /*var i = timer ..@ownKeys ..@count
+
+    waiting = function () {
+      if (--i === 0) {
+
+      }
+    }*/
+
+    timer ..@eachKeys(function (key) {
+      keys ..@pushNew(key)
+
+      waiting ..@setNew(key, function () {
+        waiting ..@delete(key)
+
+        keys ..@remove(key)
+        if (keys.length === 0) {
+          console.info("db/wait: finished")
+          resume()
+        }
+      })
+    })
+
+    console.log(keys, waiting, timer)
+    if (i === 0) {
+      throw new Error("db/wait: no pending operations")
+    } else {
+      console.info("db/wait: waiting for [#{keys.join(" ")}]")
+    }
+  } finally {
+    // TODO does this leak memory?
+    keys ..@each(function (key) {
+      waiting ..@delete(key)
+    })
+  }
+
+  return x
+}
 
 
 exports.delay = function (name, ms, f) {
@@ -62,6 +109,7 @@ exports.delay = function (name, ms, f) {
   @assert.ok(name in timer)
   return result
 }
+
 
 exports.get = function (name, def) {
   // TODO object/get
@@ -99,13 +147,40 @@ exports.set = function (name, value) {
           @checkError()
 
           console.info("db/set: #{name}")
+
+          // TODO is it possible for this to be incorrect if db/set is called after
+          //      chrome.storage.local.set is called, but before it finishes?
+          // TODO object/has
+          if (name in waiting) {
+            waiting[name]()
+          }
         })
-      }, delay[name] || 1000)
+      }, delay[name] || 5000)
     })
 
     timer[name]()
   }
 }
+
+/*exports.setSync = function (name, value) {
+  db[name] = value
+  // TODO object/has
+  @assert.ok(!(name in timer))
+  @assert.ok(!(name in delay))
+
+  var o = {}
+  o[name] = db[name]
+
+  waitfor () {
+    chrome.storage.local.set(o, function () {
+      @checkError()
+      console.info("db/setSync: #{name}")
+      resume()
+    })
+  } retract {
+    throw new Error("db/setSync: cannot retract")
+  }
+}*/
 
 // TODO use a queue for this one too?
 // TODO what about retractions ?

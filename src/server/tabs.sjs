@@ -13,6 +13,9 @@ exports.init = function () {
 
   //@db["delete"]("current.windows.array")
 
+  var tabs_id    = {}
+  var windows_id = {}
+
   var windows_db = @db.get("current.windows.array", [])
 
   function save() {
@@ -27,10 +30,6 @@ exports.init = function () {
       return save()
     })
   }
-
-
-  var tabs_id    = {}
-  var windows_id = {}
 
 
   // TODO library function for this ?
@@ -110,6 +109,12 @@ exports.init = function () {
     })
 
     save()
+
+    @connection.send("tabs", {
+      type: "window-created",
+      window: window
+    })
+
     return window
   }
 
@@ -127,6 +132,12 @@ exports.init = function () {
     })
 
     save_delay()
+
+    @connection.send("tabs", {
+      type: "window-removed",
+      window: window_old
+    })
+
     return window_old
   }
 
@@ -151,6 +162,16 @@ exports.init = function () {
     window_old.children ..@spliceNew(index, tab)
 
     save()
+
+    @connection.send("tabs", {
+      type: "tab-created",
+      tab: tab,
+      move_to: {
+        window: window_old.id,
+        index: index
+      }
+    })
+
     return tab
   }
 
@@ -171,6 +192,15 @@ exports.init = function () {
     } else {
       save()
     }
+
+    @connection.send("tabs", {
+      type: "tab-removed",
+      tab: tab_old,
+      move_from: {
+        window: window_old.id
+      }
+    })
+
     return tab_old
   }
 
@@ -178,7 +208,13 @@ exports.init = function () {
     if (shouldUpdate(tab_old, tab_new)) {
       setTab(tab_old, tab_new)
       tab_old.time.updated = @timestamp()
+
       save()
+
+      @connection.send("tabs", {
+        type: "tab-updated",
+        tab: tab_old
+      })
     }
     return tab_old
   }
@@ -208,7 +244,28 @@ exports.init = function () {
     var index = getIndexForTab(window_new, tab_new)
     window_new.children ..@spliceNew(index, tab_old)
 
+    tab_old.time.moved = @timestamp()
+
+    if (window_old === window_new) {
+      tab_old.time.moved_in_window = tab_old.time.moved
+    } else {
+      tab_old.time.moved_to_window = tab_old.time.moved
+    }
+
     save()
+
+    @connection.send("tabs", {
+      type: "tab-moved",
+      tab: tab_old,
+      move_from: {
+        window: window_old.id
+      },
+      move_to: {
+        window: window_new.id,
+        index: index
+      }
+    })
+
     return tab_old
   }
 
@@ -223,6 +280,12 @@ exports.init = function () {
     tab_old.time.focused = @timestamp()
 
     save()
+
+    @connection.send("tabs", {
+      type: "tab-focused",
+      tab: tab_old
+    })
+
     return tab_old
   }
 
@@ -235,6 +298,14 @@ exports.init = function () {
     @assert.is(tab_old.active ..isBoolean("focused"), true)
 
     tab_old.active ..setBoolean("focused", false)
+    tab_old.time.unfocused = @timestamp()
+
+    save()
+
+    @connection.send("tabs", {
+      type: "tab-unfocused",
+      tab: tab_old
+    })
 
     return tab_old
   }
@@ -316,6 +387,14 @@ exports.init = function () {
     console.debug("MOVE", info)
     moveTab(info.tab, info.old)
   })
+
+
+  @connection.on.connect("tabs") ..@listen(function (connection) {
+    connection.send({
+      windows: windows_db
+    })
+  })
+
 
   console.info("tabs: finished")
 }
