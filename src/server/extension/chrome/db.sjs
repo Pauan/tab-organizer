@@ -11,6 +11,7 @@ queue[name].value()
 
 @ = require([
   { id: "sjs:assert", name: "assert" },
+  { id: "sjs:object" },
   { id: "sjs:sequence" },
   { id: "../../util/util" },
   { id: "./util" }
@@ -36,51 +37,35 @@ var db = getDB()
 
 var timer   = {}
 var delay   = {}
-var waiting = {}
+var waiting = null
 
 console.info("db:", db)
 
 
+// TODO what about delay, how should that interact with wait ?
 exports.wait = function (f) {
   var x = f()
 
-  var keys = []
+  var keys = timer ..@ownKeys
+  var i    = keys ..@count
 
-  // TODO disable setting new stuff until after this is completed ?
+  if (i === 0) {
+    throw new Error("db/wait: no pending operations")
+  } else {
+    console.info("db/wait: waiting for { #{keys.join(" ")} }")
+  }
+
   waitfor () {
-    /*var i = timer ..@ownKeys ..@count
-
     waiting = function () {
       if (--i === 0) {
-
+        console.info("db/wait: finished")
+        resume()
       }
-    }*/
-
-    timer ..@eachKeys(function (key) {
-      keys ..@pushNew(key)
-
-      waiting ..@setNew(key, function () {
-        waiting ..@delete(key)
-
-        keys ..@remove(key)
-        if (keys.length === 0) {
-          console.info("db/wait: finished")
-          resume()
-        }
-      })
-    })
-
-    console.log(keys, waiting, timer)
-    if (i === 0) {
-      throw new Error("db/wait: no pending operations")
-    } else {
-      console.info("db/wait: waiting for [#{keys.join(" ")}]")
     }
+  } retract {
+    console.info("db/wait: retracted")
   } finally {
-    // TODO does this leak memory?
-    keys ..@each(function (key) {
-      waiting ..@delete(key)
-    })
+    waiting = null
   }
 
   return x
@@ -129,6 +114,12 @@ exports.set = function (name, value) {
 
   // TODO object/has
   if (!(name in timer)) {
+    // This is to prevent the situation where timers are added
+    // while waiting for the current timers to finish
+    if (waiting !== null) {
+      throw new Error("db/set: cannot set while wait is in progress")
+    }
+
     var timeout = null
 
     timer ..@setNew(name, function () {
@@ -148,14 +139,11 @@ exports.set = function (name, value) {
 
           console.info("db/set: #{name}")
 
-          // TODO is it possible for this to be incorrect if db/set is called after
-          //      chrome.storage.local.set is called, but before it finishes?
-          // TODO object/has
-          if (name in waiting) {
-            waiting[name]()
+          if (waiting !== null) {
+            waiting()
           }
         })
-      }, delay[name] || 5000)
+      }, delay[name] || 1000)
     })
 
     timer[name]()
@@ -186,7 +174,7 @@ exports.set = function (name, value) {
 // TODO what about retractions ?
 // TODO fix this
 exports["delete"] = function (name) {
-  db ..@delete(name)
+  delete db[name]
 
   chrome.storage.local.remove(name, function () {
     @checkError()

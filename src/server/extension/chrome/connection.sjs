@@ -3,6 +3,7 @@
   { id: "sjs:sequence" },
   //{ id: "sjs:object" },
   { id: "../../util/event" },
+  { id: "../../util/util" },
   { id: "./util" }
 ])
 
@@ -15,10 +16,7 @@ function message(name, type, value) {
   // TODO object/has
   if (name in ports) {
     ports[name] ..@each(function (port) {
-      port.postMessage({
-        type: type,
-        value: value
-      })
+      port.postMessage({ type: type, value: value })
     })
   }
 }
@@ -37,12 +35,12 @@ exports.on.connect = function (name) {
 exports.send = function (name, value) {
   // TODO object/has
   if (name in queue) {
+    // TODO pushNew ?
     queue[name].push(value)
   } else {
     queue[name] = [value]
 
     setTimeout(function () {
-      console.log(queue[name])
       message(name, "batch", queue[name])
       queue ..@delete(name)
     }, 100)
@@ -50,8 +48,10 @@ exports.send = function (name, value) {
 }
 
 
-// TODO what about when the port disconnects ?
+// TODO what about when the port disconnects, is it okay to call postMessage ?
 chrome.runtime.onConnect.addListener(function (port) {
+  @checkError()
+
   var s = port.name
 
   // TODO utility for this
@@ -62,6 +62,8 @@ chrome.runtime.onConnect.addListener(function (port) {
   a ..@pushNew(port)
 
   port.onDisconnect.addListener(function () {
+    @checkError()
+
     a ..@remove(port)
 
     // TODO utility for this
@@ -71,6 +73,8 @@ chrome.runtime.onConnect.addListener(function (port) {
   })
 
   port.onMessage.addListener(function (o) {
+    @checkError()
+
     console.log(o)
     // TODO object/has
     if (s in onMessage) {
@@ -81,6 +85,8 @@ chrome.runtime.onConnect.addListener(function (port) {
 
   // TODO object/has
   if (s in onConnect) {
+    console.log("HIYA CONNECT")
+    // TODO if it doesn't call send, should sending be disabled for this port ?
     // TODO should this be emit or emitSync?
     onConnect[s] ..@emitSync({
       send: function (x) {
