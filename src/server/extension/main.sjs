@@ -3,7 +3,10 @@
   { id: "./chrome/tabs" },
   { id: "./chrome/url", name: "url" },
   { id: "./chrome/connection", name: "connection" },
-  { id: "./chrome/manifest", name: "manifest" }
+  { id: "./chrome/manifest", name: "manifest" },
+  { id: "./chrome/button", name: "button" },
+  { id: "./chrome/popup", name: "popup" },
+  { id: "./chrome/screen", name: "screen" }
 ])
 
 exports.db = @db
@@ -12,3 +15,6 @@ exports.tabs = @tabs
 exports.url = @url
 exports.connection = @connection
 exports.manifest = @manifest
+exports.button = @button
+exports.popup = @popup
+exports.screen = @screen

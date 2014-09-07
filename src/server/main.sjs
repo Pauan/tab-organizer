@@ -3,7 +3,8 @@ require.hubs.addDefault(["mho:", "/"])
 @ = require([
   { id: "./tabs", name: "tabs" },
   { id: "./migrate", name: "migrate" },
-  { id: "./options", name: "options" }
+  { id: "./options", name: "options" },
+  { id: "./popup", name: "popup" }
 ])
 
 exports.init = function () {
@@ -18,6 +19,8 @@ exports.init = function () {
   } and {
 
   }
+
+  @popup.init()
 
   console.info("main: finished")
 }

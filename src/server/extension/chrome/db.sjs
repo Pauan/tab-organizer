@@ -1,3 +1,5 @@
+// TODO get rid of wait if it's not needed anymore
+
 /*
 var queue = {}
 
