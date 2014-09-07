@@ -5,8 +5,7 @@
   { id: "./chrome/connection", name: "connection" },
   { id: "./chrome/manifest", name: "manifest" },
   { id: "./chrome/button", name: "button" },
-  { id: "./chrome/popup", name: "popup" },
-  { id: "./chrome/screen", name: "screen" }
+  { id: "./chrome/popup", name: "popup" }
 ])
 
 exports.db = @db
@@ -17,4 +16,3 @@ exports.connection = @connection
 exports.manifest = @manifest
 exports.button = @button
 exports.popup = @popup
-exports.screen = @screen

@@ -480,6 +480,120 @@ exports.tabs.open = function (options) {
   return result
 }
 
+exports.windows.open = function (info) {
+  var o = {}
+
+  o.type = "normal"
+  o.url = info.url
+
+  // TODO util for this
+  if (info.focused == null) {
+    o.focused = true
+  } else {
+    o.focused = info.focused
+  }
+
+  waitfor (var result) {
+    chrome.windows.create(o, function (window) {
+      resume(windows_id ..@get(window.id))
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when creating new window")
+  }
+
+  return result
+}
+
+exports.windows.maximize = function (window) {
+  waitfor () {
+    // It's super dumb that Chrome doesn't let you set both
+    // state: "maximized" and focused: false at the same time
+    chrome.windows.update(window.__id__, { state: "maximized"/*, focused: false*/ }, function () {
+      resume()
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when maximizing a window")
+  }
+}
+
+exports.tabs.unmaximize = function (window) {
+  waitfor () {
+    // It's super dumb that Chrome doesn't let you set both
+    // state: "maximized" and focused: false at the same time
+    chrome.windows.update(window.__id__, { state: "normal"/*, focused: false*/ }, function () {
+      resume()
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when unmaximizing a window")
+  }
+}
+
+exports.windows.close = function (window) {
+  waitfor () {
+    chrome.windows.remove(window.__id__, function () {
+      resume()
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when closing a window")
+  }
+}
+
+function getWindowInfo(window) {
+  waitfor (var result) {
+    chrome.windows.get(window.__id__, function (window) {
+      resume(window)
+    })
+  // TODO this probably isn't necessary
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when getting a window")
+  }
+
+  return result
+}
+
+/*function availSupported() {
+  return !(screen.availLeft === 0 &&
+           screen.availTop === 0 &&
+           screen.availWidth === screen.width &&
+           screen.availHeight === screen.height)
+}*/
+
+// TODO do I need the ability to force it?
+exports.windows.getMaximumSize = function (force) {
+  // TODO assert that force is a boolean
+  /*if (!force && availSupported()) {
+    return {
+      left: screen.availLeft,
+      top: screen.availTop,
+      width: screen.availWidth,
+      height: screen.availHeight
+    }
+
+  // In older versions of Chrome (on Linux only?) screen.avail wouldn't work,
+  // so we fall back to the old approach of "create a maximized window then check its size"
+  } else {*/
+    var window = exports.windows.open({ url: "data/empty.html", focused: false })
+
+    // super hacky, but needed because of Chrome's retardedness
+    exports.windows.maximize(window)
+    hold(250)
+
+    exports.windows.maximize(window)
+    hold(250)
+
+    var info = getWindowInfo(window)
+    exports.windows.close(window)
+
+    // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
+    return {
+      left: info.left,
+      top: info.top,
+      width: info.width,
+      height: info.height
+    }
+  //}
+}
+
 
 /*chrome.tabs.onCreated.addListener(function (tab) {
   console.debug("tabs.onCreated")
