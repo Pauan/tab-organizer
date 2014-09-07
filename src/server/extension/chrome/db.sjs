@@ -137,7 +137,7 @@ exports.set = function (name, value) {
         chrome.storage.local.set(o, function () {
           @checkError()
 
-          console.info("db/set: #{name}")
+          console.debug("db/set: #{name}")
 
           if (waiting !== null) {
             waiting()
@@ -179,6 +179,6 @@ exports["delete"] = function (name) {
   chrome.storage.local.remove(name, function () {
     @checkError()
 
-    console.info("db/delete: #{name}")
+    console.debug("db/delete: #{name}")
   })
 }

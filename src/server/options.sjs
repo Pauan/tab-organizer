@@ -1,8 +1,11 @@
-// TODO this all needs to happen after migration is done, so we need an init function
-
 @ = require([
-  { id: "./extension/main" }
+  { id: "sjs:observable" },
+  { id: "sjs:object" },
+  { id: "./extension/main" },
+  { id: "./util/event" },
+  { id: "./util/util" }
 ])
+
 
 function make(db_name, port_name, defs) {
   var opts = {}
@@ -82,58 +85,65 @@ function make(db_name, port_name, defs) {
 }
 
 
-exports.opt = make("options.user", "options", {
-  "counter.enabled"           : true,
-  "counter.type"              : "in-chrome",
+// This is needed so that migration can finish before loading up the options/cache
+// TODO this is kind of hacky
+exports.init = function () {
+  exports.opt = make("options.user", "options", {
+    "counter.enabled"           : true,
+    "counter.type"              : "in-chrome",
 
-  "size.sidebar"              : 300,
-  "size.sidebar.position"     : "left",
+    "size.sidebar"              : 300,
+    "size.sidebar.position"     : "left",
 
-  "size.popup.left"           : 0.5,
-  "size.popup.top"            : 0.5,
-  "size.popup.width"          : 920,
-  "size.popup.height"         : 496,
+    "size.popup.left"           : 0.5,
+    "size.popup.top"            : 0.5,
+    "size.popup.width"          : 920,
+    "size.popup.height"         : 496,
 
-  "size.bubble.width"         : 300,
-  "size.bubble.height"        : 600,
+    "size.bubble.width"         : 300,
+    "size.bubble.height"        : 600,
 
-  "popup.type"                : "bubble",
+    "popup.type"                : "bubble",
 
-  "popup.hotkey.ctrl"         : true,
-  "popup.hotkey.shift"        : true,
-  "popup.hotkey.alt"          : false,
-  "popup.hotkey.letter"       : "E",
+    "popup.hotkey.ctrl"         : true,
+    "popup.hotkey.shift"        : true,
+    "popup.hotkey.alt"          : false,
+    "popup.hotkey.letter"       : "E",
 
-  "popup.close.escape"        : false,
-  "popup.switch.action"       : "minimize",
-  "popup.close.when"          : "switch-tab", // "manual",
+    "popup.close.escape"        : false,
+    "popup.switch.action"       : "minimize",
+    "popup.close.when"          : "switch-tab", // "manual",
 
-  "group.sort.type"           : "group",
-  "groups.layout"             : "vertical",
-  "groups.layout.grid.column" : 3,
-  "groups.layout.grid.row"    : 2,
+    "group.sort.type"           : "group",
+    "groups.layout"             : "vertical",
+    "groups.layout.grid.column" : 3,
+    "groups.layout.grid.row"    : 2,
 
-  "tabs.close.location"       : "right",
-  "tabs.close.display"        : "hover",
-  "tabs.close.duplicates"     : false,
-  "tabs.click.type"           : "focus",
+    "tabs.close.location"       : "right",
+    "tabs.close.display"        : "hover",
+    "tabs.close.duplicates"     : false,
+    "tabs.click.type"           : "focus",
 
-  "theme.animation"           : true,
-  "theme.color"               : "blue",
+    "theme.animation"           : true,
+    "theme.color"               : "blue",
 
-  "usage-tracking"            : true
-})
+    "usage-tracking"            : true
+  })
 
 
-exports.cache = make("options.cache", "cache", {
-  "popup.scroll"             : 0,
-  "search.last"              : "",
+  exports.cache = make("options.cache", "cache", {
+    "popup.scroll"             : 0,
+    "search.last"              : "",
 
-  "counter.session"          : null,
+    "counter.session"          : null,
 
-  "screen.available.checked" : false,
-  "screen.available.left"    : 0,
-  "screen.available.top"     : 0,
-  "screen.available.width"   : screen ..@get("width"), // TODO ew
-  "screen.available.height"  : screen ..@get("height") // TODO ew
-})
+    "screen.available.checked" : false,
+    "screen.available.left"    : 0,
+    "screen.available.top"     : 0,
+    "screen.available.width"   : screen ..@get("width"), // TODO ew
+    "screen.available.height"  : screen ..@get("height") // TODO ew
+  })
+
+
+  console.info("options: finished")
+}

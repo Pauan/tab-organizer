@@ -32,6 +32,15 @@ exports.on.connect = function (name) {
   return onConnect[name]
 }
 
+exports.on.message = function (name) {
+  // TODO object/has
+  // TODO library function for this
+  if (!(name in onMessage)) {
+    onMessage[name] = @Emitter()
+  }
+  return onMessage[name]
+}
+
 exports.send = function (name, value) {
   // TODO object/has
   if (name in queue) {

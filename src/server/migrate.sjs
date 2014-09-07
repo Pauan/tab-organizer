@@ -5,8 +5,15 @@
   { id: "./util/util" }
 ])
 
-var version = @manifest ..@get("version") + "b7"
 
+// TODO make this const ?
+exports.version = @manifest ..@get("version") + "b7"
+
+
+function isNewVersion() {
+  var version_old = @db.get("version", undefined)
+  return version_old !== exports.version
+}
 
 // TODO utility for this ?
 function moveValue(obj, key, from, to) {
@@ -50,96 +57,90 @@ function convertTab(tab) {
 }
 
 
-function migrate(version_old) {
-  if (version_old !== version) {
-    /**
-     * options.tabs
-     */
-    ;(function () {
-      var tabs = @db.get("current.tabs", {})
+var migrators = {}
 
-      tabs ..@eachKeys(function (url, tab) {
-        if (tab.url != null && url !== tab.url) {
-          // TODO utility for these ?
-          tabs[tab.url] = convertTab(tab)
-          delete tabs[url]
-        } else {
-          // TODO utility for this ?
-          tabs[url] = convertTab(tab)
-        }
-      })
+function using_db(name, def, f) {
+  var o = @db.get(name, def)
+  var x = f(o)
+  @db.set(name, o)
+  return x
+}
 
-      @db.set("current.tabs", tabs)
-    })()
-
-
-    /**
-     * options.user
-     */
-    ;(function () {
-      var opts = @db.get("options.user", {})
-
-      // TODO utility for these ?
-      delete opts["tab.sort.type"]
-      delete opts["tab.show.in-chrome"]
-      delete opts["groups.move-with-window"]
-      opts ..moveValue("group.sort.type", "window", "group")
-      opts ..moveValue("group.sort.type", "domain", "url")
-      opts ..moveValue("group.sort.type", "loaded", "created")
-      //opts ..moveValue("tab.sort.type",   "loaded", "created")
-      opts ..move("size.sidebar.direction", "size.sidebar.position")
-
-      @db.set("options.user", opts)
-    })()
-
-
-    /**
-     * options.cache
-     */
-    ;(function () {
-      var cache = @db.get("options.cache", {})
-
-      cache ..move("global.scroll", "popup.scroll")
-
-      if (cache ..@has("screen.available-size")) {
-        var oSize = cache ..@get("screen.available-size")
-
-        // TODO utility for these ?
-        cache["screen.available.checked"] = true
-        cache["screen.available.left"] = oSize ..@get("left")
-        cache["screen.available.top"] = oSize ..@get("top")
-        cache["screen.available.width"] = oSize ..@get("width")
-        cache["screen.available.height"] = oSize ..@get("height")
-
-        cache ..@delete("screen.available-size")
-      }
-
-      @db.set("options.cache", cache)
-    })()
-
-
-    /**
-     * Other
-     */
-    // TODO fix these
-    @db["delete"]("current.groups")
-    @db["delete"]("current.tabs.ids")
-    delete localStorage["migrated"]
+function make_migrator(name, def, f) {
+  migrators[name] = function () {
+    //if (isNewVersion()) {
+    using_db(name, def, f)
+    console.info("migrate/run: finished #{name}")
+    //migrators[name] = function () {}
+    //}
   }
+}
+
+
+make_migrator("current.tabs", {}, function (tabs) {
+  tabs ..@eachKeys(function (url, tab) {
+    if (tab.url != null && url !== tab.url) {
+      // TODO utility for these ?
+      tabs[tab.url] = convertTab(tab)
+      delete tabs[url]
+    } else {
+      // TODO utility for this ?
+      tabs[url] = convertTab(tab)
+    }
+  })
+})
+
+
+make_migrator("options.user", {}, function (opts) {
+  // TODO utility for these ?
+  delete opts["tab.sort.type"]
+  delete opts["tab.show.in-chrome"]
+  delete opts["groups.move-with-window"]
+  opts ..moveValue("group.sort.type", "window", "group")
+  opts ..moveValue("group.sort.type", "domain", "url")
+  opts ..moveValue("group.sort.type", "loaded", "created")
+  //opts ..moveValue("tab.sort.type",   "loaded", "created")
+  opts ..move("size.sidebar.direction", "size.sidebar.position")
+})
+
+
+make_migrator("options.cache", {}, function (cache) {
+  cache ..move("global.scroll", "popup.scroll")
+
+  if (cache ..@has("screen.available-size")) {
+    var oSize = cache ..@get("screen.available-size")
+
+    // TODO utility for these ?
+    cache["screen.available.checked"] = true
+    cache["screen.available.left"] = oSize ..@get("left")
+    cache["screen.available.top"] = oSize ..@get("top")
+    cache["screen.available.width"] = oSize ..@get("width")
+    cache["screen.available.height"] = oSize ..@get("height")
+
+    cache ..@delete("screen.available-size")
+  }
+})
+
+
+exports.run = function (name) {
+  return (migrators ..@get(name))()
 }
 
 exports.init = function () {
   //@db["delete"]("version")
 
-  var version_old = @db.get("version", undefined)
+  if (isNewVersion()) {
+    exports.run("current.tabs")
+    exports.run("options.user")
+    exports.run("options.cache")
 
-  if (version_old !== version) {
-    @db.wait(function () {
-      migrate(version_old)
-      @db.set("version", version)
-    })
+    // TODO fix these
+    @db["delete"]("current.groups")
+    @db["delete"]("current.tabs.ids")
+    delete localStorage["migrated"]
 
-    console.info("migrate: migrated to version #{version}")
+    @db.set("version", exports.version)
+    console.info("migrate: migrated to version #{exports.version}")
   }
 
   console.info("migrate: finished")

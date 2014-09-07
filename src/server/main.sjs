@@ -2,11 +2,16 @@ require.hubs.addDefault(["mho:", "/"])
 
 @ = require([
   { id: "./tabs", name: "tabs" },
-  { id: "./migrate", name: "migrate" }
+  { id: "./migrate", name: "migrate" },
+  { id: "./options", name: "options" }
 ])
 
 exports.init = function () {
+  // Migration has to happen first, so that everything else gets the correct db format
   @migrate.init()
+
+  // Options has to be here because if it isn't, @opt and @cache will be undefined
+  @options.init()
 
   waitfor {
     @tabs.init()
