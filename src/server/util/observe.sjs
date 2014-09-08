@@ -13,6 +13,7 @@ exports.Observer = function (value) {
   self.set = function (value_new) {
     if (value !== value_new) {
       value = value_new
+      // TODO should probably change this to be emit ?
       self ..@emitSync(value)
     }
   }

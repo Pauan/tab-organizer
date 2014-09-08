@@ -208,7 +208,7 @@ function updateTab(tab, info) {
   if (shouldUpdate(tab, info)) {
     setTab(tab, info)
 
-    exports.tabs.on.update ..@emitSync({
+    exports.tabs.on.update ..@emit({
       tab: tab
     })
   }
@@ -220,7 +220,7 @@ function unfocusTab(tab) {
 
   checkFocus(tab)
 
-  exports.tabs.on.unfocus ..@emitSync({
+  exports.tabs.on.unfocus ..@emit({
     tab: tab
   })
 }
@@ -243,7 +243,7 @@ function focusTab(tab) {
 
     checkFocus(tab)
 
-    exports.tabs.on.focus ..@emitSync({
+    exports.tabs.on.focus ..@emit({
       tab: tab
     })
   }
@@ -342,7 +342,7 @@ function removeTab(tab, info) {
     save()
   }
 
-  exports.tabs.on.remove ..@emitSync({
+  exports.tabs.on.remove ..@emit({
     tab: tab,
     // TODO this probably shouldn't be a part of the public API, because Jetpack may not be able to support it
     isWindowClosing: info.isWindowClosing
@@ -406,7 +406,7 @@ function removeWindow(window) {
 
   save_delay()
 
-  exports.windows.on.remove ..@emitSync({
+  exports.windows.on.remove ..@emit({
     window: window
   })
 }
@@ -762,7 +762,7 @@ chrome.tabs.onCreated.addListener(function (tab) {
   // This is to make sure that we only handle tabs that are in windows with type "normal"
   var window = windows_id[tab.windowId]
   if (window != null) {
-    exports.tabs.on.add ..@emitSync({
+    exports.tabs.on.add ..@emit({
       tab: addTab(tab)
     })
   }
@@ -865,7 +865,7 @@ chrome.tabs.onMoved.addListener(function (id, info) {
 
     save()
 
-    exports.tabs.on.move ..@emitSync({
+    exports.tabs.on.move ..@emit({
       tab: tab,
       old: old
     })
@@ -927,7 +927,7 @@ chrome.tabs.onAttached.addListener(function (id, info) {
 
     save()
 
-    exports.tabs.on.move ..@emitSync({
+    exports.tabs.on.move ..@emit({
       tab: tab,
       old: old
     })
@@ -938,7 +938,7 @@ chrome.windows.onCreated.addListener(function (window) {
   @checkError()
 
   if (window.type === "normal") {
-    exports.windows.on.add ..@emitSync({
+    exports.windows.on.add ..@emit({
       window: addWindow(window)
     })
   }

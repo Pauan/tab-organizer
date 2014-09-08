@@ -102,8 +102,7 @@ chrome.runtime.onConnect.addListener(function (port) {
     console.log(o)
     // TODO object/has
     if (s in onMessage) {
-      // TODO should this be emit or emitSync?
-      onMessage[s] ..@emitSync(o)
+      onMessage[s] ..@emit(o)
     }
   })
 
@@ -111,8 +110,7 @@ chrome.runtime.onConnect.addListener(function (port) {
   if (s in onConnect) {
     console.log("HIYA CONNECT")
     // TODO if it doesn't call send, should sending be disabled for this port ?
-    // TODO should this be emit or emitSync?
-    onConnect[s] ..@emitSync({
+    onConnect[s] ..@emit({
       send: function (x) {
         port.postMessage({ type: "init", value: x })
       }

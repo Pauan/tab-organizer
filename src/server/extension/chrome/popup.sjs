@@ -46,7 +46,7 @@ exports.on.closed = @Emitter()
 exports.move = function (popup, info) {
   var o = {}
   o.state = "normal"
-  o.focused = true // TODO is this a good idea ?
+  //o.focused = true // TODO is this a good idea ?
 
   setCoordinates(o, info)
 
@@ -65,13 +65,13 @@ exports.open = function (info) {
   var o = {}
   o.url = info.url
   o.type = "popup"
-  o.focused = true
+  //o.focused = true
 
   setCoordinates(o, info)
 
   waitfor (var result) {
     chrome.windows.create(o, function (o) {
-      var popup = addPopup(o)
+      var popup = addPopup(o.url, o)
       // TODO test this
       exports.move(popup, info)
       resume(popup)
@@ -82,6 +82,16 @@ exports.open = function (info) {
 
   return result
 }
+
+/*exports.focus = function (popup) {
+  waitfor () {
+    chrome.windows.update(popup.__id__, { focused: true }, function () {
+      resume()
+    })
+  } retract {
+    throw new Error("extension.chrome.popup: cannot retract when focusing popup")
+  }
+}*/
 
 exports.close = function (popup) {
   waitfor () {
@@ -100,7 +110,7 @@ chrome.windows.onRemoved.addListener(function (id) {
 
     popups_id ..@delete(popup.__id__)
 
-    exports.on.closed ..@emitSync({
+    exports.on.closed ..@emit({
       popup: popup
     })
   }

@@ -11,7 +11,7 @@ exports.on = {}
 exports.on.clicked = @Emitter()
 
 chrome.browserAction.onClicked.addListener(function () {
-  exports.on.clicked ..@emitSync()
+  exports.on.clicked ..@emit()
 })
 
 

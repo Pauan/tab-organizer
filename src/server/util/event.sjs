@@ -12,11 +12,21 @@ exports.listen = function (emitter, listener) {
 }
 
 exports.emit = function (emitter, value) {
-  emitter ..@each(function (f) {
+  spawn emitter ..@each(function (f) {
+    // TODO should the spawn be in here instead ?
     f(value)
   })
 }
 
+// TODO could use a better name
+exports.emitBlock = function (emitter, value) {
+  emitter ..@each(function (f) {
+    // TODO should the spawn be in here instead ?
+    f(value)
+  })
+}
+
+// TODO it seems that this can be split into two functions: one to do the emit, and another to check if it suspends or not
 exports.emitSync = function (emitter, value) {
   emitter ..@each(function (f) {
     waitfor {

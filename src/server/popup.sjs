@@ -1,9 +1,11 @@
 // TODO lots of Chromeisms in here
 
 @ = require([
+  { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "./extension/main" },
   { id: "./options" },
+  { id: "./util/event" },
   { id: "./util/observe" }
 ])
 
@@ -124,7 +126,7 @@ exports.init = function () {
     }
   }
 
-  function makeTab() {
+  function openTab() {
     if (state.tab === null) {
       state.tab = @tabs.open({ url: popup_url })
     } else {
@@ -221,7 +223,7 @@ exports.init = function () {
     }
   }
 
-  function openPopup() {
+  function open() {
     var type_new = type.get()
     var type_old = state.type
 
@@ -242,17 +244,15 @@ exports.init = function () {
         , width  = @opt("size.popup.width").get()
         , height = @opt("size.popup.height").get()
 
-      makePopup({
+      openPopup({
         left:   size.left + (size.width  * left) - (width  * left),
         top:    size.top  + (size.height * top)  - (height * top),
         width:  width,
         height: height
       })
-      console.log("popup created")
 
-      @assert.isNot(state.popup, null)
-      @popup.focus(state.popup) // TODO is this a good idea ?
-      console.log("popup focused")
+      //@assert.isNot(state.popup, null)
+      //@popup.focus(state.popup) // TODO is this a good idea ?
 
     } else if (type_new === "sidebar") {
       if (type_old !== null && type_old !== "sidebar") {
@@ -267,15 +267,12 @@ exports.init = function () {
       }
 
       state.size = getDimensions(getSize())
-      console.log(state.size)
 
-      makePopup(state.size.sidebar)
+      openPopup(state.size.sidebar)
       toAll(resizeWindow)
-      console.log("popup created")
 
-      @assert.isNot(state.popup, null)
-      @popup.focus(state.popup) // TODO is this a good idea ?
-      console.log("popup focused")
+      //@assert.isNot(state.popup, null)
+      //@popup.focus(state.popup) // TODO is this a good idea ?
 
     } else if (type_new === "tab") {
       if (type_old !== null && type_old !== "tab") {
@@ -289,7 +286,7 @@ exports.init = function () {
         @assert.is(state.size, null)
       }
 
-      makeTab()
+      openTab()
 
     } else {
       @assert.fail()
@@ -306,8 +303,7 @@ exports.init = function () {
   })
 
   @button.on.clicked ..@listen(function () {
-    console.log("CLICKED BUTTON")
-    openPopup()
+    open()
   })
 
   @windows.on.add ..@listen(function (info) {
@@ -322,7 +318,6 @@ exports.init = function () {
 
   @popup.on.closed ..@listen(function (info) {
     var popup = info.popup
-    console.log("popup.closed", state.popup, popup)
     if (state.popup !== null && state.popup.id === popup.id) {
       @assert.isNot(state.type, null)
       @assert.is(state.tab, null)
