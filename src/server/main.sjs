@@ -4,7 +4,8 @@ require.hubs.addDefault(["mho:", "/"])
   { id: "./tabs", name: "tabs" },
   { id: "./migrate", name: "migrate" },
   { id: "./options", name: "options" },
-  { id: "./popup", name: "popup" }
+  { id: "./popup", name: "popup" },
+  { id: "./button", name: "button" }
 ])
 
 exports.init = function () {
@@ -17,10 +18,10 @@ exports.init = function () {
   waitfor {
     @tabs.init()
   } and {
-
+    @popup.init()
+  } and {
+    @button.init()
   }
-
-  @popup.init()
 
   console.info("main: finished")
 }

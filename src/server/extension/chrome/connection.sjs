@@ -7,6 +7,7 @@
   { id: "./util" }
 ])
 
+var onCommand = {}
 var onConnect = {}
 var onMessage = {}
 var queue     = {}
@@ -22,6 +23,10 @@ function message(name, type, value) {
 }
 
 exports.on = {}
+
+exports.on.command = function (name, f) {
+  onCommand ..@setNew(name, f)
+}
 
 exports.on.connect = function (name) {
   // TODO object/has
@@ -55,6 +60,16 @@ exports.send = function (name, value) {
     }, 100)
   }
 }
+
+
+chrome.runtime.onMessage.addListener(function (message, sender, reply) {
+  // TODO object/has
+  if (message.type in onCommand) {
+    // TODO is this correct ?
+    reply(onCommand[message.type](message.value))
+    //return true
+  }
+})
 
 
 // TODO what about when the port disconnects, is it okay to call postMessage ?

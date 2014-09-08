@@ -8,8 +8,8 @@
 ])
 
 exports.init = function () {
-  var url_popup = @url.get("panel.html")
-    , url_empty = @url.get("data/empty.html")
+  //var url_popup = @url.get("panel.html")
+  //  , url_empty = @url.get("data/empty.html")
 
   //@db["delete"]("current.windows.array")
 
@@ -23,6 +23,7 @@ exports.init = function () {
   }
 
   // TODO this is specific to Chrome...?
+  // TODO test this again, to make sure it's working
   function save_delay() {
     // 10 seconds, so that when Chrome exits,
     // it doesn't clobber the user's data
@@ -341,8 +342,9 @@ exports.init = function () {
     }
   })
 
-  // TODO this probably isn't necessary, but I like it just in case
+  // This probably isn't necessary, but I like it just in case
   save()
+
   console.info("tabs: saved windows", windows_db)
 
 

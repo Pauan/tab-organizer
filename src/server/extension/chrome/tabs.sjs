@@ -411,6 +411,29 @@ function removeWindow(window) {
   })
 }
 
+function getWindowInfo(window) {
+  waitfor (var result) {
+    chrome.windows.get(window.__id__, function (window) {
+      resume(window)
+    })
+  // TODO this probably isn't necessary
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when getting a window")
+  }
+
+  return result
+}
+
+function moveWindow(window, o) {
+  waitfor () {
+    chrome.windows.update(window.__id__, o, function () {
+      resume()
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when moving a window")
+  }
+}
+
 
 exports.tabs.has = function (id) {
   return tabs_id ..@has(id)
@@ -504,27 +527,58 @@ exports.windows.open = function (info) {
   return result
 }
 
+exports.windows.move = function (window, info) {
+  var state = getWindowInfo(window)
+
+  // TODO test this
+  if (state.state === "maximized" || state.state === "normal") {
+    var o = {
+      top:    info.top,
+      left:   info.left,
+      width:  info.width,
+      height: info.height,
+      state:  "normal"
+    }
+    moveWindow(window, o)
+    // TODO needed because Chrome is retarded
+    hold(100)
+    moveWindow(window, o)
+  }
+}
+
 exports.windows.maximize = function (window) {
-  waitfor () {
-    // It's super dumb that Chrome doesn't let you set both
-    // state: "maximized" and focused: false at the same time
-    chrome.windows.update(window.__id__, { state: "maximized"/*, focused: false*/ }, function () {
-      resume()
-    })
-  } retract {
-    throw new Error("extension.chrome.tabs: cannot retract when maximizing a window")
+  var state = getWindowInfo(window)
+
+  // TODO test this
+  // TODO is this a good idea ?
+  if (state.state === "normal") {
+    waitfor () {
+      // It's super dumb that Chrome doesn't let you set both
+      // state: "maximized" and focused: false at the same time
+      chrome.windows.update(window.__id__, { state: "maximized"/*, focused: false*/ }, function () {
+        resume()
+      })
+    } retract {
+      throw new Error("extension.chrome.tabs: cannot retract when maximizing a window")
+    }
   }
 }
 
 exports.tabs.unmaximize = function (window) {
-  waitfor () {
-    // It's super dumb that Chrome doesn't let you set both
-    // state: "maximized" and focused: false at the same time
-    chrome.windows.update(window.__id__, { state: "normal"/*, focused: false*/ }, function () {
-      resume()
-    })
-  } retract {
-    throw new Error("extension.chrome.tabs: cannot retract when unmaximizing a window")
+  var state = getWindowInfo(window)
+
+  // TODO test this
+  // TODO is this a good idea ?
+  if (state.state === "maximized") {
+    waitfor () {
+      // It's super dumb that Chrome doesn't let you set both
+      // state: "maximized" and focused: false at the same time
+      chrome.windows.update(window.__id__, { state: "normal"/*, focused: false*/ }, function () {
+        resume()
+      })
+    } retract {
+      throw new Error("extension.chrome.tabs: cannot retract when unmaximizing a window")
+    }
   }
 }
 
@@ -536,19 +590,6 @@ exports.windows.close = function (window) {
   } retract {
     throw new Error("extension.chrome.tabs: cannot retract when closing a window")
   }
-}
-
-function getWindowInfo(window) {
-  waitfor (var result) {
-    chrome.windows.get(window.__id__, function (window) {
-      resume(window)
-    })
-  // TODO this probably isn't necessary
-  } retract {
-    throw new Error("extension.chrome.tabs: cannot retract when getting a window")
-  }
-
-  return result
 }
 
 /*function availSupported() {
