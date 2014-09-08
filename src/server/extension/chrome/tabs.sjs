@@ -669,9 +669,9 @@ exports.windows.getMaximumSize = function (force) {
     // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
     return {
       left: info.left,
-      top: info.top - 1,
+      top: info.top,
       width: info.width,
-      height: info.height - 1
+      height: info.height
     }
   //}
 }
