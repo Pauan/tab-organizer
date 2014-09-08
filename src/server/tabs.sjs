@@ -9,7 +9,6 @@
 
 exports.init = function () {
   //var url_popup = @url.get("panel.html")
-  //  , url_empty = @url.get("data/empty.html")
 
   //@db["delete"]("current.windows.array")
 

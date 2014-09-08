@@ -10,6 +10,12 @@
 ])
 
 
+var url_empty = @url.get("data/empty.html")
+
+// Needed because Chrome sends an onCreated event before the tab/window is created, so we have to debounce it
+var delayed_windows = null
+var delayed_tabs    = null
+
 var windows_saved = @db.get("__extension.chrome.tabs.windows__", [])
 
 function save() {
@@ -434,6 +440,60 @@ function moveWindow(window, o) {
   }
 }
 
+function openWindow(info) {
+  var o = {}
+
+  o.type = "normal"
+  o.url = info.url
+
+  // TODO util for this
+  if (info.focused == null) {
+    o.focused = true
+  } else {
+    o.focused = info.focused
+  }
+
+  waitfor (var result) {
+    chrome.windows.create(o, function (window) {
+      resume(window)
+    })
+  } retract {
+    throw new Error("extension.chrome.tabs: cannot retract when creating new window")
+  }
+
+  return result
+}
+
+function openInternalWindow(info) {
+  var wins = (delayed_windows = [])
+
+  try {
+    var window = openWindow(info)
+  } finally {
+    delayed_windows = null
+  }
+
+  var seen = false
+
+  wins ..@each(function (window_new) {
+    if (window_new.id === window.id) {
+      @assert.is(seen, false)
+      seen = true
+    } else {
+      // TODO code duplication with chrome.windows.onCreated
+      exports.windows.on.add ..@emit({
+        window: addWindow(window_new)
+      })
+    }
+  })
+
+  @assert.is(seen, true)
+
+  return {
+    __id__: window.id
+  }
+}
+
 
 exports.tabs.has = function (id) {
   return tabs_id ..@has(id)
@@ -503,28 +563,9 @@ exports.tabs.open = function (options) {
   return result
 }
 
+// TODO what happens with delayed_windows ?
 exports.windows.open = function (info) {
-  var o = {}
-
-  o.type = "normal"
-  o.url = info.url
-
-  // TODO util for this
-  if (info.focused == null) {
-    o.focused = true
-  } else {
-    o.focused = info.focused
-  }
-
-  waitfor (var result) {
-    chrome.windows.create(o, function (window) {
-      resume(windows_id ..@get(window.id))
-    })
-  } retract {
-    throw new Error("extension.chrome.tabs: cannot retract when creating new window")
-  }
-
-  return result
+  return windows_id ..@get(openWindow(info).id)
 }
 
 exports.windows.move = function (window, info) {
@@ -613,7 +654,7 @@ exports.windows.getMaximumSize = function (force) {
   // In older versions of Chrome (on Linux only?) screen.avail wouldn't work,
   // so we fall back to the old approach of "create a maximized window then check its size"
   } else {*/
-    var window = exports.windows.open({ url: "data/empty.html", focused: false })
+    var window = openInternalWindow({ url: url_empty, focused: false })
 
     // super hacky, but needed because of Chrome's retardedness
     exports.windows.maximize(window)
@@ -628,9 +669,9 @@ exports.windows.getMaximumSize = function (force) {
     // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
     return {
       left: info.left,
-      top: info.top,
+      top: info.top - 1,
       width: info.width,
-      height: info.height
+      height: info.height - 1
     }
   //}
 }
@@ -762,9 +803,13 @@ chrome.tabs.onCreated.addListener(function (tab) {
   // This is to make sure that we only handle tabs that are in windows with type "normal"
   var window = windows_id[tab.windowId]
   if (window != null) {
-    exports.tabs.on.add ..@emit({
-      tab: addTab(tab)
-    })
+    if (delayed_tabs !== null) {
+      delayed_tabs.push(tab)
+    } else {
+      exports.tabs.on.add ..@emit({
+        tab: addTab(tab)
+      })
+    }
   }
 })
 
@@ -938,9 +983,13 @@ chrome.windows.onCreated.addListener(function (window) {
   @checkError()
 
   if (window.type === "normal") {
-    exports.windows.on.add ..@emit({
-      window: addWindow(window)
-    })
+    if (delayed_windows !== null) {
+      delayed_windows.push(window)
+    } else {
+      exports.windows.on.add ..@emit({
+        window: addWindow(window)
+      })
+    }
   }
 })
 

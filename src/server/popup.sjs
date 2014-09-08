@@ -83,16 +83,16 @@ exports.init = function () {
   }
 
   function getSize() {
-    if (avail.checked.get()) {
+    /*if (avail.checked.get()) {
       return {
         left:   avail.left.get(),
         top:    avail.top.get(),
         width:  avail.width.get(),
         height: avail.height.get()
       }
-    } else {
+    } else {*/
       return checkMonitor()
-    }
+    //}
   }
 
   // TODO test this
