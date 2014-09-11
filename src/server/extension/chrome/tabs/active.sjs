@@ -291,7 +291,7 @@ exports.tabs.init = function (id, info) {
 
 exports.tabs.open = function (id, info) {
   // Checks that the tab belongs to a window with type "normal"
-  var window = windows[info.windowId]
+  var window = windows_id[info.windowId]
   if (window != null) {
     exports.tabs.on.open ..@emit({
       tab: exports.tabs.init(id, info)
@@ -432,9 +432,8 @@ exports.tabs.close = function (id, info) {
 
     exports.tabs.on.close ..@emit({
       tab: tab,
-      // TODO rename this
       // TODO this probably shouldn't be a part of the public API, because Jetpack may not be able to support it
-      isWindowClosing: info.isWindowClosing
+      windowClosing: info.isWindowClosing
     })
   }
 }

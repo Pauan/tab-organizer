@@ -364,7 +364,7 @@ exports.init = function () {
 
   @tabs.on.close ..@listen(function (info) {
     console.debug("REMOVE", info)
-    removeTab(info.tab, info.isWindowClosing)
+    removeTab(info.tab, info.windowClosing)
   })
 
   @tabs.on.update ..@listen(function (info) {

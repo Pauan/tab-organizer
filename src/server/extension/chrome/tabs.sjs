@@ -437,7 +437,7 @@ chrome.tabs.onActivated.addListener(function (info) {
     window_id: info.windowId,
     tab_id: info.tabId,
     action: function () {
-      @saved.tabs.focus(info.tabId, info.windowId)
+      @active.tabs.focus(info.tabId, info.windowId)
     }
   })
 })
