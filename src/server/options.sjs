@@ -92,7 +92,7 @@ function make(db_name, port_name, defs) {
 
 exports.opt = make("options.user", "options", {
   "counter.enabled"           : true,
-  "counter.type"              : "in-chrome",
+  "counter.type"              : "total",
 
   "size.sidebar"              : 300,
   "size.sidebar.position"     : "left",

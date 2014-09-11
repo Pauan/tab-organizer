@@ -82,10 +82,11 @@ exports.init = function () {
     if (enabled) {
       @extension.button.setText(i)
     } else {
+      // TODO I don't like how setting this to "" hides the badge
       @extension.button.setText("")
     }
   })
 
 
-  console.debug("counter: finished")
+  console.info("counter: finished")
 }
