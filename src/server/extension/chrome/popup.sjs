@@ -2,8 +2,8 @@
 
 @ = require([
   { id: "sjs:assert", name: "assert" },
-  { id: "../../util/event" },
-  { id: "../../util/util" }
+  { id: "lib:util/event" },
+  { id: "lib:util/util" }
 ])
 
 var popups_id = {}

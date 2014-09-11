@@ -15,7 +15,7 @@ queue[name].value()
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:object" },
   { id: "sjs:sequence" },
-  { id: "../../util/util" },
+  { id: "lib:util/util" },
   { id: "./util" }
 ])
 

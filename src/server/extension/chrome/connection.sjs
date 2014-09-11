@@ -2,8 +2,8 @@
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   //{ id: "sjs:object" },
-  { id: "../../util/event" },
-  { id: "../../util/util" },
+  { id: "lib:util/event" },
+  { id: "lib:util/util" },
   { id: "./util" }
 ])
 

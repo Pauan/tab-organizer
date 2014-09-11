@@ -112,7 +112,12 @@ var compile = @exclusive(function (files, opts) {
       files ..@ownPropertyPairs ..@each(function ([from, to]) {
         // TODO should use streams so it works on huge files
         var output = @create({
-          resources: { ".": "" },
+          resources: {
+            ".": ""
+          },
+          hubs: {
+            "lib:": "lib/"
+          },
           compile: true,
           sources: [ from, "sjs:xbrowser/dom" ] // TODO get rid of this dependency
         })
@@ -136,16 +141,20 @@ var compile = @exclusive(function (files, opts) {
   }
 })
 
+function watchDir(dir, files, opts) {
+  getAllDirs(dir) ..@each(function (path) {
+    console.log("#{Date.now()} Watching folder #{path}")
+    // TODO use function/exclusive here, rather than in compile?
+    @nodefs.watch(path, function (event, filename) {
+      compile(files, opts)
+    })
+  })
+}
+
 // TODO standard library function for this
 function watch(files, opts) {
   files ..@ownPropertyPairs ..@each(function ([from, to]) {
-    getAllDirs(@path.dirname(from)) ..@each(function (path) {
-      console.log("#{Date.now()} Watching folder #{path}")
-      // TODO use function/exclusive here, rather than in compile?
-      @nodefs.watch(path, function (event, filename) {
-        compile(files, opts)
-      })
-    })
+    watchDir(@path.dirname(from), files, opts)
   })
 
   compile(files, opts)
@@ -176,6 +185,7 @@ mkdir("./build/lib")
 console.log("#{Date.now()} Copied \"#{sjsPath}\"")
 
 if (opts.watch) {
+  watchDir("./lib", files, { minify: false })
   watch(files, { minify: false })
 } else {
   compile(files, { minify: true })

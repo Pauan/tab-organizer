@@ -1,6 +1,6 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
-  { id: "../../util/event" }
+  { id: "lib:util/event" }
 ])
 
 function isRGB(x) {

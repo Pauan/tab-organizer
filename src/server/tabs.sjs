@@ -2,8 +2,8 @@
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "sjs:object" },
-  { id: "./util/util" },
-  { id: "./util/event" },
+  { id: "lib:util/util" },
+  { id: "lib:util/event" },
   { id: "./extension/main" }
 ])
 
@@ -347,22 +347,22 @@ exports.init = function () {
   console.info("tabs: saved windows", windows_db)
 
 
-  @windows.on.add ..@listen(function (info) {
+  @windows.on.open ..@listen(function (info) {
     console.debug("ADD WINDOW", info)
     addWindow(info.window)
   })
 
-  @windows.on.remove ..@listen(function (info) {
+  @windows.on.close ..@listen(function (info) {
     console.debug("REMOVE WINDOW", info)
     removeWindow(info.window)
   })
 
-  @tabs.on.add ..@listen(function (info) {
+  @tabs.on.open ..@listen(function (info) {
     console.debug("ADD", info)
     addTab(info.tab)
   })
 
-  @tabs.on.remove ..@listen(function (info) {
+  @tabs.on.close ..@listen(function (info) {
     console.debug("REMOVE", info)
     removeTab(info.tab, info.isWindowClosing)
   })

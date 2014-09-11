@@ -3,10 +3,10 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
+  { id: "lib:util/event" },
+  { id: "lib:util/observe" },
   { id: "./extension/main" },
-  { id: "./options" },
-  { id: "./util/event" },
-  { id: "./util/observe" }
+  { id: "./options" }
 ])
 
 /*
@@ -306,7 +306,7 @@ exports.init = function () {
     open()
   })
 
-  @windows.on.add ..@listen(function (info) {
+  @windows.on.open ..@listen(function (info) {
     var window = info.window
     if (state.type === "sidebar") {
       @assert.is(state.tab, null)
@@ -334,7 +334,7 @@ exports.init = function () {
     }
   })
 
-  @tabs.on.remove ..@listen(function (info) {
+  @tabs.on.close ..@listen(function (info) {
     var tab = info.tab
     console.log("tab.remove", state.tab, tab)
     if (state.tab !== null && state.tab.id === tab.id) {

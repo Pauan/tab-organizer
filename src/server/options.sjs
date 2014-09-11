@@ -1,10 +1,10 @@
 @ = require([
   { id: "sjs:object" },
   { id: "sjs:sequence" },
+  { id: "lib:util/event" },
+  { id: "lib:util/util" },
+  { id: "lib:util/observe" },
   { id: "./extension/main" },
-  { id: "./util/event" },
-  { id: "./util/util" },
-  { id: "./util/observe" }
 ])
 
 

@@ -1,8 +1,8 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:object" },
-  { id: "./extension/main" },
-  { id: "./util/util" }
+  { id: "lib:util/util" },
+  { id: "./extension/main" }
 ])
 
 
