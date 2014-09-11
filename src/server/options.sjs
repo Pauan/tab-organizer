@@ -4,7 +4,7 @@
   { id: "lib:util/event" },
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
-  { id: "./extension/main" },
+  { id: "lib:extension/main" },
 ])
 
 

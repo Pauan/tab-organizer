@@ -6,20 +6,28 @@ require.hubs.addDefault(["mho:", "/"])
   { id: "./migrate", name: "migrate" },
   { id: "./options", name: "options" },
   { id: "./popup", name: "popup" },
-  { id: "./button", name: "button" }
+  { id: "./button", name: "button" },
+  { id: "./counter", name: "counter" }
 ])
 
 exports.init = function () {
   // Migration has to happen first, so that everything else gets the correct db format
   @migrate.init()
 
-  // Options has to be here because if it isn't, @opt and @cache will be undefined
-  @options.init()
-
   waitfor {
-    @tabs.init()
-  } and {
-    @popup.init()
+    // Options has to be initialized before anything that uses it
+    @options.init()
+
+    waitfor {
+      @popup.init()
+
+    } and {
+      // Tabs has to be here because counter relies upon it
+      @tabs.init()
+
+      @counter.init()
+    }
+
   } and {
     @button.init()
   }

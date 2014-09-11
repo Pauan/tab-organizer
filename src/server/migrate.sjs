@@ -2,7 +2,7 @@
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:object" },
   { id: "lib:util/util" },
-  { id: "./extension/main" }
+  { id: "lib:extension/main" }
 ])
 
 

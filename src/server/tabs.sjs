@@ -4,8 +4,17 @@
   { id: "sjs:object" },
   { id: "lib:util/util" },
   { id: "lib:util/event" },
-  { id: "./extension/main" }
+  { id: "lib:extension/main" }
 ])
+
+
+exports.windows = {}
+
+exports.tabs = {}
+exports.tabs.on = {}
+exports.tabs.on.open = @Emitter()
+exports.tabs.on.close = @Emitter()
+
 
 exports.init = function () {
   //var url_popup = @url.get("panel.html")
@@ -359,12 +368,16 @@ exports.init = function () {
 
   @tabs.on.open ..@listen(function (info) {
     console.debug("ADD", info)
-    addTab(info.tab)
+    exports.tabs.on.open ..@emit({
+      tab: addTab(info.tab)
+    })
   })
 
   @tabs.on.close ..@listen(function (info) {
     console.debug("REMOVE", info)
-    removeTab(info.tab, info.windowClosing)
+    exports.tabs.on.close ..@emit({
+      tab: removeTab(info.tab, info.windowClosing)
+    })
   })
 
   @tabs.on.update ..@listen(function (info) {
@@ -396,6 +409,10 @@ exports.init = function () {
     })
   })
 
+
+  exports.windows.getCurrent = function () {
+    return windows_db
+  }
 
   console.info("tabs: finished")
 }

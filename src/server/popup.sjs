@@ -5,7 +5,7 @@
   { id: "sjs:sequence" },
   { id: "lib:util/event" },
   { id: "lib:util/observe" },
-  { id: "./extension/main" },
+  { id: "lib:extension/main" },
   { id: "./options" }
 ])
 
@@ -83,16 +83,16 @@ exports.init = function () {
   }
 
   function getSize() {
-    /*if (avail.checked.get()) {
+    if (avail.checked.get()) {
       return {
         left:   avail.left.get(),
         top:    avail.top.get(),
         width:  avail.width.get(),
         height: avail.height.get()
       }
-    } else {*/
+    } else {
       return checkMonitor()
-    //}
+    }
   }
 
   // TODO test this
@@ -293,7 +293,7 @@ exports.init = function () {
     }
   }
 
-  type ..@observe(function (type) {
+  @observe([type], function (type) {
     if (type === "bubble") {
       @button.setURL(popup_url)
     } else {
