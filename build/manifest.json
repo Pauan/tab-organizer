@@ -26,11 +26,5 @@
     "bookmarks",
     "storage",
     "unlimitedStorage"
-  ],
-  "content_scripts": [{
-    "matches": [ "<all_urls>" ],
-    "js": [ "keyboard.js" ],
-    "run_at": "document_start",
-    "all_frames": true
-  }]
+  ]
 }
