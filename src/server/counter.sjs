@@ -1,7 +1,7 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
-  { id: "lib:extension/main", name: "extension" },
+  { id: "lib:extension/server", name: "extension" },
   { id: "lib:util/observe" },
   { id: "lib:util/event" },
   { id: "./tabs" },
@@ -9,7 +9,7 @@
 ])
 
 exports.init = function () {
-  var type = @opt("counter.type")
+  var type = @opt.get("counter.type")
 
   @observe([type], function (type) {
     if (type === "in-chrome" || type === "total") {
@@ -78,7 +78,7 @@ exports.init = function () {
   })
 
 
-  @observe([tabCount, @opt("counter.enabled")], function (i, enabled) {
+  @observe([tabCount, @opt.get("counter.enabled")], function (i, enabled) {
     if (enabled) {
       @extension.button.setText(i)
     } else {

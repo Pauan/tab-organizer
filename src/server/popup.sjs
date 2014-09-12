@@ -5,7 +5,7 @@
   { id: "sjs:sequence" },
   { id: "lib:util/event" },
   { id: "lib:util/observe" },
-  { id: "lib:extension/main" },
+  { id: "lib:extension/server" },
   { id: "./options" }
 ])
 
@@ -64,11 +64,11 @@
  */
 exports.init = function () {
   var avail = {
-    left:    @cache("screen.available.left"),
-    top:     @cache("screen.available.top"),
-    width:   @cache("screen.available.width"),
-    height:  @cache("screen.available.height"),
-    checked: @cache("screen.available.checked")
+    left:    @cache.get("screen.available.left"),
+    top:     @cache.get("screen.available.top"),
+    width:   @cache.get("screen.available.width"),
+    height:  @cache.get("screen.available.height"),
+    checked: @cache.get("screen.available.checked")
   }
 
   function checkMonitor() {
@@ -101,7 +101,7 @@ exports.init = function () {
   })
 
 
-  var type = @opt("popup.type")
+  var type = @opt.get("popup.type")
 
   var popup_url = "panel.html"
 
@@ -186,8 +186,8 @@ exports.init = function () {
   }
 
   function getDimensions(pos) {
-    var width = @opt("size.sidebar").get()
-      , dir   = @opt("size.sidebar.position").get()
+    var width = @opt.get("size.sidebar").get()
+      , dir   = @opt.get("size.sidebar.position").get()
 
     // TODO assert that dir is left, right, top, or bottom
     return {
@@ -239,10 +239,10 @@ exports.init = function () {
       }
 
       var size   = getSize()
-        , left   = @opt("size.popup.left").get()
-        , top    = @opt("size.popup.top").get()
-        , width  = @opt("size.popup.width").get()
-        , height = @opt("size.popup.height").get()
+        , left   = @opt.get("size.popup.left").get()
+        , top    = @opt.get("size.popup.top").get()
+        , width  = @opt.get("size.popup.width").get()
+        , height = @opt.get("size.popup.height").get()
 
       openPopup({
         left:   size.left + (size.width  * left) - (width  * left),

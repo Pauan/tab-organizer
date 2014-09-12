@@ -4,7 +4,7 @@
   { id: "lib:util/event" },
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
-  { id: "lib:extension/main" },
+  { id: "lib:extension/server" },
 ])
 
 
@@ -86,7 +86,9 @@ function make(db_name, port_name, defs) {
     })
   })
 
-  return get
+  return {
+    get: get
+  }
 }
 
 

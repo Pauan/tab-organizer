@@ -1,6 +1,6 @@
 @ = require([
   { id: "sjs:object" },
-  { id: "lib:extension/main" }
+  { id: "lib:extension/server" }
 ])
 
 exports.init = function () {

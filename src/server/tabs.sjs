@@ -4,7 +4,7 @@
   { id: "sjs:object" },
   { id: "lib:util/util" },
   { id: "lib:util/event" },
-  { id: "lib:extension/main" }
+  { id: "lib:extension/server" }
 ])
 
 

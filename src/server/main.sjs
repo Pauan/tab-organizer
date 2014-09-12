@@ -1,5 +1,4 @@
-require.hubs.addDefault(["lib:", "/"])
-require.hubs.addDefault(["mho:", "/"])
+require("../hubs")
 
 @ = require([
   { id: "./tabs", name: "tabs" },

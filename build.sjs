@@ -175,7 +175,8 @@ var opts = @dashdash.parse({
 var sjsPath = @path.relative(".", @path.join(@path.dirname(@executable), "stratified-aot.js"))
 
 var files = {
-  "./src/server/main.sjs": "./build/js/main.js"
+  "./src/server/main.sjs":         "./build/js/main.js",
+  "./src/client/options/main.sjs": "./build/js/options.js"
 }
 
 mkdir("./build/js")
