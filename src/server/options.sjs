@@ -5,11 +5,8 @@
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
   { id: "lib:extension/server" },
+  { id: "./migrate", name: "migrate" }
 ])
-
-
-// TODO this is hacky
-var init = []
 
 
 function make(db_name, port_name, defs) {
@@ -20,70 +17,67 @@ function make(db_name, port_name, defs) {
     return vars ..@get(key)
   }
 
-  // TODO this is hacky
-  init.push(function () {
-    var db_opt = @db.get(db_name, {})
+  var db_opt = @migrate.db.get(db_name, {})
 
-    function makeVar(key, value) {
-      // ObservableVar only emits changes when the current value is different from the new value
-      // TODO I should probably use my own custom version of ObservableVars, to get the exact behavior I want
-      vars ..@setNew(key, @Observer(value))
+  function makeVar(key, value) {
+    // ObservableVar only emits changes when the current value is different from the new value
+    // TODO I should probably use my own custom version of ObservableVars, to get the exact behavior I want
+    vars ..@setNew(key, @Observer(value))
 
-      opts ..@setNew(key, value)
+    opts ..@setNew(key, value)
 
-      get(key) ..@listen(function (value) {
-        opts ..@setUnique(key, value)
+    get(key) ..@listen(function (value) {
+      opts ..@setUnique(key, value)
 
-        if (value === defs ..@get(key)) {
-          db_opt ..@delete(key)
-        } else {
-          // TODO library function for this, but can't use util/set because the key may or may not exist
-          db_opt[key] = value
-        }
-
-        @db.set(db_name, db_opt)
-
-        @connection.send(port_name, {
-          type: "set",
-          key: key,
-          value: value
-        })
-      })
-    }
-
-    db_opt ..@eachKeys(function (key, value) {
-      makeVar(key, value)
-    })
-
-    defs ..@eachKeys(function (key, value) {
-      // TODO object/has
-      if (!(key in vars)) {
-        makeVar(key, value)
-      }
-    })
-
-    @connection.on.connect(port_name) ..@listen(function (connection) {
-      connection.send({
-        options: opts,
-        defaults: defs
-      })
-    })
-
-    @connection.on.message(port_name) ..@listen(function (message) {
-      if (message.type === "set") {
-        var key   = message ..@get("key")
-        var value = message ..@get("value")
-        get(key).set(value)
-
-      } else if (message.type === "reset") {
-        defs ..@eachKeys(function (key, value) {
-          get(key).set(value)
-        })
-
+      if (value === defs ..@get(key)) {
+        db_opt ..@delete(key)
       } else {
-        @assert.fail()
+        // TODO library function for this, but can't use util/set because the key may or may not exist
+        db_opt[key] = value
       }
+
+      @migrate.db.set(db_name, db_opt)
+
+      @connection.send(port_name, {
+        type: "set",
+        key: key,
+        value: value
+      })
     })
+  }
+
+  db_opt ..@eachKeys(function (key, value) {
+    makeVar(key, value)
+  })
+
+  defs ..@eachKeys(function (key, value) {
+    // TODO object/has
+    if (!(key in vars)) {
+      makeVar(key, value)
+    }
+  })
+
+  @connection.on.connect(port_name) ..@listen(function (connection) {
+    connection.send({
+      options: opts,
+      defaults: defs
+    })
+  })
+
+  @connection.on.message(port_name) ..@listen(function (message) {
+    if (message.type === "set") {
+      var key   = message ..@get("key")
+      var value = message ..@get("value")
+      get(key).set(value)
+
+    } else if (message.type === "reset") {
+      defs ..@eachKeys(function (key, value) {
+        get(key).set(value)
+      })
+
+    } else {
+      @assert.fail()
+    }
   })
 
   return {
@@ -149,12 +143,4 @@ exports.cache = make("options.cache", "cache", {
 })
 
 
-// This is needed so that migration can finish before loading up the options/cache
-exports.init = function () {
-  // TODO this is hacky
-  init ..@each(function (f) {
-    f()
-  })
-
-  console.info("options: finished")
-}
+console.info("options: finished")

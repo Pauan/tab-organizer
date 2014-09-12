@@ -3,8 +3,7 @@
   { id: "lib:extension/server" }
 ])
 
-exports.init = function () {
-  @button.setTooltip(@manifest ..@get("name"))
 
-  console.info("button: finished")
-}
+@button.setTooltip(@manifest ..@get("name"))
+
+console.info("button: finished")

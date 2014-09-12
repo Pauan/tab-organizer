@@ -4,8 +4,4 @@ require("../../hubs")
   { id: "../options" }
 ])
 
-exports.init = function () {
-  console.info("main: finished")
-}
-
-exports.init()
+console.info("main: finished")

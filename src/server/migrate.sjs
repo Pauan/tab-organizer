@@ -126,7 +126,9 @@ exports.run = function (name) {
   return (migrators ..@get(name))()
 }
 
-exports.init = function () {
+exports.db = @db
+
+exports.migrate = function () {
   //@db["delete"]("version")
 
   if (isNewVersion()) {
@@ -145,3 +147,5 @@ exports.init = function () {
 
   console.info("migrate: finished")
 }
+
+exports.migrate()
