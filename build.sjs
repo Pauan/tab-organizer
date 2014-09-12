@@ -141,7 +141,8 @@ var compile = @exclusive(function (files, opts) {
   }
 })
 
-function watchDir(dir, files, opts) {
+function watch(dir, files, opts) {
+  // TODO standard library function for this
   getAllDirs(dir) ..@each(function (path) {
     console.log("#{Date.now()} Watching folder #{path}")
     // TODO use function/exclusive here, rather than in compile?
@@ -149,15 +150,6 @@ function watchDir(dir, files, opts) {
       compile(files, opts)
     })
   })
-}
-
-// TODO standard library function for this
-function watch(files, opts) {
-  files ..@ownPropertyPairs ..@each(function ([from, to]) {
-    watchDir(@path.dirname(from), files, opts)
-  })
-
-  compile(files, opts)
 }
 
 
@@ -186,8 +178,9 @@ mkdir("./build/lib")
 console.log("#{Date.now()} Copied \"#{sjsPath}\"")
 
 if (opts.watch) {
-  watchDir("./lib", files, { minify: false })
-  watch(files, { minify: false })
+  watch("./lib", files, { minify: false })
+  watch("./src", files, { minify: false })
+  compile(files, { minify: false })
 } else {
   compile(files, { minify: true })
 }

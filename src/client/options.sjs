@@ -1,4 +1,5 @@
 @ = require([
+  { id: "sjs:object" },
   { id: "lib:extension/client" },
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
@@ -15,7 +16,7 @@ function make(port_name) {
     return opts ..@get(key)
   }
 
-  o.options ..@eachKey(function (key, value) {
+  o.options ..@eachKeys(function (key, value) {
     opts ..@setNew(key, @Observer(value))
 
     get(key) ..@listen(function (value) {
