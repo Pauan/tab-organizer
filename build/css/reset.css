@@ -1,0 +1,95 @@
+@charset "UTF-8";
+
+* {
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  padding: 0px;
+  margin: 0px;
+  background-color: transparent;
+
+  /* TODO I wish there was a way to get rid of these two */
+  border-width: 0px;
+  border-color: transparent;
+  border-style: solid;
+
+  outline-width: 0px;
+  outline-style: solid;
+
+  flex-grow: 0;
+  flex-shrink: 0; /* 1 */
+  flex-basis: auto; /* TODO try out other stuff like min-content once it becomes available */
+
+  position: relative;
+
+  background-size: 100% 100%;
+
+  cursor: inherit;
+
+  vertical-align: middle; /* TODO I can probably get rid of this */
+}
+
+/* TODO test if this is necessary or not */
+[hidden] {
+  display: none !important;
+}
+
+/* Overwriting Webkit's silly user agent style */
+input, textarea, keygen, select, button {
+  font-family: inherit;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  cursor: default;
+}
+
+table {
+  border-spacing: 0px;
+}
+
+hr {
+  height: 1px;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  background-color: hsla(0, 0%, 0%, 0.05);
+  /*background-color: rgb(238, 238, 238);*/
+}
+
+button {
+  outline: none;
+  cursor: pointer;
+}
+
+label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+select {
+  outline: none;
+}
+
+input[type="search"] {
+  cursor: auto;
+  border: none;
+  outline: none;
+}
+
+input[type="text"] {
+  cursor: auto;
+  /* TODO this is gross */
+  -webkit-appearance: textfield;
+}
+
+/* http://css-tricks.com/webkit-html5-search-inputs/ */
+/* TODO this is gross */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  display: none;
+}

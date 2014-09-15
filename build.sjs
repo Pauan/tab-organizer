@@ -119,7 +119,7 @@ var compile = @exclusive(function (files, opts) {
             "lib:": "lib/"
           },
           compile: true,
-          sources: [ from, "sjs:xbrowser/dom" ] // TODO get rid of this dependency
+          sources: [ from, "sjs:xbrowser/dom", "sjs:sys" ] // TODO get rid of this dependency
         })
 
         output = output ..@join("\n")
