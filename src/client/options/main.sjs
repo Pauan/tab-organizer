@@ -15,6 +15,10 @@ function opt(s) {
   }
 }
 
+function toNum(x) {
+  return +x
+}
+
 var preview_style = @dom.CSS(`
   border-width: 1px;
   border-radius: 5px;
@@ -60,6 +64,43 @@ document.body ..@dom.appendContent(@options.top([
     ]) ..@dom.horizontal,
 
     @dom.Iframe(null, { src: "panel.html" }) ..preview_style
+  ]),
+
+  @options.category("Groups", [
+    @options.header("Display groups:"),
+    @options.indent([
+      @options.radio(opt("groups.layout") ..@extend({
+        items: [
+          { name: "Vertically",   value: "vertical"   },
+          { name: "Horizontally", value: "horizontal" },
+          { name: "In a grid",    value: "grid"       }
+        ]
+      })),
+
+      @options.vertical_space("2px"),
+
+      @options.indent([
+        @dom.Div([
+          @options.textbox(opt("groups.layout.grid.column") ..@extend({
+            width: "2em",
+            type: "number",
+            set: toNum
+          })),
+
+          "columns"
+        ]) ..@dom.horizontal,
+
+        @dom.Div([
+          @options.textbox(opt("groups.layout.grid.row") ..@extend({
+            width: "2em",
+            type: "number",
+            set: toNum
+          })),
+
+          "rows"
+        ]) ..@dom.horizontal
+      ])
+    ])
   ])
 ]))
 
