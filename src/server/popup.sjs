@@ -94,9 +94,9 @@ function getSize() {
   }
 }
 
-// TODO test this
-@connection.on.command("get-monitor-size", function () {
+@connection.on.command("check-monitor-size", function () {
   checkMonitor()
+  return null
 })
 
 

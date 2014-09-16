@@ -10,6 +10,10 @@ require("../../hubs")
   { id: "../options" }
 ])
 
+
+var container_width = 512 // 1024 / 2
+
+
 function opt(s) {
   return {
     observer: @opt.get(s),
@@ -27,6 +31,7 @@ function copy(to, from, s) {
   to ..@setNew(s, from ..@get(s))
 }
 
+
 var preview_style = @dom.CSS(`
   border-width: 1px;
   border-radius: 5px;
@@ -36,6 +41,97 @@ var preview_style = @dom.CSS(`
   width: 100%;
   height: 200px;
 `)
+
+var close_button_style = @dom.CSS(`
+  width: 14px;
+  height: 14px;
+`)
+
+var popup_container_style = @dom.CSS(`
+  width: ${container_width}px;
+`)
+
+var popup_inner_container_style = @dom.CSS(`
+  width: 100%;
+  height: ${(screen.height / screen.width) * container_width}px;
+  border-width: 1px;
+  border-color: black;
+  background-color: black;
+  margin-top: 5px;
+  margin-bottom: 7px;
+`)
+
+// e.styles(dom.panel)
+var popup_vertical_line_style = @dom.CSS(`
+  left: 50%;
+  top: 0px;
+  width: 1px;
+  height: 100%;
+  background-color: red;
+`)
+
+// e.styles(dom.panel)
+var popup_horizontal_line_style = @dom.CSS(`
+  left: 0px;
+  top: 50%;
+  width: 100%;
+  height: 1px;
+  background-color: red
+`)
+
+var popup_popup_table_style = @dom.CSS(`
+  width: 100%;
+  height: 100%;
+`)
+
+var popup_popup_text_style = @dom.CSS(`
+  text-align: center;
+  vertical-align: middle;
+`)
+
+// e.styles(dom.panel)
+var popup_width_container_style = @dom.CSS(`
+  left: 50%;
+  bottom: 2px;
+`)
+
+var popup_text_style = @dom.CSS(`
+  font-weight: bold;
+  font-size: 12px;
+  text-shadow: ${@dom.textStroke("white", "1px")};
+`)
+
+// popup_text_style
+var popup_width_text_style = @dom.CSS(`
+  left: -50%;
+`)
+
+// e.styles(dom.panel)
+var popup_height_container_style = @dom.CSS(`
+  top: 50%;
+  right: 3px;
+`)
+
+// popup_text_style
+var popup_height_text_style = @dom.CSS(`
+  top: calc(-0.5em - 1px);
+`)
+
+var popup_control_table_style = @dom.CSS(`
+  margin-left: auto;
+  margin-right: auto;
+`)
+
+// e.styles(dom.stretch)
+var popup_control_text_style = @dom.CSS(`
+  white-space: pre; /* TODO hacky */
+  margin-right: 2px;
+`)
+
+var popup_control_cell_style = @dom.CSS(`
+  text-align: right;
+`)
+
 
 document.body ..@dom.appendContent(@options.top([
   @options.category("Theme", [
@@ -134,7 +230,7 @@ document.body ..@dom.appendContent(@options.top([
     @dom.Div([
       "Show the ",
 
-      @dom.Img(null, { src: "data/images/button-close.png", alt: "close" }),
+      @dom.Img(null, { src: "data/images/button-close.png", alt: "close" }) ..close_button_style,
 
       " button on the ",
 
@@ -176,6 +272,86 @@ document.body ..@dom.appendContent(@options.top([
   ]),
 
   @options.category("Popup", [
+    @options.header("Open the popup with:"),
+    @options.indent([
+      @dom.Div([
+        @options.checkbox(opt("popup.hotkey.ctrl") ..@extend({
+          text: "Ctrl / ⌘"
+        })),
+
+        @options.horizontal_space("15px"),
+
+        @options.checkbox(opt("popup.hotkey.shift") ..@extend({
+          text: "Shift"
+        })),
+
+        @options.horizontal_space("12px"),
+
+        @options.checkbox(opt("popup.hotkey.alt") ..@extend({
+          text: "Alt"
+        })),
+
+        @options.horizontal_space("10px"),
+
+        @options.textbox(opt("popup.hotkey.letter") ..@extend({
+          width: "2em",
+          set: function (x) {
+            return x ..@upperCase()
+          }
+        }))
+      ]) ..@dom.horizontal
+    ]),
+
+    /*@options.separator(),
+
+    dom.box(function (e) {
+      e.styles(dom.horiz)
+
+      util.options.list(e, "popup.switch.action", function (o) {
+        o.item("Minimize", "minimize")
+        o.item("Close", "close")
+        o.item("Show", "show")
+      })
+
+      dom.box(function (e) {
+        e.text(" the popup ")
+      }).move(e)
+
+      util.options.list(e, "popup.close.when", function (o) {
+        o.item("when switching tabs", "switch-tab")
+        o.item("when switching windows", "switch-window")
+        o.item("when losing focus", "lose-focus")
+      })
+    }).move(e)*/
+
+    /*util.options.separator(e)
+
+    util.options.checkbox(e, "popup.close.escape", "Use the Escape key to close the popup")*/
+
+    @options.separator(),
+
+    @dom.Div([
+      @dom.Div([
+        "Open as a... ",
+
+        @options.list(opt("popup.type") ..@extend({
+          items: [
+            { name: "bubble",  value: "bubble"  },
+            { name: "sidebar", value: "sidebar" },
+            { name: "popup",   value: "popup"   },
+            { name: "tab",     value: "tab"     }
+          ]
+        })),
+
+        @dom.Div() ..@dom.stretch,
+
+        @options.button("Check monitor size", function () {
+          @connection.command("check-monitor-size", null)
+          alert("Success!")
+        // TODO use @CSS
+        }) ..@dom.Style("height: 20px")
+      ]) ..@dom.horizontal
+    ]) ..popup_container_style
   ]),
 
   @options.category("Counter", [

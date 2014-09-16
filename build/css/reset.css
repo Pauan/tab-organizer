@@ -63,12 +63,6 @@ button {
   cursor: pointer;
 }
 
-label {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
 select {
   outline: none;
 }
