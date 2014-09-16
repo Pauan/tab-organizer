@@ -57,11 +57,11 @@ function make(db_name, port_name, defs) {
     }
   })
 
-  @connection.on.connect(port_name) ..@listen(function (connection) {
-    connection.send({
+  @connection.on.connect(port_name, function () {
+    return {
       options: opts,
       defaults: defs
-    })
+    }
   })
 
   @connection.on.message(port_name) ..@listen(function (message) {

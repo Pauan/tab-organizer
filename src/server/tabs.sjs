@@ -97,13 +97,12 @@ function addWindow(window_new) {
     id: window_new.id,
     time: {
       created: created
-    }
+    },
+    children: []
   }
 
   windows_id ..@setNew(window.id, window)
   windows_db ..@pushNew(window)
-
-  window.children = []
 
   window_new.tabs ..@each(function (tab_new) {
     addTab(tab_new)
@@ -342,6 +341,19 @@ windows_db ..@each(function (window_old) {
   }
 })
 
+// Migrate old window titles to the new system
+// TODO hacky that this is in here, rather than in migrate.sjs
+if (@migrate.db.has("window.titles")) {
+  @zip(@windows.getCurrent(), @migrate.db.get("window.titles")) ..@each(function ([window, title]) {
+    var window_new = windows_id ..@get(window.id)
+    window_new.name = title
+    save()
+  })
+
+  // TODO
+  @migrate.db["delete"]("window.titles")
+}
+
 // This probably isn't necessary, but I like it just in case
 save()
 
@@ -406,10 +418,10 @@ exports.tabs.on.close = @Emitter()
 })
 
 
-@connection.on.connect("tabs") ..@listen(function (connection) {
-  connection.send({
+@connection.on.connect("tabs", function () {
+  return {
     windows: windows_db
-  })
+  }
 })
 
 

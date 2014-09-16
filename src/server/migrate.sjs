@@ -1,13 +1,14 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:object" },
+  { id: "sjs:sequence" },
   { id: "lib:util/util" },
   { id: "lib:extension/server" }
 ])
 
 
 // TODO make this const ?
-exports.version = @manifest ..@get("version") + "b7"
+exports.version = @manifest ..@get("version") + "b8"
 
 
 function isNewVersion() {
@@ -45,7 +46,7 @@ function convertTab(tab) {
 
   var o    = {}
   o.time   = {}
-  o.groups = tab.groups // TODO migrate the old groups which only used 1 to indicate the group existed, migrate them to use the new system which uses timestamps
+  o.groups = tab.groups
   o.title  = tab.title
 
   set(o, tab, "created")
@@ -59,39 +60,102 @@ function convertTab(tab) {
 
 var migrators = {}
 
-function using_db(name, def, f) {
-  var o = @db.get(name, def)
-  var x = f(o)
-  @db.set(name, o)
-  return x
-}
-
-function make_migrator(name, def, f) {
+function set_migrator(name, f) {
   migrators[name] = function () {
     //if (isNewVersion()) {
-    using_db(name, def, f)
+    f()
     console.info("migrate/run: finished #{name}")
     //migrators[name] = function () {}
     //}
   }
 }
 
+function make_setter(name, f) {
+  set_migrator(name, function () {
+    if (@db.has(name)) {
+      var o = @db.get(name)
+      f(o)
+      @db.set(name, o)
+    }
+  })
+}
 
-make_migrator("current.tabs", {}, function (tabs) {
+function make_deleter(name, f) {
+  set_migrator(name, function () {
+    if (@db.has(name)) {
+      var o = @db.get(name)
+      f(o)
+      // TODO
+      @db["delete"](name)
+    }
+  })
+}
+
+
+make_deleter("current.tabs", function (tabs) {
+  var windows_db = @db.get("current.windows.array", [])
+
+  var groups = {}
+
+  function addToGroup(name, time, tab, url) {
+    if (time === 1 || time === null) {
+      time = @timestamp()
+    }
+
+    var group = groups ..@get_or_set(name, function () {
+      var o = {
+        id: @timestamp(),
+        time: {
+          created: time
+        },
+        children: []
+      }
+
+      if (name !== "") {
+        o.name = name
+      }
+
+      windows_db.push(o)
+      return o
+    })
+
+    group.time.created = Math.min(group.time.created, time)
+
+    group.children.push({
+      id: @timestamp(),
+      url: url,
+      favicon: "chrome://favicon/#{url}", // TODO hacky and code duplication with lib:extension
+      time: tab.time,
+      title: tab.title
+    })
+
+    @db.set("current.windows.array", windows_db)
+  }
+
+
   tabs ..@eachKeys(function (url, tab) {
     if (tab.url != null && url !== tab.url) {
-      // TODO utility for these ?
-      tabs[tab.url] = convertTab(tab)
-      delete tabs[url]
-    } else {
-      // TODO utility for this ?
-      tabs[url] = convertTab(tab)
+      url = tab.url
+    }
+
+    tab = convertTab(tab)
+
+    var seen = false
+
+    tab.groups ..@eachKeys(function (key, value) {
+      seen = true
+
+      addToGroup(key, value, tab, url)
+    })
+
+    if (!seen) {
+      addToGroup("", null, tab, url)
     }
   })
 })
 
 
-make_migrator("options.user", {}, function (opts) {
+make_setter("options.user", function (opts) {
   // TODO utility for these ?
   delete opts["tab.sort.type"]
   delete opts["tab.show.in-chrome"]
@@ -104,7 +168,7 @@ make_migrator("options.user", {}, function (opts) {
 })
 
 
-make_migrator("options.cache", {}, function (cache) {
+make_setter("options.cache", function (cache) {
   cache ..move("global.scroll", "popup.scroll")
 
   if (cache ..@has("screen.available-size")) {
@@ -149,3 +213,9 @@ exports.migrate = function () {
 }
 
 exports.migrate()
+
+
+// TODO it's hacky that this is here
+@connection.on.command("db.export", function () {
+  return @db.getAll()
+})

@@ -178,9 +178,10 @@ mkdir("./build/lib")
 console.log("#{Date.now()} Copied \"#{sjsPath}\"")
 
 if (opts.watch) {
+  compile(files, { minify: false })
   watch("./lib", files, { minify: false })
   watch("./src", files, { minify: false })
-  compile(files, { minify: false })
+  console.log("#{Date.now()} Waiting for changes...")
 } else {
   compile(files, { minify: true })
 }
