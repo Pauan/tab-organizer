@@ -12,8 +12,8 @@
   border-color: transparent;
   border-style: solid;
 
-  outline-width: 0px;
-  outline-style: solid;
+  /*outline-width: 0px;
+  outline-style: solid;*/
 
   flex-grow: 0;
   flex-shrink: 0; /* 1 */
@@ -43,6 +43,7 @@ html, body {
 }
 
 body {
+  -webkit-user-select: none; /* TODO this is hacky, use JS instead ? */
   cursor: default;
 }
 
@@ -58,19 +59,28 @@ hr {
   /*background-color: rgb(238, 238, 238);*/
 }
 
+/* TODO should this apply to all `a` or only `a[href]` ?*/
+a[href] {
+  cursor: auto;
+}
+
 button {
-  outline: none;
+  /*outline: none;*/
   cursor: pointer;
 }
 
-select {
+/*select {
   outline: none;
+}*/
+
+input[type="radio"], input[type="checkbox"] {
+  top: 1px;
 }
 
 input[type="search"] {
   cursor: auto;
   border: none;
-  outline: none;
+  /*outline: none;*/
 }
 
 input[type="text"] {
