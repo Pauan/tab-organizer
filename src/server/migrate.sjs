@@ -160,6 +160,12 @@ make_setter("options.user", function (opts) {
   delete opts["tab.sort.type"]
   delete opts["tab.show.in-chrome"]
   delete opts["groups.move-with-window"]
+
+  delete opts["popup.hotkey.ctrl"]
+  delete opts["popup.hotkey.shift"]
+  delete opts["popup.hotkey.alt"]
+  delete opts["popup.hotkey.letter"]
+
   opts ..moveValue("group.sort.type", "window", "group")
   opts ..moveValue("group.sort.type", "domain", "url")
   opts ..moveValue("group.sort.type", "loaded", "created")

@@ -103,11 +103,6 @@ exports.opt = make("options.user", "options", {
 
   "popup.type"                : "bubble",
 
-  "popup.hotkey.ctrl"         : true,
-  "popup.hotkey.shift"        : true,
-  "popup.hotkey.alt"          : false,
-  "popup.hotkey.letter"       : "E",
-
   "popup.close.escape"        : false,
   "popup.switch.action"       : "minimize",
   "popup.close.when"          : "switch-tab", // "manual",
