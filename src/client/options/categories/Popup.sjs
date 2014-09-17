@@ -380,7 +380,18 @@ exports.top = function () {
         // TODO hacky, but needed to work around a security restriction in Chrome
         elem.addEventListener("click", function (e) {
           e.preventDefault()
-          chrome.tabs.create({ url: keyboard_shortcut_url })
+
+          // TODO lib:extension module for handling async stuff like this ?
+          chrome.tabs.getCurrent(function (tab) {
+            @assert.ok(tab != null)
+
+            chrome.tabs.create({
+              url: keyboard_shortcut_url,
+              windowId: tab.windowId,
+              openerTabId: tab.id,
+              index: tab.index + 1
+            })
+          })
         }, true)
       }),
 
