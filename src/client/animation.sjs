@@ -15,12 +15,12 @@ exports.create = function (o) {
   return o
 }
 
-exports.startAt = function (elem, info) {
+function tweener(f, elem, info) {
   @assert.ok(info.css ..@has("clearProps"))
 
   if (canAnimate.get()) {
     waitfor () {
-      TweenLite.from(elem, info.duration / 1000, {
+      f(elem, info.duration / 1000, {
         css: info.css,
         onComplete: function () {
           resume()
@@ -30,20 +30,12 @@ exports.startAt = function (elem, info) {
   }
 }
 
-// TODO code duplication
-exports.endAt = function (elem, info) {
-  @assert.ok(info.css ..@has("clearProps"))
+exports.startAt = function (elem, info) {
+  return tweener(TweenLite.from, elem, info)
+}
 
-  if (canAnimate.get()) {
-    waitfor () {
-      TweenLite.to(elem, info.duration / 1000, {
-        css: info.css,
-        onComplete: function () {
-          resume()
-        }
-      })
-    }
-  }
+exports.endAt = function (elem, info) {
+  return tweener(TweenLite.to, elem, info)
 }
 
 exports.hiddenSlide = function (o) {

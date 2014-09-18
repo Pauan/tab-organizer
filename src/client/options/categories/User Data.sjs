@@ -8,8 +8,8 @@
 ])
 
 exports.top = function () {
-  return @options.category("User Data", [
-    @Div([
+  return @options.category("USER DATA", [
+    @options.horizontal([
       @options.button("Export", function () {
         var s = @connection.command("db.export", null)
 
@@ -53,6 +53,6 @@ exports.top = function () {
           @top_options.cache.reset()
         }
       })
-    ]) ..@horizontal
+    ])
   ])
 }

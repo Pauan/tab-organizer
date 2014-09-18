@@ -6,9 +6,8 @@
 ])
 
 var preview_style = @CSS(`
-  border-width: 1px;
+  border: 1px solid black;
   border-radius: 5px;
-  border-color: black;
   margin-top: 0.4em;
   margin-bottom: 7px;
   width: 100%;
@@ -16,14 +15,14 @@ var preview_style = @CSS(`
 `)
 
 exports.top = function () {
-  return @options.category("Theme", [
+  return @options.category("THEME", [
     @options.checkbox(@opt("theme.animation") ..@extend({
       text: "Animation enabled"
     })),
 
     @options.separator(),
 
-    @Div([
+    @options.horizontal([
       "Color... ",
 
       @options.list(@opt("theme.color") ..@extend({
@@ -47,7 +46,7 @@ exports.top = function () {
           ]
         }]
       }))
-    ]) ..@horizontal,
+    ]),
 
     @Iframe(null, { src: "panel.html" }) ..preview_style
   ])

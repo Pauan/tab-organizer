@@ -1,7 +1,6 @@
 require("../../hubs")
 
 @ = require([
-  { id: "lib:util/dom", name: "dom" },
   { id: "lib:extension/client" },
 
   { id: "./categories/Counter", name: "counter" },
@@ -13,14 +12,14 @@ require("../../hubs")
 ])
 
 
-document.body ..@dom.appendContent(@options.top([
+@options.top(document.body, [
   @theme.top(),
   @groups.top(),
   @tabs.top(),
   @popup.top(),
   @counter.top(),
   @user_data.top()
-]))
+])
 
 
 console.info("main: finished")

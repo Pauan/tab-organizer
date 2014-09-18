@@ -11,8 +11,8 @@ var close_button_style = @CSS(`
 `)
 
 exports.top = function () {
-  return @options.category("Tabs", [
-    @Div([
+  return @options.category("TABS", [
+    @options.horizontal([
       "Sort tabs by... ",
 
       @options.list(@opt("group.sort.type") ..@extend({
@@ -27,11 +27,11 @@ exports.top = function () {
           { name: "Name",    value: "name"    }
         ]
       }))
-    ]) ..@horizontal,
+    ]),
 
     @options.separator(),
 
-    @Div([
+    @options.horizontal([
       "Show the ",
 
       @Img(null, { src: "data/images/button-close.png", alt: "close" }) ..close_button_style,
@@ -54,7 +54,7 @@ exports.top = function () {
           { name: "of every tab",   value: "every" }
         ]
       }))
-    ]) ..@horizontal,
+    ]),
 
     @options.separator(),
 

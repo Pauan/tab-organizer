@@ -29,8 +29,7 @@ var popup_monitor_button_style = @CSS(`
 var popup_inner_container_style = @CSS(`
   width: 100%;
   height: ${(screen.height / screen.width) * container_width}px;
-  border-width: 1px;
-  border-color: black;
+  border: 1px solid black;
   background-color: black;
   margin-top: 5px;
   margin-bottom: 7px;
@@ -53,8 +52,7 @@ var popup_horizontal_line_style = @CSS(`
 `)
 
 var popup_popup_style = @CSS(`
-  border-width: 1px;
-  border-color: ${changes.popupBorder};
+  border: 1px solid ${changes.popupBorder};
   background-color: ${changes.popupBackground};
 `)
 
@@ -370,8 +368,8 @@ exports.top = function () {
   // TODO can I rely on this URL not changing ?
   var keyboard_shortcut_url = "chrome://extensions/configureCommands"
 
-  return @options.category("Popup", [
-    @Div([
+  return @options.category("POPUP", [
+    @options.horizontal([
       "Configure a keyboard shortcut for opening the popup ",
 
       // TODO retraction
@@ -393,7 +391,7 @@ exports.top = function () {
             })
           })
         }, true)
-      }),
+      })
 
       /*@options.checkbox(@opt("popup.hotkey.ctrl") ..@extend({
         text: "Ctrl / ⌘"
@@ -419,7 +417,7 @@ exports.top = function () {
           return x ..@upperCase()
         }
       }))*/
-    ]) ..@horizontal,
+    ]),
 
     /*@options.separator(),
 
@@ -450,7 +448,7 @@ exports.top = function () {
     @options.separator(),
 
     @Div([
-      @Div([
+      @options.horizontal([
         "Open as a... ",
 
         @options.list(@opt("popup.type") ..@extend({
@@ -468,7 +466,7 @@ exports.top = function () {
           @connection.command("check-monitor-size", null)
           alert("Success!")
         }) ..popup_monitor_button_style
-      ]) ..@horizontal,
+      ]),
 
       popup_screen(),
 

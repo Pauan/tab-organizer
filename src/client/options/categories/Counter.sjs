@@ -1,13 +1,12 @@
 @ = require([
   { id: "sjs:object" },
   { id: "lib:extension/client" },
-  { id: "lib:util/dom" },
   { id: "../util" }
 ])
 
 exports.top = function () {
-  return @options.category("Counter", [
-    @Div([
+  return @options.category("COUNTER", [
+    @options.horizontal([
       @options.checkbox(@opt("counter.enabled") ..@extend({
         text: "Display a counter that shows how many tabs you have"
       })),
@@ -20,6 +19,6 @@ exports.top = function () {
           { name: "in Chrome", value: "in-chrome" }
         ]
       }))
-    ]) ..@horizontal
+    ])
   ])
 }

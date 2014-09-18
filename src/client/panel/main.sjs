@@ -1,137 +1,180 @@
 require("../../hubs")
 
 @ = require([
-  { id: "sjs:object" },
-  { id: "lib:util/dom" },
-  { id: "../animation", name: "animation" }
+  { id: "./tab", name: "tab" },
+  { id: "./group", name: "group" },
+
+  { id: "sjs:sequence" },
+  { id: "../animation", name: "animation" },
+  { id: "lib:util/dom" }
 ])
 
-
-var top = @CSS(`
-
-`)
-
-var tab_height = 20
-
-var style = @CSS(`
-  {
-    height: ${tab_height}px;
-    border: 1px solid transparent;
-    overflow: hidden;
-    padding: 1px 2px;
-    border-radius: 3px;
-
-    transform-origin: 20px 50%;
-    transform: translate3d(0, 0, 0); /* TODO this is a hack to make animation smoother, should replace with something else */
+var animateGroup = @Mechanism(function (elem) {
+  while (true) {
+    elem ..@animation.startAt(@group.hidden_style)
+    elem ..@animation.endAt(@group.hidden_style)
   }
-
-  &:hover {
-    border-color: black;
-    background-color: red;
-  }
-`)
-
-var style_hidden = @animation.create({
-  duration: 1000,
-  css: @animation.hiddenSlide(
-  {
-    rotationX: "90deg", // 120deg
-    rotationY: "90deg", // 20deg
-
-    //transformPerspective: 5000,
-    //transformOrigin: "0% 0%"
-    //rotationZ: "1deg",
-    //borderRadius: "#{tab_height}px",
-    //scaleY: "0",
-    //marginLeft: "#{tab_height}px"
-  }
-  )
 })
 
-/*var animation_id = 0
-
-function Animation(info) {
-  var id = "__animation_id_#{++animation_id}__"
-  console.log(id, info)
-
-  document.body ..@appendContent(@GlobalCSS("
-    @-webkit-keyframes #{id} {
-      #{info.parts[0]}
-    }
-  "))
-
-  return {
-    _id: id,
-    duration: "5s"
+var animateTab = @Mechanism(function (elem) {
+  while (true) {
+    elem ..@animation.startAt(@tab.hidden_style)
+    elem ..@animation.endAt(@tab.hidden_style)
   }
+})
+
+var animateTabBack = @Mechanism(function (elem) {
+  while (true) {
+    elem ..@animation.endAt(@tab.hidden_style)
+    elem ..@animation.startAt(@tab.hidden_style)
+  }
+})
+
+function tab(url, title) {
+  return @tab.create({ title: url, url: url, favicon: "chrome://favicon/#{url}" })
 }
-
-var style_hidden = Animation(`
-  from {
-    height: 0px;
-  }
-`)
-
-function animate_from(elem, animation) {
-  elem.style["-webkit-animation-name"] = ""
-  getComputedStyle(elem).left
-
-  elem.style["-webkit-animation-duration"] = animation.duration
-  elem.style["-webkit-animation-direction"] = "reverse"
-  elem.style["-webkit-animation-fill-mode"] = "both"
-  elem.style["-webkit-animation-name"] = animation._id
-
-  waitfor () {
-    function done(e) {
-      if (e.animationName === animation._id) {
-        elem.removeEventListener("webkitAnimationEnd", done, true)
-        resume()
-      }
-    }
-    elem.addEventListener("webkitAnimationEnd", done, true)
-  }
-}
-
-function animate_to(elem, animation) {
-  elem.style["-webkit-animation-name"] = ""
-  getComputedStyle(elem).left
-
-  elem.style["-webkit-animation-duration"] = animation.duration
-  elem.style["-webkit-animation-direction"] = "normal"
-  elem.style["-webkit-animation-fill-mode"] = "both"
-  elem.style["-webkit-animation-name"] = animation._id
-
-  waitfor () {
-    function done(e) {
-      if (e.animationName === animation._id) {
-        elem.removeEventListener("webkitAnimationEnd", done, true)
-        resume()
-      }
-    }
-    elem.addEventListener("webkitAnimationEnd", done, true)
-  }
-}*/
 
 var tabs = [
-  @Div("YUPYUPYUPYUPYUP") ..style,
-
-  @Div("HIYA THERE YOU GUYS") ..style ..@Mechanism(function (elem) {
-    while (true) {
-      elem ..@animation.startAt(style_hidden)
-      elem ..@animation.endAt(style_hidden)
-    }
-  }),
-
-  @Div("UHUHUHU YES VERY NICE") ..style ..@Mechanism(function (elem) {
-    while (true) {
-      elem ..@animation.endAt(style_hidden)
-      elem ..@animation.startAt(style_hidden)
-    }
-  }),
-
-  @Div("NONONONONONONO") ..style
+  tab("http://www.google.com/"),
+  tab("http://www.yahoo.com/"),
+  tab("http://www.amazon.com/"),
+  tab("http://www.about.com/"),
+  tab("http://www.bartleby.com/"),
+  tab("http://groups.google.com/"),
+  tab("http://news.google.com/"),
+  tab("http://www.cnn.com/"),
+  tab("http://www.ebay.com/"),
+  tab("http://www.download.com/"),
+  tab("http://www.craigslist.org/"),
+  tab("http://www.reference.com/"),
+  tab("http://www.wikipedia.org/"),
+  tab("http://www.beliefnet.com/"),
+  tab("http://www.anywho.com/"),
+  tab("http://www.weather.com/"),
+  tab("http://www.search.com/"),
+  tab("http://www.hotmail.com/"),
+  tab("http://www.nih.gov/"),
+  tab("http://www.cnet.com/"),
+  tab("http://www.lrb.co.uk/"),
+  tab("http://www.refdesk.com/"),
+  tab("http://www.mayoclinic.com/"),
+  tab("http://www.guidestar.org/"),
+  tab("http://www.firstgov.gov/"),
+  tab("http://www.bbc.com/"),
+  tab("http://www.imdb.com/"),
+  tab("http://www.expedia.com/"),
+  tab("http://www.slate.com/"),
+  tab("http://www.nutrition.gov/"),
+  tab("http://www.altmedicine.com/"),
+  tab("http://www.citysearch.com/"),
+  tab("http://www.monster.com/"),
+  tab("http://www.vote-smart.org/"),
+  tab("http://www.sciam.com/"),
+  tab("http://www.espn.com/"),
+  tab("http://www.encarta.com/"),
+  tab("http://www.findlaw.com/"),
+  tab("http://www.nature.com/"),
+  tab("http://www.usatoday.com/news/states/ns1.htm"),
+  tab("http://www.allposters.com/"),
+  tab("http://www.time.com/"),
+  tab("http://www.mapquest.com/"),
+  tab("http://www.abebooks.com/"),
+  tab("http://www.allmusic.com/"),
+  tab("http://www.medlineplus.gov/"),
+  tab("http://www.dmoz.org/"),
+  tab("http://www.loc.gov/"),
+  tab("http://windowsmedia.msn.com/radiotuner/"),
+  tab("http://www.ucomics.com/"),
+  tab("http://www.infoplease.com/"),
+  tab("http://www.alexa.com/"),
+  tab("http://vlmp.museophile.com/"),
+  tab("http://www.un.org/"),
+  tab("http://www.sacred-texts.com/"),
+  tab("http://www.artforum.com/"),
+  tab("http://www.webmd.com/"),
+  tab("http://www.vlib.org/"),
+  tab("http://moneycentral.msn.com/"),
+  tab("http://www.classmates.com/"),
+  tab("http://europa.eu.int/"),
+  tab("http://groups.yahoo.com/"),
+  tab("http://www.nybooks.com/"),
+  tab("http://www.jokes.com/"),
+  tab("http://www.priceline.com/"),
+  tab("http://www.rottentomatoes.com/"),
+  tab("http://www.ipl.org/"),
+  tab("http://www.acefitness.com/"),
+  tab("http://www.quicken.com/"),
+  tab("http://www.andante.com/"),
+  tab("http://lpi.oregonstate.edu/infocenter/"),
+  tab("http://www.pcmag.com/"),
+  tab("http://www.timesonline.co.uk/"),
+  tab("http://www.fedworld.gov/jobs/jobsearch.html"),
+  tab("http://www.iht.com/"),
+  tab("http://onlinebooks.library.upenn.edu/"),
+  tab("http://www.pogo.com/"),
+  tab("http://www.bizrate.com/"),
+  tab("http://www.billboard.com/"),
+  tab("http://world.altavista.com/"),
+  tab("http://www.give.org/"),
+  tab("http://mathworld.wolfram.com/"),
+  tab("http://www.webring.org/"),
+  tab("http://www.careerbuilder.com/"),
+  tab("http://www.411.com/"),
+  tab("http://www.epinions.com/"),
+  tab("http://www.ucalgary.ca/~lipton/journals.html"),
+  tab("http://www.aldaily.com/"),
+  tab("http://www.nolopress.com/"),
+  tab("http://www.classical.net/"),
+  tab("http://www.blogger.com/"),
+  tab("http://www.nytimes.com/"),
+  tab("http://www.earthcam.com/"),
+  tab("http://www.bbb.org/"),
+  tab("http://www.intelihealth.com/"),
+  tab("http://www.livejournal.com/"),
+  tab("http://www.bbc.co.uk/religion/"),
+  tab("http://www.artsjournal.com/"),
+  tab("http://www.ticketmaster.com/"),
+  tab("http://www.gutenberg.net/")
 ]
 
-document.body ..@appendContent(@Div(tabs) ..top)
+var top = [
+  @group.create({
+    name: "foo",
+    tabs: tabs.slice(0, 5)
+  }) ..animateGroup,
+
+  @group.create({
+    name: "bar",
+    tabs: tabs.slice(5, 14) ..@indexed ..@map(function ([i, x]) {
+      if (i % 2 === 0) {
+        return x ..animateTabBack
+      } else {
+        return x ..animateTab
+      }
+    })
+    /*[
+      @tab.create({ title: "YUPYUPYUPYUPYUP", favicon: "foo" }),
+      @tab.create({ title: "HIYA THERE YOU GUYS", favicon: "foo" }) ..animateTab,
+      @tab.create({ title: "HUHUHUH YES VERY NICE", favicon: "foo" }) ..animateTab,
+      @tab.create({ title: "NONONONONONONO", favicon: "foo" }) ..animateTabBack
+    ]*/
+  }),
+
+  @group.create({
+    name: "qux",
+    tabs: tabs.slice(14, 19) ..@indexed ..@map(function ([i, x]) {
+      if (i === 2) {
+        return x ..animateTab
+      } else if (i === 3) {
+        return x ..animateTab
+      } else if (i === 4) {
+        return x ..animateTabBack
+      } else {
+        return x
+      }
+    })
+  })
+]
 
 
+document.body ..@appendContent(top)
