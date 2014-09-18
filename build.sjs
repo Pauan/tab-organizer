@@ -18,9 +18,13 @@
 
 // TODO this should probably use streams or something
 // TODO standard library function for this
-function cp(from, to) {
-  var file = @fs.readFile(from)
-  @fs.writeFile(to, file)
+function cp(from, to, f) {
+  var file = @fs.readFile(from, "utf8")
+  if (f != null) {
+    file = f(file)
+  }
+  @fs.writeFile(to, file, "utf8")
+  console.log("#{Date.now()} Copied \"#{from}\"")
 }
 
 // TODO mkdirp
@@ -168,14 +172,17 @@ var sjsPath = @path.relative(".", @path.join(@path.dirname(@executable), "strati
 
 var files = {
   "./src/server/main.sjs":         "./build/js/main.js",
-  "./src/client/options/main.sjs": "./build/js/options.js"
+  "./src/client/options/main.sjs": "./build/js/options.js",
+  "./src/client/panel/main.sjs":   "./build/js/panel.js"
 }
 
 mkdir("./build/js")
 mkdir("./build/lib")
 
-@fs.writeFile("./build/lib/stratified.js", minify(@fs.readFile(sjsPath, "utf8")))
-console.log("#{Date.now()} Copied \"#{sjsPath}\"")
+cp(sjsPath, "./build/lib/stratified.js", minify)
+cp("./node_modules/gsap/src/minified/TweenLite.min.js", "./build/lib/TweenLite.min.js")
+cp("./node_modules/gsap/src/minified/plugins/CSSPlugin.min.js", "./build/lib/CSSPlugin.min.js")
+cp("./node_modules/gsap/src/minified/plugins/ScrollToPlugin.min.js", "./build/lib/ScrollToPlugin.min.js")
 
 if (opts.watch) {
   compile(files, { minify: false })
