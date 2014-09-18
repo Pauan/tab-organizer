@@ -33,6 +33,8 @@
     "tabs",
     "bookmarks",
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "http://*/*",
+    "https://*/*"
   ]
 }

@@ -15,6 +15,7 @@ var favicon_style = @CSS(`
 `)
 
 var text_style = @CSS(`
+  white-space: pre;
   padding-left: 2px;
   padding-right: 2px;
 `)
