@@ -10,36 +10,48 @@
 ])
 
 /*
- !         -> tab     (opens tab)
- !         -> popup   (gets size, opens popup)
- !         -> sidebar (gets size, opens popup, resizes windows)
- !         -> bubble  (opens bubble)
+ !         -> tab     (opens $2)
+ !         -> panel   (opens $2)
+ !         -> popup   (gets size, opens $2)
+ !         -> sidebar (gets size, opens $2, resizes windows)
+ !         -> bubble  (opens $2)
 
  ! tab     -> tab     (focuses tab + window)
- ! popup   -> popup   (focuses popup)
- ! sidebar -> sidebar (focuses popup, resizes windows)
+ ! panel   -> panel   (focuses $1)
+ ! popup   -> popup   (focuses $1)
+ ! sidebar -> sidebar (focuses $1, resizes windows)
  ! bubble  -> bubble  (not possible, probably closes bubble)
 
  ! tab     ->         (nothing)
+ ! panel   ->         (nothing)
  ! popup   ->         (nothing)
  ! sidebar ->         (unresizes windows)
  ! bubble  ->         (nothing)
 
- ! tab     -> popup   (closes tab, opens popup)
- ! tab     -> sidebar (closes tab, opens popup, resizes windows)
- ! tab     -> bubble  (closes tab, opens bubble)
+ ! tab     -> panel   (closes $1, opens $2)
+ ! tab     -> popup   (closes $1, opens $2)
+ ! tab     -> sidebar (closes $1, opens $2, resizes windows)
+ ! tab     -> bubble  (closes $1, opens $2)
 
- ! popup   -> tab     (closes popup, opens tab)
- ! popup   -> sidebar (moves popup , resizes windows)
- ! popup   -> bubble  (closes popup, opens bubble)
+ ! panel   -> tab     (closes $1, opens $1)
+ ! panel   -> popup   (closes $1, opens $1)
+ ! panel   -> sidebar (closes $1, opens $1, resizes windows)
+ ! panel   -> bubble  (closes $1, opens $1)
 
- ! sidebar -> tab     (closes popup, unresizes windows, opens tab)
- ! sidebar -> popup   (moves popup , unresizes windows)
- ! sidebar -> bubble  (closes popup, unresizes windows, opens bubble)
+ ! popup   -> tab     (closes $1, opens $2)
+ ! popup   -> panel   (closes $1, opens $2)
+ ! popup   -> sidebar (moves $1, resizes windows)
+ ! popup   -> bubble  (closes $1, opens $2)
 
- ! bubble  -> tab     (closes bubble?, opens tab)
- ! bubble  -> popup   (closes bubble?, opens popup)
- ! bubble  -> sidebar (closes bubble?, opens popup, resizes windows)
+ ! sidebar -> tab     (closes $1, unresizes windows, opens $2)
+ ! sidebar -> panel   (closes $1, unresizes windows, opens $2)
+ ! sidebar -> popup   (moves $1, unresizes windows)
+ ! sidebar -> bubble  (closes $1, unresizes windows, opens $2)
+
+ ! bubble  -> tab     (closes $1?, opens $2)
+ ! bubble  -> panel   (closes $1?, opens $2)
+ ! bubble  -> popup   (closes $1?, opens $2)
+ ! bubble  -> sidebar (closes $1?, opens $2, resizes windows)
 
 
  current-type   -> new-type
@@ -70,7 +82,7 @@ var avail = {
   checked: @cache.get("screen.available.checked")
 }
 
-function checkMonitor() {
+function get_monitor_size() {
   // TODO force or not (see extension/chrome/windows.getMaximumSize)?
   var size = @windows.getMaximumSize(false)
   avail.left.set(size.left)
@@ -81,7 +93,7 @@ function checkMonitor() {
   return size
 }
 
-function getSize() {
+function get_size() {
   if (avail.checked.get()) {
     return {
       left:   avail.left.get(),
@@ -90,12 +102,12 @@ function getSize() {
       height: avail.height.get()
     }
   } else {
-    return checkMonitor()
+    return get_monitor_size()
   }
 }
 
-@connection.on.command("check-monitor-size", function () {
-  checkMonitor()
+@connection.on.command("get-monitor-size", function () {
+  get_monitor_size()
   return null
 })
 
@@ -106,12 +118,77 @@ var popup_url = "panel.html"
 
 var state = {
   tab:   null,
+  panel: null,
   popup: null,
   type:  null,
   size:  null
 }
 
-function openPopup(size) {
+function check_sidebar() {
+  @assert.is(state.type, "sidebar")
+  @assert.is(state.tab, null)
+  @assert.is(state.panel, null)
+  @assert.isNot(state.popup, null)
+  @assert.isNot(state.size, null)
+}
+
+function check_popup() {
+  @assert.is(state.type, "popup")
+  @assert.is(state.tab, null)
+  @assert.is(state.panel, null)
+  @assert.isNot(state.popup, null)
+  @assert.is(state.size, null)
+}
+
+function check_tab() {
+  @assert.is(state.type, "tab")
+  @assert.isNot(state.tab, null)
+  @assert.is(state.panel, null)
+  @assert.is(state.popup, null)
+  @assert.is(state.size, null)
+}
+
+function check_panel() {
+  @assert.is(state.type, "panel")
+  @assert.is(state.tab, null)
+  @assert.isNot(state.panel, null)
+  @assert.is(state.popup, null)
+  @assert.is(state.size, null)
+}
+
+function check_empty() {
+  @assert.is(state.type, null)
+  @assert.is(state.tab, null)
+  @assert.is(state.panel, null)
+  @assert.is(state.popup, null)
+  @assert.is(state.size, null)
+}
+
+function remove_all() {
+  if (state.popup !== null) {
+    if (state.type === "sidebar") {
+      check_sidebar()
+    } else if (state.type === "popup") {
+      check_popup()
+    } else {
+      @assert.fail()
+    }
+
+    @popup.close(state.popup)
+
+  } else if (state.tab !== null) {
+    check_tab()
+    @tabs.close(state.tab)
+
+  } else if (state.panel !== null) {
+    check_panel()
+    @popup.close(state.panel)
+  }
+
+  check_empty()
+}
+
+function open_popup(size) {
   if (state.popup === null) {
     var o    = {}
     o.url    = popup_url
@@ -121,11 +198,23 @@ function openPopup(size) {
     o.height = size.height
     state.popup = @popup.open(o)
   } else {
-    @popup.move(state.popup, size)
+    waitfor {
+      @popup.focus(state.popup)
+    } and {
+      @popup.move(state.popup, size)
+    }
   }
 }
 
-function openTab() {
+function open_panel() {
+  if (state.panel === null) {
+    state.panel = @popup.openPanel({ url: popup_url })
+  } else {
+    @popup.focus(state.panel)
+  }
+}
+
+function open_tab() {
   if (state.tab === null) {
     state.tab = @tabs.open({ url: popup_url })
   } else {
@@ -133,58 +222,27 @@ function openTab() {
   }
 }
 
-function toAll(f) {
+function to_all(f) {
+  // TODO use each.par ?
   @windows.getCurrent() ..@each(function (x) {
     f(x)
   })
 }
 
-function resizeWindow(w) {
-  @assert.is(state.type, "sidebar")
-  @assert.is(state.tab, null)
-  @assert.isNot(state.popup, null)
-  @assert.isNot(state.size, null)
+function resize_window(w) {
   @windows.move(w, state.size.window)
 }
 
-function unresizeWindow(w) {
-  @assert.is(state.type, "sidebar")
-  @assert.is(state.tab, null)
-  @assert.isNot(state.popup, null)
-  @assert.isNot(state.size, null)
+function unresize_window(w) {
   @windows.maximize(w)
 }
 
-function unresizeSidebar() {
-  @assert.is(state.type, "sidebar")
-  @assert.is(state.tab, null)
-  @assert.isNot(state.popup, null)
-  @assert.isNot(state.size, null)
-  toAll(unresizeWindow)
+function unresize_sidebar() {
+  to_all(unresize_window)
   state.size = null
 }
 
-function removeAll() {
-  if (state.popup !== null) {
-    @assert.ok(state.type === "popup" || state.type === "sidebar")
-    @assert.is(state.tab, null)
-
-    @popup.close(state.popup)
-
-  } else if (state.tab !== null) {
-    @assert.is(state.type, "tab")
-    @assert.is(state.popup, null)
-
-    @tabs.close(state.tab)
-  }
-
-  @assert.is(state.tab, null)
-  @assert.is(state.popup, null)
-  @assert.is(state.size, null)
-  @assert.is(state.type, null)
-}
-
-function getDimensions(pos) {
+function get_dimensions(pos) {
   var width = @opt.get("size.sidebar").get()
     , dir   = @opt.get("size.sidebar.position").get()
 
@@ -226,66 +284,59 @@ function open() {
   var type_new = type.get()
   var type_old = state.type
 
+  if (type_old !== null && type_old !== type_new) {
+    if (type_old === "sidebar" && type_new === "popup") {
+      check_sidebar()
+      unresize_sidebar()
+    } else if (type_old === "popup" && type_new === "sidebar") {
+      check_popup()
+    } else {
+      remove_all()
+    }
+  }
+
   state.type = type_new
 
   if (type_new === "popup") {
-    if (type_old !== null && type_old !== "popup") {
-      if (type_old === "sidebar") {
-        unresizeSidebar()
-      } else {
-        removeAll()
-      }
-    }
-
-    var size   = getSize()
+    var size   = get_size()
       , left   = @opt.get("size.popup.left").get()
       , top    = @opt.get("size.popup.top").get()
       , width  = @opt.get("size.popup.width").get()
       , height = @opt.get("size.popup.height").get()
 
-    openPopup({
+    open_popup({
       left:   size.left + (size.width  * left) - (width  * left),
       top:    size.top  + (size.height * top)  - (height * top),
       width:  width,
       height: height
     })
 
+    check_popup()
+
     //@assert.isNot(state.popup, null)
     //@popup.focus(state.popup) // TODO is this a good idea ?
 
   } else if (type_new === "sidebar") {
-    if (type_old !== null && type_old !== "sidebar") {
-      @assert.is(state.size, null)
+    state.size = get_dimensions(get_size())
 
-      if (type_old === "popup") {
-        @assert.is(state.tab, null)
-        @assert.isNot(state.popup, null)
-      } else {
-        removeAll()
-      }
-    }
+    // TODO this has to be before open_popup because of a bug in Chrome
+    //      where moving a window causes it to be focused. In addition,
+    //      we can't do it in parallel with open_popup, for that same reason
+    to_all(resize_window)
+    open_popup(state.size.sidebar)
 
-    state.size = getDimensions(getSize())
-
-    openPopup(state.size.sidebar)
-    toAll(resizeWindow)
+    check_sidebar()
 
     //@assert.isNot(state.popup, null)
     //@popup.focus(state.popup) // TODO is this a good idea ?
 
   } else if (type_new === "tab") {
-    if (type_old !== null && type_old !== "tab") {
-      // TODO is this necessary, or does removeAll take care of it ?
-      /*if (type_old === "sidebar") {
-        unresizeSidebar()
-      }*/
-      removeAll()
-      @assert.is(state.popup, null)
-      @assert.is(state.type, null)
-      @assert.is(state.size, null)
-    }
+    open_tab()
+    check_tab()
 
-    openTab()
+  } else if (type_new === "panel") {
+    open_panel()
+    check_panel()
 
   } else {
     @assert.fail()
@@ -308,28 +359,34 @@ function open() {
 @windows.on.open ..@listen(function (info) {
   var window = info.window
   if (state.type === "sidebar") {
-    @assert.is(state.tab, null)
-    @assert.isNot(state.popup, null)
-    @assert.isNot(state.size, null)
-    resizeWindow(window)
+    check_sidebar()
+    resize_window(window)
   }
 })
 
 @popup.on.closed ..@listen(function (info) {
   var popup = info.popup
-  if (state.popup !== null && state.popup.id === popup.id) {
-    @assert.isNot(state.type, null)
-    @assert.is(state.tab, null)
 
+  if (state.popup !== null && state.popup.id === popup.id) {
     if (state.type === "sidebar") {
-      unresizeSidebar()
+      check_sidebar()
+      unresize_sidebar()
+    } else if (state.type === "popup") {
+      check_popup()
     } else {
-      @assert.is(state.type, "popup")
-      @assert.is(state.size, null)
+      @assert.fail()
     }
 
     state.popup = null
     state.type = null
+    check_empty()
+
+  } else if (state.panel !== null && state.panel.id === popup.id) {
+    check_panel()
+
+    state.panel = null
+    state.type = null
+    check_empty()
   }
 })
 
@@ -337,12 +394,11 @@ function open() {
   var tab = info.tab
   console.log("tab.remove", state.tab, tab)
   if (state.tab !== null && state.tab.id === tab.id) {
-    @assert.is(state.type, "tab")
-    @assert.is(state.popup, null)
-    @assert.is(state.size, null)
+    check_tab()
 
     state.tab = null
     state.type = null
+    check_empty()
   }
 })
 

@@ -456,6 +456,7 @@ exports.top = function () {
             { name: "bubble",  value: "bubble"  },
             { name: "sidebar", value: "sidebar" },
             { name: "popup",   value: "popup"   },
+            { name: "panel",   value: "panel"   },
             { name: "tab",     value: "tab"     }
           ]
         })),
@@ -463,7 +464,7 @@ exports.top = function () {
         @Div() ..@stretch,
 
         @options.button("Check monitor size", function () {
-          @connection.command("check-monitor-size", null)
+          @connection.command("get-monitor-size", null)
           alert("Success!")
         }) ..popup_monitor_button_style
       ]),
