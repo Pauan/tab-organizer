@@ -1,9 +1,9 @@
 @ = require([
   { id: "sjs:object" },
+  { id: "sjs:sequence" },
   { id: "lib:extension/client" },
   { id: "lib:util/util" },
-  { id: "lib:util/observe" },
-  { id: "lib:util/event" }
+  { id: "lib:util/observe" }
 ])
 
 
@@ -24,7 +24,7 @@ function make(port_name) {
   o.options ..@eachKeys(function (key, value) {
     opts ..@setNew(key, @Observer(value))
 
-    get(key) ..@listen(function (value) {
+    spawn get(key) ..@each(function (value) {
       console.debug(port_name + ": setting \"" + key + "\" to " + value)
 
       @connection.send(port_name, {

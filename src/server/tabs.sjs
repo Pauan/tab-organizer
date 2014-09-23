@@ -371,48 +371,48 @@ exports.tabs.on = {}
 exports.tabs.on.open = @Emitter()
 exports.tabs.on.close = @Emitter()
 
-@windows.on.open ..@listen(function (info) {
+spawn @windows.on.open ..@each(function (info) {
   console.debug("ADD WINDOW", info)
   addWindow(info.window)
 })
 
-@windows.on.close ..@listen(function (info) {
+spawn @windows.on.close ..@each(function (info) {
   console.debug("REMOVE WINDOW", info)
   removeWindow(info.window)
 })
 
-@tabs.on.open ..@listen(function (info) {
+spawn @tabs.on.open ..@each(function (info) {
   console.debug("ADD", info)
   exports.tabs.on.open ..@emit({
     tab: addTab(info.tab)
   })
 })
 
-@tabs.on.close ..@listen(function (info) {
+spawn @tabs.on.close ..@each(function (info) {
   console.debug("REMOVE", info)
   exports.tabs.on.close ..@emit({
     tab: removeTab(info.tab, info.windowClosing)
   })
 })
 
-@tabs.on.update ..@listen(function (info) {
+spawn @tabs.on.update ..@each(function (info) {
   console.debug("UPDATE", info)
   var tab_new = info.tab
   var tab_old = tabs_id ..@get(tab_new.id)
   updateTab(tab_old, tab_new)
 })
 
-@tabs.on.focus ..@listen(function (info) {
+spawn @tabs.on.focus ..@each(function (info) {
   console.debug("FOCUS", info)
   focusTab(info.tab)
 })
 
-@tabs.on.unfocus ..@listen(function (info) {
+spawn @tabs.on.unfocus ..@each(function (info) {
   console.debug("UNFOCUS", info)
   unfocusTab(info.tab)
 })
 
-@tabs.on.move ..@listen(function (info) {
+spawn @tabs.on.move ..@each(function (info) {
   console.debug("MOVE", info)
   moveTab(info.tab, info.old)
 })

@@ -3,7 +3,6 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
-  { id: "lib:util/event" },
   { id: "lib:util/observe" },
   { id: "lib:extension/server" },
   { id: "./options" }
@@ -343,7 +342,7 @@ function open() {
   }
 }
 
-@observe([type], function (type) {
+spawn @observe([type], function (type) {
   if (type === "bubble") {
     @button.setURL(popup_url)
   } else {
@@ -352,11 +351,11 @@ function open() {
   }
 })
 
-@button.on.clicked ..@listen(function () {
+spawn @button.on.clicked ..@each(function () {
   open()
 })
 
-@windows.on.open ..@listen(function (info) {
+spawn @windows.on.open ..@each(function (info) {
   var window = info.window
   if (state.type === "sidebar") {
     check_sidebar()
@@ -364,7 +363,7 @@ function open() {
   }
 })
 
-@popup.on.closed ..@listen(function (info) {
+spawn @popup.on.closed ..@each(function (info) {
   var popup = info.popup
 
   if (state.popup !== null && state.popup.id === popup.id) {
@@ -390,7 +389,7 @@ function open() {
   }
 })
 
-@tabs.on.close ..@listen(function (info) {
+spawn @tabs.on.close ..@each(function (info) {
   var tab = info.tab
   console.log("tab.remove", state.tab, tab)
   if (state.tab !== null && state.tab.id === tab.id) {

@@ -3,7 +3,6 @@
   { id: "sjs:sequence" },
   { id: "lib:extension/server", name: "extension" },
   { id: "lib:util/observe" },
-  { id: "lib:util/event" },
   { id: "./tabs" },
   { id: "./options" }
 ])
@@ -11,7 +10,7 @@
 
 var type = @opt.get("counter.type")
 
-@observe([type], function (type) {
+spawn @observe([type], function (type) {
   if (type === "in-chrome" || type === "total") {
     @extension.button.setColor(0, 0, 0, 0.9)
   } else {
@@ -20,20 +19,22 @@ var type = @opt.get("counter.type")
 })
 
 
-var tabCount = @observe([type], function (type) {
+var tabCount = @Observer()
+
+spawn @observe([type], function (type) {
   if (type === "in-chrome") {
     var i = 0
     @extension.windows.getCurrent() ..@each(function (window) {
       i += window.tabs.length
     })
-    return i
+    tabCount.set(i)
 
   } else if (type === "total") {
     var i = 0
     @windows.getCurrent() ..@each(function (window) {
       i += window.children.length
     })
-    return i
+    tabCount.set(i)
 
   } else {
     @assert.fail()
@@ -53,32 +54,32 @@ function sub1() {
 }
 
 
-@tabs.on.open ..@listen(function () {
+spawn @tabs.on.open ..@each(function () {
   if (type.get() === "total") {
     add1()
   }
 })
 
-@tabs.on.close ..@listen(function () {
+spawn @tabs.on.close ..@each(function () {
   if (type.get() === "total") {
     sub1()
   }
 })
 
-@extension.tabs.on.open ..@listen(function () {
+spawn @extension.tabs.on.open ..@each(function () {
   if (type.get() === "in-chrome") {
     add1()
   }
 })
 
-@extension.tabs.on.close ..@listen(function () {
+spawn @extension.tabs.on.close ..@each(function () {
   if (type.get() === "in-chrome") {
     sub1()
   }
 })
 
 
-@observe([tabCount, @opt.get("counter.enabled")], function (i, enabled) {
+spawn @observe([tabCount, @opt.get("counter.enabled")], function (i, enabled) {
   if (enabled) {
     @extension.button.setText(i)
   } else {

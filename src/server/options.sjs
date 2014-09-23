@@ -1,7 +1,6 @@
 @ = require([
   { id: "sjs:object" },
   { id: "sjs:sequence" },
-  { id: "lib:util/event" },
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
   { id: "lib:extension/server" },
@@ -26,7 +25,7 @@ function make(db_name, port_name, defs) {
 
     opts ..@setNew(key, value)
 
-    get(key) ..@listen(function (value) {
+    spawn get(key) ..@each(function (value) {
       opts ..@setUnique(key, value)
 
       if (value === defs ..@get(key)) {
@@ -64,7 +63,7 @@ function make(db_name, port_name, defs) {
     }
   })
 
-  @connection.on.message(port_name) ..@listen(function (message) {
+  spawn @connection.on.message(port_name) ..@each(function (message) {
     if (message.type === "set") {
       var key   = message ..@get("key")
       var value = message ..@get("value")
