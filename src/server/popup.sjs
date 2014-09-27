@@ -81,9 +81,94 @@ var avail = {
   checked: @cache.get("screen.available.checked")
 }
 
+var url_empty = @url.get("data/empty.html")
+
+/*function availSupported() {
+  return !(screen.availLeft === 0 &&
+           screen.availTop === 0 &&
+           screen.availWidth === screen.width &&
+           screen.availHeight === screen.height)
+}*/
+
+/*function redirectEvents(f) {
+  var events = []
+
+  var emitter = @Emitter()
+
+  waitfor {
+    emitter ..@each(function (x) { events.push(x) })
+  } and {
+    var old = @tabs.events
+    @tabs.events = emitter
+
+    try {
+      var x = f()
+    } finally {
+      @tabs.events = old
+    }
+
+    collapse
+    return [events, x]
+  }
+}*/
+
+// TODO do I need the ability to force it?
+function getMaximumSize(force) {
+  // TODO assert that force is a boolean
+  /*if (!force && availSupported()) {
+    return {
+      left: screen.availLeft,
+      top: screen.availTop,
+      width: screen.availWidth,
+      height: screen.availHeight
+    }
+
+  // In older versions of Chrome (on Linux only?) screen.avail wouldn't work,
+  // so we fall back to the old approach of "create a maximized window then check its size"
+  } else {*/
+
+    return @tabs.delayEvents(function () {
+      var window = @windows.open({ url: url_empty, focused: false })
+
+      /*var seen = false
+
+      events ..@each(function (x) {
+        if ((x.before && x.before.window && x.before.window.id === window.id) ||
+            (x.after  && x.after.window  && x.after.window.id  === window.id)) {
+          if (x.type === "windows.open") {
+            @assert.is(seen, false)
+            seen = true
+          }
+        } else {
+          @tabs.events ..@emit(x)
+        }
+      })
+
+      @assert.is(seen, true)*/
+
+      @windows.maximize(window.id)
+
+      // TODO Yes we really need this delay, because Chrome is stupid
+      hold(500)
+
+      var info = @windows.getDimensions(window.id)
+
+      @windows.close(window.id)
+
+      // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
+      return {
+        left: info.left,
+        top: info.top,
+        width: info.width,
+        height: info.height
+      }
+    })
+  //}
+}
+
 function get_monitor_size() {
-  // TODO force or not (see extension/chrome/windows.getMaximumSize)?
-  var size = @windows.getMaximumSize(false)
+  // TODO force or not ?
+  var size = getMaximumSize(false)
   avail.left.set(size.left)
   avail.top.set(size.top)
   avail.width.set(size.width)
@@ -113,14 +198,35 @@ function get_size() {
 
 var type = @opt.get("popup.type")
 
-var popup_url = "panel.html"
+var popup_url = "popup.html"
 
 var state = {
   tab:   null,
   panel: null,
   popup: null,
   type:  null,
-  size:  null
+  size:  null,
+  pause: null,
+}
+
+function pause() {
+  @assert.is(state.pause, null)
+  waitfor {
+    waitfor () {
+      state.pause = resume
+    } finally {
+      state.pause = null
+    }
+  } or {
+    hold(5000)
+    throw new Error("pause took too long")
+  }
+}
+
+function unpause() {
+  if (state.pause) {
+    state.pause()
+  }
 }
 
 function check_sidebar() {
@@ -173,15 +279,29 @@ function remove_all() {
       @assert.fail()
     }
 
-    @popup.close(state.popup)
+    waitfor {
+      pause()
+    } and {
+      @popup.close(state.popup.id)
+    }
 
   } else if (state.tab !== null) {
     check_tab()
-    @tabs.close(state.tab)
+
+    waitfor {
+      pause()
+    } and {
+      @tabs.close(state.tab.id)
+    }
 
   } else if (state.panel !== null) {
     check_panel()
-    @popup.close(state.panel)
+
+    waitfor {
+      pause()
+    } and {
+      @popup.close(state.panel.id)
+    }
   }
 
   check_empty()
@@ -190,26 +310,37 @@ function remove_all() {
 function open_popup(size) {
   if (state.popup === null) {
     var o    = {}
+    o.type   = "popup"
     o.url    = popup_url
     o.left   = size.left
     o.top    = size.top
     o.width  = size.width
     o.height = size.height
     state.popup = @popup.open(o)
-  } else {
-    waitfor {
-      @popup.focus(state.popup)
-    } and {
-      @popup.move(state.popup, size)
-    }
+  }
+
+  // TODO move into else clause
+  waitfor {
+    @popup.focus(state.popup.id)
+  } and {
+    @popup.move(state.popup.id, size)
   }
 }
 
-function open_panel() {
+function open_panel(size) {
   if (state.panel === null) {
-    state.panel = @popup.openPanel({ url: popup_url })
+    var o    = {}
+    o.type   = "panel"
+    o.url    = popup_url
+    o.width  = size.width
+    o.height = size.height
+    state.panel = @popup.open(o)
   } else {
-    @popup.focus(state.panel)
+    waitfor {
+      @popup.focus(state.panel.id)
+    } and {
+      @popup.move(state.panel.id, size)
+    }
   }
 }
 
@@ -217,23 +348,22 @@ function open_tab() {
   if (state.tab === null) {
     state.tab = @tabs.open({ url: popup_url })
   } else {
-    @tabs.focus(state.tab)
+    @tabs.focus(state.tab.id)
   }
 }
 
 function to_all(f) {
-  // TODO use each.par ?
-  @windows.getCurrent() ..@each(function (x) {
+  @windows.getCurrent() ..@each.par(function (x) {
     f(x)
   })
 }
 
 function resize_window(w) {
-  @windows.move(w, state.size.window)
+  @windows.move(w.id, state.size.window)
 }
 
 function unresize_window(w) {
-  @windows.maximize(w)
+  @windows.maximize(w.id)
 }
 
 function unresize_sidebar() {
@@ -279,8 +409,7 @@ function get_dimensions(pos) {
   }
 }
 
-function open() {
-  var type_new = type.get()
+function cleanup(type_new) {
   var type_old = state.type
 
   if (type_old !== null && type_old !== type_new) {
@@ -293,6 +422,12 @@ function open() {
       remove_all()
     }
   }
+}
+
+function open() {
+  var type_new = type.get()
+
+  cleanup(type_new)
 
   state.type = type_new
 
@@ -334,7 +469,11 @@ function open() {
     check_tab()
 
   } else if (type_new === "panel") {
-    open_panel()
+    open_panel({
+      width:  @opt.get("size.panel.width").get(),
+      height: @opt.get("size.panel.height").get()
+    })
+
     check_panel()
 
   } else {
@@ -351,53 +490,72 @@ spawn @observe([type], function (type) {
   }
 })
 
-spawn @button.on.clicked ..@each(function () {
-  open()
-})
-
-spawn @windows.on.open ..@each(function (info) {
-  var window = info.window
-  if (state.type === "sidebar") {
-    check_sidebar()
-    resize_window(window)
+// TODO it's probably okay for this to drop events
+spawn @button.events ..@each(function (info) {
+  if (info.type === "click") {
+    open()
   }
 })
 
-spawn @popup.on.closed ..@each(function (info) {
-  var popup = info.popup
+@connection.on.command("popup-opened", function () {
+  var type_new = type.get()
+  if (type_new === "bubble") {
+    cleanup(type_new)
+    check_empty()
+  }
+  return null
+})
 
-  if (state.popup !== null && state.popup.id === popup.id) {
+spawn @popup.events ..@each(function (info) {
+  if (info.type === "popup.close") {
+    var popup = info.before.popup
+
+    if (state.popup !== null && state.popup.id === popup.id) {
+      if (state.type === "sidebar") {
+        check_sidebar()
+        unresize_sidebar()
+      } else if (state.type === "popup") {
+        check_popup()
+      } else {
+        @assert.fail()
+      }
+
+      state.popup = null
+      state.type = null
+      check_empty()
+      unpause()
+
+    } else if (state.panel !== null && state.panel.id === popup.id) {
+      check_panel()
+
+      state.panel = null
+      state.type = null
+      check_empty()
+      unpause()
+    }
+  }
+})
+
+spawn @tabs.events ..@each(function (info) {
+  if (info.type === "windows.open") {
+    var window = info.after.window
+
     if (state.type === "sidebar") {
       check_sidebar()
-      unresize_sidebar()
-    } else if (state.type === "popup") {
-      check_popup()
-    } else {
-      @assert.fail()
+      resize_window(window)
     }
 
-    state.popup = null
-    state.type = null
-    check_empty()
+  } else if (info.type === "tabs.close") {
+    var tab = info.before.tab
 
-  } else if (state.panel !== null && state.panel.id === popup.id) {
-    check_panel()
+    if (state.tab !== null && state.tab.id === tab.id) {
+      check_tab()
 
-    state.panel = null
-    state.type = null
-    check_empty()
-  }
-})
-
-spawn @tabs.on.close ..@each(function (info) {
-  var tab = info.tab
-  console.log("tab.remove", state.tab, tab)
-  if (state.tab !== null && state.tab.id === tab.id) {
-    check_tab()
-
-    state.tab = null
-    state.type = null
-    check_empty()
+      state.tab = null
+      state.type = null
+      check_empty()
+      unpause()
+    }
   }
 })
 

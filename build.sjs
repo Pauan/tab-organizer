@@ -173,12 +173,13 @@ var sjsPath = @path.relative(".", @path.join(@path.dirname(@executable), "strati
 var files = {
   "./src/server/main.sjs":         "./build/js/main.js",
   "./src/client/options/main.sjs": "./build/js/options.js",
-  "./src/client/panel/main.sjs":   "./build/js/panel.js"
+  "./src/client/popup/main.sjs":   "./build/js/popup.js"
 }
 
 mkdir("./build/js")
 mkdir("./build/lib")
 
+// TODO rm "./build/js/panel.js"
 cp(sjsPath, "./build/lib/stratified.js", minify)
 cp("./node_modules/gsap/src/minified/TweenLite.min.js", "./build/lib/TweenLite.min.js")
 cp("./node_modules/gsap/src/minified/plugins/CSSPlugin.min.js", "./build/lib/CSSPlugin.min.js")

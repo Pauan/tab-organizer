@@ -48,6 +48,6 @@ exports.top = function () {
       }))
     ]),
 
-    @Iframe(null, { src: "panel.html" }) ..preview_style
+    @Iframe(null, { src: "popup.html" }) ..preview_style
   ])
 }

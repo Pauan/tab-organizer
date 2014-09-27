@@ -6,8 +6,41 @@ require("../../hubs")
 
   { id: "sjs:sequence" },
   { id: "../animation", name: "animation" },
-  { id: "lib:util/dom" }
+  { id: "lib:util/dom" },
+
+  { id: "lib:extension/client" },
+  { id: "lib:util/observe" },
+  { id: "../options" }
 ])
+
+// This is so we don't send the command when we're in an <iframe> (e.g. in the options page)
+if (window.parent === window) {
+  @connection.command("popup-opened", null)
+}
+
+// TODO use @CSS for this instead
+function bubble_size(elem) {
+  // TODO code duplication
+  if (window.parent === window) {
+    @observe([@opt.get("popup.type"),
+              @opt.get("size.bubble.width"),
+              @opt.get("size.bubble.height")], function (type, width, height) {
+      if (type === "bubble") {
+        elem.style.maxWidth = "#{width}px"
+        elem.style.maxHeight = "#{height}px"
+      } else {
+        elem.style.maxWidth = ""
+        elem.style.maxHeight = ""
+      }
+    })
+  }
+}
+
+
+
+/**
+ * TESTING STUFF
+ */
 
 var animateGroup = @Mechanism(function (elem) {
   while (true) {
@@ -704,7 +737,7 @@ var tabs =  [
 })*/
 
 
-var top = [
+var top = @Div([
   @group.create({
     name: "foo",
     tabs: tabs.slice(0, 5) ..@map(@tab.create)
@@ -741,7 +774,7 @@ var top = [
       }
     })
   })
-]
+])
 
 
-document.body ..@appendContent(top)
+document.body ..@appendContent(top ..@Mechanism(bubble_size))

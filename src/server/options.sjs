@@ -25,7 +25,9 @@ function make(db_name, port_name, defs) {
 
     opts ..@setNew(key, value)
 
+    // TODO use each.track ?
     spawn get(key) ..@each(function (value) {
+      // TODO this may not be quite right ...
       opts ..@setUnique(key, value)
 
       if (value === defs ..@get(key)) {
@@ -99,6 +101,9 @@ exports.opt = make("options.user", "options", {
 
   "size.bubble.width"         : 300,
   "size.bubble.height"        : 600,
+
+  "size.panel.width"          : 300,
+  "size.panel.height"         : 600,
 
   "popup.type"                : "bubble",
 

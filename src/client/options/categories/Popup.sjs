@@ -111,11 +111,11 @@ var popup_control_cell_style = @CSS(`
 
 var popup_screen_style = @CSS(`
   background-color: ${changes.screenBackground};
+  overflow: hidden;
 `)
 
 function popup_width() {
   return @Div([
-    // TODO retraction
     @Div() ..popup_text_style ..popup_width_text_style ..@Mechanism(function (elem) {
       @observe([@top_options.cache.get("screen.available.width")], function (x) {
         elem.textContent = "#{x} px"
@@ -127,7 +127,6 @@ function popup_width() {
 // TODO code duplication with popup_width
 function popup_height() {
   return @Div([
-    // TODO retraction
     @Div() ..popup_text_style ..popup_height_text_style ..@Mechanism(function (elem) {
       @observe([@top_options.cache.get("screen.available.height")], function (x) {
         elem.textContent = "#{x} px"
@@ -142,7 +141,6 @@ function popup_popup() {
       @TBody([
         @Tr([
           @Td() ..popup_popup_text_style ..@Mechanism(function (elem) {
-            // TODO handle retraction
             @observe([@top_options.opt.get("popup.type")], function (type) {
               elem.textContent = type ..@upperCase()
             })
@@ -154,7 +152,6 @@ function popup_popup() {
     ..popup_popup_style
     ..@panel
     ..@clip
-    // TODO retraction
     // TODO this should be in popup_popup_style
     ..@Mechanism(function (elem) {
       function convert(x, y) {
@@ -164,112 +161,139 @@ function popup_popup() {
       /**
        * bubble
        */
-      @observe([@top_options.opt.get("popup.type"),
-                @top_options.cache.get("screen.available.width"),
-                @top_options.cache.get("screen.available.height"),
-                @top_options.opt.get("size.bubble.width"),
-                @top_options.opt.get("size.bubble.height")], function (type, width, height, bubble_width, bubble_height) {
-        if (type === "bubble") {
-          // Bubbles are displayed 64px from the top of Chrome's window
-          elem.style["top"]    = convert(64, height) + "%"
-          elem.style["left"]   = ""
-          // Bubbles are displayed 33px from the right of Chrome's window
-          elem.style["right"]  = convert(33, width) + "%"
-          elem.style["bottom"] = ""
-          elem.style["width"]  = convert(bubble_width,  width)  + "%"
-          elem.style["height"] = convert(bubble_height, height) + "%"
-          elem.style["border-radius"] = "3px"
-        }
-      })
+      waitfor {
+        @observe([@top_options.opt.get("popup.type"),
+                  @top_options.cache.get("screen.available.width"),
+                  @top_options.cache.get("screen.available.height"),
+                  @top_options.opt.get("size.bubble.width"),
+                  @top_options.opt.get("size.bubble.height")], function (type, width, height, bubble_width, bubble_height) {
+          if (type === "bubble") {
+            // Bubbles are displayed 64px from the top of Chrome's window
+            elem.style["top"]    = convert(64, height) + "%"
+            elem.style["left"]   = ""
+            // Bubbles are displayed 33px from the right of Chrome's window
+            elem.style["right"]  = convert(33, width) + "%"
+            elem.style["bottom"] = ""
+            elem.style["width"]  = convert(bubble_width,  width)  + "%"
+            elem.style["height"] = convert(bubble_height, height) + "%"
+            elem.style["border-radius"] = "3px"
+          }
+        })
 
       /**
        * sidebar
        */
-      @observe([@top_options.opt.get("popup.type"),
-                @top_options.cache.get("screen.available.width"),
-                @top_options.cache.get("screen.available.height"),
-                @top_options.opt.get("size.sidebar"),
-                @top_options.opt.get("size.sidebar.position")], function (type, width, height, size, position) {
-        if (type === "sidebar") {
-          if (position === "top") {
-            elem.style["top"]    = "0%"
-            elem.style["left"]   = "0%"
-            elem.style["right"]  = ""
-            elem.style["bottom"] = ""
-            elem.style["width"]  = "100%"
-            elem.style["height"] = convert(size, height) + "%"
-            elem.style["border-radius"] = ""
-          } else if (position === "left") {
-            elem.style["top"]    = "0%"
-            elem.style["left"]   = "0%"
-            elem.style["right"]  = ""
-            elem.style["bottom"] = ""
-            elem.style["width"]  = convert(size, width) + "%"
-            elem.style["height"] = "100%"
-            elem.style["border-radius"] = ""
-          } else if (position === "right") {
-            elem.style["top"]    = "0%"
-            elem.style["left"]   = ""
-            elem.style["right"]  = "0%"
-            elem.style["bottom"] = ""
-            elem.style["width"]  = convert(size, width) + "%"
-            elem.style["height"] = "100%"
-            elem.style["border-radius"] = ""
-          } else if (position === "bottom") {
-            elem.style["top"]    = ""
-            elem.style["left"]   = "0%"
-            elem.style["right"]  = ""
-            elem.style["bottom"] = "0%"
-            elem.style["width"]  = "100%"
-            elem.style["height"] = convert(size, height) + "%"
-            elem.style["border-radius"] = ""
-          } else {
-            @assert.fail()
+      } and {
+        @observe([@top_options.opt.get("popup.type"),
+                  @top_options.cache.get("screen.available.width"),
+                  @top_options.cache.get("screen.available.height"),
+                  @top_options.opt.get("size.sidebar"),
+                  @top_options.opt.get("size.sidebar.position")], function (type, width, height, size, position) {
+          if (type === "sidebar") {
+            if (position === "top") {
+              elem.style["top"]    = "0%"
+              elem.style["left"]   = "0%"
+              elem.style["right"]  = ""
+              elem.style["bottom"] = ""
+              elem.style["width"]  = "100%"
+              elem.style["height"] = convert(size, height) + "%"
+              elem.style["border-radius"] = ""
+            } else if (position === "left") {
+              elem.style["top"]    = "0%"
+              elem.style["left"]   = "0%"
+              elem.style["right"]  = ""
+              elem.style["bottom"] = ""
+              elem.style["width"]  = convert(size, width) + "%"
+              elem.style["height"] = "100%"
+              elem.style["border-radius"] = ""
+            } else if (position === "right") {
+              elem.style["top"]    = "0%"
+              elem.style["left"]   = ""
+              elem.style["right"]  = "0%"
+              elem.style["bottom"] = ""
+              elem.style["width"]  = convert(size, width) + "%"
+              elem.style["height"] = "100%"
+              elem.style["border-radius"] = ""
+            } else if (position === "bottom") {
+              elem.style["top"]    = ""
+              elem.style["left"]   = "0%"
+              elem.style["right"]  = ""
+              elem.style["bottom"] = "0%"
+              elem.style["width"]  = "100%"
+              elem.style["height"] = convert(size, height) + "%"
+              elem.style["border-radius"] = ""
+            } else {
+              @assert.fail()
+            }
           }
-        }
-      })
+        })
 
       /**
        * popup
        */
-      @observe([@top_options.opt.get("popup.type"),
-                @top_options.cache.get("screen.available.width"),
-                @top_options.cache.get("screen.available.height"),
-                @top_options.opt.get("size.popup.left"),
-                @top_options.opt.get("size.popup.top"),
-                @top_options.opt.get("size.popup.width"),
-                @top_options.opt.get("size.popup.height")], function (type, width, height, popup_left, popup_top, popup_width, popup_height) {
-        if (type === "popup") {
-          // -100 = (screen * 0)   - (width * 0)
-          // 0    = (screen * 0.5) - (width * 0.5)
-          // 100  = (screen * 1)   - (width * 1)
-          elem.style["top"]    = ((popup_top  * 100) - (convert(popup_height, height) * popup_top))  + "%"
-          elem.style["left"]   = ((popup_left * 100) - (convert(popup_width,  width)  * popup_left)) + "%"
-          elem.style["right"]  = ""
-          elem.style["bottom"] = ""
-          elem.style["width"]  = convert(popup_width,  width)  + "%"
-          elem.style["height"] = convert(popup_height, height) + "%"
-          elem.style["border-radius"] = ""
-        }
-      })
+      } and {
+        @observe([@top_options.opt.get("popup.type"),
+                  @top_options.cache.get("screen.available.width"),
+                  @top_options.cache.get("screen.available.height"),
+                  @top_options.opt.get("size.popup.left"),
+                  @top_options.opt.get("size.popup.top"),
+                  @top_options.opt.get("size.popup.width"),
+                  @top_options.opt.get("size.popup.height")], function (type, width, height, popup_left, popup_top, popup_width, popup_height) {
+          if (type === "popup") {
+            // -100 = (screen * 0)   - (width * 0)
+            // 0    = (screen * 0.5) - (width * 0.5)
+            // 100  = (screen * 1)   - (width * 1)
+            elem.style["top"]    = ((popup_top  * 100) - (convert(popup_height, height) * popup_top))  + "%"
+            elem.style["left"]   = ((popup_left * 100) - (convert(popup_width,  width)  * popup_left)) + "%"
+            elem.style["right"]  = ""
+            elem.style["bottom"] = ""
+            elem.style["width"]  = convert(popup_width,  width)  + "%"
+            elem.style["height"] = convert(popup_height, height) + "%"
+            elem.style["border-radius"] = ""
+          }
+        })
+
+      /**
+       * panel
+       */
+      } and {
+        @observe([@top_options.opt.get("popup.type"),
+                  @top_options.cache.get("screen.available.width"),
+                  @top_options.cache.get("screen.available.height"),
+                  @top_options.opt.get("size.panel.width"),
+                  @top_options.opt.get("size.panel.height")], function (type, width, height, panel_width, panel_height) {
+          if (type === "panel") {
+            elem.style["top"]    = ""
+            elem.style["left"]   = ""
+            // Panels are displayed 24px from the right of Chrome's window
+            elem.style["right"]  = convert(24, width) + "%"
+            // Panels are displayed 0px from the bottom of Chrome's window
+            elem.style["bottom"] = convert(0, height) + "%"
+            elem.style["width"]  = convert(panel_width,  width)  + "%"
+            elem.style["height"] = convert(panel_height, height) + "%"
+            elem.style["border-radius"] = "4px 4px 0px 0px"
+          }
+        })
 
       /**
        * tab
        */
-      @observe([@top_options.opt.get("popup.type"),
-                @top_options.cache.get("screen.available.height")], function (type, height) {
-        if (type === "tab") {
-          // Chrome's UI takes up 62 pixels at the top
-          var top = convert(62, height)
-          elem.style["top"]    = top + "%"
-          elem.style["left"]   = "0%"
-          elem.style["right"]  = ""
-          elem.style["bottom"] = ""
-          elem.style["width"]  = "100%"
-          elem.style["height"] = (100 - top) + "%"
-          elem.style["border-radius"] = ""
-        }
-      })
+      } and {
+        @observe([@top_options.opt.get("popup.type"),
+                  @top_options.cache.get("screen.available.height")], function (type, height) {
+          if (type === "tab") {
+            // Chrome's UI takes up 62 pixels at the top
+            var top = convert(62, height)
+            elem.style["top"]    = top + "%"
+            elem.style["left"]   = "0%"
+            elem.style["right"]  = ""
+            elem.style["bottom"] = ""
+            elem.style["width"]  = "100%"
+            elem.style["height"] = (100 - top) + "%"
+            elem.style["border-radius"] = ""
+          }
+        })
+      }
     })
 }
 
@@ -285,24 +309,28 @@ function popup_screen() {
       popup_height()
     ])
       ..popup_screen_style
-      // TODO retraction
       // TODO this should be in popup_screen_style
       ..@Mechanism(function (elem) {
-        @observe([@top_options.cache.get("screen.available.left")], function (left) {
-          elem.style.left   = (left   / screen.width)  * 100 + "%"
-        })
+        waitfor {
+          @observe([@top_options.cache.get("screen.available.left")], function (left) {
+            elem.style.left   = (left   / screen.width)  * 100 + "%"
+          })
 
-        @observe([@top_options.cache.get("screen.available.top")], function (top) {
-          elem.style.top    = (top    / screen.height) * 100 + "%"
-        })
+        } and {
+          @observe([@top_options.cache.get("screen.available.top")], function (top) {
+            elem.style.top    = (top    / screen.height) * 100 + "%"
+          })
 
-        @observe([@top_options.cache.get("screen.available.width")], function (width) {
-          elem.style.width  = (width  / screen.width)  * 100 + "%"
-        })
+        } and {
+          @observe([@top_options.cache.get("screen.available.width")], function (width) {
+            elem.style.width  = (width  / screen.width)  * 100 + "%"
+          })
 
-        @observe([@top_options.cache.get("screen.available.height")], function (height) {
-          elem.style.height = (height / screen.height) * 100 + "%"
-        })
+        } and {
+          @observe([@top_options.cache.get("screen.available.height")], function (height) {
+            elem.style.height = (height / screen.height) * 100 + "%"
+          })
+        }
       })
   ]) ..popup_inner_container_style
 }
@@ -372,13 +400,9 @@ exports.top = function () {
     @options.horizontal([
       "Configure a keyboard shortcut for opening the popup ",
 
-      // TODO retraction
       @A("here", { target: "_blank", href: keyboard_shortcut_url }) ..@Mechanism(function (elem) {
-        // TODO use built-ins
         // TODO hacky, but needed to work around a security restriction in Chrome
-        elem.addEventListener("click", function (e) {
-          e.preventDefault()
-
+        elem ..@event("click", { preventDefault: true }) ..@each(function (e) {
           // TODO lib:extension module for handling async stuff like this ?
           chrome.tabs.getCurrent(function (tab) {
             @assert.ok(tab != null)
@@ -390,7 +414,7 @@ exports.top = function () {
               index: tab.index + 1
             })
           })
-        }, true)
+        })
       })
 
       /*@options.checkbox(@opt("popup.hotkey.ctrl") ..@extend({
@@ -454,9 +478,9 @@ exports.top = function () {
         @options.list(@opt("popup.type") ..@extend({
           items: [
             { name: "bubble",  value: "bubble"  },
-            { name: "sidebar", value: "sidebar" },
-            { name: "popup",   value: "popup"   },
             { name: "panel",   value: "panel"   },
+            { name: "popup",   value: "popup"   },
+            { name: "sidebar", value: "sidebar" },
             { name: "tab",     value: "tab"     }
           ]
         })),
@@ -473,8 +497,10 @@ exports.top = function () {
 
       popup_controls([
         popup_control("popup", [
+          // TODO use tabindex so these have better behavior when using tab to switch between them
           popup_control_cells([
             popup_control_textbox("Left:", "%", @opt("size.popup.left") ..@extend({
+              required: true,
               type: "number",
               width: "2em",
               get: popup_get,
@@ -484,6 +510,7 @@ exports.top = function () {
             @options.horizontal_space("15px"),
 
             popup_control_textbox("Width:", "px", @opt("size.popup.width") ..@extend({
+              required: true,
               type: "number",
               set: @toNum
             }))
@@ -491,6 +518,7 @@ exports.top = function () {
 
           popup_control_cells([
             popup_control_textbox("Top:", "%", @opt("size.popup.top") ..@extend({
+              required: true,
               type: "number",
               width: "2em",
               get: popup_get,
@@ -500,6 +528,7 @@ exports.top = function () {
             @options.horizontal_space("15px"),
 
             popup_control_textbox("Height:", "px", @opt("size.popup.height") ..@extend({
+              required: true,
               type: "number",
               set: @toNum
             }))
@@ -509,6 +538,7 @@ exports.top = function () {
         popup_control("bubble", [
           popup_control_cells([
             popup_control_textbox("Width:", "px", @opt("size.bubble.width") ..@extend({
+              required: true,
               type: "number",
               set: @toNum
             }))
@@ -516,6 +546,25 @@ exports.top = function () {
 
           popup_control_cells([
             popup_control_textbox("Height:", "px", @opt("size.bubble.height") ..@extend({
+              required: true,
+              type: "number",
+              set: @toNum
+            }))
+          ])
+        ]),
+
+        popup_control("panel", [
+          popup_control_cells([
+            popup_control_textbox("Width:", "px", @opt("size.panel.width") ..@extend({
+              required: true,
+              type: "number",
+              set: @toNum
+            }))
+          ]),
+
+          popup_control_cells([
+            popup_control_textbox("Height:", "px", @opt("size.panel.height") ..@extend({
+              required: true,
               type: "number",
               set: @toNum
             }))
@@ -525,6 +574,7 @@ exports.top = function () {
         popup_control("sidebar", [
           popup_control_cells([
             popup_control_textbox("Size:", "px", @opt("size.sidebar") ..@extend({
+              required: true,
               type: "number",
               set: @toNum
             })),

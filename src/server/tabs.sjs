@@ -5,11 +5,12 @@
   { id: "lib:util/util" },
   { id: "lib:util/event" },
   { id: "lib:extension/server" },
-  { id: "./migrate", name: "migrate" }
+  { id: "./migrate", name: "migrate" },
+  { id: "./session", name: "session" }
 ])
 
 
-//var url_popup = @url.get("panel.html")
+//var url_popup = @url.get("popup.html")
 
 //@migrate.db["delete"]("current.windows.array")
 
@@ -18,12 +19,14 @@ var windows_id = {}
 
 var windows_db = @migrate.db.get("current.windows.array", [])
 
+// TODO code duplication with session
 function save() {
   @migrate.db.set("current.windows.array", windows_db)
 }
 
 // TODO this is specific to Chrome...?
 // TODO test this again, to make sure it's working
+// TODO code duplication with session
 function save_delay() {
   // 10 seconds, so that when Chrome exits,
   // it doesn't clobber the user's data
@@ -91,10 +94,12 @@ function resetFocus(tab_old, tab_new) {
 
 
 function addWindow(window_new) {
+  var id = @session.windows.get(window_new.id).id
+
   var created = @timestamp()
 
   var window = {
-    id: window_new.id,
+    id: id,
     time: {
       created: created
     },
@@ -104,8 +109,9 @@ function addWindow(window_new) {
   windows_id ..@setNew(window.id, window)
   windows_db ..@pushNew(window)
 
+  // TODO is this correct ?
   window_new.tabs ..@each(function (tab_new) {
-    addTab(tab_new)
+    addTab(window, tab_new)
   })
 
   save()
@@ -119,13 +125,16 @@ function addWindow(window_new) {
 }
 
 function removeWindow(window_new) {
-  var window_old = windows_id ..@get(window_new.id)
+  var id = @session.windows.get(window_new.id).id
 
-  @assert.is(window_old.id, window_new.id)
+  var window_old = windows_id ..@get(id)
+
+  @assert.is(window_old.id, id)
 
   windows_id ..@delete(window_old.id)
   windows_db ..@remove(window_old)
 
+  // TODO is this necessary ?
   window_old.children ..@each(function (tab_old) {
     console.log("REMOVING UNLOADED CHILD #{tab_old.url}")
     tabs_id ..@delete(tab_old.id)
@@ -141,11 +150,13 @@ function removeWindow(window_new) {
   return window_old
 }
 
-function addTab(tab_new) {
+function addTab(window_old, tab_new) {
+  var id = @session.tabs.get(tabs_new.id).id
+
   var created = @timestamp()
 
   var tab = {
-    id: tab_new.id,
+    id: id,
     time: {
       created: created
     }
@@ -154,9 +165,6 @@ function addTab(tab_new) {
   resetFocus(tab, tab_new)
   setTab(tab, tab_new)
   tabs_id ..@setNew(tab.id, tab)
-
-  // TODO assert that the window is correct somehow ?
-  var window_old = windows_id ..@get(tab_new.window.id)
 
   var index = getIndexForTab(window_old, tab_new)
   window_old.children ..@spliceNew(index, tab)

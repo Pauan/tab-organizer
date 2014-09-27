@@ -1,10 +1,11 @@
 require("../hubs")
 
 @ = require([
-  { id: "./tabs" },
+  { id: "./session" },
   { id: "./popup" },
   { id: "./button" },
-  { id: "./counter" }
+  //{ id: "./tabs" },
+  //{ id: "./counter" },
 ])
 
 // TODO if (require.main === module) { ?

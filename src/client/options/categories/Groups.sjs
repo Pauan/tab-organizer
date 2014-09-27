@@ -21,6 +21,7 @@ exports.top = function () {
       @options.indent([
         @options.horizontal([
           @options.textbox(@opt("groups.layout.grid.column") ..@extend({
+            required: true,
             width: "2em",
             type: "number",
             set: @toNum
@@ -31,6 +32,7 @@ exports.top = function () {
 
         @options.horizontal([
           @options.textbox(@opt("groups.layout.grid.row") ..@extend({
+            required: true,
             width: "2em",
             type: "number",
             set: @toNum

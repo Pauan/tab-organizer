@@ -8,7 +8,7 @@
 
 
 // TODO make this const ?
-exports.version = @manifest ..@get("version") + "b8"
+exports.version = @manifest ..@get("version") + "b9"
 
 
 function isNewVersion() {
@@ -205,6 +205,14 @@ exports.migrate = function () {
     exports.run("current.tabs")
     exports.run("options.user")
     exports.run("options.cache")
+
+    // TODO utility for this
+    if (@db.has("__extension.chrome.tabs.windows__")) {
+      @assert.is(@db.has("session.windows.array"), false)
+      @db.set("session.windows.array", @db.get("__extension.chrome.tabs.windows__"))
+      // TODO
+      @db["delete"]("__extension.chrome.tabs.windows__")
+    }
 
     // TODO fix these
     @db["delete"]("current.groups")

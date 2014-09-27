@@ -43,9 +43,14 @@ html, body {
   height: 100%;
 }
 
+html {
+  /*overflow: hidden;*/ /* Needed to make bubble mode work */
+}
+
 body {
   -webkit-user-select: none; /* TODO this is hacky, use JS instead ? */
   cursor: default;
+  /*overflow: auto;*/ /* Needed to make bubble mode work */
 }
 
 table {

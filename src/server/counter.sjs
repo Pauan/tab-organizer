@@ -54,27 +54,27 @@ function sub1() {
 }
 
 
-spawn @tabs.on.open ..@each(function () {
+spawn @tabs.events ..@each(function (event) {
   if (type.get() === "total") {
-    add1()
+    if (event.type === "tabs.open") {
+      console.log("TOTAL", event.type)
+      add1()
+    } else if (event.type === "tabs.close") {
+      console.log("TOTAL", event.type)
+      sub1()
+    }
   }
 })
 
-spawn @tabs.on.close ..@each(function () {
-  if (type.get() === "total") {
-    sub1()
-  }
-})
-
-spawn @extension.tabs.on.open ..@each(function () {
+spawn @extension.tabs.events ..@each(function (event) {
   if (type.get() === "in-chrome") {
-    add1()
-  }
-})
-
-spawn @extension.tabs.on.close ..@each(function () {
-  if (type.get() === "in-chrome") {
-    sub1()
+    if (event.type === "tabs.open") {
+      console.log("CHROME", event.type)
+      add1()
+    } else if (event.type === "tabs.close") {
+      console.log("CHROME", event.type)
+      sub1()
+    }
   }
 })
 
