@@ -22,23 +22,21 @@ spawn @observe([type], function (type) {
 var tabCount = @Observer()
 
 spawn @observe([type], function (type) {
-  if (type === "in-chrome") {
-    var i = 0
-    @extension.windows.getCurrent() ..@each(function (window) {
-      i += window.tabs.length
+  var i = 0
+  @windows.getCurrent() ..@each(function (window) {
+    window.children ..@each(function (tab) {
+      if (type === "in-chrome") {
+        if (tab.active) {
+          ++i
+        }
+      } else if (type === "total") {
+        ++i
+      } else {
+        @assert.fail()
+      }
     })
-    tabCount.set(i)
-
-  } else if (type === "total") {
-    var i = 0
-    @windows.getCurrent() ..@each(function (window) {
-      i += window.children.length
-    })
-    tabCount.set(i)
-
-  } else {
-    @assert.fail()
-  }
+  })
+  tabCount.set(i)
 })
 
 function add1() {
@@ -55,27 +53,17 @@ function sub1() {
 
 
 spawn @tabs.events ..@each(function (event) {
-  if (type.get() === "total") {
-    if (event.type === "tabs.open") {
-      console.log("TOTAL", event.type)
-      add1()
-    } else if (event.type === "tabs.close") {
-      console.log("TOTAL", event.type)
-      sub1()
-    }
+  if (event.type === "tabs.open") {
+    console.log("TOTAL", event.type, event.tab)
+    add1()
+  } else if (event.type === "tabs.close") {
+    console.log("TOTAL", event.type, event.tab)
+    sub1()
   }
-})
 
-spawn @extension.tabs.events ..@each(function (event) {
-  if (type.get() === "in-chrome") {
-    if (event.type === "tabs.open") {
-      console.log("CHROME", event.type)
-      add1()
-    } else if (event.type === "tabs.close") {
-      console.log("CHROME", event.type)
-      sub1()
-    }
-  }
+  /*if (type.get() === "total") {
+
+  }*/
 })
 
 

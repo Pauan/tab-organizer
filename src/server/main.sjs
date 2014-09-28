@@ -5,7 +5,7 @@ require("../hubs")
   { id: "./popup", name: "popup" },
   { id: "./button", name: "button" },
   { id: "./tabs", name: "tabs" },
-  //{ id: "./counter", name: "counter" },
+  { id: "./counter", name: "counter" }
 ])
 
 // TODO if (require.main === module) { ?

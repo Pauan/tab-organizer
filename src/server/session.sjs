@@ -184,6 +184,15 @@ exports.tabs.delayEvents = function (f) {
 
 exports.tabs.events = @Emitter()
 
+function emit(o) {
+  if (delayed_events !== null) {
+    // TODO is pushNew needed?
+    delayed_events ..@pushNew(o)
+  } else {
+    exports.tabs.events ..@emit(o)
+  }
+}
+
 exports.windows.get = function (id) {
   return windows_id ..@get(id)
 }
@@ -222,12 +231,33 @@ exports.tabs.init = function (id, window, info) {
 }
 
 
+function create_tab(id, tab) {
+  return {
+    id: id,
+    index: tab ..@get("index"),
+    focused: tab ..@get("focused"),
+    pinned: tab ..@get("pinned"),
+    url: tab ..@get("url"),
+    title: tab ..@get("title"),
+    favicon: tab ..@get("favicon")
+  }
+}
+
 function windows_open(event) {
   @assert.is(event.type, "windows.open")
   @assert.is(event.after.window.tabs.length, 0)
+
   var id = @timestamp()
-  exports.windows.init(id, event.after.window)
+  var window = exports.windows.init(id, event.after.window)
+
+  emit({
+    type: event.type,
+    window: window
+  })
 }
+
+// TODO
+function windows_focus(event) {}
 
 function windows_close(event) {
   @assert.is(event.type, "windows.close")
@@ -238,13 +268,28 @@ function windows_close(event) {
   saved_windows ..@remove(window)
 
   save_delay()
+
+  emit({
+    type: event.type,
+    window: window
+  })
 }
 
 function tabs_open(event) {
   @assert.is(event.type, "tabs.open")
+
   var window = windows_id ..@get(event.after.window.id)
+  var tab = event.after.tab
+
   var id = @timestamp()
-  exports.tabs.init(id, window, event.after.tab)
+
+  exports.tabs.init(id, window, tab)
+
+  emit({
+    type: event.type,
+    window: window,
+    tab: create_tab(id, tab)
+  })
 }
 
 function tabs_close(event) {
@@ -267,12 +312,59 @@ function tabs_close(event) {
   } else {
     save()
   }
+
+  emit({
+    type: event.type,
+    window: {
+      id: window ..@get("id"),
+      closing: closing
+    },
+    tab: {
+      id: tab ..@get("id")
+    }
+  })
 }
 
 function tabs_update(event) {
   @assert.is(event.type, "tabs.update")
-  var tab = tabs_id ..@get(event.after.tab.id)
-  update_tab(tab, event.after.tab)
+
+  var tab = event.after.tab
+  var old = tabs_id ..@get(tab.id)
+  update_tab(old, tab)
+
+  emit({
+    type: event.type,
+    tab: create_tab(old.id, tab)
+  })
+}
+
+function tabs_focus(event) {
+  @assert.is(event.type, "tabs.focus")
+  @assert.ok(event.before || event.after)
+
+  var o = {
+    type: event.type
+  }
+
+  if (event.before) {
+    var tab_before = tabs_id ..@get(event.before.tab.id)
+    o.before = {
+      tab: {
+        id: tab_before.id
+      }
+    }
+  }
+
+  if (event.after) {
+    var tab_after = tabs_id ..@get(event.after.tab.id)
+    o.after = {
+      tab: {
+        id: tab_after.id
+      }
+    }
+  }
+
+  emit(o)
 }
 
 function tabs_replace(event) {
@@ -289,17 +381,52 @@ function tabs_move(event) {
 
   var tab = tabs_id ..@get(event.after.tab.id)
 
+  var o = {
+    type: event.type,
+    before: {
+      tab: {
+        id: tab.id
+      }
+    },
+    after: {
+      tab: {
+        id: tab.id
+      }
+    }
+  }
+
   if (event.before.window) {
     var window_before = windows_id ..@get(event.before.window.id)
     detach_tab(tab, window_before, event.before.tab.index)
+
+    o.before.window = window_before
+    o.before.tab.index = event.before.tab.index
   }
 
   if (event.after.window) {
     var window_after = windows_id ..@get(event.after.window.id)
     attach_tab(tab, window_after, event.after.tab.index)
+
+    o.after.window = window_after
+    o.after.tab.index = event.after.tab.index
   }
 
   save()
+
+  emit(o)
+}
+
+
+exports.windows.getCurrent = function () {
+  return @windows.getCurrent() ..@map(function (window) {
+    return {
+      id: exports.windows.get(window.id).id,
+      tabs: window.tabs ..@map(function (tab) {
+        var id = exports.tabs.get(tab.id).id
+        return create_tab(id, tab)
+      })
+    }
+  })
 }
 
 
@@ -308,12 +435,16 @@ exports.init(@windows.getCurrent())
 spawn @tabs.events ..@each(function (event) {
   if (event.type === "windows.open") {
     windows_open(event)
+  } else if (event.type === "windows.focus") {
+    windows_focus(event)
   } else if (event.type === "windows.close") {
     windows_close(event)
   } else if (event.type === "tabs.open") {
     tabs_open(event)
   } else if (event.type === "tabs.update") {
     tabs_update(event)
+  } else if (event.type === "tabs.focus") {
+    tabs_focus(event)
   } else if (event.type === "tabs.move") {
     tabs_move(event)
   } else if (event.type === "tabs.replace") {
@@ -321,13 +452,8 @@ spawn @tabs.events ..@each(function (event) {
     tabs_replace(event)
   } else if (event.type === "tabs.close") {
     tabs_close(event)
-  }
-
-  if (delayed_events !== null) {
-    // TODO is pushNew needed?
-    delayed_events ..@pushNew(o)
   } else {
-    exports.tabs.events ..@emit(event)
+    @assert.fail(event.type)
   }
 })
 
