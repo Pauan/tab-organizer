@@ -89,7 +89,8 @@ function make(db_name, port_name, defs) {
 
 exports.opt = make("options.user", "options", {
   "counter.enabled"           : true,
-  "counter.type"              : "total",
+  "counter.display.loaded"    : true,
+  "counter.display.unloaded"  : true,
 
   "size.sidebar"              : 300,
   "size.sidebar.position"     : "left",

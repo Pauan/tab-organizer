@@ -8,36 +8,16 @@
 ])
 
 
-var type = @opt.get("counter.type")
-
-spawn @observe([type], function (type) {
-  if (type === "in-chrome" || type === "total") {
-    @extension.button.setColor(0, 0, 0, 0.9)
-  } else {
-    @assert.fail()
-  }
-})
+var counter_loaded   = @opt.get("counter.display.loaded")
+var counter_unloaded = @opt.get("counter.display.unloaded")
 
 
 var tabCount = @Observer()
 
-spawn @observe([type], function (type) {
-  var i = 0
-  @windows.getCurrent() ..@each(function (window) {
-    window.children ..@each(function (tab) {
-      if (type === "in-chrome") {
-        if (tab.active) {
-          ++i
-        }
-      } else if (type === "total") {
-        ++i
-      } else {
-        @assert.fail()
-      }
-    })
-  })
-  tabCount.set(i)
-})
+function tab_matches(tab, loaded, unloaded) {
+  return (loaded   &&  tab.active) ||
+         (unloaded && !tab.active)
+}
 
 function add1() {
   tabCount.modify(function (i) {
@@ -51,23 +31,37 @@ function sub1() {
   })
 }
 
+spawn @observe([counter_loaded, counter_unloaded], function (loaded, unloaded) {
+  var i = 0
+  @windows.getCurrent() ..@each(function (window) {
+    window.children ..@each(function (tab) {
+      if (tab_matches(tab, loaded, unloaded)) {
+        ++i
+      }
+    })
+  })
+  tabCount.set(i)
+})
 
 spawn @tabs.events ..@each(function (event) {
   if (event.type === "tabs.open") {
-    console.log("TOTAL", event.type, event.tab)
-    add1()
+    if (tab_matches(event.tab, counter_loaded.get(), counter_unloaded.get())) {
+      add1()
+    }
+
   } else if (event.type === "tabs.close") {
-    console.log("TOTAL", event.type, event.tab)
-    sub1()
+    if (tab_matches(event.tab, counter_loaded.get(), counter_unloaded.get())) {
+      sub1()
+    }
   }
-
-  /*if (type.get() === "total") {
-
-  }*/
 })
 
 
+@extension.button.setColor(0, 0, 0, 0.9)
+
 spawn @observe([tabCount, @opt.get("counter.enabled")], function (i, enabled) {
+  @assert.ok(i >= 0)
+
   if (enabled) {
     @extension.button.setText(i)
   } else {

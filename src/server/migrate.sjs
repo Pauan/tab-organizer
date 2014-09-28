@@ -8,7 +8,7 @@
 
 
 // TODO make this const ?
-exports.version = @manifest ..@get("version") + "b9"
+exports.version = @manifest ..@get("version") + "b10"
 
 
 function isNewVersion() {
@@ -165,6 +165,24 @@ make_setter("options.user", function (opts) {
   delete opts["popup.hotkey.shift"]
   delete opts["popup.hotkey.alt"]
   delete opts["popup.hotkey.letter"]
+
+  // TODO test this
+  if (opts ..@has("counter.type")) {
+    var counter_type = opts ..@get("counter.type")
+    // TODO this isn't quite correct: it should reset to the default
+    if (counter_type === "total") {
+      delete opts["counter.display.loaded"]
+      delete opts["counter.display.unloaded"]
+
+    } else if (counter_type === "in-chrome") {
+      delete opts["counter.display.loaded"]
+      opts["counter.display.unloaded"] = false
+
+    } else {
+      @assert.fail()
+    }
+    opts ..@delete("counter.type")
+  }
 
   opts ..moveValue("group.sort.type", "window", "group")
   opts ..moveValue("group.sort.type", "domain", "url")

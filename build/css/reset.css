@@ -70,7 +70,7 @@ a[href] {
   cursor: auto;
 }
 
-button {
+button, select, label, input[type="checkbox"], input[type="radio"] {
   /*outline: none;*/
   cursor: pointer;
 }
