@@ -157,6 +157,31 @@ exports.init = function (array_new) {
 exports.windows = {}
 exports.tabs = {}
 
+var delayed_events  = null  // When delaying events, this will be an array
+var delayed_counter = 0     // This is the number of functions that are delaying events
+
+// TODO test this
+exports.tabs.delayEvents = function (f) {
+  ++delayed_counter
+
+  if (delayed_events === null) {
+    @assert.is(delayed_counter, 1)
+    delayed_events = []
+  }
+
+  try {
+    return f()
+  } finally {
+    if (--delayed_counter === 0) {
+      var a = delayed_events
+      delayed_events = null
+      a ..@each(function (x) {
+        exports.tabs.events ..@emit(x)
+      })
+    }
+  }
+}
+
 exports.tabs.events = @Emitter()
 
 exports.windows.get = function (id) {
@@ -259,19 +284,19 @@ function tabs_replace(event) {
 
 function tabs_move(event) {
   @assert.is(event.type, "tabs.move")
-  @assert.ok(event.before || event.after)
+  @assert.ok(event.before.window || event.after.window)
+  @assert.is(event.before.tab.id, event.after.tab.id)
 
-  if (event.before) {
-    var window = windows_id ..@get(event.before.window.id)
-    var tab = tabs_id ..@get(event.before.tab.id)
-    detach_tab(tab, window, event.before.tab.index)
+  var tab = tabs_id ..@get(event.after.tab.id)
+
+  if (event.before.window) {
+    var window_before = windows_id ..@get(event.before.window.id)
+    detach_tab(tab, window_before, event.before.tab.index)
   }
 
-  if (event.after) {
-    var window = windows_id ..@get(event.after.window.id)
-    // TODO assert that it's the same tab in both before and after
-    var tab = tabs_id ..@get(event.after.tab.id)
-    attach_tab(tab, window, event.after.tab.index)
+  if (event.after.window) {
+    var window_after = windows_id ..@get(event.after.window.id)
+    attach_tab(tab, window_after, event.after.tab.index)
   }
 
   save()
@@ -298,7 +323,12 @@ spawn @tabs.events ..@each(function (event) {
     tabs_close(event)
   }
 
-  exports.tabs.events ..@emit(event)
+  if (delayed_events !== null) {
+    // TODO is pushNew needed?
+    delayed_events ..@pushNew(o)
+  } else {
+    exports.tabs.events ..@emit(event)
+  }
 })
 
 console.info("session: finished")

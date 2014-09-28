@@ -127,42 +127,40 @@ function getMaximumSize(force) {
   // so we fall back to the old approach of "create a maximized window then check its size"
   } else {*/
 
-    return @tabs.delayEvents(function () {
-      var window = @windows.open({ url: url_empty, focused: false })
+    var popup = @popup.open({ url: url_empty, focused: false })
 
-      /*var seen = false
+    /*var seen = false
 
-      events ..@each(function (x) {
-        if ((x.before && x.before.window && x.before.window.id === window.id) ||
-            (x.after  && x.after.window  && x.after.window.id  === window.id)) {
-          if (x.type === "windows.open") {
-            @assert.is(seen, false)
-            seen = true
-          }
-        } else {
-          @tabs.events ..@emit(x)
+    events ..@each(function (x) {
+      if ((x.before && x.before.window && x.before.window.id === window.id) ||
+          (x.after  && x.after.window  && x.after.window.id  === window.id)) {
+        if (x.type === "windows.open") {
+          @assert.is(seen, false)
+          seen = true
         }
-      })
-
-      @assert.is(seen, true)*/
-
-      @windows.maximize(window.id)
-
-      // TODO Yes we really need this delay, because Chrome is stupid
-      hold(500)
-
-      var info = @windows.getDimensions(window.id)
-
-      @windows.close(window.id)
-
-      // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
-      return {
-        left: info.left,
-        top: info.top,
-        width: info.width,
-        height: info.height
+      } else {
+        @tabs.events ..@emit(x)
       }
     })
+
+    @assert.is(seen, true)*/
+
+    @popup.maximize(popup.id)
+
+    // TODO Yes we really need this delay, because Chrome is stupid
+    hold(500)
+
+    var info = @popup.getDimensions(popup.id)
+
+    @popup.close(popup.id)
+
+    // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
+    return {
+      left: info.left,
+      top: info.top,
+      width: info.width,
+      height: info.height
+    }
   //}
 }
 

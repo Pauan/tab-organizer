@@ -36,8 +36,31 @@ function save_delay() {
 }
 
 
+function id_from_window(window) {
+  return @session.windows.get(window.id).id
+}
+
+function id_from_tab(tab) {
+  return @session.tabs.get(tab.id).id
+}
+
+function window_from_chrome(window_new) {
+  var id = id_from_window(window_new)
+  var window_old = windows_id ..@get(id)
+  @assert.is(window_old.id, id)
+  return window_old
+}
+
+function tab_from_chrome(tab_new) {
+  var id = id_from_tab(tab_new)
+  var tab_old = tabs_id ..@get(id)
+  @assert.is(tab_old.id, id)
+  return tab_old
+}
+
+
 // TODO library function for this ?
-function setNull(obj, key, value) {
+function set_null(obj, key, value) {
   if (value != null) {
     obj[key] = value
   } else {
@@ -46,7 +69,7 @@ function setNull(obj, key, value) {
 }
 
 // TODO library function for this ?
-function setBoolean(obj, key, value) {
+function set_boolean(obj, key, value) {
   // TODO use isBoolean test for this
   @assert.ok(value === true || value === false)
   if (value) {
@@ -57,7 +80,7 @@ function setBoolean(obj, key, value) {
 }
 
 // TODO library function for this ?
-function isBoolean(obj, key) {
+function to_boolean(obj, key) {
   var value = obj[key]
   if (value === void 0) {
     return false
@@ -68,34 +91,32 @@ function isBoolean(obj, key) {
   }
 }
 
-function shouldUpdate(tab_old, tab_new) {
-  @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
+function should_update(tab_old, tab_new) {
+  @assert.is(tab_old.active ..to_boolean("focused"), tab_new.focused)
 
   return (tab_old.url     !== tab_new.url) ||
          (tab_old.favicon !== tab_new.favicon) ||
          (tab_old.title   !== tab_new.title) ||
-         (tab_old ..isBoolean("pinned") !== tab_new.pinned)
+         (tab_old ..to_boolean("pinned") !== tab_new.pinned)
 }
 
-function setTab(tab_old, tab_new) {
-  @assert.is(tab_old.active ..isBoolean("focused"), tab_new.focused)
+function tab_set(tab_old, tab_new) {
+  @assert.is(tab_old.active ..to_boolean("focused"), tab_new.focused)
 
-  tab_old ..setNull("url", tab_new.url)
-  tab_old ..setNull("favicon", tab_new.favicon)
-  tab_old ..setNull("title", tab_new.title)
-  tab_old ..setBoolean("pinned", tab_new.pinned)
+  tab_old ..set_null("url", tab_new.url)
+  tab_old ..set_null("favicon", tab_new.favicon)
+  tab_old ..set_null("title", tab_new.title)
+  tab_old ..set_boolean("pinned", tab_new.pinned)
 }
 
-function resetFocus(tab_old, tab_new) {
+function tab_reset_focus(tab_old, tab_new) {
   @assert.ok(tab_old.active == null)
   tab_old.active = {}
-  tab_old.active ..setBoolean("focused", tab_new.focused)
+  tab_old.active ..set_boolean("focused", tab_new.focused)
 }
 
 
-function addWindow(window_new) {
-  var id = @session.windows.get(window_new.id).id
-
+function window_open(id, window_new) {
   var created = @timestamp()
 
   var window = {
@@ -111,7 +132,7 @@ function addWindow(window_new) {
 
   // TODO is this correct ?
   window_new.tabs ..@each(function (tab_new) {
-    addTab(window, tab_new)
+    tab_open(id_from_tab(tab_new), window_new, tab_new)
   })
 
   save()
@@ -124,13 +145,7 @@ function addWindow(window_new) {
   return window
 }
 
-function removeWindow(window_new) {
-  var id = @session.windows.get(window_new.id).id
-
-  var window_old = windows_id ..@get(id)
-
-  @assert.is(window_old.id, id)
-
+function window_close(window_old) {
   windows_id ..@delete(window_old.id)
   windows_db ..@remove(window_old)
 
@@ -150,8 +165,8 @@ function removeWindow(window_new) {
   return window_old
 }
 
-function addTab(window_old, tab_new) {
-  var id = @session.tabs.get(tabs_new.id).id
+function tab_open(id, window_new, tab_new) {
+  var window_old = window_from_chrome(window_new)
 
   var created = @timestamp()
 
@@ -162,11 +177,11 @@ function addTab(window_old, tab_new) {
     }
   }
 
-  resetFocus(tab, tab_new)
-  setTab(tab, tab_new)
+  tab_reset_focus(tab, tab_new)
+  tab_set(tab, tab_new)
   tabs_id ..@setNew(tab.id, tab)
 
-  var index = getIndexForTab(window_old, tab_new)
+  var index = index_from_tab(window_old, window_new, tab_new)
   window_old.children ..@spliceNew(index, tab)
 
   save()
@@ -183,19 +198,14 @@ function addTab(window_old, tab_new) {
   return tab
 }
 
-function removeTab(tab_new, delay) {
+function tab_close(tab_old, window_old, closing) {
   // TODO replace with isBoolean test
-  @assert.ok(delay === true || delay === false)
-
-  var tab_old = tabs_id ..@get(tab_new.id)
-  var window_old = windows_id ..@get(tab_new.window.id)
-
-  @assert.is(tab_old.id, tab_new.id)
+  @assert.ok(closing === true || closing === false)
 
   tabs_id ..@delete(tab_old.id)
   window_old.children ..@remove(tab_old)
 
-  if (delay) {
+  if (closing) {
     save_delay()
   } else {
     save()
@@ -212,9 +222,9 @@ function removeTab(tab_new, delay) {
   return tab_old
 }
 
-function updateTab(tab_old, tab_new) {
-  if (shouldUpdate(tab_old, tab_new)) {
-    setTab(tab_old, tab_new)
+function tab_update(tab_old, tab_new) {
+  if (should_update(tab_old, tab_new)) {
+    tab_set(tab_old, tab_new)
     tab_old.time.updated = @timestamp()
 
     save()
@@ -227,42 +237,49 @@ function updateTab(tab_old, tab_new) {
   return tab_old
 }
 
-function getIndexForTab(window_old, tab_new) {
-  @assert.is(tab_new.window.tabs[tab_new.index], tab_new)
-
+function index_from_tab(window_old, window_new, tab_new) {
   if (tab_new.index === 0) {
     return 0
   } else {
     // Get the tab to the left
-    var prev = tab_new.window.tabs ..@get(tab_new.index - 1)
-    var prev_new = tabs_id ..@get(prev.id)
-    return window_old.children ..@indexOf(prev_new) + 1
+    var tabs = @session.windows.get(window_new.id).tabs
+    var prev = tabs ..@get(tab_new.index - 1)
+    var prev_old = tabs_id ..@get(prev.id)
+    return (window_old.children ..@indexOf(prev_old)) + 1
   }
 }
 
 // TODO it should probably take into account the direction of movement (left or right)
-function moveTab(tab_new, info) {
-  var tab_old = tabs_id ..@get(tab_new.id)
-  // TODO assert that the window is correct somehow ?
-  var window_old = windows_id ..@get(info.window.id)
-  var window_new = windows_id ..@get(tab_new.window.id)
+function tab_move(event) {
+  @assert.ok(event.before.window || event.after.window)
+  @assert.is(event.before.tab.id, event.after.tab.id)
 
-  window_old.children ..@remove(tab_old)
+  var tab_old = tab_from_chrome(event.after.tab)
 
-  var index = getIndexForTab(window_new, tab_new)
-  window_new.children ..@spliceNew(index, tab_old)
+  if (event.before.window) {
+    var window_before = window_from_chrome(event.before.window)
+    window_before.children ..@remove(tab_old)
+  }
 
-  tab_old.time.moved = @timestamp()
+  if (event.after.window) {
+    var window_after = window_from_chrome(event.after.window)
+    var index        = index_from_tab(window_after, event.after.window, event.after.tab)
+    window_after.children ..@spliceNew(index, tab_old)
+  }
 
-  if (window_old === window_new) {
-    tab_old.time.moved_in_window = tab_old.time.moved
-  } else {
-    tab_old.time.moved_to_window = tab_old.time.moved
+  if (event.after.window) {
+    tab_old.time.moved = @timestamp()
+
+    if (event.before.window && event.before.window.id === event.after.window.id) {
+      tab_old.time.moved_in_window = tab_old.time.moved
+    } else {
+      tab_old.time.moved_to_window = tab_old.time.moved
+    }
   }
 
   save()
 
-  @connection.send("tabs", {
+  /*@connection.send("tabs", {
     type: "tab-moved",
     tab: tab_old,
     move_from: {
@@ -272,19 +289,16 @@ function moveTab(tab_new, info) {
       window: window_new.id,
       index: index
     }
-  })
+  })*/
 
   return tab_old
 }
 
-function focusTab(tab_new) {
-  var tab_old = tabs_id ..@get(tab_new.id)
-
-  @assert.is(tab_new.focused, true)
+function tab_focus(tab_old) {
   @assert.ok(tab_old.active != null)
-  @assert.is(tab_old.active ..isBoolean("focused"), false)
+  @assert.is(tab_old.active ..to_boolean("focused"), false)
 
-  tab_old.active ..setBoolean("focused", true)
+  tab_old.active ..set_boolean("focused", true)
   tab_old.time.focused = @timestamp()
 
   save()
@@ -297,15 +311,11 @@ function focusTab(tab_new) {
   return tab_old
 }
 
-// This doesn't need to save, because the only thing that changed is its focused state, which is transient
-function unfocusTab(tab_new) {
-  var tab_old = tabs_id ..@get(tab_new.id)
-
-  @assert.is(tab_new.focused, false)
+function tab_unfocus(tab_old) {
   @assert.ok(tab_old.active != null)
-  @assert.is(tab_old.active ..isBoolean("focused"), true)
+  @assert.is(tab_old.active ..to_boolean("focused"), true)
 
-  tab_old.active ..setBoolean("focused", false)
+  tab_old.active ..set_boolean("focused", false)
   tab_old.time.unfocused = @timestamp()
 
   save()
@@ -331,29 +341,36 @@ windows_db ..@each(function (window_old) {
 
 // Load in new tabs
 @windows.getCurrent() ..@each(function (window_new) {
-  if (windows_id ..@has(window_new.id)) {
-    window_new.tabs ..@each(function (tab_new) {
-      if (tabs_id ..@has(tab_new.id)) {
-        var tab_old = tabs_id ..@get(tab_new.id)
+  var id = id_from_window(window_new)
 
-        resetFocus(tab_old, tab_new)
+  if (windows_id ..@has(id)) {
+    window_new.tabs ..@each(function (tab_new) {
+      var id = id_from_tab(tab_new)
+
+      if (tabs_id ..@has(id)) {
+        var tab_old = tabs_id ..@get(id)
+
+        tab_reset_focus(tab_old, tab_new)
 
         // TODO check that the relative position of the tab is correct?
-        updateTab(tab_old, tab_new)
+        tab_update(tab_old, tab_new)
+
       } else {
-        addTab(tab_new)
+        tab_open(id, window_new, tab_new)
       }
     })
+
   } else {
-    addWindow(window_new)
+    window_open(id, window_new)
   }
 })
 
 // Migrate old window titles to the new system
 // TODO hacky that this is in here, rather than in migrate.sjs
+// TODO test this
 if (@migrate.db.has("window.titles")) {
   @zip(@windows.getCurrent(), @migrate.db.get("window.titles")) ..@each(function ([window, title]) {
-    var window_new = windows_id ..@get(window.id)
+    var window_new = window_from_chrome(window)
     window_new.name = title
     save()
   })
@@ -369,60 +386,68 @@ console.info("tabs: saved windows", windows_db)
 
 
 exports.windows = {}
-
 exports.windows.getCurrent = function () {
   return windows_db
 }
 
 exports.tabs = {}
-exports.tabs.on = {}
-exports.tabs.on.open = @Emitter()
-exports.tabs.on.close = @Emitter()
+exports.tabs.events = @Emitter()
 
-spawn @windows.on.open ..@each(function (info) {
-  console.debug("ADD WINDOW", info)
-  addWindow(info.window)
-})
+spawn @session.tabs.events ..@each(function (event) {
+  if (event.type === "windows.open") {
+    console.log(event.type)
+    var id = id_from_window(event.after.window)
+    window_open(id, event.after.window)
 
-spawn @windows.on.close ..@each(function (info) {
-  console.debug("REMOVE WINDOW", info)
-  removeWindow(info.window)
-})
+  } else if (event.type === "windows.close") {
+    console.log(event.type)
+    window_close(window_from_chrome(event.before.window))
 
-spawn @tabs.on.open ..@each(function (info) {
-  console.debug("ADD", info)
-  exports.tabs.on.open ..@emit({
-    tab: addTab(info.tab)
-  })
-})
+  } else if (event.type === "tabs.open") {
+    console.log(event.type)
 
-spawn @tabs.on.close ..@each(function (info) {
-  console.debug("REMOVE", info)
-  exports.tabs.on.close ..@emit({
-    tab: removeTab(info.tab, info.windowClosing)
-  })
-})
+    var id = id_from_tab(event.after.tab)
 
-spawn @tabs.on.update ..@each(function (info) {
-  console.debug("UPDATE", info)
-  var tab_new = info.tab
-  var tab_old = tabs_id ..@get(tab_new.id)
-  updateTab(tab_old, tab_new)
-})
+    exports.tabs.events ..@emit({
+      type: "tabs.open",
+      tab: tab_open(id, event.after.window, event.after.tab)
+    })
 
-spawn @tabs.on.focus ..@each(function (info) {
-  console.debug("FOCUS", info)
-  focusTab(info.tab)
-})
+  } else if (event.type === "tabs.update") {
+    console.log(event.type)
 
-spawn @tabs.on.unfocus ..@each(function (info) {
-  console.debug("UNFOCUS", info)
-  unfocusTab(info.tab)
-})
+    var tab_new = event.after.tab
+    var tab_old = tab_from_chrome(tab_new)
+    tab_update(tab_old, tab_new)
 
-spawn @tabs.on.move ..@each(function (info) {
-  console.debug("MOVE", info)
-  moveTab(info.tab, info.old)
+  //} else if (event.type === "tabs.replace") {
+  //  console.log(event.type)
+  } else if (event.type === "tabs.focus") {
+    console.log(event.type)
+
+    if (event.before) {
+      tab_unfocus(tab_from_chrome(event.before.tab))
+    }
+    if (event.after) {
+      tab_focus(tab_from_chrome(event.after.tab))
+    }
+
+  } else if (event.type === "tabs.move") {
+    console.log(event.type)
+    tab_move(event)
+
+  } else if (event.type === "tabs.close") {
+    console.log(event.type)
+
+    var tab = tab_from_chrome(event.before.tab)
+    var window = window_from_chrome(event.before.window)
+    var closing = event.before.window.closing
+
+    exports.tabs.events ..@emit({
+      type: "tabs.close",
+      tab: tab_close(tab, window, closing)
+    })
+  }
 })
 
 
