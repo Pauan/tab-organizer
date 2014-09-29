@@ -4,9 +4,11 @@ require("../../hubs")
   { id: "./tab", name: "tab" },
   { id: "./group", name: "group" },
 
+  { id: "sjs:object" },
   { id: "sjs:sequence" },
   { id: "../animation", name: "animation" },
   { id: "lib:util/dom" },
+  { id: "lib:util/util" },
 
   { id: "lib:extension/client" },
   { id: "lib:util/observe" },
@@ -737,43 +739,129 @@ var tabs =  [
 })*/
 
 
+/**
+ @ObservableHash({
+        id: info.id,
+        time: @ObservableHash(info.time),
+        active: (info.active && @ObservableHash(info.active)),
+        pinned: info.pinned,
+        title: info.title,
+        url: info.url,
+        favicon: info.favicon
+      })
+*/
+
+
+var windows_id = {}
+var tabs_id    = {}
+
+function tab_add(tab) {
+  tabs_id ..@setNew(tab.id, tab)
+  return tab
+}
+
+var windows = @connection.connect("tabs").windows ..@indexed ..@map(function ([i, info]) {
+  var window = {
+    id: info.id,
+
+    name: (info ..@has("name")
+            ? info ..@get("name")
+            : "" + (i + 1)),
+
+    tabs: info.children ..@map(tab_add) ..@ObservableArray
+  }
+
+  windows_id ..@setNew(info.id, window)
+
+  return window
+}) ..@ObservableArray
+
+spawn @connection.on.message("tabs") ..@each(function (event) {
+  if (event.type === "tab.open") {
+    var window = windows_id ..@get(event.window)
+    window.tabs.nth_add(event.index, tab_add(event.tab))
+
+  } else if (event.type === "tab.close") {
+    var window = windows_id ..@get(event.window)
+    window.tabs.nth_remove(event.index)
+    tabs_id ..@delete(event.tab.id)
+
+  } else if (event.type === "tab.update") {
+    var tab = tabs_id ..@get(event.tab.id)
+    tabs_id ..@set(event.tab.id, event.tab)
+
+    var window = windows_id ..@get(event.window)
+    var index = window.tabs.nth_of(tab)
+
+    if (tab.url === event.tab.url) {
+      window.tabs.nth_modify(index, function () {
+        return event.tab
+      })
+    } else {
+      window.tabs.nth_remove(index)
+      window.tabs.nth_add(index, event.tab)
+    }
+
+  } else {
+    // TODO enable this
+    //@assert.fail()
+  }
+})
+
+
+/*var top = @Div() ..@observe_array(windows, {
+  map: function (info) {
+    return @group.create(info, @Div() ..@observe_array(info.tabs, {
+      map: function (info) {
+        return @tab.create(info)
+      },
+      animate_add: function (elem) {
+        console.log("ANIMATING TAB")
+        elem ..@animation.startAt(@tab.hidden_style)
+      },
+      animate_remove: function (elem) {
+        elem ..@animation.endAt(@tab.hidden_style)
+      }
+    }))
+  },
+  animate_add: function (elem) {
+    console.log("ANIMATING GROUP")
+    elem ..@animation.startAt(@group.hidden_style)
+  },
+  animate_remove: function (elem) {
+    elem ..@animation.endAt(@group.hidden_style)
+  }
+})*/
+
+
 var top = @Div([
   @group.create({
-    name: "foo",
-    tabs: tabs.slice(0, 5) ..@map(@tab.create)
-  }) ..animateGroup,
+    name: "foo"
+  }, tabs.slice(0, 5) ..@map(@tab.create)) ..animateGroup,
 
   @group.create({
-    name: "bar",
-    tabs: tabs.slice(5, 14) ..@map(@tab.create) ..@indexed ..@map(function ([i, x]) {
-      if (i % 2 === 0) {
-        return x ..animateTabBack
-      } else {
-        return x ..animateTab
-      }
-    })
-    /*[
-      @tab.create({ title: "YUPYUPYUPYUPYUP", favicon: "foo" }),
-      @tab.create({ title: "HIYA THERE YOU GUYS", favicon: "foo" }) ..animateTab,
-      @tab.create({ title: "HUHUHUH YES VERY NICE", favicon: "foo" }) ..animateTab,
-      @tab.create({ title: "NONONONONONONO", favicon: "foo" }) ..animateTabBack
-    ]*/
-  }),
+    name: "bar"
+  }, tabs.slice(5, 14) ..@map(@tab.create) ..@indexed ..@map(function ([i, x]) {
+    if (i % 2 === 0) {
+      return x ..animateTabBack
+    } else {
+      return x ..animateTab
+    }
+  })),
 
   @group.create({
-    name: "qux",
-    tabs: tabs.slice(14, 19) ..@map(@tab.create) ..@indexed ..@map(function ([i, x]) {
-      if (i === 2) {
-        return x ..animateTab
-      } else if (i === 3) {
-        return x ..animateTab
-      } else if (i === 4) {
-        return x ..animateTabBack
-      } else {
-        return x
-      }
-    })
-  })
+    name: "qux"
+  }, tabs.slice(14, 19) ..@map(@tab.create) ..@indexed ..@map(function ([i, x]) {
+    if (i === 2) {
+      return x ..animateTab
+    } else if (i === 3) {
+      return x ..animateTab
+    } else if (i === 4) {
+      return x ..animateTabBack
+    } else {
+      return x
+    }
+  }))
 ])
 
 

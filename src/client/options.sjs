@@ -22,7 +22,7 @@ function make(port_name) {
   }
 
   o.options ..@eachKeys(function (key, value) {
-    opts ..@setNew(key, @Observer(value))
+    opts ..@setNew(key, @ObservableVar(value))
 
     spawn get(key) ..@each(function (value) {
       console.debug(port_name + ": setting \"" + key + "\" to " + value)

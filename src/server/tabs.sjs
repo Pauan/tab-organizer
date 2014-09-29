@@ -105,7 +105,7 @@ function window_open(id, window_new) {
   }
 
   windows_id ..@setNew(window.id, window)
-  windows_db ..@pushNew(window)
+  var index = windows_db ..@pushNew(window)
 
   // TODO is this correct ?
   window_new.tabs ..@each(function (tab_new) {
@@ -115,8 +115,10 @@ function window_open(id, window_new) {
 
   save()
 
+  // TODO this should only send out an event when a new window is opened
   @connection.send("tabs", {
-    type: "window-created",
+    type: "window.open",
+    index: index,
     window: window
   })
 
@@ -127,7 +129,7 @@ function window_close(window_new) {
   var window_old = windows_id ..@get(window_new.id)
 
   windows_id ..@delete(window_old.id)
-  windows_db ..@remove(window_old)
+  var index = windows_db ..@remove(window_old)
 
   // TODO is this necessary ?
   window_old.children ..@each(function (tab_old) {
@@ -138,8 +140,8 @@ function window_close(window_new) {
   save_delay()
 
   @connection.send("tabs", {
-    type: "window-removed",
-    window: window_old
+    type: "window.close",
+    index: index
   })
 
   return window_old
@@ -167,12 +169,10 @@ function tab_open(id, window_new, tab_new) {
   save()
 
   @connection.send("tabs", {
-    type: "tab-created",
-    tab: tab,
-    move_to: {
-      window: window_old.id,
-      index: index
-    }
+    type: "tab.open",
+    window: window_old.id,
+    index: index,
+    tab: tab
   })
 
   return tab
@@ -183,7 +183,7 @@ function tab_close(tab_old, window_old, closing) {
   @assert.ok(closing === true || closing === false)
 
   tabs_id ..@delete(tab_old.id)
-  window_old.children ..@remove(tab_old)
+  var index = window_old.children ..@remove(tab_old)
 
   if (closing) {
     save_delay()
@@ -192,28 +192,22 @@ function tab_close(tab_old, window_old, closing) {
   }
 
   @connection.send("tabs", {
-    type: "tab-removed",
-    tab: tab_old,
-    move_from: {
-      window: window_old.id
-    }
+    type: "tab.close",
+    window: window_old.id,
+    index: index,
+    tab: tab_old
   })
 
   return tab_old
 }
 
+// TODO this should call `should_update`
 function tab_update(tab_old, tab_new) {
-  if (should_update(tab_old, tab_new)) {
-    tab_set(tab_old, tab_new)
-    tab_old.time.updated = @timestamp()
+  tab_set(tab_old, tab_new)
+  tab_old.time.updated = @timestamp()
 
-    save()
+  save()
 
-    @connection.send("tabs", {
-      type: "tab-updated",
-      tab: tab_old
-    })
-  }
   return tab_old
 }
 
@@ -329,8 +323,10 @@ windows_db ..@each(function (window_old) {
 
         tab_reset_focus(tab_old, tab_new)
 
-        // TODO check that the relative position of the tab is correct?
-        tab_update(tab_old, tab_new)
+        if (should_update(tab_old, tab_new)) {
+          // TODO check that the relative position of the tab is correct?
+          tab_update(tab_old, tab_new)
+        }
 
       } else {
         tab_open(id, window_new, tab_new)
@@ -372,16 +368,12 @@ exports.tabs.events = @Emitter()
 
 spawn @session.tabs.events ..@each(function (event) {
   if (event.type === "windows.open") {
-    console.log(event.type)
     window_open(event.window.id, event.window)
 
   } else if (event.type === "windows.close") {
-    console.log(event.type)
     window_close(event.window)
 
   } else if (event.type === "tabs.open") {
-    console.log(event.type)
-
     var id = event.tab.id
 
     exports.tabs.events ..@emit({
@@ -390,25 +382,29 @@ spawn @session.tabs.events ..@each(function (event) {
     })
 
   } else if (event.type === "tabs.update") {
-    console.log(event.type)
-
+    var window  = windows_id ..@get(event.window.id)
     var tab_new = event.tab
     var tab_old = tabs_id ..@get(tab_new.id)
-    tab_update(tab_old, tab_new)
+
+    if (should_update(tab_old, tab_new)) {
+      tab_update(tab_old, tab_new)
+
+      @connection.send("tabs", {
+        type: "tab.update",
+        window: window.id,
+        tab: tab_old
+      })
+    }
 
   //} else if (event.type === "tabs.replace") {
   //  console.log(event.type)
   } else if (event.type === "tabs.focus") {
-    console.log(event.type)
     tab_focus(event)
 
   } else if (event.type === "tabs.move") {
-    console.log(event.type)
     tab_move(event)
 
   } else if (event.type === "tabs.close") {
-    console.log(event.type)
-
     var tab = tabs_id ..@get(event.tab.id)
     var window = windows_id ..@get(event.window.id)
     var closing = event.window.closing
@@ -417,6 +413,9 @@ spawn @session.tabs.events ..@each(function (event) {
       type: "tabs.close",
       tab: tab_close(tab, window, closing)
     })
+
+  } else {
+    @assert.fail()
   }
 })
 

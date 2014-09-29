@@ -20,8 +20,7 @@ function make(db_name, port_name, defs) {
 
   function makeVar(key, value) {
     // ObservableVar only emits changes when the current value is different from the new value
-    // TODO I should probably use my own custom version of ObservableVars, to get the exact behavior I want
-    vars ..@setNew(key, @Observer(value))
+    vars ..@setNew(key, @ObservableVar(value))
 
     opts ..@setNew(key, value)
 

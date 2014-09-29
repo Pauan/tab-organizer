@@ -328,12 +328,16 @@ function tabs_close(event) {
 function tabs_update(event) {
   @assert.is(event.type, "tabs.update")
 
+  var window = windows_id ..@get(event.after.window.id)
   var tab = event.after.tab
   var old = tabs_id ..@get(tab.id)
   update_tab(old, tab)
 
   emit({
     type: event.type,
+    window: {
+      id: window ..@get("id")
+    },
     tab: create_tab(old.id, tab)
   })
 }

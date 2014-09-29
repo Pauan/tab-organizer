@@ -92,8 +92,8 @@ exports.hidden_style = @animation.create({
   css: @animation.hiddenSlide(
   {
     rotationX: "-90deg", // 120deg
-    rotationY: "30deg", // 20deg
-    rotationZ: "-1deg", // -1deg
+    rotationY: "5deg", // 20deg
+    //rotationZ: "-1deg", // -1deg
 
     //transformPerspective: 5000,
     //transformOrigin: "0% 0%"
@@ -105,14 +105,21 @@ exports.hidden_style = @animation.create({
   )
 })
 
-function favicon(url) {
-  return @Img(null, { src: url }) ..icon_style ..favicon_style
+function favicon(info) {
+  // { src: url }
+  return @Img(null) ..@Mechanism(function (elem) {
+    // Needed to avoid a crash in Chrome
+    hold(0)
+    elem.src = info.favicon
+  }) ..icon_style ..favicon_style
 }
 
-function text(title) {
-  return @Div(title) ..text_style ..@stretch ..@clip
+function text(info) {
+  return @Div() ..text_style ..@stretch ..@clip ..@Mechanism(function (elem) {
+    elem.textContent = (info.title || info.url)
+  })
 }
 
-exports.create = function (tab) {
-  return @Div([favicon(tab.favicon), text(tab.title)]) ..tab_style ..@horizontal ..@clip // TODO is this clip needed ?
+exports.create = function (info) {
+  return @Div([favicon(info), text(info)]) ..tab_style ..@horizontal ..@clip // TODO is this clip needed ?
 }

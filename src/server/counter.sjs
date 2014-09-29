@@ -12,7 +12,7 @@ var counter_loaded   = @opt.get("counter.display.loaded")
 var counter_unloaded = @opt.get("counter.display.unloaded")
 
 
-var tabCount = @Observer()
+var tabCount = @ObservableVar()
 
 function tab_matches(tab, loaded, unloaded) {
   return (loaded   &&  tab.active) ||

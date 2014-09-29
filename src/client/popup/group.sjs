@@ -30,6 +30,6 @@ function group_top(name) {
   return @Div(name) ..group_top_style
 }
 
-exports.create = function (info) {
-  return @Div([group_top(info.name), info.tabs]) ..group_style ..@clip
+exports.create = function (info, tabs) {
+  return @Div([group_top(info.name), tabs]) ..group_style ..@clip
 }
