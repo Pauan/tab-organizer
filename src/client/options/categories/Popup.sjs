@@ -7,7 +7,7 @@
   { id: "lib:util/util" },
   { id: "lib:util/observe" },
   { id: "../util" },
-  { id: "../../options", name: "top_options" }
+  { id: "../../sync/options", name: "top_options" }
 ])
 
 var container_width = 512 // 1024 / 2

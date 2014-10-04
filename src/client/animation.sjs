@@ -3,7 +3,8 @@
   { id: "sjs:sequence" },
   { id: "sjs:object" },
   { id: "lib:util/util" },
-  { id: "./options" }
+  { id: "lib:util/dom" },
+  { id: "./sync/options" }
 ])
 
 TweenLite.defaultEase = Power3.easeInOut
@@ -11,21 +12,32 @@ TweenLite.defaultEase = Power3.easeInOut
 var canAnimate = @opt.get("theme.animation")
 
 exports.create = function (o) {
-  o.css ..@setNew("clearProps", o.css ..@ownKeys ..@join(","))
+  o.style ..@setNew("clearProps", o.style ..@ownKeys ..@join(","))
+
+  o ..@setNew("animate_start", function (elem) {
+    exports.startAt(elem, o)
+  })
+
+  o ..@setNew("animate_end", function (elem) {
+    exports.endAt(elem, o)
+  })
+
   return o
 }
 
 function tweener(f, elem, info) {
-  @assert.ok(info.css ..@has("clearProps"))
+  @assert.ok(info.style ..@has("clearProps"))
 
   if (canAnimate.get()) {
     waitfor () {
-      f(elem, info.duration / 1000, {
-        css: info.css,
+      f(@dom(elem), info.duration / 1000, {
+        css: info.style,
         onComplete: function () {
           resume()
         }
       })
+    } retract {
+      throw new Error("cannot retract when animating")
     }
   }
 }

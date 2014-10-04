@@ -4,7 +4,7 @@
   { id: "lib:extension/client" },
   { id: "lib:util/dom" },
   { id: "../util" },
-  { id: "../../options", name: "top_options" }
+  { id: "../../sync/options", name: "top_options" }
 ])
 
 exports.top = function () {

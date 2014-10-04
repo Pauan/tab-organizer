@@ -382,7 +382,10 @@ spawn @session.tabs.events ..@each(function (event) {
     })
 
   } else if (event.type === "tabs.update") {
-    var window  = windows_id ..@get(event.window.id)
+    // TODO remove this later ?
+    var window = windows_id ..@get(event.window.id)
+    @assert.is(window.id, event.window.id)
+
     var tab_new = event.tab
     var tab_old = tabs_id ..@get(tab_new.id)
 
@@ -391,7 +394,7 @@ spawn @session.tabs.events ..@each(function (event) {
 
       @connection.send("tabs", {
         type: "tab.update",
-        window: window.id,
+        window: event.window.id,
         tab: tab_old
       })
     }

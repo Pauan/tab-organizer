@@ -1,19 +1,108 @@
 require("../../hubs")
 
 @ = require([
-  { id: "./tab", name: "tab" },
-  { id: "./group", name: "group" },
+  //{ id: "sjs:sequence" },
 
-  { id: "sjs:object" },
-  { id: "sjs:sequence" },
-  { id: "../animation", name: "animation" },
-  { id: "lib:util/dom" },
-  { id: "lib:util/util" },
-
-  { id: "lib:extension/client" },
+  //{ id: "lib:extension/client" },
   { id: "lib:util/observe" },
-  { id: "../options" }
+  { id: "lib:util/dom" },
+  { id: "lib:util/transduce" }
+  //{ id: "../animation", name: "animation" },
+  /*{ id: "../sync/tabs" },
+  { id: "../sync/options" },
+  { id: "./tab", name: "tab" },
+  { id: "./group", name: "group" },*/
 ])
+
+var tab = @Class({
+  "overflow": "hidden"
+})
+
+var hidden = @Class({
+  "height": "0px",
+  "background-color": "red"
+})
+
+var array = @ObservableArray(["foo", "bar"])
+
+/*var Tab = @Component({
+  state: function (info) {
+    return {
+      title: info.title
+    }
+  },
+  render: function (state) {
+    return @Div(state.title)
+  }
+})
+
+var App = @Component({
+  state: function () {
+    return {
+      tabs: @ObservableArray(["foo", "bar"])
+    }
+  },
+  render: function (state) {
+    return @Div(state.tabs ..@map(function (x) {
+      return Tab({
+        title: x
+      })
+    }))
+  }
+})
+
+App ..@render(document.body)*/
+
+var tab_to_dom = function (event) {
+  if (event.type === "add" || event.type === "modify") {
+    event.after = @Div({
+      "class": tab,
+      "animate": {
+        "class": hidden,
+        "duration": 1000
+      }
+    }, event.after)
+  }
+  return event
+}
+
+waitfor {
+  hold(3000)
+  array.add("qux")
+  hold(3000)
+  array.nth_remove(1)
+  array.nth_remove(0)
+  array.nth_remove(0)
+} and {
+  @Body ..@initialize([
+    @Div(array ..@alter(@map(tab_to_dom)))
+    /*{,
+      animate_add: function (elem) {
+        elem ..@animation.startAt(hidden)
+      },
+      animate_remove: function (elem) {
+        elem ..@animation.endAt(hidden)
+      }
+    }*/
+    /*..@Mechanism(function (elem) {
+      console.log("HIYA")
+      hold(1000)
+      elem ..@style_add({
+        "background-color": "green"
+      })
+
+      try {
+        hold(1000)
+        elem ..@remove()
+        hold()
+      } retract {
+        console.log("RETRACTING")
+      }
+    })*/
+  ])
+}
+
+hold()
 
 // This is so we don't send the command when we're in an <iframe> (e.g. in the options page)
 if (window.parent === window) {
@@ -27,13 +116,15 @@ function bubble_size(elem) {
     @observe([@opt.get("popup.type"),
               @opt.get("size.bubble.width"),
               @opt.get("size.bubble.height")], function (type, width, height) {
-      if (type === "bubble") {
-        elem.style.maxWidth = "#{width}px"
-        elem.style.maxHeight = "#{height}px"
-      } else {
-        elem.style.maxWidth = ""
-        elem.style.maxHeight = ""
-      }
+      @batch_write(function () {
+        if (type === "bubble") {
+          elem.style.maxWidth = "#{width}px"
+          elem.style.maxHeight = "#{height}px"
+        } else {
+          elem.style.maxWidth = ""
+          elem.style.maxHeight = ""
+        }
+      })
     })
   }
 }
@@ -751,65 +842,7 @@ var tabs =  [
       })
 */
 
-
-var windows_id = {}
-var tabs_id    = {}
-
-function tab_add(tab) {
-  tabs_id ..@setNew(tab.id, tab)
-  return tab
-}
-
-var windows = @connection.connect("tabs").windows ..@indexed ..@map(function ([i, info]) {
-  var window = {
-    id: info.id,
-
-    name: (info ..@has("name")
-            ? info ..@get("name")
-            : "" + (i + 1)),
-
-    tabs: info.children ..@map(tab_add) ..@ObservableArray
-  }
-
-  windows_id ..@setNew(info.id, window)
-
-  return window
-}) ..@ObservableArray
-
-spawn @connection.on.message("tabs") ..@each(function (event) {
-  if (event.type === "tab.open") {
-    var window = windows_id ..@get(event.window)
-    window.tabs.nth_add(event.index, tab_add(event.tab))
-
-  } else if (event.type === "tab.close") {
-    var window = windows_id ..@get(event.window)
-    window.tabs.nth_remove(event.index)
-    tabs_id ..@delete(event.tab.id)
-
-  } else if (event.type === "tab.update") {
-    var tab = tabs_id ..@get(event.tab.id)
-    tabs_id ..@set(event.tab.id, event.tab)
-
-    var window = windows_id ..@get(event.window)
-    var index = window.tabs.nth_of(tab)
-
-    if (tab.url === event.tab.url) {
-      window.tabs.nth_modify(index, function () {
-        return event.tab
-      })
-    } else {
-      window.tabs.nth_remove(index)
-      window.tabs.nth_add(index, event.tab)
-    }
-
-  } else {
-    // TODO enable this
-    //@assert.fail()
-  }
-})
-
-
-/*var top = @Div() ..@observe_array(windows, {
+var top = @Div() ..@observe_array(@windows, {
   map: function (info) {
     return @group.create(info, @Div() ..@observe_array(info.tabs, {
       map: function (info) {
@@ -817,6 +850,9 @@ spawn @connection.on.message("tabs") ..@each(function (event) {
       },
       animate_add: function (elem) {
         console.log("ANIMATING TAB")
+        // TODO should this be true ?
+        // TODO util/dom ?
+        @dom(elem).scrollIntoViewIfNeeded(true)
         elem ..@animation.startAt(@tab.hidden_style)
       },
       animate_remove: function (elem) {
@@ -831,10 +867,10 @@ spawn @connection.on.message("tabs") ..@each(function (event) {
   animate_remove: function (elem) {
     elem ..@animation.endAt(@group.hidden_style)
   }
-})*/
+})
 
 
-var top = @Div([
+/*var top = @Div([
   @group.create({
     name: "foo"
   }, tabs.slice(0, 5) ..@map(@tab.create)) ..animateGroup,
@@ -862,7 +898,7 @@ var top = @Div([
       return x
     }
   }))
-])
+])*/
 
 
 document.body ..@appendContent(top ..@Mechanism(bubble_size))

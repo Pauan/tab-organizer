@@ -89,8 +89,7 @@ var tab_style = @CSS(`
 
 exports.hidden_style = @animation.create({
   duration: 1000,
-  css: @animation.hiddenSlide(
-  {
+  css: @animation.hiddenSlide({
     rotationX: "-90deg", // 120deg
     rotationY: "5deg", // 20deg
     //rotationZ: "-1deg", // -1deg
@@ -101,23 +100,22 @@ exports.hidden_style = @animation.create({
     //borderRadius: "#{tab_height}px",
     //scaleY: "0",
     //marginLeft: "#{tab_height}px"
-  }
-  )
+  })
 })
 
 function favicon(info) {
-  // { src: url }
-  return @Img(null) ..@Mechanism(function (elem) {
+  return @Img() ..@Mechanism(function (elem) {
+    //hold(0)
     // Needed to avoid a crash in Chrome
-    hold(0)
-    elem.src = info.favicon
+    @batch_write(function () {
+      elem.src = info.favicon
+    })
   }) ..icon_style ..favicon_style
 }
 
 function text(info) {
-  return @Div() ..text_style ..@stretch ..@clip ..@Mechanism(function (elem) {
-    elem.textContent = (info.title || info.url)
-  })
+  var text = (info.title || info.url)
+  return @Div(text) ..text_style ..@stretch ..@clip
 }
 
 exports.create = function (info) {

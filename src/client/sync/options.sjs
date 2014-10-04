@@ -44,3 +44,5 @@ function make(port_name) {
 
 exports.opt = make("options")
 exports.cache = make("cache")
+
+console.info("sync/options: finished")

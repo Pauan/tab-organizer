@@ -1,7 +1,7 @@
 @ = require([
   { id: "sjs:object" },
   { id: "lib:util/util" },
-  { id: "../options" }
+  { id: "../sync/options" }
 ])
 
 
