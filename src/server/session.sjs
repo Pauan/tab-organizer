@@ -80,7 +80,7 @@ function merge_new_window(window_old, window_new) {
     // Add new tab
     } else {
       // TODO allow for importers to choose the ID function ?
-      var id = @timestamp()
+      var id = @uniqueID()
       exports.tabs.init(id, window, tab_new)
     }
   })
@@ -90,7 +90,7 @@ function merge_new_window(window_old, window_new) {
 
 function create_new_window(window_new) {
   // TODO allow for importers to choose the ID function ?
-  var id = @timestamp()
+  var id = @uniqueID()
 
   var window = exports.windows.init(id, window_new)
 
@@ -100,7 +100,7 @@ function create_new_window(window_new) {
 
   tabs_new ..@each(function (tab_new) {
     // TODO allow for importers to choose the ID function ?
-    var id = @timestamp()
+    var id = @uniqueID()
     exports.tabs.init(id, window, tab_new)
   })
 
@@ -247,7 +247,7 @@ function windows_open(event) {
   @assert.is(event.type, "windows.open")
   @assert.is(event.after.window.tabs.length, 0)
 
-  var id = @timestamp()
+  var id = @uniqueID()
   var window = exports.windows.init(id, event.after.window)
 
   emit({
@@ -281,7 +281,7 @@ function tabs_open(event) {
   var window = windows_id ..@get(event.after.window.id)
   var tab = event.after.tab
 
-  var id = @timestamp()
+  var id = @uniqueID()
 
   exports.tabs.init(id, window, tab)
 

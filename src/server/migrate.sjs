@@ -104,7 +104,7 @@ make_deleter("current.tabs", function (tabs) {
 
     var group = groups ..@get_or_set(name, function () {
       var o = {
-        id: @timestamp(),
+        id: @uniqueID(),
         time: {
           created: time
         },
@@ -122,7 +122,7 @@ make_deleter("current.tabs", function (tabs) {
     group.time.created = Math.min(group.time.created, time)
 
     group.children.push({
-      id: @timestamp(),
+      id: @uniqueID(),
       url: url,
       favicon: "chrome://favicon/#{url}", // TODO hacky and code duplication with lib:extension
       time: tab.time,

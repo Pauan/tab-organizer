@@ -94,12 +94,10 @@ function tab_reset_focus(tab_old, tab_new) {
 
 
 function window_open(id, window_new) {
-  var created = @timestamp()
-
   var window = {
     id: id,
     time: {
-      created: created
+      created: @timestamp()
     },
     children: []
   }
@@ -150,12 +148,10 @@ function window_close(window_new) {
 function tab_open(id, window_new, tab_new) {
   var window_old = windows_id ..@get(window_new.id)
 
-  var created = @timestamp()
-
   var tab = {
     id: id,
     time: {
-      created: created
+      created: @timestamp()
     }
   }
 
@@ -244,12 +240,12 @@ function tab_move(event) {
   }
 
   if (event.after.window) {
-    tab_old.time.moved = @timestamp()
+    var moved = @timestamp()
 
     if (event.before.window && event.before.window.id === event.after.window.id) {
-      tab_old.time.moved_in_window = tab_old.time.moved
+      tab_old.time.moved_in_window = moved
     } else {
-      tab_old.time.moved_to_window = tab_old.time.moved
+      tab_old.time.moved_to_window = moved
     }
   }
 
