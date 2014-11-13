@@ -9,6 +9,7 @@
   "dependencies": {
     "uglify-js": "^2.4.15",
     "gsap": "^1.13.2",
+    "fastdom": "^0.8.4",
     "conductance": "git://github.com/onilabs/conductance.git#b359236c73c518791d5fab064869dfc501be460c"
   },
   "scripts": {
