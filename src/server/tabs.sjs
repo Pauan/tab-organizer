@@ -7,21 +7,109 @@
   { id: "lib:extension/server" },
   { id: "./migrate", name: "migrate" },
   { id: "./session", name: "session" }
-])
+]);
+
+
+function isPseudoBoolean(x) {
+  return x === 1 || x === void 0;
+}
+
+function toBoolean(value) {
+  if (value === void 0) {
+    return false;
+  } else if (value === 1) {
+    return true;
+  } else {
+    @assert.fail();
+  }
+}
+
+function toPseudoBoolean(value) {
+  @assert.ok(@isBoolean(value));
+  if (value) {
+    return 1;
+  } else {
+    return void 0;
+  }
+}
+
+
+exports.init = function (push) {
+  var windows = @session.init(push);
+
+  var db_windows = @migrate.db.get("current.windows.array", @List());
+
+  console.log(windows, db_windows);
+
+  return db_windows;
+};
 
 
 //var url_popup = @url.get("popup.html")
 
 //@migrate.db["delete"]("current.windows.array")
 
-var tabs_id    = {}
-var windows_id = {}
+var windows_id = {}; // Chrome Window ID -> Tab Organizer Window Id
+var tabs_id    = {}; // Chrome Tab ID    -> Tab Organizer Tab Id
 
-var windows_db = @migrate.db.get("current.windows.array", [])
+var db_windows = @migrate.db.get("tables.windows", {});
+var db_tabs    = @migrate.db.get("tables.tabs", {});
 
-// TODO code duplication with session
-function save() {
-  @migrate.db.set("current.windows.array", windows_db)
+var sorted_windows  = []; // [Tab Organizer Window]
+var tabs_for_window = {}; // Tab Organizer Window Id -> [Tab Organizer Tab]
+
+var table_windows = @Table({
+  primary: "id",
+  columns: {
+    "id"           : @type(@isNumber),
+    "index"        : @type(@isNumber),
+    "name"         : @type(@isString),
+    "time-created" : @type(@isNumber),
+    "focused-tab"  : null, //@ref(-> tabs, { remove: @update }),
+    //"next"         : null  //@ref(-> windows)
+  }
+});
+
+var table_tabs = @Table({
+  primary: "id",
+  columns: {
+    "id"                   : @type(@isNumber),
+    "index"                : @type(@isNumber),
+    "url"                  : @type(@isString),
+    "title"                : @type(@isString),
+    "favicon"              : @type(@isString),
+    "pinned"               : @type(isPseudoBoolean),
+    "active"               : @type(isPseudoBoolean),
+    "time-created"         : @type(@isNumber),
+    "time-updated"         : @type(@isNumber),
+    "time-focused"         : @type(@isNumber),
+    "time-unfocused"       : @type(@isNumber),
+    "time-moved-in-window" : @type(@isNumber),
+    "time-moved-to-window" : @type(@isNumber),
+    "window"               : null, //@ref(-> windows, { remove: @remove }),
+    //"next"                 : null  //@ref(-> tabs)
+  }
+});
+
+/*spawn table_tabs ..@changes ..@each(function (change) {
+  if (change.type === @insert) {
+
+  } else if (change.type === @update) {
+
+  } else if (change.type === @remove) {
+
+  } else {
+    @assert.fail();
+  }
+});*/
+
+
+function save_windows() {
+  @migrate.db.set("tables.windows", db_windows);
+}
+
+function save_tabs() {
+  @migrate.db.set("tables.tabs", db_tabs);
 }
 
 // TODO this is specific to Chrome...?
@@ -36,54 +124,18 @@ function save_delay() {
 }
 
 
-// TODO library function for this ?
-function set_null(obj, key, value) {
-  if (value != null) {
-    obj[key] = value
-  } else {
-    delete obj[key]
-  }
-}
+function tab_update(tab_old, tab_new) {
+  @assert.ok(toBoolean(tab_old["active"]));
+  //@assert.is(tab_old.active ..to_boolean("focused"), tab_new.focused)
 
-// TODO library function for this ?
-function set_boolean(obj, key, value) {
-  // TODO use isBoolean test for this
-  @assert.ok(value === true || value === false)
-  if (value) {
-    obj[key] = 1
-  } else {
-    delete obj[key]
-  }
-}
-
-// TODO library function for this ?
-function to_boolean(obj, key) {
-  var value = obj[key]
-  if (value === void 0) {
-    return false
-  } else if (value === 1) {
-    return true
-  } else {
-    throw new Error("invalid value #{value}")
-  }
-}
-
-function should_update(tab_old, tab_new) {
-  @assert.is(tab_old.active ..to_boolean("focused"), tab_new.focused)
-
-  return (tab_old.url     !== tab_new.url) ||
-         (tab_old.favicon !== tab_new.favicon) ||
-         (tab_old.title   !== tab_new.title) ||
-         (tab_old ..to_boolean("pinned") !== tab_new.pinned)
-}
-
-function tab_set(tab_old, tab_new) {
-  @assert.is(tab_old.active ..to_boolean("focused"), tab_new.focused)
-
-  tab_old ..set_null("url", tab_new.url)
-  tab_old ..set_null("favicon", tab_new.favicon)
-  tab_old ..set_null("title", tab_new.title)
-  tab_old ..set_boolean("pinned", tab_new.pinned)
+  table_tabs ..@update(tab_old["id"], function () {
+    return {
+      "url":     tab_new.url,
+      "favicon": tab_new.favicon,
+      "title":   tab_new.title,
+      "pinned":  toPseudoBoolean(tab_new.pinned)
+    };
+  });
 }
 
 function tab_reset_focus(tab_old, tab_new) {
@@ -92,41 +144,72 @@ function tab_reset_focus(tab_old, tab_new) {
   tab_old.active ..set_boolean("focused", tab_new.focused)
 }
 
+function insert_window(id, info) {
+  var window = table_windows ..@insert({
+    "id": id,
+    "time-created": @timestamp()
+  });
 
-function window_open(id, window_new) {
-  var window = {
-    id: id,
-    time: {
-      created: @timestamp()
-    },
-    children: []
+  if (first_window == null) {
+    first_window = id;
   }
 
-  windows_id ..@setNew(window.id, window)
-  var index = windows_db ..@pushNew(window)
+  if (last_window != null) {
+    db_windows ..@set(last_window, table_windows ..@update(last_window, -> { "next": id }));
+  }
+
+  prev_windows[id] = last_window;
+  last_window = id;
+
+  tabs_for_window ..@setNew(id, []);
+  windows_id ..@setNew(info.id, id);
+  db_windows ..@setNew(id, window);
+  save_windows();
 
   // TODO is this correct ?
-  window_new.tabs ..@each(function (tab_new) {
+  /*window_new.tabs ..@each(function (tab_new) {
     var id = tab_new.id
     tab_open(id, window_new, tab_new)
-  })
+  });*/
 
-  save()
-
-  // TODO this should only send out an event when a new window is opened
-  @connection.send("tabs", {
-    type: "window.open",
-    index: index,
-    window: window
-  })
-
-  return window
+  return window;
 }
 
 function window_close(window_new) {
-  var window_old = windows_id ..@get(window_new.id)
+  // TODO
+  var window_old = windows_id ..@get(window_new.id);
 
-  windows_id ..@delete(window_old.id)
+  var id = window_old["id"];
+
+  windows_id ..@delete(window_new.id);
+
+  table_windows ..@remove(id);
+
+  var prev = prev_windows[id];
+  var next = window_old["next"];
+
+  if (prev != null) {
+    table_windows ..@update(prev, function () {
+      return {
+        "next": next
+      };
+    });
+  }
+  if (next != null) {
+    prev_windows[next] = prev;
+  }
+  if (first_window === id) {
+    first_window = next;
+  }
+  if (last_window === id) {
+    last_window = prev;
+  }
+
+  setTimeout(function () {
+    db_windows ..@delete(id);
+    save_windows();
+  }, 10000);
+
   var index = windows_db ..@remove(window_old)
 
   // TODO is this necessary ?

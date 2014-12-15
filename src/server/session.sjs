@@ -15,10 +15,10 @@
  *      as long as at least one tab matched then it's counted as a success
  */
 @ = require([
+  { id: "sjs:collection/immutable" },
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
   { id: "sjs:object" },
-  { id: "lib:util/event" },
   { id: "lib:util/util" },
   { id: "lib:extension/server" },
   { id: "./migrate", name: "migrate" }
@@ -26,10 +26,6 @@
 
 
 var saved_windows = @migrate.db.get("session.windows.array", [])
-
-var windows_id = {}
-var tabs_id    = {}
-
 
 function save() {
   @migrate.db.set("session.windows.array", saved_windows)
@@ -44,421 +40,453 @@ function save_delay() {
 }
 
 
-function tab_matches(tab_old, tab_new) {
-  return tab_old.url === tab_new.url
-}
+exports.init = function (push) {
+  console.debug("server.session", "init");
 
-function window_matches(window_old, window_new) {
-  var tabs_old = window_old.tabs
-  var tabs_new = window_new.tabs
+  var windows_id = {};
+  var tabs_id    = {};
 
-  @assert.ok(tabs_old.length > 0)
-  @assert.ok(tabs_new.length > 0)
-
-  // Check that all the old tabs match with the new tabs
-  return @zip(tabs_old, tabs_new) ..@all(function ([tab_old, tab_new]) {
-    return tab_matches(tab_old, tab_new)
-  })
-}
-
-function merge_new_window(window_old, window_new) {
-  var window = exports.windows.init(window_old.id, window_new)
-
-  // TODO code duplication
-  var tabs_old = window_old.tabs
-  var tabs_new = window_new.tabs
-
-  @assert.ok(tabs_old.length > 0)
-  @assert.ok(tabs_new.length > 0)
-
-  tabs_new ..@indexed ..@each(function ([i, tab_new]) {
-    // Merge with existing tab
-    if (i < tabs_old.length) {
-      var tab_old = tabs_old[i]
-      exports.tabs.init(tab_old.id, window, tab_new)
-
-    // Add new tab
-    } else {
-      // TODO allow for importers to choose the ID function ?
-      var id = @uniqueID()
-      exports.tabs.init(id, window, tab_new)
-    }
-  })
-
-  console.info("session: merged #{tabs_new.length} tabs into window #{window_old.id}")
-}
-
-function create_new_window(window_new) {
-  // TODO allow for importers to choose the ID function ?
-  var id = @uniqueID()
-
-  var window = exports.windows.init(id, window_new)
-
-  // TODO code duplication
-  var tabs_new = window_new.tabs
-  @assert.ok(tabs_new.length > 0)
-
-  tabs_new ..@each(function (tab_new) {
-    // TODO allow for importers to choose the ID function ?
-    var id = @uniqueID()
-    exports.tabs.init(id, window, tab_new)
-  })
-
-  console.info("session: created new window #{window.id} with #{window.tabs.length} tabs")
-}
-
-function update_tab(tab, info) {
-  if (info.url !== tab.url) {
-    if (info.url === void 0) {
-      delete tab.url
-    } else {
-      tab.url = info.url
-    }
-    save()
+  function windows_get(id) {
+    return windows_id ..@get(id);
   }
-}
 
-function attach_tab(tab, window, index) {
-  @assert.ok(index != null)
-  window.tabs ..@spliceNew(index, tab)
-  @assert.is(window.tabs[index], tab)
-}
+  function tabs_get(id) {
+    return tabs_id ..@get(id);
+  }
 
-function detach_tab(tab, window, index) {
-  @assert.ok(index != null)
-  @assert.is(window.tabs[index], tab)
-  window.tabs ..@remove(tab)
-}
+  function update_tab(tab, info) {
+    if (info.url !== tab.url) {
+      if (info.url === void 0) {
+        delete tab.url;
+      } else {
+        tab.url = info.url;
+      }
+
+      save();
+    }
+  }
+
+  function insert_at(array, x, index) {
+    @assert.ok(index != null);
+    // TODO ..@push
+    array.splice(index, 0, x);
+    @assert.is(array[index], x);
+  }
+
+  function remove_at(array, x, index) {
+    @assert.ok(index != null);
+    @assert.is(array[index], x);
+    // TODO ..@pop
+    array.splice(index, 1);
+    //window.tabs ..@remove(tab)
+  }
+
+  function windows_init(id, info) {
+    var window = {
+      id: id,
+      tabs: []
+    };
+
+    windows_id ..@setNew(info.id, window);
+    saved_windows ..@push(window);
+
+    return window;
+  }
+
+  function tabs_init(id, window, info) {
+    var tab = {
+      id: id
+    };
+
+    tabs_id ..@setNew(info.id, tab);
+    insert_at(window.tabs, tab, info.index);
+    update_tab(tab, info);
+
+    return tab;
+  }
 
 
-exports.init = function (array_new) {
-  var array_old = saved_windows
-  saved_windows = []
+  function convert_window(info) {
+    return @Dict({
+      "id": windows_get(info.id).id,
+      "private": info["private"], // TODO
+      "focusedTab": (info.focusedTab === null
+                      ? null
+                      : info.focusedTab.index),
+      "tabs": @List(info.tabs.map(convert_tab))
+    });
+  }
 
-  array_new ..@indexed ..@each(function ([i, window_new]) {
-    if (i < array_old.length) {
-      var window_old = array_old[i]
-      // New window matches the old window
-      if (window_matches(window_old, window_new)) {
-        merge_new_window(window_old, window_new)
+  function convert_tab(info) {
+    return @Dict({
+      "id": tabs_get(info.id).id,
+      "url": info.url,
+      "title": info.title,
+      "pinned": info.pinned,
+      "favicon": info.favicon
+    });
+  }
+
+
+  var windows = @window.init(function (x) {
+    var type = x.type;
+
+    console.log(type);
+
+    if (type === @window.on.open) {
+      var id = @timestamp();
+
+      @assert.is(x.window.tabs.length, 0);
+      windows_init(id, x.window);
+
+      save();
+
+      return push({
+        type: type,
+        window: {
+          index: x.window.index,
+          value: convert_window(x.window)
+        }
+      });
+
+
+    } else if (type === @window.on.close) {
+      var window = windows_get(x.window.id);
+
+      windows_id ..@delete(x.window.id);
+      remove_at(saved_windows, window, x.window.index);
+
+      save_delay();
+
+      return push({
+        type: type,
+        window: {
+          index: x.window.index
+        }
+      });
+
+
+    } else if (type === @tab.on.open) {
+      var id = @timestamp();
+
+      var window = windows_get(x.tab.window.id);
+
+      tabs_init(id, window, x.tab);
+
+      save();
+
+      return push({
+        type: type,
+        window: {
+          index: x.tab.window.index
+        },
+        tab: {
+          index: x.tab.index,
+          value: convert_tab(x.tab)
+        }
+      });
+
+
+    } else if (type === @tab.on.update) {
+      var tab = tabs_get(x.tab.id);
+      update_tab(tab, x.tab);
+
+      return push({
+        type: type,
+        window: {
+          index: x.tab.window.index
+        },
+        tab: {
+          index: x.tab.index,
+          value: convert_tab(x.tab)
+        }
+      });
+
+
+    } else if (type === @tab.on.replace) {
+      var tab = tabs_get(x.before);
+      tabs_id ..@delete(x.before);
+      tabs_id ..@setNew(x.after, tab);
+      return true;
+
+
+    } else if (type === @tab.on.focus) {
+      return push({
+        type: type,
+        window: {
+          index: x.after.window.index
+        },
+        tab: {
+          index: x.after.index
+        }
+      });
+
+
+    } else if (type === @tab.on.move) {
+      var tab = tabs_get(x.before.tab.id);
+
+      var window_before = windows_get(x.before.window.id);
+      var window_after  = windows_get(x.after.window.id);
+      remove_at(window_before.tabs, tab, x.before.index);
+      insert_at(window_after.tabs,  tab, x.after.index);
+
+      save();
+
+      return push({
+        type: type,
+        before: {
+          window: {
+            index: x.before.window.index
+          },
+          tab: {
+            index: x.before.index
+          }
+        },
+        after: {
+          window: {
+            index: x.after.window.index
+          },
+          tab: {
+            index: x.after.index
+          }
+        }
+      });
+
+
+    } else if (type === @tab.on.close) {
+      var window  = windows_get(x.tab.window.id);
+      var tab     = tabs_get(x.tab.id);
+      var closing = x.window.closing; // TODO probably not compatible with Jetpack
+
+      // TODO isBoolean check
+      @assert.ok(closing === true || closing === false);
+
+      tabs_id ..@delete(x.tab.id);
+      remove_at(window.tabs, tab, x.tab.index);
+
+      // TODO test whether this triggers or not when closing Chrome
+      if (closing) {
+        save_delay();
+      } else {
+        save();
+      }
+
+      return push({
+        type: type,
+        window: {
+          closing: closing,
+          index: x.tab.window.index
+        },
+        tab: {
+          index: x.tab.index
+        }
+      });
+
+
+    } else {
+      @assert.fail();
+    }
+  });
+
+
+  function tab_matches(tab_old, tab_new) {
+    return tab_old.url === tab_new.url
+  }
+
+  function window_matches(window_old, window_new) {
+    var tabs_old = window_old.tabs
+    var tabs_new = window_new.tabs
+
+    @assert.ok(tabs_old.length > 0)
+    @assert.ok(tabs_new.length > 0)
+
+    // Check that all the old tabs match with the new tabs
+    return @zip(tabs_old, tabs_new) ..@all(function ([tab_old, tab_new]) {
+      return tab_matches(tab_old, tab_new)
+    })
+  }
+
+  function merge_new_window(window_old, window_new) {
+    var window = windows_init(window_old.id, window_new)
+
+    // TODO code duplication
+    var tabs_old = window_old.tabs
+    var tabs_new = window_new.tabs
+
+    @assert.ok(tabs_old.length > 0)
+    @assert.ok(tabs_new.length > 0)
+
+    tabs_new ..@indexed ..@each(function ([i, tab_new]) {
+      // Merge with existing tab
+      if (i < tabs_old.length) {
+        var tab_old = tabs_old[i]
+        tabs_init(tab_old.id, window, tab_new)
+
+      // Add new tab
+      } else {
+        // TODO allow for importers to choose the ID function ?
+        var id = @timestamp()
+        tabs_init(id, window, tab_new)
+      }
+    })
+
+    console.info("session: merged #{tabs_new.length} tabs into window #{window_old.id}")
+  }
+
+  function create_new_window(window_new) {
+    // TODO allow for importers to choose the ID function ?
+    var id = @timestamp()
+
+    var window = windows_init(id, window_new)
+
+    // TODO code duplication
+    var tabs_new = window_new.tabs
+    @assert.ok(tabs_new.length > 0)
+
+    tabs_new ..@each(function (tab_new) {
+      // TODO allow for importers to choose the ID function ?
+      var id = @timestamp()
+      tabs_init(id, window, tab_new)
+    })
+
+    console.info("session: created new window #{window.id} with #{window.tabs.length} tabs")
+  }
+
+  function sync_init(array_new) {
+    var array_old = saved_windows
+    saved_windows = []
+
+    array_new ..@indexed ..@each(function ([i, window_new]) {
+      if (i < array_old.length) {
+        var window_old = array_old[i]
+        // New window matches the old window
+        if (window_matches(window_old, window_new)) {
+          merge_new_window(window_old, window_new)
+        } else {
+          create_new_window(window_new)
+        }
       } else {
         create_new_window(window_new)
       }
-    } else {
-      create_new_window(window_new)
-    }
-  })
+    })
 
-  // TODO this probably isn't necessary, but I like it just in case
-  save()
-}
-
-
-exports.windows = {}
-exports.tabs = {}
-
-var delayed_events  = null  // When delaying events, this will be an array
-var delayed_counter = 0     // This is the number of functions that are delaying events
-
-// TODO test this
-exports.tabs.delayEvents = function (f) {
-  ++delayed_counter
-
-  if (delayed_events === null) {
-    @assert.is(delayed_counter, 1)
-    delayed_events = []
-  }
-
-  try {
-    return f()
-  } finally {
-    if (--delayed_counter === 0) {
-      var a = delayed_events
-      delayed_events = null
-      a ..@each(function (x) {
-        exports.tabs.events ..@emit(x)
-      })
-    }
-  }
-}
-
-exports.tabs.events = @Emitter()
-
-function emit(o) {
-  if (delayed_events !== null) {
-    // TODO is pushNew needed?
-    delayed_events ..@pushNew(o)
-  } else {
-    exports.tabs.events ..@emit(o)
-  }
-}
-
-exports.windows.get = function (id) {
-  return windows_id ..@get(id)
-}
-
-exports.tabs.get = function (id) {
-  return tabs_id ..@get(id)
-}
-
-exports.windows.init = function (id, info) {
-  var window = {
-    id: id,
-    tabs: []
-  }
-
-  windows_id ..@setNew(info.id, window)
-  saved_windows ..@push(window)
-
-  save()
-
-  return window
-}
-
-exports.tabs.init = function (id, window, info) {
-  var tab = {
-    id: id
-  }
-
-  tabs_id ..@setNew(info.id, tab)
-  attach_tab(tab, window, info.index)
-  update_tab(tab, info)
-
-  // Saves regardless of whether update_tab saves or not
-  save()
-
-  return tab
-}
-
-
-function create_tab(id, tab) {
-  return {
-    id: id,
-    index: tab ..@get("index"),
-    focused: tab ..@get("focused"),
-    pinned: tab ..@get("pinned"),
-    url: tab ..@get("url"),
-    title: tab ..@get("title"),
-    favicon: tab ..@get("favicon")
-  }
-}
-
-function windows_open(event) {
-  @assert.is(event.type, "windows.open")
-  @assert.is(event.after.window.tabs.length, 0)
-
-  var id = @uniqueID()
-  var window = exports.windows.init(id, event.after.window)
-
-  emit({
-    type: event.type,
-    window: window
-  })
-}
-
-// TODO
-function windows_focus(event) {}
-
-function windows_close(event) {
-  @assert.is(event.type, "windows.close")
-
-  var window = windows_id ..@get(event.before.window.id)
-
-  windows_id ..@delete(event.before.window.id)
-  saved_windows ..@remove(window)
-
-  save_delay()
-
-  emit({
-    type: event.type,
-    window: window
-  })
-}
-
-function tabs_open(event) {
-  @assert.is(event.type, "tabs.open")
-
-  var window = windows_id ..@get(event.after.window.id)
-  var tab = event.after.tab
-
-  var id = @uniqueID()
-
-  exports.tabs.init(id, window, tab)
-
-  emit({
-    type: event.type,
-    window: window,
-    tab: create_tab(id, tab)
-  })
-}
-
-function tabs_close(event) {
-  @assert.is(event.type, "tabs.close")
-
-  var window  = windows_id ..@get(event.before.window.id)
-  var tab     = tabs_id ..@get(event.before.tab.id)
-  var closing = event.before.window.closing // TODO probably not compatible with Jetpack
-
-  // TODO isBoolean check
-  @assert.ok(closing === true || closing === false)
-
-  tabs_id ..@delete(event.before.tab.id)
-  // TODO code duplication with detach_tab
-  window.tabs ..@remove(tab)
-
-  // TODO test whether this triggers or not when closing Chrome
-  if (closing) {
-    save_delay()
-  } else {
+    // TODO this probably isn't necessary, but I like it just in case
     save()
   }
 
-  emit({
-    type: event.type,
-    window: {
-      id: window ..@get("id"),
-      closing: closing
-    },
-    tab: {
-      id: tab ..@get("id")
+
+  console.log(windows);
+  sync_init(windows);
+
+  return @List(windows ..@map(convert_window));
+};
+
+
+function modify_tabs(state, index, f) {
+  return state.modify(index, function (window) {
+    return window.modify("tabs", function (tabs) {
+      return f(tabs);
+    });
+  });
+}
+
+exports.step = function (state, event) {
+  var type = event.type;
+  if (type === @window.on.open) {
+    return state.push(event.window.value, event.window.index);
+
+  } else if (type === @window.on.close) {
+    return state.pop(event.window.index);
+
+  } else if (type === @tab.on.open) {
+    return modify_tabs(state, event.window.index, function (tabs) {
+      return tabs.push(event.tab.value, event.tab.index);
+    });
+
+  } else if (type === @tab.on.close) {
+    return modify_tabs(state, event.window.index, function (tabs) {
+      return tabs.pop(event.tab.index);
+    });
+
+  } else if (type === @tab.on.update) {
+    return modify_tabs(state, event.window.index, function (tabs) {
+      return tabs.modify(event.tab.index, function () {
+        return event.tab.value;
+      });
+    });
+
+  } else if (type === @tab.on.focus) {
+    return state.modify(event.window.index, function (window) {
+      return window.set("focusedTab", event.tab.index);
+    });
+
+  } else if (type === @tab.on.move) {
+    var before = event.before;
+    var after  = event.after;
+
+    if (before.window.index === after.window.index) {
+      return modify_tabs(state, before.window.index, function (tabs) {
+        var tab = tabs.nth(before.tab.index);
+        return tabs.pop(before.tab.index).push(tab, after.tab.index);
+      });
+
+    } else {
+      var tab = state.nth(before.window.index).get("tabs").nth(before.tab.index);
+
+      state = modify_tabs(state, before.window.index, function (tabs) {
+        return tabs.pop(before.tab.index);
+      });
+
+      state = modify_tabs(state, after.window.index, function (tabs) {
+        return tabs.push(tab, after.tab.index);
+      });
+
+      return state;
     }
-  })
-}
 
-function tabs_update(event) {
-  @assert.is(event.type, "tabs.update")
-
-  var window = windows_id ..@get(event.after.window.id)
-  var tab = event.after.tab
-  var old = tabs_id ..@get(tab.id)
-  update_tab(old, tab)
-
-  emit({
-    type: event.type,
-    window: {
-      id: window ..@get("id")
-    },
-    tab: create_tab(old.id, tab)
-  })
-}
-
-function tabs_focus(event) {
-  @assert.is(event.type, "tabs.focus")
-  @assert.ok(event.before || event.after)
-
-  var o = {
-    type: event.type
-  }
-
-  if (event.before) {
-    var tab_before = tabs_id ..@get(event.before.tab.id)
-    o.before = {
-      tab: {
-        id: tab_before.id
-      }
-    }
-  }
-
-  if (event.after) {
-    var tab_after = tabs_id ..@get(event.after.tab.id)
-    o.after = {
-      tab: {
-        id: tab_after.id
-      }
-    }
-  }
-
-  emit(o)
-}
-
-function tabs_replace(event) {
-  @assert.is(event.type, "tabs.replace")
-  var tab = tabs_id ..@get(event.before.tab.id)
-  tabs_id ..@delete(event.before.tab.id)
-  tabs_id ..@setNew(event.after.tab.id, tab)
-}
-
-function tabs_move(event) {
-  @assert.is(event.type, "tabs.move")
-  @assert.ok(event.before.window || event.after.window)
-  @assert.is(event.before.tab.id, event.after.tab.id)
-
-  var tab = tabs_id ..@get(event.after.tab.id)
-
-  var o = {
-    type: event.type,
-    before: {
-      tab: {
-        id: tab.id
-      }
-    },
-    after: {
-      tab: {
-        id: tab.id
-      }
-    }
-  }
-
-  if (event.before.window) {
-    var window_before = windows_id ..@get(event.before.window.id)
-    detach_tab(tab, window_before, event.before.tab.index)
-
-    o.before.window = window_before
-    o.before.tab.index = event.before.tab.index
-  }
-
-  if (event.after.window) {
-    var window_after = windows_id ..@get(event.after.window.id)
-    attach_tab(tab, window_after, event.after.tab.index)
-
-    o.after.window = window_after
-    o.after.tab.index = event.after.tab.index
-  }
-
-  save()
-
-  emit(o)
-}
-
-
-exports.windows.getCurrent = function () {
-  return @windows.getCurrent() ..@map(function (window) {
-    return {
-      id: exports.windows.get(window.id).id,
-      tabs: window.tabs ..@map(function (tab) {
-        var id = exports.tabs.get(tab.id).id
-        return create_tab(id, tab)
-      })
-    }
-  })
-}
-
-
-exports.init(@windows.getCurrent())
-
-spawn @tabs.events ..@each(function (event) {
-  if (event.type === "windows.open") {
-    windows_open(event)
-  } else if (event.type === "windows.focus") {
-    windows_focus(event)
-  } else if (event.type === "windows.close") {
-    windows_close(event)
-  } else if (event.type === "tabs.open") {
-    tabs_open(event)
-  } else if (event.type === "tabs.update") {
-    tabs_update(event)
-  } else if (event.type === "tabs.focus") {
-    tabs_focus(event)
-  } else if (event.type === "tabs.move") {
-    tabs_move(event)
-  } else if (event.type === "tabs.replace") {
-    console.log(event.type)
-    tabs_replace(event)
-  } else if (event.type === "tabs.close") {
-    tabs_close(event)
   } else {
-    @assert.fail(event.type)
+    @assert.fail();
   }
-})
+};
 
-console.info("session: finished")
+
+
+/*var events = (function (events) {
+  var delayed_events  = null  // When delaying events, this will be an array
+  var delayed_counter = 0     // This is the number of functions that are delaying events
+
+  exports.changes = @Emitter();
+
+  // TODO test this
+  exports.delayEvents = function (f) {
+    ++delayed_counter
+
+    if (delayed_events === null) {
+      @assert.is(delayed_counter, 1)
+      delayed_events = []
+    }
+
+    try {
+      return f()
+    } finally {
+      if (--delayed_counter === 0) {
+        var a = delayed_events
+        delayed_events = null
+        a ..@each(function (x) {
+          exports.changes ..@emit(x)
+        })
+      }
+    }
+  }
+
+  events.emit = function (o) {
+    if (delayed_events !== null) {
+      // TODO is pushNew needed?
+      delayed_events ..@pushNew(o)
+    } else {
+      exports.changes ..@emit(o)
+    }
+  };
+
+  return events;
+})({});*/

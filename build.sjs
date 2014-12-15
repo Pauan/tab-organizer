@@ -1,4 +1,4 @@
-#! /usr/bin/env conductance
+#! /usr/bin/env sjs
 
 @ = require([
   { id: "sjs:bundle" },
@@ -139,9 +139,13 @@ var compile = @exclusive(function (files, opts) {
     }
     console.log("#{Date.now()} Compiled successfully")
   } catch (e) {
-    linebreak()
-    console.error(e.message)
-    linebreak()
+    if (opts.ignoreErrors) {
+      linebreak()
+      console.error(e.message)
+      linebreak()
+    } else {
+      throw e;
+    }
   }
 })
 
@@ -171,9 +175,9 @@ var opts = @dashdash.parse({
 var sjsPath = @path.relative(".", @path.join(@path.dirname(@executable), "stratified-aot.js"))
 
 var files = {
-  "./src/server/main.sjs":         "./build/js/main.js",
+  "./src/server/main.sjs":         "./build/js/main.js"/*,
   "./src/client/options/main.sjs": "./build/js/options.js",
-  "./src/client/popup/main.sjs":   "./build/js/popup.js"
+  "./src/client/popup/main.sjs":   "./build/js/popup.js"*/
 }
 
 mkdir("./build/js")
@@ -187,8 +191,8 @@ cp("./node_modules/gsap/src/minified/plugins/ScrollToPlugin.min.js", "./build/li
 
 if (opts.watch) {
   compile(files, { minify: false })
-  watch("./lib", files, { minify: false })
-  watch("./src", files, { minify: false })
+  watch("./lib", files, { minify: false, ignoreErrors: true })
+  watch("./src", files, { minify: false, ignoreErrors: true })
   console.log("#{Date.now()} Waiting for changes...")
 } else {
   compile(files, { minify: true })

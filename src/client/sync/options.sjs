@@ -21,7 +21,7 @@ function make(port_name) {
     return defs ..@get(key)
   }
 
-  o.options ..@eachKeys(function (key, value) {
+  o.options ..@items ..@each(function ([key, value]) {
     opts ..@setNew(key, @ObservableVar(value))
 
     spawn get(key) ..@each(function (value) {
@@ -42,7 +42,7 @@ function make(port_name) {
 }
 
 
-exports.opt = make("options")
-exports.cache = make("cache")
+exports.opt = make("tables.options")
+exports.cache = make("tables.cache")
 
 console.info("sync/options: finished")

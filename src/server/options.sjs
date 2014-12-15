@@ -2,91 +2,97 @@
   { id: "sjs:object" },
   { id: "sjs:sequence" },
   { id: "lib:util/util" },
-  { id: "lib:util/observe" },
+  { id: "lib:util/event" },
   { id: "lib:extension/server" },
   { id: "./migrate", name: "migrate" }
 ])
 
 
-function make(db_name, port_name, defs) {
-  var opts = {}
-  var vars = {}
+function make(db_name, defs) {
+  var opts     = {};
+  var emitters = {};
 
-  function get(key) {
-    return vars ..@get(key)
+  var db_opt = @migrate.db.get(db_name, {});
+
+  function create([name, value]) {
+    if (!(opts ..@has(key))) {
+      opts ..@setNew(key, value);
+      emitters ..@setNew(key, @Emitter());
+    }
   }
 
-  var db_opt = @migrate.db.get(db_name, {})
+  function get(name) {
+    return opts ..@get(name);
+  }
 
-  function makeVar(key, value) {
-    // ObservableVar only emits changes when the current value is different from the new value
-    vars ..@setNew(key, @ObservableVar(value))
+  function getDefault(name) {
+    return defs ..@get(name);
+  }
 
-    opts ..@setNew(key, value)
+  function set(name, value) {
+    var old = get(name);
+    if (value !== old) {
+      var def = getDefault(name);
 
-    // TODO use each.track ?
-    spawn get(key) ..@each(function (value) {
-      // TODO this may not be quite right ...
-      opts ..@setUnique(key, value)
-
-      if (value === defs ..@get(key)) {
-        db_opt ..@delete(key)
+      if (value === def) {
+        db_opt ..@delete(name);
       } else {
-        // TODO library function for this, but can't use util/set because the key may or may not exist
-        db_opt[key] = value
+        // name may or may not exist in db_opt
+        db_opt[name] = value;
       }
 
-      @migrate.db.set(db_name, db_opt)
+      @migrate.db.set(db_name, db_opt);
 
-      @connection.send(port_name, {
-        type: "set",
-        key: key,
+      emitters ..@get(name) ..@emit(value);
+
+      @connection.send(db_name, {
+        type: "update",
+        name: name,
         value: value
-      })
-    })
+      });
+    }
   }
 
-  db_opt ..@eachKeys(function (key, value) {
-    makeVar(key, value)
-  })
+  function ref(name) {
+    return @Stream(function (emit) {
+      emit(get(name));
+      emitters ..@get(name) ..@each(emit); // TODO use @listen here ?
+    });
+  }
 
-  defs ..@eachKeys(function (key, value) {
-    // TODO object/has
-    if (!(key in vars)) {
-      makeVar(key, value)
-    }
-  })
+  db_opt ..@items ..@each(create); // This has to go before defs
+  defs   ..@items ..@each(create);
 
-  @connection.on.connect(port_name, function () {
+  @connection.on.connect(db_name, function () {
     return {
-      options: opts,
+      data: opts,
       defaults: defs
-    }
-  })
+    };
+  });
 
-  spawn @connection.on.message(port_name) ..@each(function (message) {
-    if (message.type === "set") {
-      var key   = message ..@get("key")
-      var value = message ..@get("value")
-      get(key).set(value)
+  spawn @connection.on.message(db_name) ..@listen(function (message) {
+    var type = message ..@get("type");
 
-    } else if (message.type === "reset") {
-      defs ..@eachKeys(function (key, value) {
-        get(key).set(value)
-      })
+    if (type === "update") {
+      var name  = message ..@get("name");
+      var value = message ..@get("value");
+      set(name, value);
+
+    } else if (type === "reset") {
+      defs ..@items ..@each(function ([name, value]) {
+        set(name, value);
+      });
 
     } else {
-      @assert.fail()
+      @assert.fail();
     }
-  })
+  });
 
-  return {
-    get: get
-  }
+  return { get, set, ref };
 }
 
 
-exports.opt = make("options.user", "options", {
+exports.opt = make("options", {
   "counter.enabled"           : true,
   "counter.display.loaded"    : true,
   "counter.display.unloaded"  : true,
@@ -125,10 +131,10 @@ exports.opt = make("options.user", "options", {
   "theme.color"               : "blue",
 
   "usage-tracking"            : true
-})
+});
 
 
-exports.cache = make("options.cache", "cache", {
+exports.cache = make("cache", {
   "popup.scroll"             : 0,
   "search.last"              : "",
 
@@ -139,7 +145,7 @@ exports.cache = make("options.cache", "cache", {
   "screen.available.top"     : 0,
   "screen.available.width"   : screen ..@get("width"), // TODO ew
   "screen.available.height"  : screen ..@get("height") // TODO ew
-})
+});
 
 
-console.info("options: finished")
+console.info("options: finished");

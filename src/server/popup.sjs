@@ -3,8 +3,8 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:sequence" },
-  { id: "lib:util/observe" },
   { id: "lib:extension/server" },
+  { id: "lib:util/event" },
   { id: "./options" }
 ])
 
@@ -73,13 +73,6 @@
  *              -> sidebar         (resizes windows)
 
  */
-var avail = {
-  left:    @cache.get("screen.available.left"),
-  top:     @cache.get("screen.available.top"),
-  width:   @cache.get("screen.available.width"),
-  height:  @cache.get("screen.available.height"),
-  checked: @cache.get("screen.available.checked")
-}
 
 var url_empty = @url.get("data/empty.html")
 
@@ -166,22 +159,24 @@ function getMaximumSize(force) {
 
 function get_monitor_size() {
   // TODO force or not ?
-  var size = getMaximumSize(false)
-  avail.left.set(size.left)
-  avail.top.set(size.top)
-  avail.width.set(size.width)
-  avail.height.set(size.height)
-  avail.checked.set(true)
-  return size
+  var size = getMaximumSize(false);
+
+  @cache.set("screen.available.left",    size.left);
+  @cache.set("screen.available.top",     size.top);
+  @cache.set("screen.available.width",   size.width);
+  @cache.set("screen.available.height",  size.height);
+  @cache.set("screen.available.checked", true);
+
+  return size;
 }
 
 function get_size() {
-  if (avail.checked.get()) {
+  if (@cache.get("screen.available.checked")) {
     return {
-      left:   avail.left.get(),
-      top:    avail.top.get(),
-      width:  avail.width.get(),
-      height: avail.height.get()
+      left:   @cache.get("screen.available.left"),
+      top:    @cache.get("screen.available.top"),
+      width:  @cache.get("screen.available.width"),
+      height: @cache.get("screen.available.height")
     }
   } else {
     return get_monitor_size()
@@ -193,8 +188,6 @@ function get_size() {
   return null
 })
 
-
-var type = @opt.get("popup.type")
 
 var popup_url = "popup.html"
 
@@ -370,8 +363,8 @@ function unresize_sidebar() {
 }
 
 function get_dimensions(pos) {
-  var width = @opt.get("size.sidebar").get()
-    , dir   = @opt.get("size.sidebar.position").get()
+  var width = @opt.get("size.sidebar")
+    , dir   = @opt.get("size.sidebar.position")
 
   // TODO assert that dir is left, right, top, or bottom
   return {
@@ -423,7 +416,7 @@ function cleanup(type_new) {
 }
 
 function open() {
-  var type_new = type.get()
+  var type_new = @opt.get("popup.type");
 
   cleanup(type_new)
 
@@ -431,10 +424,10 @@ function open() {
 
   if (type_new === "popup") {
     var size   = get_size()
-      , left   = @opt.get("size.popup.left").get()
-      , top    = @opt.get("size.popup.top").get()
-      , width  = @opt.get("size.popup.width").get()
-      , height = @opt.get("size.popup.height").get()
+      , left   = @opt.get("size.popup.left")
+      , top    = @opt.get("size.popup.top")
+      , width  = @opt.get("size.popup.width")
+      , height = @opt.get("size.popup.height")
 
     open_popup({
       left:   size.left + (size.width  * left) - (width  * left),
@@ -468,8 +461,8 @@ function open() {
 
   } else if (type_new === "panel") {
     open_panel({
-      width:  @opt.get("size.panel.width").get(),
-      height: @opt.get("size.panel.height").get()
+      width:  @opt.get("size.panel.width"),
+      height: @opt.get("size.panel.height")
     })
 
     check_panel()
@@ -479,24 +472,25 @@ function open() {
   }
 }
 
-spawn @observe([type], function (type) {
+function withType(type) {
   if (type === "bubble") {
     @button.setURL(popup_url)
   } else {
     // TODO I don't like that setting the URL to "" disables it
     @button.setURL("")
   }
-})
+}
+spawn withType ..@observe(@opt.ref("popup.type"))
 
-// TODO it's probably okay for this to drop events
-spawn @button.events ..@each(function (info) {
+// TODO it's probably okay for this to drop events, so maybe it shouldn't use @listen ?
+spawn @button.events ..@listen(function (info) {
   if (info.type === "click") {
     open()
   }
 })
 
 @connection.on.command("popup-opened", function () {
-  var type_new = type.get()
+  var type_new = @opt.get("popup.type")
   if (type_new === "bubble") {
     cleanup(type_new)
     check_empty()
@@ -504,7 +498,7 @@ spawn @button.events ..@each(function (info) {
   return null
 })
 
-spawn @popup.events ..@each(function (info) {
+spawn @popup.events ..@listen(function (info) {
   if (info.type === "popup.close") {
     var popup = info.before.popup
 
@@ -534,7 +528,7 @@ spawn @popup.events ..@each(function (info) {
   }
 })
 
-spawn @tabs.events ..@each(function (info) {
+spawn @tabs.events ..@spawn(function (info) {
   if (info.type === "windows.open") {
     var window = info.after.window
 
