@@ -1,427 +1,326 @@
-// TODO get rid of wait if it's not needed anymore
-
-/*
-var queue = {}
-
-if (!(name in queue)) {
-  queue[name] = spawn ...
-}
-
-queue[name].value()
-*/
-
-
 @ = require([
   { id: "sjs:assert", name: "assert" },
-  { id: "sjs:object" },
+  { id: "sjs:collection/immutable" },
   { id: "sjs:sequence" },
-  { id: "lib:util/util" },
-  { id: "lib:extension/server" }
+  { id: "lib:util/util" }
 ])
 
 
-var version = 1414145108930;
+var version = 1418658357584;
 
-
-/*var tables = {};
-
-table_info ..@eachKeys(function (name, info) {
-  var o = @db.get(name, null);
-
-  if (o === null) {
-    o = {
-      version: info.version,
-      data: {}
-    };
-    @db.set(name, o);
-
-  } else if (o.version !== info.version) {
-    info.migrate(o.data, o.version);
-    o.version = info.version;
-    @db.set(name, o);
-  }
-
-  var table = @Table({
-    primary: info.primary,
-    columns: info.columns
-  });
-
-  o.data ..@eachKeys(function (_, record) {
-    table ..@insert(record);
-  });
-
-  spawn @changes(table) ..@each(function (change) {
-    o.data = table ..@toObject;
-    @db.set(name, o);
-  });
-
-  tables ..@setNew(name, table);
-});
-
-exports.Table = function (name) {
-  return tables ..@get(name);
-};*/
 
 // TODO utility for this ?
 function moveValue(obj, key, from, to) {
-  if (obj ..@has(key)) {
-    if (obj ..@get(key) === from) {
-      obj ..@set(key, to)
-    }
+  if (obj.has(key) && obj.get(key) === from) {
+    return obj.set(key, to);
+  } else {
+    return obj;
   }
 }
 
 // TODO utility for this
 function move(obj, from, to) {
-  if (obj ..@has(from)) {
-    var value = obj ..@get(from)
-    obj ..@setNew(to, value)
-    obj ..@delete(from)
+  if (obj.has(from)) {
+    var value = obj.get(from);
+    return obj.remove(from).set(to, value);
+  } else {
+    return obj;
   }
 }
 
-/*
-// TODO make this work for all sequences
-// TODO move into lib:util/util ?
-function eachNext(array, f) {
-  for (var i = 0, len = array.length; i < len; ++i) {
-    f(array[i], array[i + 1]);
+function modifyNull(obj, key, f) {
+  if (obj.get(key, null) != null) {
+    return obj.modify(key, f);
+  } else {
+    return obj;
   }
-}*/
+}
+
+function withKeyModify(obj, key, f) {
+  if (obj.has(key)) {
+    return obj.modify(key, f);
+  } else {
+    return obj;
+  }
+}
+
+function withKey(obj, key, f) {
+  if (obj.has(key)) {
+    f(obj.get(key));
+  }
+}
 
 
-var migrators = {};
+var migrators = [];
 
-migrators["string"] = function (obj) {
-  ;(function () {
-    var opts = obj["options.user"];
-    if (opts != null) {
-      // TODO utility for these ?
-      delete opts["tab.sort.type"]
-      delete opts["tab.show.in-chrome"]
-      delete opts["groups.move-with-window"]
+migrators.push(function (db, version) {
+  if (version < 1414145108930) {
+    withKey(db, "options.user", function (opts) {
+      opts = opts.remove("tab.sort.type");
+      opts = opts.remove("tab.show.in-chrome");
+      opts = opts.remove("groups.move-with-window");
 
-      delete opts["popup.hotkey.ctrl"]
-      delete opts["popup.hotkey.shift"]
-      delete opts["popup.hotkey.alt"]
-      delete opts["popup.hotkey.letter"]
+      opts = opts.remove("popup.hotkey.ctrl");
+      opts = opts.remove("popup.hotkey.shift");
+      opts = opts.remove("popup.hotkey.alt");
+      opts = opts.remove("popup.hotkey.letter");
 
-      // TODO test this
-      if (opts ..@has("counter.type")) {
-        var counter_type = opts ..@get("counter.type")
+      withKey(opts, "counter.type", function (counter_type) {
         // TODO this isn't quite correct: it should reset to the default
         if (counter_type === "total") {
-          delete opts["counter.display.loaded"]
-          delete opts["counter.display.unloaded"]
+          opts = opts.remove("counter.display.loaded");
+          opts = opts.remove("counter.display.unloaded");
 
         } else if (counter_type === "in-chrome") {
-          delete opts["counter.display.loaded"]
-          opts["counter.display.unloaded"] = false
+          opts = opts.remove("counter.display.loaded");
+          opts = opts.set("counter.display.unloaded", false);
 
         } else {
           @assert.fail()
         }
-        opts ..@delete("counter.type")
+
+        opts = opts.remove("counter.type");
+      });
+
+      opts = opts ..moveValue("group.sort.type", "window", "group")
+      opts = opts ..moveValue("group.sort.type", "domain", "url")
+      opts = opts ..moveValue("group.sort.type", "loaded", "created")
+      //opts = opts ..moveValue("tab.sort.type",   "loaded", "created")
+      opts = opts ..move("size.sidebar.direction", "size.sidebar.position")
+
+      db = db.remove("options.user");
+      db = db.set("options", opts);
+    });
+
+    withKey(db, "options.cache", function (cache) {
+      cache = cache ..move("global.scroll", "popup.scroll");
+
+      withKey(cache, "screen.available-size", function (oSize) {
+        cache = cache.set("screen.available.checked", true);
+        cache = cache.set("screen.available.left",    oSize.get("left"));
+        cache = cache.set("screen.available.top",     oSize.get("top"));
+        cache = cache.set("screen.available.width",   oSize.get("width"));
+        cache = cache.set("screen.available.height",  oSize.get("height"));
+
+        cache = cache.remove("screen.available-size");
+      });
+
+      db = db.remove("options.cache");
+      db = db.set("cache", cache);
+    });
+
+    withKey(db, "current.tabs", function (tabs) {
+      function set(to, from, s) {
+        var value = from.get(s, null);
+        if (value != null) {
+          return to.set(s, value);
+        } else {
+          return to;
+        }
       }
 
-      opts ..moveValue("group.sort.type", "window", "group")
-      opts ..moveValue("group.sort.type", "domain", "url")
-      opts ..moveValue("group.sort.type", "loaded", "created")
-      //opts ..moveValue("tab.sort.type",   "loaded", "created")
-      opts ..move("size.sidebar.direction", "size.sidebar.position")
+      function convertTab(tab, url) {
+        @assert.ok(tab.has("groups"));
 
-      obj ..@setNew("options", opts);
-      obj ..@delete("options.user");
-    }
-  })();
+        var time = @Dict();
+        var from = tab.get("time");
 
-  ;(function () {
-    var cache = obj["options.cache"];
-    if (cache != null) {
-      cache ..move("global.scroll", "popup.scroll")
+        time = set(time, from, "created");
+        time = set(time, from, "updated");
+        time = set(time, from, "focused");
+        time = set(time, from, "unloaded");
+        time = set(time, from, "session");
 
-      if (cache ..@has("screen.available-size")) {
-        var oSize = cache ..@get("screen.available-size")
-
-        // TODO utility for these ?
-        cache["screen.available.checked"] = true
-        cache["screen.available.left"]    = oSize ..@get("left")
-        cache["screen.available.top"]     = oSize ..@get("top")
-        cache["screen.available.width"]   = oSize ..@get("width")
-        cache["screen.available.height"]  = oSize ..@get("height")
-
-        cache ..@delete("screen.available-size");
+        return @Dict({
+          "groups":  tab.get("groups"),
+          "time":    time,
+          "title":   tab.get("title"),
+          "url":     url,
+          "favicon": "chrome://favicon/#{url}", // TODO hacky and code duplication with lib:extension
+        });
       }
 
-      obj ..@setNew("cache", cache);
-      obj ..@delete("options.cache");
-    }
-  })();
+      var groups = @List();
 
-  ;(function () {
-    function set(o, tab, s) {
-      if (tab.time[s] != null) {
-        o.time[s] = tab.time[s];
-      }
-    }
-
-    function convertTab(tab) {
-      @assert.ok(tab.groups != null, tab.title)
-
-      var o    = {}
-      o.time   = {}
-      o.groups = tab.groups
-      o.title  = tab.title
-
-      set(o, tab, "created")
-      set(o, tab, "updated")
-      set(o, tab, "focused")
-      set(o, tab, "unloaded")
-      set(o, tab, "session")
-      return o
-    }
-
-    var tabs = obj["current.tabs"];
-    if (tabs != null) {
-      var windows_db = obj["current.windows.array"] || [];
-
-      var groups = {}
-
-      function addToGroup(name, time, tab, url) {
-        if (time === 1 || time === null) {
-          time = @timestamp()
+      function addToGroup(groups, name, time_created, tab) {
+        if (time_created === 1 || time_created === null) {
+          time_created = @timestamp()
         }
 
-        var group = groups ..@get_or_set(name, function () {
-          var o = {
-            id: @timestamp(),
-            time: {
-              created: time
-            },
-            children: []
-          }
+        tab = @Dict({
+          "id":      @timestamp(),
+          "time":    tab.get("time"),
+          "title":   tab.get("title"),
+          "url":     tab.get("url"),
+          "favicon": tab.get("favicon")
+        });
+
+        // TODO O(n) -> O(1)
+        var index = groups ..@findIndex(function (group) {
+          return group.get("name", null) === name;
+        }, null);
+
+        if (index === null) {
+          var group = @Dict({
+            "id": @timestamp(),
+            "time": @Dict({
+              "created": time_created
+            }),
+            "children": @List([tab])
+          });
 
           if (name !== "") {
-            o.name = name
+            group = group.set("name", name);
           }
 
-          windows_db.push(o)
-          return o
-        })
+          return groups.insert(group);
 
-        group.time.created = Math.min(group.time.created, time)
-
-        group.children.push({
-          id: @timestamp(),
-          url: url,
-          favicon: "chrome://favicon/#{url}", // TODO hacky and code duplication with lib:extension
-          time: tab.time,
-          title: tab.title
-        })
-
-        obj["current.windows.array"] = windows_db;
+        } else {
+          return groups.modify(index, function (group) {
+            return group.modify("time", function (time) {
+              return time.modify("created", function (created) {
+                return Math.min(created, time_created);
+              });
+            }).modify("children", function (children) {
+              return children.insert(tab);
+            });
+          });
+        }
       }
 
-
-      tabs ..@items ..@each(function ([url, tab]) {
-        if (tab.url != null && url !== tab.url) {
-          url = tab.url
+      tabs ..@each(function ([url, tab]) {
+        var tab_url = tab.get("url", null);
+        if (tab_url != null && url !== tab_url) {
+          url = tab_url;
         }
 
-        tab = convertTab(tab)
+        tab = convertTab(tab, url);
 
-        var seen = false
+        var group = tab.get("groups");
+        if (group.isEmpty()) {
+          groups = addToGroup(groups, "", null, tab);
 
-        tab.groups ..@items ..@each(function ([key, value]) {
-          seen = true
-
-          addToGroup(key, value, tab, url)
-        })
-
-        if (!seen) {
-          addToGroup("", null, tab, url)
+        } else {
+          group ..@each(function ([key, value]) {
+            groups = addToGroup(groups, key, value, tab);
+          });
         }
-      })
+      });
 
-      obj ..@delete("current.tabs");
-    }
-  })();
+      var windows_db = db.get("current.windows.array", @List());
+      db = db.remove("current.tabs");
+      db = db.set("current.windows.array", windows_db.concat(groups));
+    });
 
-  ;(function () {
-    var windows = obj["__extension.chrome.tabs.windows__"];
-    if (windows != null) {
-      obj ..@setNew("session.windows.array", windows);
-      obj ..@delete("__extension.chrome.tabs.windows__");
-    }
-  })();
+    db = db ..move("__extension.chrome.tabs.windows__", "session.windows.array");
 
-  ;(function () {
-    var timestamps = {};
+    db = withKeyModify(db, "current.windows.array", function (windows) {
+      var timestamps = {};
 
-    function unique(time) {
-      while (timestamps[time]) {
-        ++time;
+      function unique(time) {
+        while (timestamps[time]) {
+          ++time;
+        }
+        timestamps[time] = true;
+        return time;
       }
-      timestamps[time] = true;
-      return time;
+
+      return @List(windows ..@transform(function (window) {
+        window = window.modify("time", function (time) {
+          return time.modify("created", unique);
+        });
+
+        window = window.modify("tabs", function (tabs) {
+          return @List(tabs ..@transform(function (tab) {
+            var time = tab.get("time", null);
+
+            if (time == null) {
+              time = @Dict({
+                "created": @timestamp()
+              });
+            }
+
+            time = time.modify("created", unique);
+            time = time ..modifyNull("updated", unique);
+            time = time ..modifyNull("focused", unique);
+            time = time ..modifyNull("unfocused", unique);
+            time = time ..modifyNull("moved_in_window", unique);
+            time = time ..modifyNull("moved_to_window", unique);
+            time = time.remove("moved");
+
+            return tab.set("time", time);
+          }));
+        });
+
+        return window;
+      }));
+    });
+
+    db = db.remove("current.groups");
+    db = db.remove("current.tabs.ids");
+  }
+  return db;
+});
+
+
+migrators.push(function (db, version) {
+  if (version < 1418658357584) {
+    db = withKeyModify(db, "current.windows.array", function (windows) {
+      return @List(windows ..@transform(function (window) {
+        window = window ..move("children", "tabs");
+
+        return window.modify("tabs", function (tabs) {
+          return @List(tabs ..@transform(function (tab) {
+            return tab.modify("time", function (time) {
+              time = time ..move("moved_in_window", "moved-in-window");
+              time = time ..move("moved_to_window", "moved-to-window");
+              return time;
+            });
+          }));
+        });
+      }));
+    });
+  }
+  return db;
+});
+
+
+exports.migrate = function (old_db) {
+  var start_time = Date.now();
+
+  var new_db = old_db;
+
+  var old_version = new_db.get("version", null);
+  if (old_version != null && old_version !== version) {
+    if (typeof old_version !== "number") {
+      old_version = 0;
     }
 
-    var windows = obj["current.windows.array"];
-    if (windows != null) {
-      windows ..@each(function (window) {
-        window ..@setNew("tabs", window ..@get("children"));
-        window.time ..@set("created", unique(window.time ..@get("created")));
+    new_db = migrators ..@reduce(new_db, function (db, f) {
+      return f(db, old_version);
+    });
+  }
 
-        window.tabs ..@each(function (tab) {
-          if (tab.time == null) {
-            tab.time = {
-              created: @timestamp()
-            };
-          }
+  new_db = new_db.set("version", version);
 
-          tab.time ..@set("created", unique(tab.time ..@get("created")));
+  if (old_db !== new_db) {
+    var end_time = Date.now();
 
-          if (tab.time.updated != null) {
-            tab.time.updated = unique(tab.time.updated);
-          }
-          if (tab.time.focused != null) {
-            tab.time.focused = unique(tab.time.focused);
-          }
-          if (tab.time.unfocused != null) {
-            tab.time.unfocused = unique(tab.time.unfocused);
-          }
-          if (tab.time.moved_in_window != null) {
-            tab.time.moved_in_window = unique(tab.time.moved_in_window);
-          }
-          if (tab.time.moved_to_window != null) {
-            tab.time.moved_to_window = unique(tab.time.moved_to_window);
-          }
+    //console.log("migrate: old db", @toJS(old_db));
+    //console.log("migrate: new db", @toJS(new_db));
 
-          delete tab.time.moved;
-        });
-      });
-
-/*
-      var table_windows = {};
-      var table_tabs    = {};
-
-      windows ..@rebalanceIndexes(function (x, i) {
-        x.index = i;
-        return x;
-      }) ..@each(function (win) {
-        var o = {};
-        table_windows ..@setNew(win.id, o);
-
-        o["id"] = win.id;
-
-        if (win.name != null) {
-          o["name"] = win.name;
-        }
-
-        if (win.time.created != null) {
-          o["time-created"] = unique(win.time.created);
-        }
-
-        o["index"] = win.index;
-
-        win.children ..@rebalanceIndexes(function (x, i) {
-          x.index = i;
-          return x;
-        }) ..@each(function (tab) {
-          var o = {};
-          table_tabs ..@setNew(tab.id, o);
-
-          o["id"] = tab.id;
-
-          if (tab.url != null) {
-            o["url"] = tab.url;
-          }
-
-          if (tab.title != null) {
-            o["title"] = tab.title;
-          }
-
-          if (tab.favicon != null) {
-            o["favicon"] = tab.favicon;
-          }
-
-          if (tab.pinned) {
-            o["pinned"] = 1;
-          }
-
-          o["index"] = tab.index;
-
-          if (tab.time.created != null) {
-            o["time-created"] = unique(tab.time.created);
-          }
-          if (tab.time.updated != null) {
-            o["time-updated"] = unique(tab.time.updated);
-          }
-          if (tab.time.focused != null) {
-            o["time-focused"] = unique(tab.time.focused);
-          }
-          if (tab.time.unfocused != null) {
-            o["time-unfocused"] = unique(tab.time.unfocused);
-          }
-          if (tab.time.moved_in_window != null) {
-            o["time-moved-in-window"] = unique(tab.time.moved_in_window);
-          }
-          if (tab.time.moved_to_window != null) {
-            o["time-moved-to-window"] = unique(tab.time.moved_to_window);
-          }
-
-          o["window"] = win.id;
-        });
-      });
-
-      obj ..@setNew("tables.windows", table_windows);
-      obj ..@setNew("tables.tabs", table_tabs);
-      obj ..@delete("current.windows.array");*/
-    }
-  })();
-
-  delete obj["current.groups"];
-  delete obj["current.tabs.ids"];
-
-  //obj.version = 1414145045915;
-};
-
-
-exports.db = @db
-
-exports.shouldMigrate = function (obj) {
-  return obj.version !== version;
-};
-
-exports.migrate = function (obj) {
-  @assert.ok(exports.shouldMigrate(obj));
-  //@db["delete"]("version")
+    console.info("migrate: migrated to version #{version}, took #{end_time - start_time}ms");
+  } else {
+    console.info("migrate: already at version #{version}");
+  }
 
   delete localStorage["migrated"];
 
-  var old_version = obj.version;
-  if (old_version != null) {
-    if (typeof old_version === "string") {
-      migrators["string"](obj);
-    }
-  }
-
-  obj.version = version;
-
-  return obj;
-}
-
-var data = @db.getAll();
-if (exports.shouldMigrate(data)) {
-  @db.setAll(exports.migrate(data));
-  console.info("migrate: migrated to version #{version}");
-}
-
+  return new_db;
+};
 
 /*
 // TODO it's hacky that this is here
 @connection.on.command("db.export", function () {
   return @db.getAll();
 });*/
-
-console.info("migrate: finished");

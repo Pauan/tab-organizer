@@ -1,27 +1,36 @@
+console.info("main: initializing");
+
 require("../hubs");
 
 @ = require([
-  { id: "sjs:collection/immutable" },
+  { id: "sjs:collection/immutable", exclude: ["Queue"] },
   { id: "lib:util/queue" },
   { id: "./session", name: "session" }
 ]);
 
 var { push, pull } = @Queue();
 
-// TODO
-var state = @Dict({
-  "session": @session.init(push)
+var current_state = @Dict({
+  "session": @session.window.init(push)
 });
 
+window.showState = function () {
+  console.log(@toJS(current_state));
+};
+
 function step(state, event) {
+  console.log(event);
+
   state = state.modify("session", function (session) {
-    return @session.step(session, event);
+    return @session.window.step(session, event);
   });
-  console.log("" + state);
+
+  current_state = state;
+
   return state;
 }
 
-pull ..@foldq(state, step);
+pull ..@foldq(current_state, step);
 
 /*
 
