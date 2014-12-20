@@ -6,7 +6,7 @@
 ])
 
 
-var version = 1418658357584;
+var version = 1419048674563;
 
 
 // TODO utility for this ?
@@ -280,6 +280,107 @@ migrators.push(function (db, version) {
         });
       }));
     });
+  }
+  return db;
+});
+
+
+migrators.push(function (db, version) {
+  if (version < 1418945682984) {
+    db = db ..move("session.windows.array", "session.windows");
+    db = db ..move("current.windows.array", "current.windows");
+
+    var tab_ids    = db.get("current.tab-ids", @Dict());
+    var window_ids = db.get("current.window-ids", @Dict());
+
+    db = withKeyModify(db, "current.windows", function (windows) {
+      return @List(windows ..@transform(function (window) {
+        var window_id = "" + window.get("id");
+
+        window = window.set("id", window_id);
+
+        window = window.modify("tabs", function (tabs) {
+          return @List(tabs ..@transform(function (tab) {
+            var tab_id = "" + tab.get("id");
+
+            tab = tab.set("id", tab_id);
+            tab = tab.remove("active");
+
+            if (tab.get("url", null) == null) {
+              tab = tab.remove("url");
+            }
+            if (tab.get("title", null) == null) {
+              tab = tab.remove("title");
+            }
+
+            if (tab.get("pinned", false)) {
+              tab = tab.set("pinned", 1);
+            } else {
+              tab = tab.remove("pinned");
+            }
+
+            if (tab.get("favicon", null) == null) {
+              tab = tab.remove("favicon");
+            }
+
+            tab_ids = tab_ids.set(tab_id, tab);
+
+            return tab_id;
+          }));
+        });
+
+        window_ids = window_ids.set(window_id, window);
+
+        return window_id;
+      }));
+    });
+
+    db = db.set("current.tab-ids", tab_ids);
+    db = db.set("current.window-ids", window_ids);
+  }
+  return db;
+});
+
+
+migrators.push(function (db, version) {
+  if (version < 1419045644213) {
+    function toString(x) {
+      return "" + x;
+    }
+
+    db = withKeyModify(db, "session.windows", function (windows) {
+      return @List(windows ..@transform(function (window) {
+        window = window.modify("id", toString);
+
+        window = window.modify("tabs", function (tabs) {
+          return @List(tabs ..@transform(function (tab) {
+            return tab.modify("id", toString);
+          }));
+        });
+
+        return window;
+      }));
+    });
+  }
+  return db;
+});
+
+
+migrators.push(function (db, version) {
+  if (version < 1419048674563) {
+    var tab_ids = db.get("current.tab-ids", @Dict());
+
+    withKey(db, "current.window-ids", function (ids) {
+      ids ..@each(function ([win_id, window]) {
+        window.get("tabs") ..@each(function (id) {
+          tab_ids = tab_ids.modify(id, function (tab) {
+            return tab.set("window", win_id);
+          });
+        });
+      });
+    });
+
+    db = db.set("current.tab-ids", tab_ids);
   }
   return db;
 });

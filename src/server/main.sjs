@@ -5,13 +5,15 @@ require("../hubs");
 @ = require([
   { id: "sjs:collection/immutable", exclude: ["Queue"] },
   { id: "lib:util/queue" },
-  { id: "./session", name: "session" }
+  { id: "lib:extension/server" },
+  { id: "./windows", name: "windows" }
 ]);
 
 var { push, pull } = @Queue();
 
 var current_state = @Dict({
-  "session": @session.window.init(push)
+  "connections": @connection.init(push),
+  "windows": @windows.init(push)
 });
 
 window.showState = function () {
@@ -21,8 +23,12 @@ window.showState = function () {
 function step(state, event) {
   console.log(event);
 
-  state = state.modify("session", function (session) {
-    return @session.window.step(session, event);
+  state = state.modify("connections", function (state) {
+    return @connection.step(state, event);
+  });
+
+  state = state.modify("windows", function (state) {
+    return @windows.step(state, event);
   });
 
   current_state = state;

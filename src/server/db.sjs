@@ -1,34 +1,36 @@
 @ = require([
   { id: "sjs:assert", name: "assert" },
   { id: "sjs:collection/immutable" },
+  { id: "sjs:sequence" },
   { id: "sjs:type" },
   { id: "lib:extension/server" },
   { id: "./migrate" }
 ]);
 
 
-// TODO test this
-function fromJS(x) {
-  if (Array.isArray(x)) {
-    var y = @List();
+__js {
+  function fromJS(x) {
+    if (@isArray(x)) {
+      var y = @List();
 
-    for (var i = 0, l = x.length; i < l; ++i) {
-      y = y.insert(fromJS(x[i]));
+      for (var i = 0, l = x.length; i < l; ++i) {
+        y = y.insert(fromJS(x[i]));
+      }
+
+      return y;
+
+    } else if (@isObject(x)) {
+      var y = @Dict();
+
+      for (var s in x) {
+        y = y.set(s, fromJS(x[s]));
+      }
+
+      return y;
+
+    } else {
+      return x;
     }
-
-    return y;
-
-  } else if (@isObject(x)) {
-    var y = @Dict();
-
-    for (var s in x) {
-      y = y.set(s, fromJS(x[s]));
-    }
-
-    return y;
-
-  } else {
-    return x;
   }
 }
 
@@ -36,7 +38,7 @@ function fromJS(x) {
 var delay = {};
 var timer = {};
 
-exports.delay = function (name, ms, f) {
+exports.delay = function (name, ms) {
   // TODO object/has
   // This is so it won't keep resetting it over and over again
   if (name in delay) {
@@ -52,11 +54,10 @@ exports.delay = function (name, ms, f) {
       timer[name]();
     }
   }
+};
 
-  var result = f();
-  // TODO object/has
-  @assert.ok(name in timer);
-  return result;
+exports.has = function (s) {
+  return db.has(s);
 };
 
 exports.get = function (s, def) {
@@ -101,6 +102,20 @@ exports.set = function (s, o) {
   }
 
   return o;
+};
+
+exports.remove = function (s) {
+  var new_db = db.remove(s);
+  if (new_db !== db) {
+    db = new_db;
+
+    // TODO use a timer for this too ?
+    spawn (function () {
+      // TODO what if another strata sets things before this is done ?
+      @storage.remove(s);
+      console.debug("db/remove: " + s);
+    })();
+  }
 };
 
 function setAll(o) {
