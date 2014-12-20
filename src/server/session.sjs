@@ -37,7 +37,7 @@ exports.on.tab_move     = "__94D9748F-026A-4E35-96F7-AF8A19880375_tab_move__";
 exports.on.tab_close    = "__C0A6B1FD-708F-47FE-A48F-E981C02AB36C_tab_close__";
 
 exports.init = function (push) {
-  console.debug("server.session:", "init");
+  console.info("server.session:", "init");
 
   var db_name = "session.windows";
 
