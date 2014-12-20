@@ -127,12 +127,25 @@ exports.on.tab_close    = "__7835FF1E-6EE2-44AE-B5A9-6524EF2344AD_tab_close__";
 
 
 function remove_window(state, id) {
+  var window = null;
+
   state = state.modify("window-ids", function (ids) {
+    window = ids.get(id);
     return ids.remove(id);
   });
 
+  @assert.isNot(window, null);
+
   state = state.modify("windows", function (windows) {
     return windows.remove(windows ..@indexOf(id));
+  });
+
+  state = state.modify("tab-ids", function (ids) {
+    window.get("tabs") ..@each(function (id) {
+      ids = ids.remove(id);
+    });
+
+    return ids;
   });
 
   return state;
@@ -186,15 +199,9 @@ function remove_tab(state, id) {
     return ids.remove(id);
   });
 
-  /*if (tab === null) {
-    state.get("window-ids") ..@each(function ([win_id, window]) {
-      state = remove_tab_from_window(state, win_id, id);
-    });
-  } else {*/
   @assert.isNot(tab, null);
 
   state = remove_tab_from_window(state, tab.get("window"), id);
-  //}
 
   return state;
 }
@@ -239,8 +246,6 @@ function remove_tab(state, id) {
 
 
 exports.init = function (push) {
-  console.info("server.windows:", "init");
-
   var tab_ids    = @db.get("current.tab-ids", @Dict());
   var window_ids = @db.get("current.window-ids", @Dict());
   var windows    = @db.get("current.windows", @List());
@@ -258,15 +263,19 @@ exports.init = function (push) {
     return session.get(win_index).get("tabs") ..get(tab_index);
   }
 
-  function make_window(window) {
+  function make_window_tabs(window) {
+    return @List(window.get("tabs") ..@transform(function (tab) {
+      return tab.get("id");
+    }));
+  }
+
+  function make_window(window, tabs) {
     return @Dict({
       "id": window.get("id"),
       "time": @Dict({
         "created": @timestamp()
       }),
-      "tabs": @List(window.get("tabs") ..@transform(function (tab) {
-        return tab.get("id");
-      }))
+      "tabs": tabs
     }) ..update_window(window);
   }
 
@@ -286,12 +295,13 @@ exports.init = function (push) {
 
     var type = event.type;
     if (type === @session.on.window_open) {
+      var window_value = event.window.value;
       return push({
         type: exports.on.window_open,
         window: {
           id: event.window.id,
           next: session ..get(event.window.index + 1),
-          value: make_window(event.window.value)
+          value: make_window(window_value, make_window_tabs(window_value))
         }
       });
 
@@ -337,6 +347,13 @@ exports.init = function (push) {
       });
 
     } else if (type === @session.on.tab_move) {
+      // TODO
+      /*if (event.before.window.id === event.after.window.id &&
+          event.before.tab.index < event.after.tab.index) {
+
+      } else {*/
+        var next = get_tab(event.after.window.index, event.after.tab.index + 1);
+      //}
       return push({
         type: exports.on.tab_move,
         before: {
@@ -350,7 +367,7 @@ exports.init = function (push) {
           },
           tab: {
             id: event.after.tab.id,
-            next: get_tab(event.after.window.index, event.after.tab.index + 1)
+            next: next
           }
         }
       });
@@ -372,16 +389,48 @@ exports.init = function (push) {
     }
   });
 
-  // Reset focused tab for unloaded windows
+
+  var seen_windows = {};
+  var seen_tabs    = {};
+
+  var reset_start = Date.now();
+
   window_ids ..@each(function ([id, window]) {
-    @assert.notOk(window.get("tabs").isEmpty(), id);
+    @assert.notOk(window.get("tabs").isEmpty());
+
+    windows ..@indexOf(id);
+
+    window.get("tabs") ..@each(function (id) {
+      @assert.ok(tab_ids.has(id));
+      @assert.ok(!seen_tabs[id]);
+      seen_tabs[id] = true;
+    });
+
+    // Reset focused tab for unloaded windows
     window_ids = window_ids.set(id, window.remove("focused-tab"));
   });
 
-  // Reset active tab for unloaded tabs
   tab_ids ..@each(function ([id, tab]) {
+    var window = window_ids.get(tab.get("window"));
+
+    window.get("tabs") ..@indexOf(id);
+
+    // Reset active tab for unloaded tabs
     tab_ids = tab_ids.set(id, tab.remove("active"));
   });
+
+  windows ..@each(function (id) {
+    @assert.ok(window_ids.has(id));
+    @assert.ok(!seen_windows[id]);
+    seen_windows[id] = true;
+  });
+
+  var reset_end = Date.now();
+
+  console.info("windows: resetting took #{reset_end - reset_start}ms");
+
+
+  var merge_start = Date.now();
 
   // Merge with active windows
   session ..@indexed ..@each(function ([i, info]) {
@@ -392,7 +441,7 @@ exports.init = function (push) {
       var window = window_ids.get(window_id) ..update_window(info);
 
     } else {
-      var window = make_window(info);
+      var window = make_window(info, @List());
       var next   = session ..get(i + 1);
       windows = windows ..insert_next(window_id, next);
     }
@@ -417,14 +466,15 @@ exports.init = function (push) {
     window_ids = window_ids.set(window_id, window);
   });
 
+  var merge_end = Date.now();
+
+  console.info("windows: merging took #{merge_end - merge_start}ms");
+
 
   // Migrate old window titles to the new system
   // TODO hacky that this is in here, rather than in migrate.sjs
-  // TODO test this
   if (@db.has("window.titles")) {
     @zip(session, @db.get("window.titles")) ..@each(function ([info, title]) {
-      console.log(info, title);
-
       var id     = info.get("id");
       var window = window_ids.get(id);
 
@@ -442,17 +492,6 @@ exports.init = function (push) {
     "window-ids": window_ids,
     "windows": windows
   });
-
-  /* .filter(function (x) {
-    return x.get("url") === "chrome://newtab/";
-  })*/
-
-  //console.log(find_duplicates(state).map(@toJS));
-
-  /*state = find_duplicates(state).reduce(function (state, tab) {
-    console.log("" + tab);
-    return remove_tab(state, tab.get("id"));
-  }, state);*/
 
   return save(state);
 };

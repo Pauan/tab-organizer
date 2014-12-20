@@ -1,4 +1,4 @@
-console.info("main: initializing");
+var start_time = Date.now();
 
 require("../hubs");
 
@@ -21,7 +21,7 @@ window.showState = function () {
 };
 
 function step(state, event) {
-  console.log(event);
+  console.log("main:", event);
 
   state = state.modify("connections", function (state) {
     return @connection.step(state, event);
@@ -35,6 +35,10 @@ function step(state, event) {
 
   return state;
 }
+
+var end_time = Date.now();
+
+console.info("main: initialized, took #{end_time - start_time}ms");
 
 pull ..@foldq(current_state, step);
 
