@@ -116,6 +116,8 @@ function modify_window_tabs(state, window_id, f) {
 
 exports.on              = {};
 
+exports.on.init         = "__A1980762-F797-47C6-AA36-8F6ADC2AD765_init__";
+
 exports.on.window_open  = "__2DAC0FE5-F05F-43BF-8499-F872ADD00AA3_window_open__";
 exports.on.window_close = "__820C4C8D-CF16-4878-8E62-0E059371D209_window_close__";
 
@@ -140,13 +142,16 @@ function remove_window(state, id) {
     return windows.remove(windows ..@indexOf(id));
   });
 
-  state = state.modify("tab-ids", function (ids) {
-    window.get("tabs") ..@each(function (id) {
-      ids = ids.remove(id);
-    });
+  var window_tabs = window.get("tabs");
+  if (!window_tabs.isEmpty()) {
+    state = state.modify("tab-ids", function (ids) {
+      window_tabs ..@each(function (id) {
+        ids = ids.remove(id);
+      });
 
-    return ids;
-  });
+      return ids;
+    });
+  }
 
   return state;
 }
@@ -206,6 +211,22 @@ function remove_tab(state, id) {
   return state;
 }
 
+function unload_tab(state, id) {
+  state = state.modify("unloaded-tabs", function (unloaded_tabs) {
+    return unloaded_tabs.add(id);
+  });
+
+  state = state.modify("tab-ids", function (ids) {
+    return ids.modify(id, function (tab) {
+      return tab.remove("active");
+    });
+  });
+
+  @session.tab.close(id);
+
+  return state;
+}
+
 
 /*function find_duplicates(state) {
   var seen = {};
@@ -246,10 +267,6 @@ function remove_tab(state, id) {
 
 
 exports.init = function (push) {
-  var tab_ids    = @db.get("current.tab-ids", @Dict());
-  var window_ids = @db.get("current.window-ids", @Dict());
-  var windows    = @db.get("current.windows", @List());
-
   function get(array, index) {
     var next = array.get(index, null);
     if (next === null) {
@@ -293,101 +310,86 @@ exports.init = function (push) {
     // TODO what if this is called before @session.init returns ?
     session = @session.step(session, event);
 
-    var type = event.type;
+    var type = event.get("type");
+
     if (type === @session.on.window_open) {
-      var window_value = event.window.value;
-      return push({
-        type: exports.on.window_open,
-        window: {
-          id: event.window.id,
-          next: session ..get(event.window.index + 1),
-          value: make_window(window_value, make_window_tabs(window_value))
-        }
-      });
+      var window       = event.get("window");
+      var window_index = event.get("window-index");
+
+      return push(@Dict({
+        "type": exports.on.window_open,
+        "window-next": session ..get(window_index + 1),
+        "window": make_window(window, make_window_tabs(window))
+      }));
 
     } else if (type === @session.on.window_close) {
-      return push({
-        type: exports.on.window_close,
-        window: {
-          id: event.window.id
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.window_close,
+        "window-id": event.get("window-id")
+      }));
 
     } else if (type === @session.on.tab_open) {
-      return push({
-        type: exports.on.tab_open,
-        window: {
-          id: event.window.id
-        },
-        tab: {
-          id: event.tab.id,
-          next: get_tab(event.window.index, event.tab.index + 1),
-          value: make_tab(event.tab.value, event.window.id)
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_open,
+        "tab-next": get_tab(event.get("window-index"), event.get("tab-index") + 1),
+        "tab": make_tab(event.get("tab"), event.get("window-id"))
+      }));
 
     } else if (type === @session.on.tab_update) {
-      return push({
-        type: exports.on.tab_update,
-        tab: {
-          id: event.tab.id,
-          value: event.tab.value.remove("id")
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_update,
+        "tab": event.get("tab")
+      }));
 
     } else if (type === @session.on.tab_focus) {
-      return push({
-        type: exports.on.tab_focus,
-        window: {
-          id: event.window.id
-        },
-        tab: {
-          id: event.tab.id
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_focus,
+        // TODO is this unnecessary ?
+        "window-id": event.get("window-id"),
+        "tab-id": event.get("tab-id")
+      }));
 
     } else if (type === @session.on.tab_move) {
+      //var before = event.get("before");
+      var after  = event.get("after");
+
       // TODO
       /*if (event.before.window.id === event.after.window.id &&
           event.before.tab.index < event.after.tab.index) {
 
       } else {*/
-        var next = get_tab(event.after.window.index, event.after.tab.index + 1);
+        var next = get_tab(after.get("window-index"), after.get("tab-index") + 1);
       //}
-      return push({
-        type: exports.on.tab_move,
-        before: {
-          window: {
-            id: event.before.window.id
-          }
-        },
-        after: {
-          window: {
-            id: event.after.window.id
-          },
-          tab: {
-            id: event.after.tab.id,
-            next: next
-          }
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_move,
+        "window-id": after.get("window-id"),
+        "tab-id": after.get("tab-id"),
+        "tab-next": next
+      }));
 
     } else if (type === @session.on.tab_close) {
-      return push({
-        type: exports.on.tab_close,
-        window: {
-          id: event.window.id,
-          closing: event.window.closing
-        },
-        tab: {
-          id: event.tab.id
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_close,
+        "window-closing": event.get("window-closing"),
+        "tab-id": event.get("tab-id")
+      }));
 
     } else {
       @assert.fail();
     }
   });
+
+
+  /*var state = @Dict({
+    "unloaded-tabs" : @Set(),
+    "tab-ids"       : @db.get("current.tab-ids",    @Dict()),
+    "window-ids"    : @db.get("current.window-ids", @Dict()),
+    "windows"       : @db.get("current.windows",    @List())
+  });*/
+
+  var tab_ids = @db.get("current.tab-ids",    @Dict());
+  var window_ids = @db.get("current.window-ids", @Dict());
+  var windows = @db.get("current.windows",    @List());
 
 
   var seen_windows = {};
@@ -488,6 +490,7 @@ exports.init = function (push) {
 
 
   var state = @Dict({
+    "unloaded-tabs": @Set(),
     "tab-ids": tab_ids,
     "window-ids": window_ids,
     "windows": windows
@@ -498,59 +501,64 @@ exports.init = function (push) {
 
 
 exports.step = function (state, event) {
-  var type = event.type;
+  var type = event.get("type");
 
   if (type === exports.on.window_open) {
+    var window    = event.get("window");
+    var window_id = window.get("id");
+
     state = state.modify("window-ids", function (ids) {
-      return ids.set(event.window.id, event.window.value);
+      return ids.set(window_id, window);
     });
 
     state = state.modify("windows", function (windows) {
-      return windows ..insert_next(event.window.id, event.window.next);
+      return windows ..insert_next(window_id, event.get("window-next"));
     });
 
     save(state);
 
   } else if (type === exports.on.window_close) {
-    state = state.modify("window-ids", function (ids) {
-      return ids.remove(event.window.id);
-    });
-
-    state = state.modify("windows", function (windows) {
-      return windows.remove(windows ..@indexOf(event.window.id));
-    });
+    state = remove_window(state, event.get("window-id"));
 
     save_delay(state);
 
   } else if (type === exports.on.tab_open) {
+    var tab       = event.get("tab");
+    var tab_id    = tab.get("id");
+    var window_id = tab.get("window");
+
     state = state.modify("tab-ids", function (ids) {
-      return ids.set(event.tab.id, event.tab.value);
+      return ids.set(tab_id, tab);
     });
 
-    state = modify_window_tabs(state, event.window.id, function (tabs) {
-      return tabs ..insert_next(event.tab.id, event.tab.next);
+    state = modify_window_tabs(state, window_id, function (tabs) {
+      return tabs ..insert_next(tab_id, event.get("tab-next"));
     });
 
     save(state);
 
   } else if (type === exports.on.tab_update) {
+    var tab = event.get("tab");
+
     state = state.modify("tab-ids", function (ids) {
-      return ids.modify(event.tab.id, function (tab) {
-        return tab ..update_tab_with_timestamp(event.tab.value);
+      return ids.modify(tab.get("id"), function (x) {
+        return x ..update_tab_with_timestamp(tab);
       });
     });
 
     save(state);
 
   } else if (type === exports.on.tab_focus) {
+    var tab_id = event.get("tab-id");
+
     var old_focused = null;
 
     state = state.modify("window-ids", function (ids) {
-      return ids.modify(event.window.id, function (window) {
+      return ids.modify(event.get("window-id"), function (window) {
         if (window.has("focused-tab")) {
           old_focused = window.get("focused-tab");
         }
-        return window.set("focused-tab", event.tab.id);
+        return window.set("focused-tab", tab_id);
       });
     });
 
@@ -561,7 +569,7 @@ exports.step = function (state, event) {
         });
       }
 
-      ids = ids.modify(event.tab.id, function (tab) {
+      ids = ids.modify(tab_id, function (tab) {
         return tab ..update_timestamp("focused");
       });
 
@@ -571,21 +579,18 @@ exports.step = function (state, event) {
     save(state);
 
   } else if (type === exports.on.tab_move) {
-    var tab_id = event.after.tab.id;
-
-    state = modify_window_tabs(state, event.before.window.id, function (tabs) {
-      return tabs.remove(tabs ..@indexOf(tab_id));
-    });
-
-    state = modify_window_tabs(state, event.after.window.id, function (tabs) {
-      return tabs ..insert_next(tab_id, event.after.tab.next);
-    });
+    var tab_id     = event.get("tab-id");
+    var tab_next   = event.get("tab-next");
+    var new_window = event.get("window-id");
+    var old_window = null;
 
     state = state.modify("tab-ids", function (ids) {
       return ids.modify(tab_id, function (tab) {
-        tab = tab.set("window", event.after.window.id);
+        old_window = tab.get("window");
 
-        if (event.before.window.id === event.after.window.id) {
+        tab = tab.set("window", new_window);
+
+        if (old_window === new_window) {
           tab = tab ..update_timestamp("moved-in-window");
         } else {
           tab = tab ..update_timestamp("moved-to-window");
@@ -595,18 +600,30 @@ exports.step = function (state, event) {
       });
     });
 
+    @assert.isNot(old_window, null);
+
+    if (old_window === new_window) {
+      // TODO code duplication
+      state = modify_window_tabs(state, old_window, function (tabs) {
+        return tabs.remove(tabs ..@indexOf(tab_id)) ..insert_next(tab_id, tab_next);
+      });
+
+    } else {
+      state = modify_window_tabs(state, old_window, function (tabs) {
+        return tabs.remove(tabs ..@indexOf(tab_id));
+      });
+
+      state = modify_window_tabs(state, new_window, function (tabs) {
+        return tabs ..insert_next(tab_id, tab_next);
+      });
+    }
+
     save(state);
 
   } else if (type === exports.on.tab_close) {
-    state = state.modify("tab-ids", function (ids) {
-      return ids.remove(event.tab.id);
-    });
+    state = remove_tab(state, event.get("tab-id"));
 
-    state = modify_window_tabs(state, event.window.id, function (tabs) {
-      return tabs.remove(tabs ..@indexOf(event.tab.id));
-    });
-
-    if (event.window.closing) {
+    if (event.get("window-closing")) {
       save_delay(state);
     } else {
       save(state);

@@ -21,7 +21,7 @@ window.showState = function () {
 };
 
 function step(state, event) {
-  console.log("main:", event);
+  console.log("main:", @toJS(event));
 
   state = state.modify("connections", function (state) {
     return @connection.step(state, event);

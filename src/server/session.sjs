@@ -130,14 +130,11 @@ exports.init = function (push) {
       @assert.is(x.window.tabs.length, 0);
       windows_init(id, x.window);
 
-      return push({
-        type: exports.on.window_open,
-        window: {
-          id: id,
-          index: x.window.index,
-          value: convert_window(x.window)
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.window_open,
+        "window-index": x.window.index,
+        "window": convert_window(x.window)
+      }));
 
 
     } else if (type === @window.on.close) {
@@ -149,13 +146,11 @@ exports.init = function (push) {
 
       save_delay();
 
-      return push({
-        type: exports.on.window_close,
-        window: {
-          id: win_id,
-          index: x.window.index
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.window_close,
+        "window-id": win_id,
+        "window-index": x.window.index
+      }));
 
 
     } else if (type === @tab.on.open) {
@@ -165,18 +160,13 @@ exports.init = function (push) {
 
       tabs_init(id, x.tab);
 
-      return push({
-        type: exports.on.tab_open,
-        window: {
-          id: win_id,
-          index: x.tab.window.index
-        },
-        tab: {
-          id: id,
-          index: x.tab.index,
-          value: convert_tab(x.tab)
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_open,
+        "window-id": win_id,
+        "window-index": x.tab.window.index,
+        "tab-index": x.tab.index,
+        "tab": convert_tab(x.tab)
+      }));
 
 
     } else if (type === @tab.on.update) {
@@ -193,18 +183,13 @@ exports.init = function (push) {
 
       save();
 
-      return push({
-        type: exports.on.tab_update,
-        window: {
-          id: win_id,
-          index: info.window.index
-        },
-        tab: {
-          id: tab_id,
-          index: info.index,
-          value: convert_tab(info)
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_update,
+        "window-id": win_id,
+        "window-index": info.window.index,
+        "tab-index": info.index,
+        "tab": convert_tab(info)
+      }));
 
 
     } else if (type === @tab.on.replace) {
@@ -218,17 +203,13 @@ exports.init = function (push) {
       var win_id = windows_id ..@get(x.window.id);
       var tab_id = tabs_id ..@get(x.after.id);
 
-      return push({
-        type: exports.on.tab_focus,
-        window: {
-          id: win_id,
-          index: x.after.window.index
-        },
-        tab: {
-          id: tab_id,
-          index: x.after.index
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_focus,
+        "window-id": win_id,
+        "window-index": x.after.window.index,
+        "tab-id": tab_id,
+        "tab-index": x.after.index
+      }));
 
 
     } else if (type === @tab.on.move) {
@@ -251,29 +232,21 @@ exports.init = function (push) {
 
       save();
 
-      return push({
-        type: exports.on.tab_move,
-        before: {
-          window: {
-            id: before_win_id,
-            index: x.before.window.index
-          },
-          tab: {
-            id: tab_id,
-            index: x.before.index
-          }
-        },
-        after: {
-          window: {
-            id: after_win_id,
-            index: x.after.window.index
-          },
-          tab: {
-            id: tab_id,
-            index: x.after.index
-          }
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_move,
+        "before": @Dict({
+          "window-id": before_win_id,
+          "window-index": x.before.window.index,
+          "tab-id": tab_id,
+          "tab-index": x.before.index
+        }),
+        "after": @Dict({
+          "window-id": after_win_id,
+          "window-index": x.after.window.index,
+          "tab-id": tab_id,
+          "tab-index": x.after.index
+        })
+      }));
 
 
     } else if (type === @tab.on.close) {
@@ -298,18 +271,14 @@ exports.init = function (push) {
         save();
       }
 
-      return push({
-        type: exports.on.tab_close,
-        window: {
-          id: win_id,
-          closing: closing,
-          index: x.tab.window.index
-        },
-        tab: {
-          id: tab_id,
-          index: x.tab.index
-        }
-      });
+      return push(@Dict({
+        "type": exports.on.tab_close,
+        "window-id": win_id,
+        "window-closing": closing,
+        "window-index": x.tab.window.index,
+        "tab-id": tab_id,
+        "tab-index": x.tab.index
+      }));
 
 
     } else {
@@ -422,54 +391,60 @@ function modify_tabs(state, index, f) {
 }
 
 exports.step = function (state, event) {
-  var type = event.type;
+  var type = event.get("type");
   if (type === exports.on.window_open) {
-    return state.insert(event.window.value, event.window.index);
+    return state.insert(event.get("window"), event.get("window-index"));
 
   } else if (type === exports.on.window_close) {
-    return state.remove(event.window.index);
+    return state.remove(event.get("window-index"));
 
   } else if (type === exports.on.tab_open) {
-    return modify_tabs(state, event.window.index, function (tabs) {
-      return tabs.insert(event.tab.value, event.tab.index);
+    return modify_tabs(state, event.get("window-index"), function (tabs) {
+      return tabs.insert(event.get("tab"), event.get("tab-index"));
     });
 
   } else if (type === exports.on.tab_close) {
-    return modify_tabs(state, event.window.index, function (tabs) {
-      return tabs.remove(event.tab.index);
+    return modify_tabs(state, event.get("window-index"), function (tabs) {
+      return tabs.remove(event.get("tab-index"));
     });
 
   } else if (type === exports.on.tab_update) {
-    return modify_tabs(state, event.window.index, function (tabs) {
-      return tabs.modify(event.tab.index, function () {
-        return event.tab.value;
+    return modify_tabs(state, event.get("window-index"), function (tabs) {
+      return tabs.modify(event.get("tab-index"), function () {
+        return event.get("tab");
       });
     });
 
   } else if (type === exports.on.tab_focus) {
-    return state.modify(event.window.index, function (window) {
-      return window.set("focused-tab", event.tab.id);
+    return state.modify(event.get("window-index"), function (window) {
+      return window.set("focused-tab", event.get("tab-id"));
     });
 
   } else if (type === exports.on.tab_move) {
-    var before = event.before;
-    var after  = event.after;
+    var before = event.get("before");
+    var after  = event.get("after");
 
-    if (before.window.index === after.window.index) {
-      return modify_tabs(state, before.window.index, function (tabs) {
-        var tab = tabs.get(before.tab.index);
-        return tabs.remove(before.tab.index).insert(tab, after.tab.index);
+    var before_window_index = before.get("window-index");
+    var after_window_index  = after.get("window-index");
+
+    var before_tab_index = before.get("tab-index");
+    var after_tab_index  = after.get("tab-index");
+
+    if (before_window_index === after_window_index) {
+      return modify_tabs(state, before_window_index, function (tabs) {
+        var tab = tabs.get(before_tab_index);
+        return tabs.remove(before_tab_index).insert(tab, after_tab_index);
       });
 
     } else {
-      var tab = state.get(before.window.index).get("tabs").get(before.tab.index);
+      var tab = state.get(before_window_index).get("tabs").get(before_tab_index);
 
-      state = modify_tabs(state, before.window.index, function (tabs) {
-        return tabs.remove(before.tab.index);
+      state = modify_tabs(state, before_window_index, function (tabs) {
+        return tabs.remove(before_tab_index);
       });
 
-      state = modify_tabs(state, after.window.index, function (tabs) {
-        return tabs.insert(tab, after.tab.index);
+      state = modify_tabs(state, after_window_index, function (tabs) {
+        return tabs.insert(tab, after_tab_index);
       });
 
       return state;
