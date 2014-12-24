@@ -5,27 +5,36 @@ require("../hubs");
 @ = require([
   { id: "sjs:collection/immutable", exclude: ["Queue"] },
   { id: "lib:util/queue" },
-  { id: "lib:extension/server" },
+  { id: "lib:util/util" },
+  { id: "sjs:sequence" },
   { id: "./windows", name: "windows" }
 ]);
 
 var { push, pull } = @Queue();
 
 var current_state = @Dict({
-  "connections": @connection.init(push),
-  "windows": @windows.init(push)
+  "windows": @windows.subscribe(push)
 });
 
 window.showState = function () {
   console.log(@toJS(current_state));
 };
 
+
+window.search = function (url) {
+  var re = new RegExp(@regexpEscape(url), "i");
+
+  return current_state.get("windows").get("tab-ids") ..@filter(function ([_, tab]) {
+    return (tab.has("url") && re.test(tab.get("url"))) ||
+           (tab.has("title") && re.test(tab.get("title")));
+  }) ..@map(function ([_, tab]) {
+    return @toJS(tab)
+  });
+};
+
+
 function step(state, event) {
   console.log("main:", @toJS(event));
-
-  state = state.modify("connections", function (state) {
-    return @connection.step(state, event);
-  });
 
   state = state.modify("windows", function (state) {
     return @windows.step(state, event);
@@ -58,9 +67,9 @@ var { push, pull } = @Queue();
 console.info("main: init");
 
 var state = {
-  tabs:    @tabs.init(push),
-  popup:   @popup.init(push),
-  counter: @counter.init(push)
+  tabs:    @tabs.subscribe(push),
+  popup:   @popup.subscribe(push),
+  counter: @counter.subscribe(push)
 };
 
 function step(state, event) {
