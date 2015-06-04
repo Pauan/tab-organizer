@@ -3,7 +3,7 @@
 var build = require("./lib/util/node/build")
 
 build(function (o) {
-  o.pull("lib/util")
+  //o.pull("lib/util")
   o.mkdir("build/js")
 
   o.config = {
