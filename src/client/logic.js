@@ -307,7 +307,7 @@ goog.scope(function () {
 
           if (array.len(oGroup.aTabs) === 0) {
             log(oGroup.id)
-            delete oGroups[group.id]
+            delete oGroups[oGroup.id]
             array.push(toRemove, oGroup)
             if (animate) {
               ui.group.hide(oGroup.element, 1)

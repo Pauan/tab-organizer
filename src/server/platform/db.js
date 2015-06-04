@@ -17,7 +17,7 @@ goog.scope(function () {
   var store = chrome["storage"]["local"]
     , _db   = Symbol("db")
     , _name = Symbol("name")
-    , dbs   = null
+    , /** @type {Object} */ dbs = null
 
   // When the db updates, it will wait for 1000ms, and will then commit the changes
   // If you use the delay function, it will reset the timer and will delay by the amount you specify
