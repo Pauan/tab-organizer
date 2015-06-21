@@ -1,0 +1,14 @@
+{
+  "name": "tab-organizer",
+  "version": "5.0.0-beta",
+  "dependencies": {
+    "gsap": "^1.17.0"
+  },
+  "devDependencies": {
+    "browserify": "^10.2.4",
+    "babelify": "^6.1.2"
+  },
+  "scripts": {
+    "prepublish": "./build.sh"
+  }
+}

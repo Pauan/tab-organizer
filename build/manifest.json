@@ -12,21 +12,27 @@
     "128": "data/icons/icon128.png"
   },
   "background": {
-    "page": "main.html"
+    "page": "server.html"
   },
   "options_page": "options.html",
-  "browser_action": {},
+  "browser_action": {
+    "default_icon": {
+      "19": "data/icons/icon19.png"
+    }
+  },
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      }
+    }
+  },
   "permissions": [
     "chrome://favicon/",
     "tabs",
     "bookmarks",
     "storage",
     "unlimitedStorage"
-  ],
-  "content_scripts": [{
-    "matches": [ "<all_urls>" ],
-    "js": [ "keyboard.js" ],
-    "run_at": "document_start",
-    "all_frames": true
-  }]
+  ]
 }
