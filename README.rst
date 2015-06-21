@@ -8,7 +8,7 @@ If you're a normal user, you should *NOT* be using this repository. Instead, ins
 But if you're a developer, or want to try the absolute latest version before release, you can follow these steps:
 
 * Make sure you have git, `Node.js <http://nodejs.org/>`_, and `npm <https://www.npmjs.com/>`_.
-* ``git clone https://github.com/Pauan/tab-organizer.git``
+* ``git clone --branch ecmascript6 https://github.com/Pauan/tab-organizer.git``
 * ``cd tab-organizer``
 * ``npm install``
 * Now, in Google Chrome, go to the URL ``chrome://extensions/``
