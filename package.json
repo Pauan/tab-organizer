@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "tab-organizer",
   "version": "5.0.0-beta",
   "dependencies": {
@@ -6,9 +7,11 @@
   },
   "devDependencies": {
     "browserify": "^10.2.4",
-    "babelify": "^6.1.2"
+    "babelify": "^6.1.2",
+    "watchify": "^3.2.2"
   },
   "scripts": {
-    "prepublish": "./build.sh"
+    "prepublish": "./bin/build.sh",
+    "watch": "npm install && ./bin/watch.sh"
   }
 }
