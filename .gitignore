@@ -1,5 +1,3 @@
 node_modules
-build/gsap/CSSPlugin.min.js
-build/gsap/ScrollToPlugin.min.js
-build/gsap/TweenLite.min.js
+build/lib
 build/js

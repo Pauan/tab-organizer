@@ -1,8 +1,13 @@
 #! /usr/bin/env sh
 
-cp node_modules/gsap/src/minified/TweenLite.min.js build/gsap/TweenLite.min.js
-cp node_modules/gsap/src/minified/plugins/CSSPlugin.min.js build/gsap/CSSPlugin.min.js
-cp node_modules/gsap/src/minified/plugins/ScrollToPlugin.min.js build/gsap/ScrollToPlugin.min.js
+# Cleanup old build dir
+rm -r build/gsap
+
+cp node_modules/gsap/src/minified/TweenLite.min.js build/lib/gsap/TweenLite.min.js
+cp node_modules/gsap/src/minified/plugins/CSSPlugin.min.js build/lib/gsap/CSSPlugin.min.js
+cp node_modules/gsap/src/minified/plugins/ScrollToPlugin.min.js build/lib/gsap/ScrollToPlugin.min.js
+
+cp node_modules/babel-core/browser-polyfill.min.js build/lib/browser-polyfill.min.js
 
 mkdir build/js -p
 
