@@ -6,7 +6,7 @@ const port = connect(uuid_port_tab);
 let i = 0;
 let start = null;
 
-port.onReceive((message) => {
+port.on_receive((message) => {
   if (i === 0) {
     start = Date.now();
 

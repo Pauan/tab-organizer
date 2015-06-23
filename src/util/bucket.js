@@ -1,31 +1,43 @@
-import { push, discard, length } from "./array";
-import { get } from "./object";
+import { Set } from "./set";
+import { Dict } from "./dict";
+import { map } from "./iterator";
+
 
 export class Bucket {
-  constructor() {
-    this._keys = {};
+  constructor(x = null) {
+    if (x == null) {
+      this._keys = new Dict();
+    } else {
+      this._keys = new Dict(map(x, ([key, value]) => [key, new Set(value)]));
+    }
   }
 
+  // TODO code duplication with cache.js
   add(key, value) {
-    if (this._keys[key] == null) {
-      this._keys[key] = [value];
-
-    } else {
-      push(this._keys[key], value);
+    if (!this._keys.has(key)) {
+      this._keys.set(key, new Set());
     }
+
+    this._keys.get(key).add(value);
   }
 
   remove(key, value) {
-    const a = get(this._keys, key);
+    const a = this._keys.get(key);
 
-    discard(a, value);
+    a.remove(value);
 
-    if (length(a) === 0) {
-      delete this._keys[key];
+    if (a.size === 0) {
+      this._keys.remove(key);
     }
   }
 
-  get(key) {
-    return get(this._keys, key, []);
+  *get(key) {
+    if (this._keys.has(key)) {
+      yield* this._keys.get(key);
+    }
+  }
+
+  toJSON() {
+    return this._keys;
   }
 }

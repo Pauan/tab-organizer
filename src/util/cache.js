@@ -1,21 +1,24 @@
+import { Dict } from "./dict";
+
+
 export class Cache {
-  constructor() {
-    this._cache = {};
+  constructor(x = null) {
+    this._cache = new Dict(x);
   }
 
   get(key, f) {
-    if (!(key in this._cache)) {
-      this._cache[key] = f();
+    if (!this._cache.has(key)) {
+      this._cache.set(key, f());
     }
 
-    return this._cache[key];
+    return this._cache.get(key);
   }
 
   remove(key) {
-    if (key in this._cache) {
-      delete this._cache[key];
-    } else {
-      throw new Error("Key not found: " + key);
-    }
+    this._cache.remove(key);
+  }
+
+  toJSON() {
+    return this._cache;
   }
 }

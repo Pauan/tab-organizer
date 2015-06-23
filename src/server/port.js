@@ -1,35 +1,36 @@
 import { Bucket } from "../util/bucket";
 import { Port } from "../common/port";
+import { each } from "../util/iterator";
 
 
-const _ports     = new Bucket();
-const _onConnect = new Bucket();
+const _ports      = new Bucket();
+const _on_connect = new Bucket();
 
 
 chrome["runtime"]["onConnect"]["addListener"]((x) => {
   const port = new Port(x);
 
-  _ports.add(port._name, port);
+  _ports.add(port.name, port);
 
-  port.onDisconnect(() => {
-    _ports.remove(port._name, port);
+  port.on_disconnect(() => {
+    _ports.remove(port.name, port);
   });
 
-  for (let f of _onConnect.get(port._name)) {
+  each(_on_connect.get(port.name), (f) => {
     f(port);
-  }
+  });
 });
 
 
-export const onConnect = (name, f) => {
-  _onConnect.add(name, f);
+export const on_connect = (name, f) => {
+  _on_connect.add(name, f);
 };
 
 export const ports = (name) =>
   _ports.get(name);
 
 export const send = (name, value) => {
-  for (let port of ports(name)) {
+  each(ports(name), (port) => {
     port.send(value);
-  }
+  });
 };

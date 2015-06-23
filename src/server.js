@@ -1,7 +1,7 @@
 import { uuid_port_tab } from "./common/uuid";
-import { onConnect } from "./server/port";
+import { on_connect } from "./server/port";
 
-onConnect(uuid_port_tab, (port) => {
+on_connect(uuid_port_tab, (port) => {
   for (let i = 0; i < 5000; ++i) {
     port.send({
       "type": "tab",
@@ -15,7 +15,7 @@ onConnect(uuid_port_tab, (port) => {
     });
   }
 
-  port.onReceive((message) => {
+  port.on_receive((message) => {
     console.log(message);
   });
 });
