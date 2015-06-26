@@ -1,5 +1,5 @@
 import { uuid_port_tab } from "./common/uuid";
-import { connect } from "./client/port";
+import { connect } from "./chrome/client";
 
 const port = connect(uuid_port_tab);
 

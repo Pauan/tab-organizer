@@ -12,5 +12,5 @@ cp node_modules/babel-core/browser-polyfill.min.js build/lib/browser-polyfill.mi
 mkdir build/js --parents
 
 browserify --transform babelify src/server.js --outfile build/js/server.js
-#browserify --transform babelify src/panel.js --outfile build/js/panel.js
+browserify --transform babelify src/panel.js --outfile build/js/panel.js
 browserify --transform babelify src/options.js --outfile build/js/options.js

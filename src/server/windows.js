@@ -1,68 +1,63 @@
-/**
- * @ Tab lifecycle
- *
- *   @ When removing a window
- *     windows.remove
- *     windows.onRemoved
- *
- *   @ When creating
- *     @ If it's a new window
- *       windows.onFocusChanged (old)
- *       windows.onCreated
- *     tabs.onCreated
- *     tabs.onActivated
- *     tabs.create
- *     @ If it's not loaded from cache
- *       tabs.onUpdated
- *
- *   @ When updating
- *     tabs.update
- *     tabs.onUpdated
- *
- *   @ When focusing a different tab
- *     tabs.onActivated
- *     tabs.update
- *
- *   @ When moving in the same window
- *     tabs.onMoved
- *     tabs.move
- *
- *   @ When moving to another window
- *     @ If the old window still has tabs in it
- *       windows.onCreated
- *       tabs.onDetached
- *       tabs.onActivated (old window)
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *
- *       tabs.onDetached
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *       windows.onRemoved
- *
- *     @ If the old window does not still have tabs in it
- *       tabs.onDetached
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *       windows.onRemoved
- *
- *   @ When removing
- *     tabs.onRemoved
- *     @ If the old window still has tabs in it
- *       tabs.onActivated
- *       tabs.remove
- *     @ If the old window does not still have tabs in it
- *       tabs.remove
- *       windows.onRemoved
- *
- *
- * windows.onCreated
- */
-import { Set } from "../util/Set";
+import { uuid_port_tab } from "../common/uuid";
+//import { on_connect } from "../server/port";
+import { init_chrome, windows, open_window,
+         event_window_open, event_window_close,
+         event_window_focus, event_tab_open,
+         event_tab_focus, event_tab_close,
+         event_tab_replace } from "../chrome/server";
+import { each } from "../util/iterator";
+import { async, delay } from "../util/async";
 
+export const init_windows = async(function* () {
+  yield init_chrome;
 
-const _on_window_open = new Set();
-const _on_window_close = new Set();
+  each(windows, (window) => {
+    console.log("init", window);
+  });
 
-export const on_window_open = (f) => _on_window_open.add(f);
-export const on_window_close = (f) => _on_window_close.add(f);
+  event_window_open.on((info) => {
+    console.log("window open", info);
+  });
+
+  event_window_close.on((info) => {
+    console.log("window close", info);
+  });
+
+  event_window_focus.on((info) => {
+    console.log("window focus", info);
+  });
+
+  event_tab_open.on((info) => {
+    console.log("tab open", info);
+  });
+
+  event_tab_focus.on((info) => {
+    console.log("tab focus", info);
+  });
+
+  event_tab_close.on((info) => {
+    console.log("tab close", info);
+  });
+
+  event_tab_replace.on((info) => {
+    console.log("tab replace", info);
+  });
+
+  /*const window = yield open_window({});
+
+  console.log(window);
+  console.log(yield window.get_state());
+  console.log(yield window.get_dimensions());
+
+  console.log(yield window.set_state("maximized"));
+  console.log(yield delay(1000));
+  console.log(yield window.set_state("normal"));
+  console.log(yield delay(1000));
+  console.log(yield window.set_dimensions({ left: 50, width: 100, height: 50 }));
+  console.log(yield delay(1000));
+  console.log(yield window.get_dimensions());
+  console.log(yield window.set_state("maximized"));
+  console.log(yield delay(1000));
+  console.log(yield window.get_state());
+  console.log(yield window.close());*/
+});

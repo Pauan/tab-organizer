@@ -1,9 +1,9 @@
 export const assert = (x) => {
   if (!x) {
-    debugger;
+    throw new Error("Assertion failed");
   }
 };
 
 export const fail = () => {
-  throw new Error("Failure");
+  throw new Error("Failed");
 };

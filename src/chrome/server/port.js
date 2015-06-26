@@ -1,6 +1,7 @@
-import { Bucket } from "../util/bucket";
+import { Bucket } from "../../util/bucket";
 import { Port } from "../common/port";
-import { each } from "../util/iterator";
+import { each } from "../../util/iterator";
+import { throw_error } from "../common/util";
 
 
 const _ports      = new Bucket();
@@ -8,6 +9,8 @@ const _on_connect = new Bucket();
 
 
 chrome["runtime"]["onConnect"]["addListener"]((x) => {
+  throw_error();
+
   const port = new Port(x);
 
   _ports.add(port.name, port);

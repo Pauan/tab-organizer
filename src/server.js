@@ -1,23 +1,8 @@
-import { uuid_port_tab } from "./common/uuid";
-import { on_connect } from "./server/port";
+import { init_windows } from "./server/windows";
+import { run_async, concurrent } from "./util/async";
 
-on_connect(uuid_port_tab, (port) => {
-  for (let i = 0; i < 5000; ++i) {
-    port.send({
-      "type": "tab",
-      "value": {
-        "url": "foo",
-        "title": "bar",
-        "favicon": "qux",
-        "focused": true
-      },
-      "index": i
-    });
-  }
+run_async(function* () {
+  yield concurrent(init_windows);
 
-  port.on_receive((message) => {
-    console.log(message);
-  });
+  console["debug"]("SERVER STARTED");
 });
-
-console.debug("SERVER STARTED");
