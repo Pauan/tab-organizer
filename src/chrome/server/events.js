@@ -2,7 +2,8 @@ import { throw_error } from "../common/util";
 import { assert } from "../../util/assert";
 import { make_window, remove_window, focus_window } from "./windows";
 import { make_popup, remove_popup, focus_popup } from "./popups";
-import { make_tab, remove_tab, focus_tab, replace_tab } from "./tabs";
+import { make_tab, remove_tab, focus_tab, replace_tab,
+         attach_tab, detach_tab, move_tab, update_tab } from "./tabs";
 
 
 chrome["windows"]["onCreated"]["addListener"]((info) => {
@@ -54,4 +55,28 @@ chrome["tabs"]["onReplaced"]["addListener"]((new_id, old_id) => {
   throw_error();
 
   replace_tab(new_id, old_id);
+});
+
+chrome["tabs"]["onAttached"]["addListener"]((id, info) => {
+  throw_error();
+
+  attach_tab(id, info);
+});
+
+chrome["tabs"]["onDetached"]["addListener"]((id, info) => {
+  throw_error();
+
+  detach_tab(id, info);
+});
+
+chrome["tabs"]["onMoved"]["addListener"]((id, info) => {
+  throw_error();
+
+  move_tab(id, info);
+});
+
+chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
+  throw_error();
+
+  update_tab(id, tab);
 });

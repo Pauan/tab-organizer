@@ -1,6 +1,6 @@
-import { fail } from "../util/assert";
-import { Set } from "../util/set";
-import { each } from "../util/iterator";
+import { fail } from "../../util/assert";
+import { Set } from "../../util/set";
+import { each } from "../../util/iterator";
 
 
 export class Port {

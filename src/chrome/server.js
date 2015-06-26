@@ -13,7 +13,11 @@ export { windows,
 export { event_tab_open,
          event_tab_close,
          event_tab_focus,
-         event_tab_replace } from "./server/tabs";
+         event_tab_replace,
+         event_tab_attach,
+         event_tab_detach,
+         event_tab_move,
+         event_tab_update } from "./server/tabs";
 export { on_connect,
          ports,
          send } from "./server/port";
