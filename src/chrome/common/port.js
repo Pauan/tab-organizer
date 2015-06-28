@@ -1,41 +1,32 @@
 import { fail } from "../../util/assert";
-import { Set } from "../../util/set";
+import { Event } from "../../util/event";
 import { each } from "../../util/iterator";
 
 
 export class Port {
   constructor(port) {
     this.name = port["name"];
+
     this._port = port;
-    this._listeners = new Set();
-    this._disconnects = new Set();
+    this.on_receive = new Event();
+    this.on_disconnect = new Event();
 
     // TODO test this
     port["onDisconnect"]["addListener"](() => {
       //this._port["disconnect"]();
 
-      this._port = null;
-      this._listeners = null;
-      this._disconnects = null;
+      const on_disconnect = this.on_disconnect;
 
-      each(this._disconnects, (f) => {
-        f();
-      });
+      this._port = null;
+      this.on_receive = null;
+      this.on_disconnect = null;
+
+      on_disconnect.send(undefined);
     });
 
     port["onMessage"]["addListener"]((x) => {
-      each(this._listeners, (f) => {
-        f(x);
-      });
+      this.on_receive.send(x);
     });
-  }
-
-  on_disconnect(f) {
-    this._disconnects.add(f);
-  }
-
-  on_receive(f) {
-    this._listeners.add(f);
   }
 
   send(value) {

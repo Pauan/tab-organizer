@@ -1,13 +1,16 @@
 import { Bucket } from "../../util/bucket";
+import { Event } from "../../util/event";
 import { Port } from "../common/port";
 import { each } from "../../util/iterator";
 import { throw_error } from "../common/util";
 
 
-const _ports      = new Bucket();
-const _on_connect = new Bucket();
+const _ports = new Bucket();
+
+export const on_connect = new Event();
 
 
+// TODO test this
 chrome["runtime"]["onConnect"]["addListener"]((x) => {
   throw_error();
 
@@ -15,25 +18,19 @@ chrome["runtime"]["onConnect"]["addListener"]((x) => {
 
   _ports.add(port.name, port);
 
-  port.on_disconnect(() => {
+  port.on_disconnect.listen(() => {
     _ports.remove(port.name, port);
   });
 
-  each(_on_connect.get(port.name), (f) => {
-    f(port);
-  });
+  on_connect.send(port);
 });
 
 
-export const on_connect = (name, f) => {
-  _on_connect.add(name, f);
-};
-
-export const ports = (name) =>
+export const get = (name) =>
   _ports.get(name);
 
 export const send = (name, value) => {
-  each(ports(name), (port) => {
+  each(get(name), (port) => {
     port.send(value);
   });
 };

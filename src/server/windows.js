@@ -3,55 +3,51 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { each } from "../util/iterator";
-import { async, concurrent } from "../util/async";
+import { async } from "../util/async";
 
-export const init_windows = async(function* () {
-  const { windows, event_window_open,
-          event_window_close,
-          event_window_focus, event_tab_open,
-          event_tab_focus, event_tab_close,
-          event_tab_attach, event_tab_detach,
-          event_tab_move, event_tab_update } = yield init_chrome;
+
+export const init = async(function* () {
+  const { windows } = yield init_chrome;
   const session = yield init_session;
 
-  each(windows, (window) => {
+  each(windows.get_windows(), (window) => {
     console.log("init", window);
   });
 
-  event_window_open.on((info) => {
+  windows.on_window_open.listen((info) => {
     session.window_open(info);
     console.log("window open", info);
   });
 
-  event_window_close.on((info) => {
+  windows.on_window_close.listen((info) => {
     session.window_close(info);
     console.log("window close", info);
   });
 
-  event_window_focus.on((info) => {
+  windows.on_window_focus.listen((info) => {
     console.log("window focus", info);
   });
 
-  event_tab_open.on((info) => {
+  wndows.on_tab_open.listen((info) => {
     session.tab_open(info);
     console.log("tab open", info);
   });
 
-  event_tab_focus.on((info) => {
+  wndows.on_tab_focus.listen((info) => {
     console.log("tab focus", info);
   });
 
-  event_tab_close.on((info) => {
+  wndows.on_tab_close.listen((info) => {
     session.tab_close(info);
     console.log("tab close", info);
   });
 
-  event_tab_move.on((info) => {
+  wndows.on_tab_move.listen((info) => {
     session.tab_move(info);
     console.log("tab move", info);
   });
 
-  event_tab_update.on((info) => {
+  wndows.on_tab_update.listen((info) => {
     session.tab_update(info);
     console.log("tab update", info);
   });

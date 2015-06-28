@@ -7,7 +7,7 @@ export class Event {
     this._listeners = new Set();
   }
 
-  on(f) {
+  listen(f) {
     this._listeners.add(f);
   }
 

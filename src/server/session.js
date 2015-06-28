@@ -8,9 +8,9 @@ import { timestamp } from "../util/timestamp";
 import { assert } from "../util/assert";
 
 export const init = async(function* () {
-  const chrome = yield init_chrome;
+  const { db, windows } = yield init_chrome;
 
-  const saved = new List(chrome.db.get("session.windows", []));
+  const saved = new List(db.get("session.windows", []));
 
   const window_ids = new Dict();
   const tab_ids    = new Dict();
@@ -43,11 +43,13 @@ export const init = async(function* () {
   const tab_id = (id) => tab_ids.get(id).get("id");
 
   const save = () => {
-    chrome.db.set("session.windows", saved);
+    db.set("session.windows", saved);
   };
 
   const save_delay = () => {
-    chrome.db.delay("session.windows", () => {
+    // Delay by 10 seconds, so that when Chrome closes,
+    // it doesn't remove the tabs / windows
+    db.delay("session.windows", 10000, () => {
       save();
     });
   };
@@ -128,16 +130,16 @@ export const init = async(function* () {
   const merge_saved = (windows) => {
     saved.clear();
 
-    each(chrome.windows, (window) => {
+    each(windows, (window) => {
 
     });
 
     save();
   };
 
-  merge_saved(chrome.windows);
+  merge_saved(windows.get_windows());
 
-  chrome.event_tab_replace.on((info) => {
+  windows.on_tab_replace.listen((info) => {
     tab_replace(info);
   });
 

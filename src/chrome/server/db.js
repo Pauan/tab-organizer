@@ -3,6 +3,7 @@ import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
 
+
 const print = (timer, ...args) => {
   const x = timer.diff();
   if (x > 100) {
@@ -22,7 +23,13 @@ const serialize = (value) => {
     return value;
 
   } else if (Array["isArray"](value)) {
-    return value["map"](serialize);
+    const o = new Array(value["length"]);
+
+    for (let i = 0; i < value["length"]; ++i) {
+      o[i] = serialize(value[i]);
+    }
+
+    return o;
 
   } else if (typeof value === "object") {
     if (typeof value["toJSON"] === "function") {
@@ -42,11 +49,11 @@ const serialize = (value) => {
     }
 
   } else {
-    throw new Error("Invalid object: " + value);
+    throw new Error("Cannot serialize: " + value);
   }
 };
 
-export const init_db = async(function* () {
+export const init = async(function* () {
   const timer = new Timer();
 
   const db = yield async_chrome((callback) => {
@@ -66,12 +73,14 @@ export const init_db = async(function* () {
   const set = (key, value) => {
     const timer = new Timer();
 
-    const svalue = serialize(value);
+    const s_value = serialize(value);
 
-    db[key] = svalue;
+    db[key] = s_value;
 
     // TODO test whether we need to batch this or not
-    chrome["storage"]["local"]["set"]({ [key]: svalue }, () => {
+    // It's okay for this to be asynchronous, because
+    // `serialize` makes a copy of `value`
+    chrome["storage"]["local"]["set"]({ [key]: s_value }, () => {
       throw_error();
       timer.done();
       print(timer, "Wrote key to db: " + key);

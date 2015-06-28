@@ -1,278 +1,119 @@
-/**
- * @ Tab lifecycle
- *
- *  @ When opening a window
- *    windows.onCreated
- *    window.create
- *
- *   @ When removing a window
- *     windows.remove
- *     windows.onRemoved
- *
- *   @ When creating
- *     @ If it's a new window
- *       windows.onFocusChanged (old)
- *       windows.onCreated
- *     tabs.onCreated
- *     tabs.onActivated
- *     tabs.create
- *     @ If it's not loaded from cache
- *       tabs.onUpdated
- *
- *   @ When updating
- *     tabs.update
- *     tabs.onUpdated
- *
- *   @ When focusing a different tab
- *     tabs.onActivated
- *     tabs.update
- *
- *   @ When moving in the same window
- *     tabs.onMoved
- *     tabs.move
- *
- *   @ When moving to another window
- *     @ If the old window still has tabs in it
- *       windows.onCreated
- *       tabs.onDetached
- *       tabs.onActivated (old window)
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *
- *       tabs.onDetached
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *       windows.onRemoved
- *
- *     @ If the old window does not still have tabs in it
- *       tabs.onDetached
- *       tabs.onAttached
- *       tabs.onActivated (new window)
- *       windows.onRemoved
- *
- *   @ When removing
- *     tabs.onRemoved
- *     @ If the old window still has tabs in it
- *       tabs.onActivated
- *       tabs.remove
- *     @ If the old window does not still have tabs in it
- *       tabs.remove
- *       windows.onRemoved
- *
- *
- * windows.onCreated
- */
-import { Event } from "../../util/event";
-import { List } from "../../util/list";
-import { Dict } from "../../util/dict";
-import { async, ignore } from "../../util/async";
-import { async_chrome, update_indexes, dimensions } from "../common/util";
-import { assert, fail } from "../../util/assert";
-import { each } from "../../util/iterator";
-import { make_tab } from "./tabs";
+import { throw_error } from "../common/util";
+import { assert } from "../../util/assert";
+import { make_window, remove_window, focus_window } from "./windows/windows";
+import { make_popup, remove_popup, focus_popup } from "./windows/popups";
+import { make_tab, remove_tab, focus_tab, replace_tab,
+         attach_tab, move_tab, update_tab } from "./windows/tabs";
+
+// Exports
+import { get_windows,
+         on_window_open,
+         on_window_close,
+         on_window_focus } from "./windows/windows";
+import { on_tab_open,
+         on_tab_close,
+         on_tab_update,
+         on_tab_focus,
+         on_tab_move,
+         on_tab_replace } from "./windows/tabs";
 
 
-export const event_window_open  = new Event();
-export const event_window_close = new Event();
-export const event_window_focus = new Event();
+chrome["windows"]["onCreated"]["addListener"]((info) => {
+  throw_error();
 
-export const windows    = new List();
-export const window_ids = new Dict();
+  assert(info["focused"] === false);
 
-
-let _focused = null;
-
-const focus = (window, events) => {
-  const old = _focused;
-
-  assert(window !== old);
-
-  if (old !== null) {
-    assert(old.focused === true);
-    old.focused = false;
+  if (info["tabs"]) {
+    assert(info["tabs"]["length"] === 0);
   }
 
-  assert(window.focused === false);
-  window.focused = true;
+  make_window(info, true);
+  make_popup(info, true);
+});
 
-  _focused = window;
+chrome["windows"]["onRemoved"]["addListener"]((id) => {
+  throw_error();
 
-  if (events) {
-    event_window_focus.send({
-      old: old,
-      new: window
-    });
-  }
-};
+  remove_window(id);
+  remove_popup(id);
+});
 
-const unfocus = () => {
-  const old = _focused;
+chrome["windows"]["onFocusChanged"]["addListener"]((id) => {
+  throw_error();
 
-  if (old !== null) {
-    assert(old.focused === true);
-    old.focused = false;
+  focus_window(id);
+  focus_popup(id);
+});
 
-    _focused = null;
+chrome["tabs"]["onCreated"]["addListener"]((info) => {
+  throw_error();
 
-    event_window_focus.send({
-      old: old,
-      new: null
-    });
-  }
-};
+  make_tab(info, true);
+});
 
-const defocus = (window) => {
-  if (window === _focused) {
-    unfocus();
-  }
-};
+chrome["tabs"]["onRemoved"]["addListener"]((id, info) => {
+  throw_error();
 
+  remove_tab(id, info);
+});
 
-export const open_window = ({ focused = true, state = "normal" }) => async(function* () {
-  const window = yield async_chrome((callback) => {
-    chrome["windows"]["create"]({
-      "focused": focused,
-      "type": "normal",
-      //"state": state
-    }, callback);
-  });
+chrome["tabs"]["onActivated"]["addListener"]((info) => {
+  throw_error();
 
-  return window_ids.get(window["id"]);
+  focus_tab(info);
+});
+
+chrome["tabs"]["onReplaced"]["addListener"]((new_id, old_id) => {
+  throw_error();
+
+  replace_tab(new_id, old_id);
+});
+
+chrome["tabs"]["onAttached"]["addListener"]((id, info) => {
+  throw_error();
+
+  attach_tab(id, info);
+});
+
+chrome["tabs"]["onMoved"]["addListener"]((id, info) => {
+  throw_error();
+
+  move_tab(id, info);
+});
+
+chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
+  throw_error();
+
+  update_tab(id, tab);
 });
 
 
-const get_window = (window) =>
-  async_chrome((callback) => {
-    chrome["windows"]["get"](window.id, { "populate": false }, callback);
+export const init = async(function* () {
+  // TODO do I need to wait for the "load" event before doing this ?
+  const a = yield async_chrome((callback) => {
+    chrome["windows"]["getAll"]({ "populate": true }, callback);
   });
 
-const update_window = (window, info) =>
-  ignore(async_chrome((callback) => {
-    chrome["windows"]["update"](window.id, info, callback);
-  }));
+  each(a, (info) => {
+    make_window(info, false);
+    make_popup(info, false);
+  });
 
-class Window {
-  constructor(info) {
-    this.id = info["id"];
-    this.focused = false;
-    this.focused_tab = null;
-    this.index = windows.size;
-    this.tabs = new List();
-  }
+  return {
+    windows: {
+      get_windows,
+      on_window_open,
+      on_window_close,
+      on_window_focus,
+      on_tab_open,
+      on_tab_close,
+      on_tab_update,
+      on_tab_focus,
+      on_tab_move,
+      on_tab_replace
+    },
 
-  focus() {
-    return update_window(this, { "focused": true });
-  }
-
-  // TODO this should probably wait until after the Window is removed from `windows`
-  close() {
-    return ignore(async_chrome((callback) => {
-      chrome["windows"]["remove"](this.id, callback);
-    }));
-  }
-
-  /*get_state() {
-    const self = this;
-
-    return async(function* () {
-      const x = yield get_window(self);
-      return x["state"];
-    });
-  }
-
-  get_dimensions() {
-    const self = this;
-
-    return async(function* () {
-      const x = yield get_window(self);
-
-      return {
-        left: x["left"],
-        top: x["top"],
-        width: x["width"],
-        height: x["height"]
-      };
-    });
-  }
-
-  // TODO rename to minimize/maximize/etc. ?
-  set_state(state) {
-    return update_window(this, { "state": state });
-  }
-
-  // TODO rename to move ?
-  set_dimensions(info) {
-    return update_window(this, dimensions(info));
-  }*/
-
-  toJSON() {
-    fail();
-  }
-}
-
-export const make_window = (info, events) => {
-  if (info["type"] === "normal") {
-    const window = new Window(info);
-
-    assert(!window_ids.has(window.id));
-    window_ids.set(window.id, window);
-
-    // TODO assertions that `window` is not in `windows` ?
-    windows.push(window);
-
-    if (events) {
-      event_window_open.send({
-        window: window,
-        index: window.index
-      });
+    popups: {
     }
-
-    if (info["focused"]) {
-      focus(window, events);
-    }
-
-    if (info["tabs"]) {
-      each(info["tabs"], (tab) => {
-        make_tab(tab, events);
-      });
-    }
-  }
-};
-
-export const remove_window = (id) => {
-  if (window_ids.has(id)) {
-    const window = window_ids.get(id);
-    const index = window.index;
-
-    assert(window.id === id);
-    assert(window.tabs.size === 0);
-
-    defocus(window);
-
-    assert(windows.get(index) === window);
-    // TODO assertions that `window` is no longer in `windows` ?
-    windows.remove(index);
-    update_indexes(windows);
-
-    window_ids.remove(window.id);
-
-    window.index = null;
-
-    event_window_close.send({
-      window: window,
-      index: index
-    });
-  }
-};
-
-export const focus_window = (id) => {
-  if (window_ids.has(id)) {
-    const window = window_ids.get(id);
-    assert(window.id === id);
-
-    focus(window, true);
-
-  } else {
-    unfocus();
-  }
-};
+  };
+});

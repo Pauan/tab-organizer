@@ -1,20 +1,25 @@
 import { uuid_port_tab } from "./common/uuid";
-import { connect } from "./chrome/client";
+import { init as init_chrome } from "./chrome/client";
+import { run_async } from "./util/async";
 
-const port = connect(uuid_port_tab);
+run_async(function* () {
+  const { port } = yield init_chrome;
 
-let i = 0;
-let start = null;
+  const x = port.connect(uuid_port_tab);
 
-port.on_receive((message) => {
-  if (i === 0) {
-    start = Date.now();
+  let i = 0;
+  let start = null;
 
-  } else if (i === 4999) {
-    console.log(Date.now() - start);
-  }
+  x.on_receive.listen((message) => {
+    if (i === 0) {
+      start = Date.now();
 
-  ++i;
+    } else if (i === 4999) {
+      console.log(Date.now() - start);
+    }
+
+    ++i;
+  });
+
+  console["debug"]("OPTIONS STARTED");
 });
-
-console.debug("OPTIONS STARTED");
