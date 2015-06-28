@@ -7,7 +7,7 @@ export const timestamp = () => {
   if (max === null || x > max) {
     max = x;
   } else {
-    x = ++max;
+    ++max;
   }
-  return x;
+  return max;
 };

@@ -9,8 +9,6 @@ export const event_tab_open    = new Event();
 export const event_tab_focus   = new Event();
 export const event_tab_close   = new Event();
 export const event_tab_replace = new Event();
-export const event_tab_attach  = new Event();
-export const event_tab_detach  = new Event();
 export const event_tab_move    = new Event();
 export const event_tab_update  = new Event();
 
@@ -154,7 +152,8 @@ export const make_tab = (info, events) => {
   }
 };
 
-export const remove_tab = (id, info) => {
+export const remove_tab = (id, { "windowId": window_id,
+                                 "isWindowClosing": window_closing }) => {
   if (tab_ids.has(id)) {
     const tab = tab_ids.get(id);
     const index = tab.index;
@@ -162,7 +161,7 @@ export const remove_tab = (id, info) => {
     const tabs = window.tabs;
 
     assert(tab.id === id);
-    assert(window.id === info["windowId"]);
+    assert(window.id === window_id);
 
     defocus(window, tab);
 
@@ -179,7 +178,8 @@ export const remove_tab = (id, info) => {
     event_tab_close.send({
       window: window,
       tab: tab,
-      index: index
+      index: index,
+      window_closing: window_closing
     });
   }
 };
@@ -200,6 +200,7 @@ export const replace_tab = (new_id, old_id) => {
     const tab = tab_ids.get(old_id);
 
     assert(tab.id === old_id);
+    assert(old_id !== new_id);
 
     tab.id = new_id;
     tab_ids.remove(old_id);
@@ -216,79 +217,70 @@ export const replace_tab = (new_id, old_id) => {
   }
 };
 
-export const attach_tab = (id, { "newWindowId": window_id, "newPosition": index }) => {
+// TODO handle focus
+export const attach_tab = (id, { "newWindowId": window_id,
+                                 "newPosition": new_index }) => {
   if (tab_ids.has(id)) {
     const tab = tab_ids.get(id);
-    const window = window_ids.get(window_id);
+    const old_index = tab.index;
 
-    assert(tab.window === null);
-    assert(tab.index === null);
+    const old_window = tab.window;
+    const new_window = window_ids.get(window_id);
 
-    tab.window = window;
-    tab.index = index;
+    const old_tabs = old_window.tabs;
+    const new_tabs = new_window.tabs;
 
-    // TODO assert that tab does not exist in window.tabs ?
-    window.tabs.insert(tab.index, tab);
-    update_indexes(window.tabs);
+    assert(tab.id = id);
+    assert(new_window.id === window_id);
 
-    event_tab_attach.send({
-      window: window,
-      tab: tab,
-      index: index
-    });
-  }
-};
-
-export const detach_tab = (id, { "oldWindowId": window_id,
-                                 "oldPosition": old_index }) => {
-  if (tab_ids.has(id)) {
-    const tab = tab_ids.get(id);
-    const window = tab.window;
-    const index = tab.index;
-    const tabs = window.tabs;
-
-    assert(window.id === window_id);
-    assert(index === old_index);
+    assert(old_window !== new_window || old_index !== new_index);
 
     // TODO assert that tab is no longer in tabs ?
-    assert(tabs.get(index) === tab);
-    tabs.remove(index);
-    update_indexes(tabs);
+    assert(old_tabs.get(old_index) === tab);
+    old_tabs.remove(old_index);
+    new_tabs.insert(new_index, tab);
 
-    tab.window = null;
-    tab.index = null;
+    update_indexes(old_tabs);
+    update_indexes(new_tabs);
 
-    event_tab_detach.send({
-      window: window,
+    tab.window = new_window;
+    tab.index = new_index;
+
+    event_tab_attach.send({
       tab: tab,
-      index: index
+      old_window: old_window,
+      new_window: new_window,
+      old_index: old_index,
+      new_index: new_index
     });
   }
 };
 
 export const move_tab = (id, { "windowId": window_id,
-                               "fromIndex": from_index,
-                               "toIndex": to_index }) => {
+                               "fromIndex": old_index,
+                               "toIndex": new_index }) => {
   if (tab_ids.has(id)) {
     const tab = tab_ids.get(id);
     const window = tab.window;
     const tabs = window.tabs;
 
+    assert(tab.id === id);
     assert(window.id === window_id);
-    assert(tab.index === from_index);
+    assert(tab.index === old_index);
 
-    assert(tabs.get(from_index) === tab);
-    tabs.remove(from_index);
-    tabs.insert(to_index, tab);
+    assert(tabs.get(old_index) === tab);
+    tabs.remove(old_index);
+    tabs.insert(new_index, tab);
     update_indexes(tabs);
 
-    tab.index = to_index;
+    tab.index = new_index;
 
     event_tab_move.send({
-      window: window,
       tab: tab,
-      old_index: from_index,
-      new_index: to_index
+      old_window: window,
+      new_window: window,
+      old_index: old_index,
+      new_index: new_index
     });
   }
 };

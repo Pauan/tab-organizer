@@ -5,20 +5,20 @@ import { make_window } from "./server/windows";
 import { make_popup } from "./server/popups";
 import "./server/events";
 
-export { windows,
+// Exports
+import { db, init_db } from "./server/db";
+import { windows,
          open_window,
          event_window_open,
          event_window_close,
          event_window_focus } from "./server/windows";
-export { event_tab_open,
+import { event_tab_open,
          event_tab_close,
          event_tab_focus,
          event_tab_replace,
-         event_tab_attach,
-         event_tab_detach,
          event_tab_move,
          event_tab_update } from "./server/tabs";
-export { on_connect,
+import { on_connect,
          ports,
          send } from "./server/port";
 
@@ -33,6 +33,28 @@ export const init_windows = async(function* () {
   });
 });
 
-export const init_chrome = async(function* () {
-  yield concurrent(init_windows);
+export const init = async(function* () {
+  yield init_db;
+  yield init_windows;
+
+  return {
+    db,
+
+    windows,
+    open_window,
+    event_window_open,
+    event_window_close,
+    event_window_focus,
+
+    event_tab_open,
+    event_tab_close,
+    event_tab_focus,
+    event_tab_replace,
+    event_tab_move,
+    event_tab_update,
+
+    on_connect,
+    ports,
+    send
+  };
 });

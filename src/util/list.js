@@ -74,6 +74,10 @@ export class List {
     }
   }
 
+  clear() {
+    this._list["length"] = 0;
+  }
+
   push(value) {
     this._list["push"](value);
     ++this.size;
