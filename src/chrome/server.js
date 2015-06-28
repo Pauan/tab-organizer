@@ -6,7 +6,7 @@ import { make_popup } from "./server/popups";
 import "./server/events";
 
 // Exports
-import { db, init_db } from "./server/db";
+import { init_db } from "./server/db";
 import { windows,
          open_window,
          event_window_open,
@@ -25,7 +25,9 @@ import { on_connect,
 
 // TODO do I need to wait for the "load" event before doing this ?
 export const init_windows = async(function* () {
-  const a = yield async_chrome(chrome["windows"]["getAll"], { "populate": true });
+  const a = yield async_chrome((callback) => {
+    chrome["windows"]["getAll"]({ "populate": true }, callback);
+  });
 
   each(a, (info) => {
     make_window(info, false);
@@ -34,7 +36,9 @@ export const init_windows = async(function* () {
 });
 
 export const init = async(function* () {
-  yield init_db;
+  const db = yield init_db;
+
+  // TODO change this to use the same system as `init_db`
   yield init_windows;
 
   return {

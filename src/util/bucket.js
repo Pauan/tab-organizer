@@ -12,6 +12,10 @@ export class Bucket {
     }
   }
 
+  has(key) {
+    return this._keys.has(key);
+  }
+
   // TODO code duplication with cache.js
   add(key, value) {
     if (!this._keys.has(key)) {

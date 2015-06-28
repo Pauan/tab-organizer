@@ -47,9 +47,9 @@ export const throw_error = () => {
   }
 };
 
-export const async_chrome = (f, ...args) =>
+export const async_chrome = (f) =>
   async_callback((success, error) => {
-    f(...args, (...value) => {
+    f((...value) => {
       const err = check_error();
       if (err === null) {
         if (value["length"] === 1) {

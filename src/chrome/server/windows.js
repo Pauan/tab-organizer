@@ -129,10 +129,12 @@ const defocus = (window) => {
 
 
 export const open_window = ({ focused = true, state = "normal" }) => async(function* () {
-  const window = yield async_chrome(chrome["windows"]["create"], {
-    "focused": focused,
-    "type": "normal",
-    //"state": state
+  const window = yield async_chrome((callback) => {
+    chrome["windows"]["create"]({
+      "focused": focused,
+      "type": "normal",
+      //"state": state
+    }, callback);
   });
 
   return window_ids.get(window["id"]);
@@ -140,10 +142,14 @@ export const open_window = ({ focused = true, state = "normal" }) => async(funct
 
 
 const get_window = (window) =>
-  async_chrome(chrome["windows"]["get"], window.id, { "populate": false });
+  async_chrome((callback) => {
+    chrome["windows"]["get"](window.id, { "populate": false }, callback);
+  });
 
 const update_window = (window, info) =>
-  ignore(async_chrome(chrome["windows"]["update"], window.id, info));
+  ignore(async_chrome((callback) => {
+    chrome["windows"]["update"](window.id, info, callback);
+  }));
 
 class Window {
   constructor(info) {
@@ -160,7 +166,9 @@ class Window {
 
   // TODO this should probably wait until after the Window is removed from `windows`
   close() {
-    return ignore(async_chrome(chrome["windows"]["remove"], this.id));
+    return ignore(async_chrome((callback) => {
+      chrome["windows"]["remove"](this.id, callback);
+    }));
   }
 
   /*get_state() {
