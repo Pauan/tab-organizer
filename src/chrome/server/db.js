@@ -1,17 +1,19 @@
 import { Timer } from "../../util/time";
+import { Dict } from "../../util/dict";
 import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
 
 
-const print = (timer, ...args) => {
-  const x = timer.diff();
-  if (x > 100) {
-    console["warn"](...args, "(" + x + "ms)");
+// TODO move this into another module
+const warn_if = (test, ...args) => {
+  if (test) {
+    console["warn"](...args);
   } else {
-    console["debug"](...args, "(" + x + "ms)");
+    console["debug"](...args);
   }
 };
+
 
 // TODO this is O(n)
 const serialize = (value) => {
@@ -53,6 +55,7 @@ const serialize = (value) => {
   }
 };
 
+
 export const init = async(function* () {
   const timer = new Timer();
 
@@ -61,6 +64,42 @@ export const init = async(function* () {
   });
 
   timer.done();
+
+
+  const delaying = new Dict();
+
+  const with_delay = (key, f) => {
+    if (delaying.has(key)) {
+      delaying.get(key).thunk = f;
+    } else {
+      f();
+    }
+  };
+
+  const delay = (key, ms) => {
+    if (delaying.has(key)) {
+      const info = delaying.get(key);
+
+      if (ms <= info.ms) {
+        return;
+      }
+    }
+
+    const o = {
+      thunk: null,
+      ms: ms,
+      timer: setTimeout(() => {
+        if (delaying.get(key) === o) {
+          delaying.remove(key);
+        }
+
+        o.thunk();
+      }, ms)
+    };
+
+    delaying.set(key, o);
+  };
+
 
   const get = (key, def) => {
     if (key in db) {
@@ -71,33 +110,56 @@ export const init = async(function* () {
   };
 
   const set = (key, value) => {
-    const timer = new Timer();
+    delay(key, 1000);
 
+    const timer_serialize = new Timer();
     const s_value = serialize(value);
+    timer_serialize.done();
 
     db[key] = s_value;
 
-    // TODO test whether we need to batch this or not
-    // It's okay for this to be asynchronous, because
-    // `serialize` makes a copy of `value`
-    chrome["storage"]["local"]["set"]({ [key]: s_value }, () => {
-      throw_error();
-      timer.done();
-      print(timer, "Wrote key to db: " + key);
+    with_delay(key, () => {
+      const timer = new Timer();
+
+      // It's okay for this to be asynchronous, because
+      // `serialize` makes a copy of `value`
+      chrome["storage"]["local"]["set"]({ [key]: s_value }, () => {
+        throw_error();
+        timer.done();
+
+        warn_if((timer.diff() + timer_serialize.diff()) >= 1000,
+                "db.set: \"" +
+                key +
+                "\" (serialization " +
+                timer_serialize.diff() +
+                "ms) (assignment " +
+                timer.diff() +
+                "ms)");
+      });
     });
   };
 
   const remove = (key) => {
     if (key in db) {
-      const timer = new Timer();
+      delay(key, 1000);
 
       delete db[key];
 
-      // TODO test whether we need to batch this or not
-      chrome["storage"]["local"]["remove"](key, () => {
-        throw_error();
-        timer.done();
-        print(timer, "Removed key from db: " + key);
+      with_delay(key, () => {
+        const timer = new Timer();
+
+        // TODO test whether we need to batch this or not
+        chrome["storage"]["local"]["remove"](key, () => {
+          throw_error();
+          timer.done();
+
+          warn_if(timer.diff() >= 1000,
+                  "db.remove: \"" +
+                  key +
+                  "\" (removal " +
+                  timer.diff() +
+                  "ms)");
+        });
       });
 
     } else {
@@ -105,11 +167,12 @@ export const init = async(function* () {
     }
   };
 
-  print(timer, "Initialized db:", db);
+  console["debug"]("db: initialized (" + timer.diff() + "ms)", db);
 
   return {
     get,
     set,
-    remove
+    remove,
+    delay
   };
 });

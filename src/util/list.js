@@ -10,6 +10,15 @@ export class List {
     this.size = this._list["length"];
   }
 
+  has(index) {
+    // TODO test this
+    if (index < 0) {
+      index += this.size;
+    }
+
+    return index >= 0 && index < this.size;
+  }
+
   get(index) {
     // TODO test this
     if (index < 0) {

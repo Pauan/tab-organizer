@@ -28,28 +28,33 @@ export const init = async(function* () {
     console.log("window focus", info);
   });
 
-  wndows.on_tab_open.listen((info) => {
+  windows.on_tab_open.listen((info) => {
     session.tab_open(info);
     console.log("tab open", info);
   });
 
-  wndows.on_tab_focus.listen((info) => {
+  windows.on_tab_focus.listen((info) => {
     console.log("tab focus", info);
   });
 
-  wndows.on_tab_close.listen((info) => {
+  windows.on_tab_close.listen((info) => {
     session.tab_close(info);
     console.log("tab close", info);
   });
 
-  wndows.on_tab_move.listen((info) => {
+  windows.on_tab_move.listen((info) => {
     session.tab_move(info);
     console.log("tab move", info);
   });
 
-  wndows.on_tab_update.listen((info) => {
+  windows.on_tab_update.listen((info) => {
     session.tab_update(info);
     console.log("tab update", info);
+  });
+
+  windows.on_tab_replace.listen((info) => {
+    tab_replace(info);
+    console.log("tab replace", info);
   });
 
   /*const window = yield open_window({});

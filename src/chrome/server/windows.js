@@ -1,5 +1,7 @@
-import { throw_error } from "../common/util";
+import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
+import { async } from "../../util/async";
+import { each } from "../../util/iterator";
 import { make_window, remove_window, focus_window } from "./windows/windows";
 import { make_popup, remove_popup, focus_popup } from "./windows/popups";
 import { make_tab, remove_tab, focus_tab, replace_tab,

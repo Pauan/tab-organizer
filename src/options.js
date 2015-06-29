@@ -21,5 +21,5 @@ run_async(function* () {
     ++i;
   });
 
-  console["debug"]("OPTIONS STARTED");
+  console["debug"]("options: initialized");
 });
