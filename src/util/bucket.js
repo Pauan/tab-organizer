@@ -1,6 +1,6 @@
 import { Set } from "./set";
 import { Dict } from "./dict";
-import { map } from "./iterator";
+import { map, iterator, empty } from "./iterator";
 
 
 export class Bucket {
@@ -35,9 +35,12 @@ export class Bucket {
     }
   }
 
-  *get(key) {
+  // TODO test this
+  get(key) {
     if (this._keys.has(key)) {
-      yield* this._keys.get(key);
+      return iterator(this._keys.get(key));
+    } else {
+      return empty;
     }
   }
 

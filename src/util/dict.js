@@ -1,4 +1,4 @@
-import { each } from "./iterator";
+import { each, iterator } from "./iterator";
 
 
 // TODO maybe have it inherit from Map ?
@@ -52,7 +52,7 @@ export class Dict {
     return Array["from"](this._dict);
   }
 
-  *[Symbol["iterator"]]() {
-    yield* this._dict;
+  [Symbol["iterator"]]() {
+    return iterator(this._dict);
   }
 }

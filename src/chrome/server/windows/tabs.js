@@ -246,7 +246,7 @@ export const attach_tab = (id, { "newWindowId": window_id,
     tab.window = new_window;
     tab.index = new_index;
 
-    on_tab_attach.send({
+    on_tab_move.send({
       tab: tab,
       old_window: old_window,
       new_window: new_window,

@@ -1,11 +1,11 @@
 import { init as init_chrome } from "../chrome/server";
+import { init as init_db } from "./migrate";
 import { map, each, all, zip, indexed } from "../util/iterator";
 import { async } from "../util/async";
 import { List } from "../util/list";
 import { Dict } from "../util/dict";
-import { Timer } from "../util/time";
+import { Timer, timestamp } from "../util/time";
 import { Record } from "../util/record";
-import { timestamp } from "../util/timestamp";
 import { assert } from "../util/assert";
 
 
@@ -20,7 +20,8 @@ const deserialize = (a) =>
 
 
 export const init = async(function* () {
-  const { db, windows } = yield init_chrome;
+  const { windows } = yield init_chrome;
+  const db = yield init_db;
 
   const timer_deserialize = new Timer();
   let saved = deserialize(db.get("session.windows", []));
@@ -30,12 +31,11 @@ export const init = async(function* () {
     db.set("session.windows", saved);
   };
 
-  const save_delay = () => {
+  const delay = () => {
     // TODO maybe this should delay everything, not just "session.windows" ?
     // Delay by 10 seconds, so that when Chrome closes,
     // it doesn't remove the tabs / windows
     db.delay("session.windows", 10000);
-    save();
   };
 
 
@@ -126,6 +126,10 @@ export const init = async(function* () {
   };
 
   const tab_close = ({ window, tab, index, window_closing }) => {
+    if (window_closing) {
+      delay();
+    }
+
     const session_window = window_ids.get(window.id);
     const session_tab = tab_ids.get(tab.id);
     const tabs = session_window.get("tabs");
@@ -135,11 +139,7 @@ export const init = async(function* () {
     tab_ids.remove(tab.id);
     tabs.remove(index);
 
-    if (window_closing) {
-      save_delay();
-    } else {
-      save();
-    }
+    save();
   };
 
   const tab_update = ({ old, tab }) => {
@@ -187,7 +187,6 @@ export const init = async(function* () {
       // Check that all the old tabs match with the new tabs
       // TODO test this
       return all(zip(old_tabs, new_tabs), ([old_tab, new_tab]) => {
-        console.log(old_tab, new_tab);
         return tab_matches(old_tab, new_tab);
       });
 

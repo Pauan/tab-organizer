@@ -130,9 +130,9 @@ export const init = async(function* () {
         warn_if((timer.diff() + timer_serialize.diff()) >= 1000,
                 "db.set: \"" +
                 key +
-                "\" (serialization " +
+                "\" (serialize " +
                 timer_serialize.diff() +
-                "ms) (assignment " +
+                "ms) (commit " +
                 timer.diff() +
                 "ms)");
       });
@@ -156,7 +156,7 @@ export const init = async(function* () {
           warn_if(timer.diff() >= 1000,
                   "db.remove: \"" +
                   key +
-                  "\" (removal " +
+                  "\" (remove " +
                   timer.diff() +
                   "ms)");
         });

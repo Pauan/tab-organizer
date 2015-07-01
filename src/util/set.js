@@ -1,3 +1,6 @@
+import { iterator } from "./iterator";
+
+
 // TODO maybe have it inherit from Set ?
 class _Set {
   constructor(x = null) {
@@ -35,8 +38,8 @@ class _Set {
     return Array["from"](this._set);
   }
 
-  *[Symbol["iterator"]]() {
-    yield* this._set;
+  [Symbol["iterator"]]() {
+    return iterator(this._set);
   }
 }
 

@@ -16,11 +16,46 @@ export const empty = {
   };
 };*/
 
+// TODO test this
+export const empty = {
+  [Symbol["iterator"]]: () => {
+    return {
+      "next": () => {
+        return { "done": true };
+      }
+    };
+  }
+};
+
+export const iterator = (x) => x[Symbol["iterator"]]();
+
+export const entries = (o) =>
+  map(Object["keys"](o), (key) => [key, o[key]]);
+
+export const reverse = (iter) => {
+  const a = Array["from"](iter);
+
+  // TODO faster version of this
+  a["reverse"]();
+
+  return iterator(a);
+};
+
 export const each = (iter, f) => {
   for (let x of iter) {
     f(x);
   }
 };
+
+export const foldl = (current, iter, f) => {
+  for (let x of iter) {
+    current = f(current, x);
+  }
+  return current;
+};
+
+export const foldr = (current, iter, f) =>
+  foldl(current, reverse(iter), f);
 
 export const map = function* (iter, f) {
   for (let x of iter) {
@@ -36,13 +71,22 @@ export const keep = function* (iter, f) {
   }
 };
 
-export const all = function* (iter, f) {
+export const all = (iter, f) => {
   for (let x of iter) {
     if (!f(x)) {
       return false;
     }
   }
   return true;
+};
+
+export const some = (iter, f) => {
+  for (let x of iter) {
+    if (f(x)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 export const indexed = function* (iter) {
@@ -57,7 +101,7 @@ export const indexed = function* (iter) {
 export const zip = (...iter) => {
   return {
     [Symbol["iterator"]]: () => {
-      const a = iter["map"]((x) => x[Symbol["iterator"]]());
+      const a = iter["map"](iterator);
 
       return {
         "next": () => {
@@ -83,7 +127,7 @@ export const zip = (...iter) => {
 export const zip_longest = (def, ...iter) => {
   return {
     [Symbol["iterator"]]: () => {
-      const a = iter["map"]((x) => x[Symbol["iterator"]]());
+      const a = iter["map"](iterator);
 
       return {
         "next": () => {

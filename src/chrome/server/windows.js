@@ -1,6 +1,6 @@
 import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
-import { async } from "../../util/async";
+import { async, async_callback } from "../../util/async";
 import { each } from "../../util/iterator";
 import { make_window, remove_window, focus_window } from "./windows/windows";
 import { make_popup, remove_popup, focus_popup } from "./windows/popups";
@@ -90,8 +90,21 @@ chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
 });
 
 
+const ready = async_callback((success, error) => {
+  if (document["readyState"] === "complete") {
+    success(undefined);
+
+  } else {
+    addEventListener("load", () => {
+      success(undefined);
+    }, true);
+  }
+});
+
 export const init = async(function* () {
-  // TODO do I need to wait for the "load" event before doing this ?
+  // TODO is this needed ?
+  yield ready;
+
   const a = yield async_chrome((callback) => {
     chrome["windows"]["getAll"]({ "populate": true }, callback);
   });

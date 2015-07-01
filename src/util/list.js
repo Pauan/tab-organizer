@@ -1,3 +1,6 @@
+import { iterator } from "./iterator";
+
+
 // TODO maybe have it inherit from Array ?
 export class List {
   constructor(x = null) {
@@ -107,7 +110,7 @@ export class List {
     return this._list;
   }
 
-  *[Symbol["iterator"]]() {
-    yield* this._list;
+  [Symbol["iterator"]]() {
+    return iterator(this._list);
   }
 }
