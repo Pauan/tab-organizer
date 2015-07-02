@@ -62,6 +62,7 @@
  *
  * windows.onCreated
  */
+import { chrome } from "../../../common/globals";
 import { Event } from "../../../util/event";
 import { List } from "../../../util/list";
 import { Dict } from "../../../util/dict";
@@ -89,23 +90,26 @@ let _focused = null;
 const focus = (window, events) => {
   const old = _focused;
 
-  assert(window !== old);
+  if (window === old) {
+    assert(window.focused === true);
 
-  if (old !== null) {
-    assert(old.focused === true);
-    old.focused = false;
-  }
+  } else {
+    if (old !== null) {
+      assert(old.focused === true);
+      old.focused = false;
+    }
 
-  assert(window.focused === false);
-  window.focused = true;
+    assert(window.focused === false);
+    window.focused = true;
 
-  _focused = window;
+    _focused = window;
 
-  if (events) {
-    on_window_focus.send({
-      old: old,
-      new: window
-    });
+    if (events) {
+      on_window_focus.send({
+        old: old,
+        new: window
+      });
+    }
   }
 };
 

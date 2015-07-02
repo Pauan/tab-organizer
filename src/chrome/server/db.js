@@ -1,3 +1,4 @@
+import { chrome } from "../../common/globals";
 import { Timer } from "../../util/time";
 import { Dict } from "../../util/dict";
 import { async } from "../../util/async";
@@ -59,11 +60,13 @@ const serialize = (value) => {
 export const init = async(function* () {
   const timer = new Timer();
 
-  const db = yield async_chrome((callback) => {
+  let db = yield async_chrome((callback) => {
     chrome["storage"]["local"]["get"](null, callback);
   });
 
   timer.done();
+
+  let setting = false;
 
 
   const delaying = new Dict();
@@ -110,6 +113,8 @@ export const init = async(function* () {
   };
 
   const set = (key, value) => {
+    assert(!setting);
+
     delay(key, 1000);
 
     const timer_serialize = new Timer();
@@ -139,7 +144,39 @@ export const init = async(function* () {
     });
   };
 
+  // TODO maybe make a copy ?
+  const get_all = () => db;
+
+  // TODO somehow guarantee that the db can't be changed until this is done ?
+  const set_all = (o) => {
+    assert(!setting);
+
+    setting = true;
+
+    const v = serialize(o);
+
+    db = v;
+
+    return async(function* () {
+      try {
+        yield async_chrome((callback) => {
+          chrome["storage"]["local"]["clear"](callback);
+        });
+
+        yield async_chrome((callback) => {
+          chrome["storage"]["local"]["set"](v, callback);
+        });
+
+      } finally {
+        console.log("done");
+        setting = false;
+      }
+    });
+  };
+
   const remove = (key) => {
+    assert(!setting);
+
     if (key in db) {
       delay(key, 1000);
 
@@ -173,6 +210,8 @@ export const init = async(function* () {
     get,
     set,
     remove,
-    delay
+    delay,
+    get_all,
+    set_all
   };
 });

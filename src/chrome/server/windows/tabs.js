@@ -260,6 +260,8 @@ export const move_tab = (id, { "windowId": window_id,
                                "fromIndex": old_index,
                                "toIndex": new_index }) => {
   if (tab_ids.has(id)) {
+    assert(old_index !== new_index);
+
     const tab = tab_ids.get(id);
     const window = tab.window;
     const tabs = window.tabs;

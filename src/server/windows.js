@@ -13,6 +13,7 @@ import { Set } from "../util/set"; // TODO this is only needed for development
 
 const deserialize_tab = (x) => {
   x["time"] = new Record(x["time"]);
+  x["tags"] = new Record(x["tags"]);
   return new Record(x);
 };
 
@@ -142,6 +143,7 @@ export const init = async(function* () {
       "title": info.title,
       "favicon": info.favicon,
       "pinned": info.pinned,
+
       "time": new Record({
         "created": timestamp(),
         //"updated": null,
@@ -149,7 +151,9 @@ export const init = async(function* () {
         //"focused": null,
         //"moved-in-window": null,
         //"moved-to-window": null
-      })
+      }),
+
+      "tags": new Record({})
     });
 
     tab_ids.add(tab_id, tab);
@@ -183,6 +187,7 @@ export const init = async(function* () {
   const make_new_window = (window_id, info) => {
     const window = new Record({
       "id": window_id,
+      "name": null,
 
       "tabs": new List(map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
@@ -226,7 +231,7 @@ export const init = async(function* () {
   };
 
 
-  const window_open = (info) => {
+  const window_init = (info) => {
     const id = session.window_id(info.id);
 
     // TODO is this correct ?
@@ -244,7 +249,18 @@ export const init = async(function* () {
     }
   };
 
-  const window_close = (info) => {
+  const window_open = ({ window: info }) => {
+    const id = session.window_id(info.id);
+
+    make_new_window(id, info);
+
+    // TODO is this correct ?
+    saved_windows.push(id);
+
+    save_windows();
+  };
+
+  const window_close = ({ window: info }) => {
     const id = session.window_id(info.id);
 
     const window = window_ids.get(id);
@@ -282,18 +298,11 @@ export const init = async(function* () {
     const tab_id = session.tab_id(tab.id);
     const tabs = window_ids.get(window_id).get("tabs");
 
-    // TODO is this correct ?
-    if (tab_ids.has(tab_id)) {
-      // TODO assert that the index is correct ?
-      update_tab(tab_id, info);
+    make_new_tab(window_id, tab_id, tab);
 
-    } else {
-      make_new_tab(window_id, tab_id, tab);
+    insert_to_left(window, tabs, index, tab_id);
 
-      insert_to_left(window, tabs, index, tab_id);
-
-      save_window_ids();
-    }
+    save_window_ids();
   };
 
   const tab_close = (info) => {
@@ -340,6 +349,10 @@ export const init = async(function* () {
 
     // TODO is this check correct ?
     if (old_window === new_window && old_tabs === new_tabs) {
+      const tab_window = tab_ids.get(tab_id).get("window");
+      assert(tab_window === old_window_id);
+      assert(tab_window === new_window_id);
+
       // Moved to the left
       if (new_index < old_index) {
         insert_to_left(new_window, new_tabs, new_index, tab_id);
@@ -357,10 +370,12 @@ export const init = async(function* () {
       }
 
     } else {
+      // TODO is this correct ?
       insert_to_left(new_window, new_tabs, new_index, tab_id);
 
       const x = tab_ids.get(tab_id);
       assert(x.get("window") === old_window_id);
+      assert(x.get("window") !== new_window_id);
       x.set("window", new_window_id);
 
       save_tab_ids();
@@ -370,16 +385,16 @@ export const init = async(function* () {
 
 
   check_integrity();
-  each(windows.get_windows(), window_open);
+  each(windows.get_windows(), window_init);
   check_integrity();
 
   windows.on_window_open.listen((info) => {
     session.window_open(info);
-    window_open(info.window);
+    window_open(info);
   });
 
   windows.on_window_close.listen((info) => {
-    window_close(info.window);
+    window_close(info);
     // This must be after `window_close`
     session.window_close(info);
   });

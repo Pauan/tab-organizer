@@ -1,3 +1,4 @@
+import { chrome } from "../../common/globals";
 import { async_callback } from "../../util/async";
 import { each } from "../../util/iterator";
 

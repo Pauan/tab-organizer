@@ -1,3 +1,4 @@
+import { chrome } from "../../common/globals";
 import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
 import { async, async_callback } from "../../util/async";

@@ -1,3 +1,4 @@
+import { chrome } from "../../common/globals";
 import { Cache } from "../../util/cache";
 import { Port } from "../common/port";
 

@@ -1,3 +1,4 @@
+import { chrome } from "../../common/globals";
 import { Bucket } from "../../util/bucket";
 import { Event } from "../../util/event";
 import { Port } from "../common/port";

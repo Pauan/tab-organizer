@@ -6,7 +6,7 @@ import { List } from "../util/list";
 import { Dict } from "../util/dict";
 import { Timer, timestamp } from "../util/time";
 import { Record } from "../util/record";
-import { assert } from "../util/assert";
+import { assert, fail } from "../util/assert";
 
 
 const new_id = () => "" + timestamp();
@@ -172,9 +172,17 @@ export const init = async(function* () {
   };
 
 
-  const tab_matches = (old_tab, new_tab) => {
-    return old_tab.get("url") === new_tab.url;
-  };
+  const tab_matches = (old_tab, new_tab) =>
+    old_tab.get("url") === new_tab.url;
+
+  // If the last tab is a New Tab, then it always matches.
+  // This is needed in the situation where the user restarts Chrome,
+  // because Chrome will automatically create a New Tab for the user.
+  const is_new_tab = (new_tabs, index, new_tab) =>
+    // Don't match empty windows
+    new_tabs.size >= 2 &&
+    index === new_tabs.size - 1 &&
+    new_tab.url === "chrome://newtab/";
 
   const window_matches = (old_window, new_window) => {
     const old_tabs = old_window.get("tabs");
@@ -186,8 +194,9 @@ export const init = async(function* () {
     } else if (old_tabs.size >= 1 && new_tabs.size >= 1) {
       // Check that all the old tabs match with the new tabs
       // TODO test this
-      return all(zip(old_tabs, new_tabs), ([old_tab, new_tab]) => {
-        return tab_matches(old_tab, new_tab);
+      return all(zip(old_tabs, indexed(new_tabs)), ([old_tab, [index, new_tab]]) => {
+        return tab_matches(old_tab, new_tab) ||
+               is_new_tab(new_tabs, index, new_tab);
       });
 
     } else {
@@ -204,11 +213,23 @@ export const init = async(function* () {
     let i_new = 0;
 
     const x = make_window(old_id, new_window,
-      map(indexed(new_tabs), ([i, new_tab]) => {
+      // TODO test this
+      map(indexed(new_tabs), ([index, new_tab]) => {
         // Merge with existing tab
-        if (old_tabs.has(i)) {
-          const old_tab = old_tabs.get(i);
-          return make_tab(old_tab.get("id"), new_tab);
+        if (old_tabs.has(index)) {
+          const old_tab = old_tabs.get(index);
+
+          if (tab_matches(old_tab, new_tab)) {
+            return make_tab(old_tab.get("id"), new_tab);
+
+          // Last tab was a New Tab, so we create a new tab
+          } else if (is_new_tab(new_tabs, index, new_tab)) {
+            ++i_new;
+            return make_new_tab(new_tab);
+
+          } else {
+            fail();
+          }
 
         // Create new tab
         } else {
