@@ -5,24 +5,28 @@ export const concurrent = (...a) => Promise["all"](a);
 
 export const async_callback = (f) => new Promise(f);
 
-const loop = (resolve, reject, gen, value) => {
-  const iteration = gen["next"](value);
+const loop = (gen, method, on_success, on_error, value) => {
+  const iteration = gen[method](value);
 
   if (iteration["done"]) {
-    resolve(iteration["value"]);
+    return Promise["resolve"](iteration["value"]);
 
   } else {
-    iteration["value"]["then"]((x) => {
-      loop(resolve, reject, gen, x);
-    }, (err) => {
-      gen["throw"](err);
-    });
+    return iteration["value"]["then"](on_success, on_error);
   }
 };
 
 export const async = (f) =>
-  new Promise((resolve, reject) => {
-    loop(resolve, reject, f(), undefined);
+  new Promise((success, error) => {
+    const gen = f();
+
+    const on_success = (x) =>
+      loop(gen, "next", on_success, on_error, x);
+
+    const on_error = (err) =>
+      loop(gen, "throw", on_success, on_error, err);
+
+    success(loop(gen, "next", on_success, on_error, undefined));
   });
 
 export const run_async = (f) => {

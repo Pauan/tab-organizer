@@ -168,7 +168,6 @@ export const init = async(function* () {
         });
 
       } finally {
-        console.log("done");
         setting = false;
       }
     });
