@@ -78,13 +78,18 @@ export const init = async(function* () {
   const set = (key, value) => {
     assert(!setting);
 
-    delay(key, 1000);
-
     if (db.has(key)) {
+      // If the value hasn't changed, don't do anything
+      if (db.get(key) === value) {
+        return;
+      }
+
       db = db.set(key, value);
     } else {
       db = db.add(key, value);
     }
+
+    delay(key, 1000);
 
     with_delay(key, () => {
       const timer_serialize = new Timer();
@@ -114,27 +119,33 @@ export const init = async(function* () {
   const set_all = (o) => {
     assert(!setting);
 
-    // TODO is this still necessary ?
-    setting = true;
+    if (o === db) {
+      // TODO this is a bit hacky
+      return async(function* () {});
 
-    db = o;
+    } else {
+      // TODO is this still necessary ?
+      setting = true;
 
-    return async(function* () {
-      try {
-        yield async_chrome((callback) => {
-          chrome["storage"]["local"]["clear"](callback);
-        });
+      db = o;
 
-        const v = to_json(o);
+      return async(function* () {
+        try {
+          yield async_chrome((callback) => {
+            chrome["storage"]["local"]["clear"](callback);
+          });
 
-        yield async_chrome((callback) => {
-          chrome["storage"]["local"]["set"](v, callback);
-        });
+          const v = to_json(o);
 
-      } finally {
-        setting = false;
-      }
-    });
+          yield async_chrome((callback) => {
+            chrome["storage"]["local"]["set"](v, callback);
+          });
+
+        } finally {
+          setting = false;
+        }
+      });
+    }
   };
 
   console["debug"]("db: initialized (" + timer.diff() + "ms)", db);
@@ -142,7 +153,6 @@ export const init = async(function* () {
   return {
     get,
     set,
-    remove,
     delay,
     get_all,
     set_all
