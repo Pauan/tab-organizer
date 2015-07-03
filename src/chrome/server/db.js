@@ -1,9 +1,11 @@
 import { chrome } from "../../common/globals";
 import { Timer } from "../../util/time";
 import { Dict } from "../../util/dict";
+import { to_json, from_json } from "../../util/json";
 import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
+import { each, entries } from "../../util/iterator";
 
 
 // TODO move this into another module
@@ -16,53 +18,12 @@ const warn_if = (test, ...args) => {
 };
 
 
-// TODO this is O(n)
-const serialize = (value) => {
-  if (value === null ||
-      value === true ||
-      value === false ||
-      typeof value === "number" ||
-      typeof value === "string") {
-    return value;
-
-  } else if (Array["isArray"](value)) {
-    const o = new Array(value["length"]);
-
-    for (let i = 0; i < value["length"]; ++i) {
-      o[i] = serialize(value[i]);
-    }
-
-    return o;
-
-  } else if (typeof value === "object") {
-    if (typeof value["toJSON"] === "function") {
-      return serialize(value["toJSON"]());
-
-    } else {
-      const o = {};
-
-      // TODO function for this ?
-      // TODO hasOwnProperty
-      // TODO is this slow ?
-      for (let s in value) {
-        o[s] = serialize(value[s]);
-      }
-
-      return o;
-    }
-
-  } else {
-    throw new Error("Cannot serialize: " + value);
-  }
-};
-
-
 export const init = async(function* () {
   const timer = new Timer();
 
-  let db = yield async_chrome((callback) => {
+  let db = from_json(yield async_chrome((callback) => {
     chrome["storage"]["local"]["get"](null, callback);
-  });
+  }));
 
   timer.done();
 
@@ -83,6 +44,7 @@ export const init = async(function* () {
     if (delaying.has(key)) {
       const info = delaying.get(key);
 
+      // Only delay if `ms` is greater than `info.ms`
       if (ms <= info.ms) {
         return;
       }
@@ -90,23 +52,24 @@ export const init = async(function* () {
 
     const o = {
       thunk: null,
-      ms: ms,
-      timer: setTimeout(() => {
-        if (delaying.get(key) === o) {
-          delaying.remove(key);
-        }
-
-        o.thunk();
-      }, ms)
+      ms: ms
     };
 
     delaying.set(key, o);
+
+    setTimeout(() => {
+      if (delaying.get(key) === o) {
+        delaying.remove(key);
+      }
+
+      o.thunk();
+    }, ms);
   };
 
 
   const get = (key, def) => {
-    if (key in db) {
-      return db[key];
+    if (db.has(key)) {
+      return db.get(key);
     } else {
       return def;
     }
@@ -117,17 +80,15 @@ export const init = async(function* () {
 
     delay(key, 1000);
 
-    const timer_serialize = new Timer();
-    const s_value = serialize(value);
-    timer_serialize.done();
-
-    db[key] = s_value;
+    db = db.set(key, value);
 
     with_delay(key, () => {
+      const timer_serialize = new Timer();
+      const s_value = to_json(value);
+      timer_serialize.done();
+
       const timer = new Timer();
 
-      // It's okay for this to be asynchronous, because
-      // `serialize` makes a copy of `value`
       chrome["storage"]["local"]["set"]({ [key]: s_value }, () => {
         throw_error();
         timer.done();
@@ -144,24 +105,23 @@ export const init = async(function* () {
     });
   };
 
-  // TODO maybe make a copy ?
   const get_all = () => db;
 
-  // TODO somehow guarantee that the db can't be changed until this is done ?
   const set_all = (o) => {
     assert(!setting);
 
+    // TODO is this still necessary ?
     setting = true;
 
-    const v = serialize(o);
-
-    db = v;
+    db = o;
 
     return async(function* () {
       try {
         yield async_chrome((callback) => {
           chrome["storage"]["local"]["clear"](callback);
         });
+
+        const v = to_json(o);
 
         yield async_chrome((callback) => {
           chrome["storage"]["local"]["set"](v, callback);
@@ -171,36 +131,6 @@ export const init = async(function* () {
         setting = false;
       }
     });
-  };
-
-  const remove = (key) => {
-    assert(!setting);
-
-    if (key in db) {
-      delay(key, 1000);
-
-      delete db[key];
-
-      with_delay(key, () => {
-        const timer = new Timer();
-
-        // TODO test whether we need to batch this or not
-        chrome["storage"]["local"]["remove"](key, () => {
-          throw_error();
-          timer.done();
-
-          warn_if(timer.diff() >= 1000,
-                  "db.remove: \"" +
-                  key +
-                  "\" (remove " +
-                  timer.diff() +
-                  "ms)");
-        });
-      });
-
-    } else {
-      throw new Error("Key not found: " + key);
-    }
   };
 
   console["debug"]("db: initialized (" + timer.diff() + "ms)", db);
