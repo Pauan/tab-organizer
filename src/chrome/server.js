@@ -3,7 +3,9 @@ import { async } from "../util/async";
 // Exports
 import { init as init_db } from "./server/db";
 import { init as init_windows } from "./server/windows";
+import { manifest } from "./server/manifest";
 import * as port from "./server/port";
+import * as button from "./server/button";
 
 
 export const init = async(function* () {
@@ -15,6 +17,8 @@ export const init = async(function* () {
     windows,
     tabs,
     popups,
-    port
+    port,
+    button,
+    manifest
   };
 });
