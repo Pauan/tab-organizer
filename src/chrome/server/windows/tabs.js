@@ -1,16 +1,16 @@
-import { Dict } from "../../../util/dict";
+import { Dict } from "../../../util/mutable/dict";
 import { Event } from "../../../util/event";
-import { assert, fail } from "../../../util/assert";
+import { assert } from "../../../util/assert";
 import { update_indexes } from "../../common/util";
 import { window_ids } from "./windows";
 
 
-export const on_tab_open    = new Event();
-export const on_tab_focus   = new Event();
-export const on_tab_close   = new Event();
-export const on_tab_replace = new Event();
-export const on_tab_move    = new Event();
-export const on_tab_update  = new Event();
+export const on_open    = new Event();
+export const on_focus   = new Event();
+export const on_close   = new Event();
+export const on_replace = new Event();
+export const on_move    = new Event();
+export const on_update  = new Event();
 
 export const tab_ids = new Dict();
 
@@ -31,7 +31,7 @@ const focus = (tab, events) => {
   tab.window.focused_tab = tab;
 
   if (events) {
-    on_tab_focus.send({
+    on_focus.send({
       window: tab.window,
       old: old,
       new: tab
@@ -48,7 +48,7 @@ const unfocus = (window) => {
 
     window.focused_tab = null;
 
-    on_tab_focus.send({
+    on_focus.send({
       window: window,
       old: old,
       new: null
@@ -85,10 +85,6 @@ class Tab {
     this.title   = info["title"] || null;
     this.favicon = get_favicon(info);
   }
-
-  toJSON() {
-    fail();
-  }
 }
 
 export const update_tab = (id, info) => {
@@ -118,7 +114,7 @@ export const update_tab = (id, info) => {
         old.title   !== tab.title  ||
         old.favicon !== tab.favicon) {
 
-      on_tab_update.send({
+      on_update.send({
         old: old,
         tab: tab
       });
@@ -139,7 +135,7 @@ export const make_tab = (info, events) => {
     update_indexes(window.tabs);
 
     if (events) {
-      on_tab_open.send({
+      on_open.send({
         window: window,
         tab: tab,
         index: tab.index
@@ -158,7 +154,7 @@ export const remove_tab = (id, { "windowId": window_id,
     const tab = tab_ids.get(id);
     const index = tab.index;
     const window = tab.window;
-    const tabs = window.tabs;
+        const tabs = window.tabs;
 
     assert(tab.id === id);
     assert(window.id === window_id);
@@ -175,7 +171,7 @@ export const remove_tab = (id, { "windowId": window_id,
     tab.index = null;
     tab.window = null;
 
-    on_tab_close.send({
+    on_close.send({
       window: window,
       tab: tab,
       index: index,
@@ -206,7 +202,7 @@ export const replace_tab = (new_id, old_id) => {
     tab_ids.remove(old_id);
     tab_ids.set(new_id, tab);
 
-    on_tab_replace.send({
+    on_replace.send({
       old_id: old_id,
       new_id: new_id,
       tab: tab
@@ -246,7 +242,7 @@ export const attach_tab = (id, { "newWindowId": window_id,
     tab.window = new_window;
     tab.index = new_index;
 
-    on_tab_move.send({
+    on_move.send({
       tab: tab,
       old_window: old_window,
       new_window: new_window,
@@ -277,7 +273,7 @@ export const move_tab = (id, { "windowId": window_id,
 
     tab.index = new_index;
 
-    on_tab_move.send({
+    on_move.send({
       tab: tab,
       old_window: window,
       new_window: window,

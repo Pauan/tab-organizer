@@ -9,16 +9,16 @@ import { make_tab, remove_tab, focus_tab, replace_tab,
          attach_tab, move_tab, update_tab } from "./windows/tabs";
 
 // Exports
-import { get_windows,
-         on_window_open,
-         on_window_close,
-         on_window_focus } from "./windows/windows";
-import { on_tab_open,
-         on_tab_close,
-         on_tab_update,
-         on_tab_focus,
-         on_tab_move,
-         on_tab_replace } from "./windows/tabs";
+import { get
+         on_open,
+         on_close,
+         on_focus } from "./windows/windows";
+import { on_open,
+         on_close,
+         on_update,
+         on_focus,
+         on_move,
+         on_replace } from "./windows/tabs";
 
 
 chrome["windows"]["onCreated"]["addListener"]((info) => {
@@ -117,16 +117,19 @@ export const init = async(function* () {
 
   return {
     windows: {
-      get_windows,
-      on_window_open,
-      on_window_close,
-      on_window_focus,
-      on_tab_open,
-      on_tab_close,
-      on_tab_update,
-      on_tab_focus,
-      on_tab_move,
-      on_tab_replace
+      get,
+      on_open,
+      on_close,
+      on_focus
+    },
+
+    tabs: {
+      on_open,
+      on_close,
+      on_update,
+      on_focus,
+      on_move,
+      on_replace
     },
 
     popups: {

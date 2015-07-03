@@ -1,15 +1,12 @@
 import { chrome } from "../../common/globals";
 import { async_callback } from "../../util/async";
-import { each } from "../../util/iterator";
+import { each, indexed } from "../../util/iterator";
 
 
 // TODO this can be made faster if it was given an index to start at
 export const update_indexes = (list) => {
-  let i = 0;
-
-  each(list, (x) => {
-    x.index = i;
-    ++i;
+  each(indexed(list), ([index, x]) => {
+    x.index = index;
   });
 };
 

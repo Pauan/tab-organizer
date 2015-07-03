@@ -1,4 +1,3 @@
-import { fail } from "../../util/assert";
 import { Event } from "../../util/event";
 import { each } from "../../util/iterator";
 
@@ -31,9 +30,5 @@ export class Port {
 
   send(value) {
     this._port["postMessage"](value);
-  }
-
-  toJSON() {
-    fail();
   }
 }

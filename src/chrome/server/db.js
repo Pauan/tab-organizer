@@ -1,7 +1,7 @@
 import { chrome } from "../../common/globals";
 import { Timer } from "../../util/time";
-import { Dict } from "../../util/dict";
-import { to_json, from_json } from "../../util/json";
+import { Dict } from "../../util/mutable/dict";
+import { to_json, from_json } from "../../util/immutable/json";
 import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
@@ -80,7 +80,11 @@ export const init = async(function* () {
 
     delay(key, 1000);
 
-    db = db.set(key, value);
+    if (db.has(key)) {
+      db = db.set(key, value);
+    } else {
+      db = db.add(key, value);
+    }
 
     with_delay(key, () => {
       const timer_serialize = new Timer();

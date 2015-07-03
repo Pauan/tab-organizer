@@ -64,25 +64,25 @@
  */
 import { chrome } from "../../../common/globals";
 import { Event } from "../../../util/event";
-import { List } from "../../../util/list";
-import { Dict } from "../../../util/dict";
+import { List } from "../../../util/mutable/list";
+import { Dict } from "../../../util/mutable/dict";
 import { async, ignore } from "../../../util/async";
 import { async_chrome, update_indexes, dimensions } from "../../common/util";
-import { assert, fail } from "../../../util/assert";
+import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
 
 
-export const on_window_open  = new Event();
-export const on_window_close = new Event();
-export const on_window_focus = new Event();
+export const on_open  = new Event();
+export const on_close = new Event();
+export const on_focus = new Event();
 
 export const windows    = new List();
 export const window_ids = new Dict();
 
 
 // TODO maybe make a copy ?
-export const get_windows = () => windows;
+export const get = () => windows;
 
 
 let _focused = null;
@@ -105,7 +105,7 @@ const focus = (window, events) => {
     _focused = window;
 
     if (events) {
-      on_window_focus.send({
+      on_focus.send({
         old: old,
         new: window
       });
@@ -122,7 +122,7 @@ const unfocus = () => {
 
     _focused = null;
 
-    on_window_focus.send({
+    on_focus.send({
       old: old,
       new: null
     });
@@ -212,10 +212,6 @@ class Window {
   set_dimensions(info) {
     return update_window(this, dimensions(info));
   }*/
-
-  toJSON() {
-    fail();
-  }
 }
 
 export const make_window = (info, events) => {
@@ -229,7 +225,7 @@ export const make_window = (info, events) => {
     windows.push(window);
 
     if (events) {
-      on_window_open.send({
+      on_open.send({
         window: window,
         index: window.index
       });
@@ -266,7 +262,7 @@ export const remove_window = (id) => {
 
     window.index = null;
 
-    on_window_close.send({
+    on_close.send({
       window: window,
       index: index
     });
