@@ -34,10 +34,6 @@ class _Set {
     }
   }
 
-  toJSON() {
-    return Array["from"](this._set);
-  }
-
   [Symbol["iterator"]]() {
     return iterator(this._set);
   }

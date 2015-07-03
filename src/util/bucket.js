@@ -43,8 +43,4 @@ export class Bucket {
       return empty;
     }
   }
-
-  toJSON() {
-    return this._keys;
-  }
 }

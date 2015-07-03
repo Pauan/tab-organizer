@@ -17,8 +17,4 @@ export class Cache {
   remove(key) {
     this._cache.remove(key);
   }
-
-  toJSON() {
-    return this._cache;
-  }
 }

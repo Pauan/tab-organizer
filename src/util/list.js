@@ -1,16 +1,12 @@
 import { iterator } from "./iterator";
+import { copy, insert, push, remove } from "./array";
+import { to_json } from "./json";
 
 
-// TODO maybe have it inherit from Array ?
-export class List {
-  constructor(x = null) {
-    if (x == null) {
-      this._list = [];
-    } else {
-      this._list = Array["from"](x);
-    }
-
-    this.size = this._list["length"];
+class ImmutableList {
+  constructor(x) {
+    this._list = x;
+    this.size = x["length"];
   }
 
   has(index) {
@@ -30,6 +26,7 @@ export class List {
 
     if (index >= 0 && index < this.size) {
       return this._list[index];
+
     } else {
       throw new Error("Invalid index: " + index);
     }
@@ -41,19 +38,32 @@ export class List {
       index += this.size + 1;
     }
 
+    if (index >= 0 && index <= this.size) {
+      return new ImmutableList(insert(this._list, index, value));
+
+    } else {
+      throw new Error("Invalid index: " + index);
+    }
+  }
+
+  update(index, f) {
     // TODO test this
-    // TODO maybe have the check for "unshift" before the check for "push" ?
-    if (index === 0) {
-      this._list["unshift"](value);
-      ++this.size;
+    if (index < 0) {
+      index += this.size;
+    }
 
-    } else if (index === this.size) {
-      this._list["push"](value);
-      ++this.size;
+    if (index >= 0 && index < this.size) {
+      const old_value = this._list[index];
+      const new_value = f(old_value);
 
-    } else if (index > 0 && index < this.size) {
-      this._list["splice"](index, 0, value);
-      ++this.size;
+      if (old_value === new_value) {
+        return this;
+
+      } else {
+        const list = copy(this._list);
+        list[index] = new_value;
+        return new ImmutableList(list);
+      }
 
     } else {
       throw new Error("Invalid index: " + index);
@@ -66,20 +76,8 @@ export class List {
       index += this.size;
     }
 
-    // TODO test this
-    if (index === 0) {
-      this._list["shift"]();
-      --this.size;
-
-    // TODO test this
-    // TODO maybe have the check for "pop" before the check for "shift" ?
-  } else if (index === this.size - 1) {
-      this._list["pop"]();
-      --this.size;
-
-    } else if (index > 0 && index < this.size) {
-      this._list["splice"](index, 1);
-      --this.size;
+    if (index >= 0 && index < this.size) {
+      return new ImmutableList(remove(this._list, index));
 
     } else {
       throw new Error("Invalid index: " + index);
@@ -87,12 +85,11 @@ export class List {
   }
 
   clear() {
-    this._list["length"] = 0;
+    return new ImmutableList([]);
   }
 
   push(value) {
-    this._list["push"](value);
-    ++this.size;
+    return new ImmutableList(push(this._list, value));
   }
 
   index_of(value) {
@@ -106,11 +103,28 @@ export class List {
     }
   }
 
-  toJSON() {
-    return this._list;
+  to_json() {
+    const a = this._list;
+
+    const out = new Array(a["length"]);
+
+    for (let i = 0; i < a["length"]; ++i) {
+      out[i] = to_json(a[i]);
+    }
+
+    return out;
   }
 
   [Symbol["iterator"]]() {
     return iterator(this._list);
   }
 }
+
+
+export const List = (x = null) => {
+  if (x == null) {
+    return new ImmutableList([]);
+  } else {
+    return new ImmutableList(Array["from"](x));
+  }
+};

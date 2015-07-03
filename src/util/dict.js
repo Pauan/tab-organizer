@@ -48,10 +48,6 @@ export class Dict {
     }
   }
 
-  toJSON() {
-    return Array["from"](this._dict);
-  }
-
   [Symbol["iterator"]]() {
     return iterator(this._dict);
   }

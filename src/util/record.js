@@ -1,54 +1,154 @@
-import { entries } from "./iterator";
+import { iterator, entries } from "./iterator";
+import { copy, insert, remove } from "./array";
+import { to_json } from "./json";
 
 
-export class Record {
-  constructor(x) {
-    this._dict = x;
-  }
+const get_index = (array, key) => {
+  let start = 0;
+  let end   = array["length"];
 
-  has(key) {
-    return key in this._dict;
-  }
+  while (start < end) {
+    // TODO is this faster/slower than using Math.floor ?
+    const pivot = (start + end) >> 1;
 
-  get(key) {
-    if (key in this._dict) {
-      return this._dict[key];
+    const other = array[pivot][0];
+
+    if (key === other) {
+      return {
+        index: pivot,
+        value: array[pivot]
+      };
+
+    } else if (key < other) {
+      end = pivot;
+
     } else {
-      throw new Error("Key not found: " + key);
+      start = pivot + 1;
     }
   }
 
-  // TODO add in `set` method that doesn't throw an error ?
-  // TODO rename this to `update` ?
-  set(key, value) {
-    if (key in this._dict) {
-      this._dict[key] = value;
-    } else {
+  return {
+    index: start,
+    value: null
+  };
+};
+
+
+export class ImmutableRecord {
+  constructor(keys) {
+    this._keys = keys;
+    this.size = keys["length"];
+  }
+
+  has(key) {
+    return get_index(this._keys, key).value !== null;
+  }
+
+  get(key) {
+    const x = get_index(this._keys, key).value;
+
+    if (x === null) {
       throw new Error("Key not found: " + key);
+
+    } else {
+      return x[1];
+    }
+  }
+
+  update(key, f) {
+    const x = get_index(this._keys, key);
+
+    if (x.value === null) {
+      throw new Error("Key not found: " + key);
+
+    } else {
+      const old_value = x.value[1];
+      const new_value = f(old_value);
+
+      if (old_value === new_value) {
+        return this;
+
+      } else {
+        const keys = copy(this._keys);
+        keys[x.index] = [key, new_value];
+        return new ImmutableRecord(keys);
+      }
     }
   }
 
   add(key, value) {
-    if (key in this._dict) {
-      throw new Error("Key already exists: " + key);
+    const x = get_index(this._keys, key);
+
+    if (x.value === null) {
+      return new ImmutableRecord(insert(this._keys, x.index, [key, value]));
+
     } else {
-      this._dict[key] = value;
+      throw new Error("Key already exists: " + key);
     }
   }
 
   remove(key) {
-    if (key in this._dict) {
-      delete this._dict[key];
-    } else {
+    const x = get_index(this._keys, key);
+
+    if (x.value === null) {
       throw new Error("Key not found: " + key);
+
+    } else {
+      return new ImmutableRecord(remove(this._keys, x.index));
     }
   }
 
-  toJSON() {
-    return this._dict;
+  /*set(key, value) {
+    if (this.has(key)) {
+      return this.modify(key, (_) => value);
+
+    } else {
+      return this.add(key, value);
+    }
+  }*/
+
+  to_json() {
+    const out = {};
+
+    for (let i = 0; i < this._keys["length"]; ++i) {
+      const [key, value] = this._keys[i];
+      out[key] = to_json(value);
+    }
+
+    return out;
   }
 
   [Symbol["iterator"]]() {
-    return entries(this._dict);
+    return iterator(this._keys);
   }
 }
+
+const sort_keys = ([key1, value1], [key2, value2]) => {
+  if (key1 === key2) {
+    return 0;
+  } else if (key1 < key2) {
+    return -1;
+  } else {
+    return 1;
+  }
+};
+
+// TODO check for duplicates
+export const Record = (x = null) => {
+  if (x == null) {
+    return [];
+  } else {
+    return Array["from"](x)["sort"](sort_keys);
+  }
+};
+
+console.log(Record());
+
+console.log(Record([]));
+
+console.log(Record([
+  ["foo", 1],
+  ["bar": 2],
+  ["qux": 3],
+  ["a": 5]
+]));
