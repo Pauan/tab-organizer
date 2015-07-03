@@ -37,6 +37,16 @@ export class Dict {
     this.size = this._dict["size"];
   }
 
+  add(key, value) {
+    if (this._dict["has"](key)) {
+      throw new Error("Key already exists: " + key);
+
+    } else {
+      this._dict["set"](key, value);
+      this.size = this._dict["size"];
+    }
+  }
+
   // TODO maybe this shouldn't throw an error ?
   remove(key) {
     if (this._dict["has"](key)) {

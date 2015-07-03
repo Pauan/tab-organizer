@@ -8,11 +8,12 @@ import * as port from "./server/port";
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows, popups } = yield init_windows;
+  const { windows, tabs, popups } = yield init_windows;
 
   return {
     db,
     windows,
+    tabs,
     popups,
     port
   };

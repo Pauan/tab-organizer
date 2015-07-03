@@ -2,30 +2,21 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
 import { map, each, all, zip, indexed } from "../util/iterator";
 import { async } from "../util/async";
-import { List } from "../util/list";
-import { Dict } from "../util/dict";
+import { List } from "../util/immutable/list";
+import { Record } from "../util/immutable/record";
+import { Dict } from "../util/mutable/dict";
 import { Timer, timestamp } from "../util/time";
-import { Record } from "../util/record";
 import { assert, fail } from "../util/assert";
 
 
 const new_id = () => "" + timestamp();
-
-const deserialize = (a) =>
-  new List(map(a, (window) => {
-    // TODO test this
-    window["tabs"] = new List(map(window["tabs"], (tab) => new Record(tab)));
-    return new Record(window);
-  }));
 
 
 export const init = async(function* () {
   const { windows } = yield init_chrome;
   const db = yield init_db;
 
-  const timer_deserialize = new Timer();
-  let saved = deserialize(db.get("session.windows", []));
-  timer_deserialize.done();
+  let saved = db.get("session.windows", List());
 
   const save = () => {
     db.set("session.windows", saved);
@@ -42,36 +33,22 @@ export const init = async(function* () {
   const window_ids = new Dict();
   const tab_ids    = new Dict();
 
-  const init_tab = (tab, x) => {
-    assert(!tab_ids.has(tab.id));
-    tab_ids.set(tab.id, x);
-  };
-
-  const init_window = (window, x) => {
-    assert(!window_ids.has(window.id));
-    window_ids.set(window.id, x);
-  };
-
   const make_tab = (id, tab) => {
-    const x = new Record({
-      "id": id,
-      "url": tab.url
-    });
+    tab_ids.add(tab.id, id);
 
-    init_tab(tab, x);
-
-    return x;
+    return Record([
+      ["id", id],
+      ["url", tab.url]
+    ]);
   };
 
   const make_window = (id, window, tabs) => {
-    const x = new Record({
-      "id": id,
-      "tabs": new List(tabs)
-    });
+    window_ids.add(window.id, id);
 
-    init_window(window, x);
-
-    return x;
+    return Record([
+      ["id", id],
+      ["tabs", List(tabs)]
+    ]);
   };
 
   const make_new_tab = (tab) =>
@@ -91,36 +68,51 @@ export const init = async(function* () {
     return x;
   };
 
-  const window_id = (id) => window_ids.get(id).get("id");
-  const tab_id = (id) => tab_ids.get(id).get("id");
+  const window_id = (id) => window_ids.get(id);
+  const tab_id = (id) => tab_ids.get(id);
+
+  const check_window = (session_window, window) => {
+    assert(session_window.get("id") === window_ids.get(window.id));
+  };
+
+  const check_tab = (session_tab, tab) => {
+    assert(session_tab.get("id") === tab_ids.get(tab.id));
+  };
+
+  const update_tabs = (saved, window, f) =>
+    saved.update(window.index, (session_window) => {
+      check_window(session_window, window);
+      return session_window.update("tabs", f);
+    });
 
 
   const window_open = ({ window, index }) => {
     assert(window.index === index);
 
     const x = make_new_window(window);
-    saved.insert(index, x);
+    saved = saved.insert(index, x);
 
     save();
   };
 
   const window_close = ({ window, index }) => {
     assert(window.tabs.size === 0);
-    assert(saved.get(index) === window_ids.get(window.id));
+    check_window(saved.get(index), window);
 
     window_ids.remove(window.id);
-    saved.remove(index);
+    saved = saved.remove(index);
 
     save();
   };
 
   const tab_open = ({ window, tab, index }) => {
     assert(tab.index === index);
+    assert(tab.window === window);
 
-    const session_window = window_ids.get(window.id);
-    const x = make_new_tab(tab);
-
-    session_window.get("tabs").insert(index, x);
+    saved = update_tabs(saved, window, (tabs) => {
+      const x = make_new_tab(tab);
+      return tabs.insert(index, x);
+    });
 
     save();
   };
@@ -130,45 +122,51 @@ export const init = async(function* () {
       delay();
     }
 
-    const session_window = window_ids.get(window.id);
-    const session_tab = tab_ids.get(tab.id);
-    const tabs = session_window.get("tabs");
+    saved = update_tabs(saved, window, (tabs) => {
+      check_tab(tabs.get(index), tab);
 
-    assert(tabs.get(index) === session_tab);
+      tab_ids.remove(tab.id);
 
-    tab_ids.remove(tab.id);
-    tabs.remove(index);
+      return tabs.remove(index);
+    });
 
     save();
   };
 
   const tab_update = ({ old, tab }) => {
     if (old.url !== tab.url) {
-      const x = tab_ids.get(tab.id);
-      x.set("url", tab.url);
+      saved = update_tabs(saved, tab.window, (tabs) =>
+        tabs.update(tab.index, (x) => {
+          check_tab(x, tab);
+          return x.set("url", tab.url);
+        }));
+
       save();
     }
   };
 
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
-    const session_window_old = window_ids.get(old_window.id);
-    const session_window_new = window_ids.get(new_window.id);
-    const old_tabs = session_window_old.get("tabs");
-    const new_tabs = session_window_new.get("tabs");
-    const session_tab = tab_ids.get(tab.id);
+    const session_window = saved.get(old_window.index);
+    const session_tab    = session_window.get("tabs").get(old_index);
 
-    assert(old_tabs.get(old_index) === session_tab);
+    check_window(session_window, old_window);
+    check_tab(session_tab, tab);
 
-    old_tabs.remove(old_index);
-    new_tabs.insert(new_index, session_tab);
+    saved = update_tabs(saved, old_window, (tabs) => {
+      check_tab(tabs.get(old_index), tab);
+      return tabs.remove(old_index);
+    });
+
+    saved = update_tabs(saved, new_window, (tabs) =>
+              tabs.insert(new_index, session_tab));
 
     save();
   };
 
   const tab_replace = ({ old_id, new_id }) => {
-    const tab = tab_ids.get(old_id);
+    const x = tab_ids.get(old_id);
     tab_ids.remove(old_id);
-    tab_ids.set(new_id, tab);
+    tab_ids.set(new_id, x);
   };
 
 
@@ -248,7 +246,7 @@ export const init = async(function* () {
 
   // TODO test this
   const merge = (old_windows, new_windows) =>
-    new List(map(indexed(new_windows), ([i, new_window]) => {
+    List(map(indexed(new_windows), ([i, new_window]) => {
       if (old_windows.has(i)) {
         const old_window = old_windows.get(i);
 
@@ -265,13 +263,11 @@ export const init = async(function* () {
 
   const timer_merge = new Timer();
 
-  saved = merge(saved, windows.get_windows());
+  saved = merge(saved, windows.get());
   save();
 
   timer_merge.done();
-  console["debug"]("session: initialized (deserialize " +
-                   timer_deserialize.diff() +
-                   "ms) (merge " +
+  console["debug"]("session: initialized (" +
                    timer_merge.diff() +
                    "ms)");
 

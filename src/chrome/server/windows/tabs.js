@@ -127,8 +127,7 @@ export const make_tab = (info, events) => {
     const window = window_ids.get(info["windowId"]);
     const tab = new Tab(info, window);
 
-    assert(!tab_ids.has(tab.id));
-    tab_ids.set(tab.id, tab);
+    tab_ids.add(tab.id, tab);
 
     // TODO assert that tab does not exist in window.tabs ?
     window.tabs.insert(tab.index, tab);
@@ -154,7 +153,7 @@ export const remove_tab = (id, { "windowId": window_id,
     const tab = tab_ids.get(id);
     const index = tab.index;
     const window = tab.window;
-        const tabs = window.tabs;
+    const tabs = window.tabs;
 
     assert(tab.id === id);
     assert(window.id === window_id);

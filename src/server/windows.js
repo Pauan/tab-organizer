@@ -2,58 +2,23 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, entries, map } from "../util/iterator";
+import { each, map, foldl } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
-import { List } from "../util/list";
-import { Record } from "../util/record";
+import { List } from "../util/immutable/list";
+import { Record } from "../util/immutable/record";
+import { Set } from "../util/mutable/set"; // TODO this is only needed for development
 import { async } from "../util/async";
-import { Set } from "../util/set"; // TODO this is only needed for development
-
-
-const deserialize_tab = (x) => {
-  x["time"] = new Record(x["time"]);
-  x["tags"] = new Record(x["tags"]);
-  return new Record(x);
-};
-
-const deserialize_window = (x) => {
-  x["time"] = new Record(x["time"]);
-  x["tabs"] = new List(x["tabs"]);
-  return new Record(x);
-};
-
-const deserialize_tab_ids = (x) => {
-  const o = {};
-
-  each(entries(x), ([key, value]) => {
-    o[key] = deserialize_tab(value);
-  });
-
-  return new Record(o);
-};
-
-const deserialize_window_ids = (x) => {
-  const o = {};
-
-  each(entries(x), ([key, value]) => {
-    o[key] = deserialize_window(value);
-  });
-
-  return new Record(o);
-};
-
-const deserialize_windows = (a) => new List(a);
 
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows } = yield init_chrome;
+  const { windows, tabs } = yield init_chrome;
   const session = yield init_session;
 
-  const saved_windows = deserialize_windows(db.get("current.windows", []));
-  const window_ids    = deserialize_window_ids(db.get("current.window-ids", {}));
-  const tab_ids       = deserialize_tab_ids(db.get("current.tab-ids", {}));
+  let saved_windows = db.get("current.windows", List());
+  let window_ids    = db.get("current.window-ids", Record());
+  let tab_ids       = db.get("current.tab-ids", Record());
 
   const save_windows = () => {
     db.set("current.windows", saved_windows);
@@ -77,6 +42,7 @@ export const init = async(function* () {
 
 
   // TODO this can be removed for the final release, it's only for development
+  // TODO more checks (e.g. that the indexes are correct)
   const check_integrity = () => {
     const seen = new Set();
 
@@ -108,125 +74,127 @@ export const init = async(function* () {
 
 
   // TODO test this
-  const update_time = (time, s) => {
-    if (time.has(s)) {
-      time.set(s, timestamp());
-    } else {
-      time.add(s, timestamp());
-    }
-  };
+  const update_time = (x, s) =>
+    x.update("time", (time) => {
+      if (time.has(s)) {
+        return time.set(s, timestamp());
+      } else {
+        return time.add(s, timestamp());
+      }
+    });
 
   const update_tab = (tab_id, info) => {
-    const tab = tab_ids.get(tab_id);
+    tab_ids = tab_ids.update(tab_id, (old_tab) => {
+      const new_tab = old_tab.set("url", info.url)
+                             .set("title", info.title)
+                             .set("favicon", info.favicon)
+                             .set("pinned", info.pinned);
 
-    if (tab.get("url")     !== info.url     ||
-        tab.get("title")   !== info.title   ||
-        tab.get("favicon") !== info.favicon ||
-        tab.get("pinned")  !== info.pinned) {
+      // TODO test this
+      if (old_tab === new_tab) {
+        return old_tab;
 
-      tab.set("url", info.url);
-      tab.set("title", info.title);
-      tab.set("favicon", info.favicon);
-      tab.set("pinned", info.pinned);
+      } else {
+        return update_time(new_tab, "updated");
+      }
+    });
 
-      update_time(tab.get("time"), "updated");
-
-      save_tab_ids();
-    }
+    save_tab_ids();
   };
 
   const make_new_tab = (window_id, tab_id, info) => {
-    const tab = new Record({
-      "id": tab_id,
-      "window": window_id,
-      "url": info.url,
-      "title": info.title,
-      "favicon": info.favicon,
-      "pinned": info.pinned,
+    const tab = Record([
+      ["id", tab_id],
+      ["window", window_id],
+      ["url", info.url],
+      ["title", info.title],
+      ["favicon", info.favicon],
+      ["pinned", info.pinned],
 
-      "time": new Record({
-        "created": timestamp(),
-        //"updated": null,
-        //"unloaded": null,
-        //"focused": null,
-        //"moved-in-window": null,
-        //"moved-to-window": null
-      }),
+      ["time", Record([
+        ["created", timestamp()],
+        //["updated", null],
+        //["unloaded", null],
+        //["focused", null],
+        //["moved-in-window", null],
+        //["moved-to-window", null]
+      ])],
 
-      "tags": new Record({})
-    });
+      ["tags", Record()]
+    ]);
 
-    tab_ids.add(tab_id, tab);
+    tab_ids = tab_ids.add(tab_id, tab);
 
     save_tab_ids();
   };
 
   const update_window = (window_id, info) => {
-    const window = window_ids.get(window_id);
+    window_ids = update_tabs(window_ids, window_id, (tabs) =>
+      foldl(tabs, info.tabs, (tabs, info) => {
+        const tab_id = session.tab_id(info.id);
 
-    const tabs = window.get("tabs");
+        if (tab_ids.has(tab_id)) {
+          // TODO assert that the index is correct ?
+          update_tab(tab_id, info);
+          return tabs;
 
-    each(info.tabs, (info) => {
-      const tab_id = session.tab_id(info.id);
-
-      if (tab_ids.has(tab_id)) {
-        // TODO assert that the index is correct ?
-        update_tab(tab_id, info);
-
-      } else {
-        make_new_tab(window_id, tab_id, info);
-
-        // TODO is this correct ?
-        tabs.push(tab_id);
-
-        save_window_ids();
-      }
-    });
-  };
-
-  const make_new_window = (window_id, info) => {
-    const window = new Record({
-      "id": window_id,
-      "name": null,
-
-      "tabs": new List(map(info.tabs, (tab) => {
-        const tab_id = session.tab_id(tab.id);
-        make_new_tab(window_id, tab_id, tab);
-        return tab_id;
-      })),
-
-      "time": new Record({
-        "created": timestamp(),
-        //"focused": null,
-        //"unloaded": null
-      })
-    });
-
-    window_ids.add(window_id, window);
+        } else {
+          make_new_tab(window_id, tab_id, info);
+          // TODO is this correct ?
+          return tabs.push(tab_id);
+        }
+      }));
 
     save_window_ids();
   };
 
-  const insert_to_right = (window, tabs, index, tab_id) => {
+  const make_new_window = (window_id, info) => {
+    const window = Record([
+      ["id", window_id],
+      ["name", null],
+
+      ["tabs", List(map(info.tabs, (tab) => {
+        const tab_id = session.tab_id(tab.id);
+        make_new_tab(window_id, tab_id, tab);
+        return tab_id;
+      }))],
+
+      ["time", Record([
+        ["created", timestamp()],
+        //["focused", null],
+        //["unloaded", null]
+      ])]
+    ]);
+
+    window_ids = window_ids.add(window_id, window);
+
+    save_window_ids();
+  };
+
+  const update_tabs = (ids, id, f) =>
+    ids.update(id, (window) =>
+      window.update("tabs", f));
+
+  const insert_to_right = (tabs, window, index, tab_id) => {
     // TODO test this
     const prev = window.tabs.get(index - 1);
     const prev_id = session.tab_id(prev.id);
     // TODO can this be implemented more efficiently ?
     const prev_index = tabs.index_of(prev_id);
-    tabs.insert(prev_index + 1, tab_id);
+    return tabs.insert(prev_index + 1, tab_id);
   };
 
-  const insert_to_left = (window, tabs, index, tab_id) => {
+  const insert_to_left = (tabs, window, index, tab_id) => {
     // TODO test this
     if (window.tabs.has(index + 1)) {
       const next = window.tabs.get(index + 1);
       const next_id = session.tab_id(next.id);
       // TODO can this be implemented more efficiently ?
       const next_index = tabs.index_of(next_id);
-      tabs.insert(next_index, tab_id);
+      return tabs.insert(next_index, tab_id);
 
     } else {
-      tabs.push(tab_id);
+      return tabs.push(tab_id);
     }
   };
 
@@ -243,7 +211,8 @@ export const init = async(function* () {
       make_new_window(id, info);
 
       // TODO is this correct ?
-      saved_windows.push(id);
+      // TODO what about when reopening a closed window ?
+      saved_windows = saved_windows.push(id);
 
       save_windows();
     }
@@ -255,7 +224,8 @@ export const init = async(function* () {
     make_new_window(id, info);
 
     // TODO is this correct ?
-    saved_windows.push(id);
+    // TODO what about when reopening a closed window ?
+    saved_windows = saved_windows.push(id);
 
     save_windows();
   };
@@ -263,22 +233,18 @@ export const init = async(function* () {
   const window_close = ({ window: info }) => {
     const id = session.window_id(info.id);
 
-    const window = window_ids.get(id);
-
-    const tabs = window.get("tabs");
+    const tabs = window_ids.get(id).get("tabs");
 
     // Removes all the unloaded tabs
+    // TODO test this
     each(tabs, (tab_id) => {
-      tab_ids.remove(tab_id);
+      tab_ids = tab_ids.remove(tab_id);
       save_tab_ids();
     });
 
-    // TODO this probably isn't necessary
-    tabs.clear();
-
-    window_ids.remove(id);
+    window_ids = window_ids.remove(id);
     // TODO can this be implemented more efficiently ?
-    saved_windows.remove(saved_windows.index_of(id));
+    saved_windows = saved_windows.remove(saved_windows.index_of(id));
 
     save_window_ids();
     save_windows();
@@ -287,8 +253,10 @@ export const init = async(function* () {
   const window_focus = (info) => {
     if (info.new !== null) {
       const id = session.window_id(info.new.id);
-      const window = window_ids.get(id);
-      update_time(window.get("time"), "focused");
+
+      window_ids = window_ids.update(id, (window) =>
+        update_time(window, "focused"));
+
       save_window_ids();
     }
   };
@@ -296,11 +264,11 @@ export const init = async(function* () {
   const tab_open = ({ window, tab, index }) => {
     const window_id = session.window_id(window.id);
     const tab_id = session.tab_id(tab.id);
-    const tabs = window_ids.get(window_id).get("tabs");
 
     make_new_tab(window_id, tab_id, tab);
 
-    insert_to_left(window, tabs, index, tab_id);
+    window_ids = update_tabs(window_ids, window_id, (tabs) =>
+      insert_to_left(tabs, window, index, tab_id));
 
     save_window_ids();
   };
@@ -313,11 +281,11 @@ export const init = async(function* () {
     const window_id = session.window_id(info.window.id);
     const tab_id = session.tab_id(info.tab.id);
 
-    const tabs = window_ids.get(window_id).get("tabs");
+    tab_ids = tab_ids.remove(tab_id);
 
-    tab_ids.remove(tab_id);
-    // TODO can this be implemented more efficiently ?
-    tabs.remove(tabs.index_of(tab_id));
+    window_ids = update_tabs(window_ids, window_id, (tabs) =>
+      // TODO can this be implemented more efficiently ?
+      tabs.remove(tabs.index_of(tab_id)));
 
     save_window_ids();
     save_tab_ids();
@@ -326,8 +294,10 @@ export const init = async(function* () {
   const tab_focus = (info) => {
     if (info.new !== null) {
       const id = session.tab_id(info.new.id);
-      const tab = tab_ids.get(id);
-      update_time(tab.get("time"), "focused");
+
+      tab_ids = tab_ids.update(id, (tab) =>
+        update_time(tab, "focused"));
+
       save_tab_ids();
     }
   };
@@ -337,98 +307,101 @@ export const init = async(function* () {
     update_tab(tab_id, tab);
   };
 
+  // TODO test this
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
     const tab_id = session.tab_id(tab.id);
     const old_window_id = session.window_id(old_window.id);
     const new_window_id = session.window_id(new_window.id);
-    const old_tabs = window_ids.get(old_window_id).get("tabs");
-    const new_tabs = window_ids.get(new_window_id).get("tabs");
 
-    // TODO can this be implemented more efficiently ?
-    old_tabs.remove(old_tabs.index_of(tab_id));
+    window_ids = update_tabs(window_ids, old_window_id, (tabs) =>
+      // TODO can this be implemented more efficiently ?
+      tabs.remove(tabs.index_of(tab_id)));
 
     // TODO is this check correct ?
-    if (old_window === new_window && old_tabs === new_tabs) {
-      const tab_window = tab_ids.get(tab_id).get("window");
-      assert(tab_window === old_window_id);
-      assert(tab_window === new_window_id);
+    if (old_window === new_window && old_window_id === new_window_id) {
+      tab_ids = tab_ids.update(tab_id, (tab) => {
+        assert(tab.get("window") === old_window_id);
+        assert(tab.get("window") === new_window_id);
+        return update_time(tab, "moved-in-window");
+      });
 
       // Moved to the left
       if (new_index < old_index) {
-        insert_to_left(new_window, new_tabs, new_index, tab_id);
-
-        save_window_ids();
+        window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
+          insert_to_left(tabs, new_window, new_index, tab_id));
 
       // Moved to the right
       } else if (new_index > old_index) {
-        insert_to_right(new_window, new_tabs, new_index, tab_id);
-
-        save_window_ids();
+        window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
+          insert_to_right(tabs, new_window, new_index, tab_id));
 
       } else {
         fail();
       }
 
     } else {
-      // TODO is this correct ?
-      insert_to_left(new_window, new_tabs, new_index, tab_id);
+      tab_ids = tab_ids.update(tab_id, (tab) => {
+        assert(tab.get("window") === old_window_id);
+        assert(tab.get("window") !== new_window_id);
+        // TODO remove the timestamp for "moved-in-window" ?
+        return update_time(tab.set("window", new_window_id), "moved-to-window");
+      });
 
-      const x = tab_ids.get(tab_id);
-      assert(x.get("window") === old_window_id);
-      assert(x.get("window") !== new_window_id);
-      x.set("window", new_window_id);
-
-      save_tab_ids();
-      save_window_ids();
+      window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
+        // TODO is this correct ?
+        insert_to_left(tabs, new_window, new_index, tab_id));
     }
+
+    save_tab_ids();
+    save_window_ids();
   };
 
 
   check_integrity();
-  each(windows.get_windows(), window_init);
+  each(windows.get(), window_init);
   check_integrity();
 
-  windows.on_window_open.listen((info) => {
+  windows.on_open.listen((info) => {
     session.window_open(info);
     window_open(info);
   });
 
-  windows.on_window_close.listen((info) => {
+  windows.on_close.listen((info) => {
     window_close(info);
     // This must be after `window_close`
     session.window_close(info);
   });
 
-  windows.on_window_focus.listen((info) => {
+  windows.on_focus.listen((info) => {
     window_focus(info);
   });
 
-  windows.on_tab_open.listen((info) => {
+  tabs.on_open.listen((info) => {
     session.tab_open(info);
     tab_open(info);
   });
 
-  windows.on_tab_close.listen((info) => {
+  tabs.on_close.listen((info) => {
     tab_close(info);
     // This must be after `tab_close`
     session.tab_close(info);
   });
 
-  windows.on_tab_focus.listen((info) => {
+  tabs.on_focus.listen((info) => {
     tab_focus(info);
   });
 
-  windows.on_tab_move.listen((info) => {
+  tabs.on_move.listen((info) => {
     session.tab_move(info);
     tab_move(info);
   });
 
-  windows.on_tab_update.listen((info) => {
+  tabs.on_update.listen((info) => {
     session.tab_update(info);
     tab_update(info);
   });
 
-  windows.on_tab_replace.listen((info) => {
+  tabs.on_replace.listen((info) => {
     session.tab_replace(info);
   });
 

@@ -1,6 +1,6 @@
 import { iterator, entries } from "../iterator";
 import { copy, insert, remove } from "./array";
-import { to_json } from "../json";
+import { to_json } from "./json";
 
 
 const get_index = (array, key) => {
@@ -99,7 +99,7 @@ export class ImmutableRecord {
   }
 
   set(key, value) {
-    return this.modify(key, (_) => value);
+    return this.update(key, (_) => value);
   }
 
   to_json() {
@@ -128,22 +128,11 @@ const sort_keys = ([key1, value1], [key2, value2]) => {
   }
 };
 
-// TODO check for duplicates
 export const Record = (x = null) => {
   if (x == null) {
-    return [];
+    return new ImmutableRecord([]);
   } else {
-    return Array["from"](x)["sort"](sort_keys);
+    // TODO check for duplicates
+    return new ImmutableRecord(Array["from"](x)["sort"](sort_keys));
   }
 };
-
-console.log(Record());
-
-console.log(Record([]));
-
-console.log(Record([
-  ["foo", 1],
-  ["bar": 2],
-  ["qux": 3],
-  ["a": 5]
-]));

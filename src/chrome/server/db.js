@@ -148,7 +148,7 @@ export const init = async(function* () {
     }
   };
 
-  console["debug"]("db: initialized (" + timer.diff() + "ms)", db);
+  console["debug"]("db: initialized (" + timer.diff() + "ms)", to_json(db));
 
   return {
     get,

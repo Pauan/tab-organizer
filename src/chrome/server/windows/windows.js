@@ -218,8 +218,7 @@ export const make_window = (info, events) => {
   if (info["type"] === "normal") {
     const window = new Window(info);
 
-    assert(!window_ids.has(window.id));
-    window_ids.set(window.id, window);
+    window_ids.add(window.id, window);
 
     // TODO assertions that `window` is not in `windows` ?
     windows.push(window);

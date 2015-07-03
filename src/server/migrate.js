@@ -1,6 +1,6 @@
 import { init as init_chrome } from "../chrome/server";
-import { each } from "../util/iterator";
-import { List } from "../util/list";
+import { each, foldl } from "../util/iterator";
+import { List } from "../util/mutable/list";
 import { Timer } from "../util/time";
 import { async } from "../util/async";
 
@@ -12,33 +12,40 @@ const migrators = new List();
 const migrate_to = (version, f) => {
   migrators.push((old_version, o) => {
     if (old_version < version) {
-      f(o);
+      return f(o);
+    } else {
+      return o;
     }
   });
 };
 
 const get_version = (o) => {
-  if ("version" in o) {
-    if (typeof o["version"] === "number") {
-      return o["version"];
+  if (o.has("version")) {
+    const version = o.get("version");
+
+    if (typeof version === "number") {
+      return version;
     } else {
       return -1;
     }
+
   } else {
     return -1;
   }
 };
 
-export const migrate = (o) => {
-  const old_version = get_version(o);
+export const migrate = (old_db) => {
+  const old_version = get_version(old_db);
 
   if (old_version < version) {
-    each(migrators, (f) => {
-      f(old_version, o);
-    });
+    const new_db = foldl(old_db, migrators, (old_db, f) =>
+                     f(old_version, old_db));
 
-    o["version"] = version;
-    return true;
+    if (new_db.has("version")) {
+      return new_db.set("version", version);
+    } else {
+      return new_db.add("version", version);
+    }
 
   } else if (old_version > version) {
     throw new Error("Cannot downgrade from version " +
@@ -47,7 +54,7 @@ export const migrate = (o) => {
                     version);
 
   } else {
-    return false;
+    return old_db;
   }
 };
 
@@ -65,25 +72,25 @@ migrate_to(1435820160244, (o) => {
 export const init = async(function* () {
   const { db } = yield init_chrome;
 
-  const x = db.get_all();
+  const old_db = db.get_all();
 
   const timer = new Timer();
 
-  const migrated = migrate(x);
+  const new_db = migrate(old_db);
 
   timer.done();
 
-  if (migrated) {
-    yield db.set_all(x);
+  if (old_db === new_db) {
+    console["debug"]("migrate: already at version " + version);
+
+  } else {
+    yield db.set_all(new_db);
 
     console["debug"]("migrate: upgraded to version " +
                      version +
                      " (" +
                      timer.diff() +
                      "ms)");
-
-  } else {
-    console["debug"]("migrate: already at version " + version);
   }
 
   return db;
