@@ -166,7 +166,7 @@ export const init = async(function* () {
   const tab_replace = ({ old_id, new_id }) => {
     const x = tab_ids.get(old_id);
     tab_ids.remove(old_id);
-    tab_ids.set(new_id, x);
+    tab_ids.add(new_id, x);
   };
 
 

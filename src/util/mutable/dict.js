@@ -9,12 +9,7 @@ export class Dict {
 
     if (x != null) {
       each(x, ([key, value]) => {
-        if (this.has(key)) {
-          throw new Error("Duplicate key: " + key);
-
-        } else {
-          this.set(key, value);
-        }
+        this.add(key, value);
       });
     }
   }
@@ -33,8 +28,14 @@ export class Dict {
   }
 
   set(key, value) {
-    this._dict["set"](key, value);
-    this.size = this._dict["size"];
+    if (this._dict["has"](key)) {
+      this._dict["set"](key, value);
+      // TODO this is probably unnecessary
+      this.size = this._dict["size"];
+
+    } else {
+      throw new Error("Key not found: " + key);
+    }
   }
 
   add(key, value) {

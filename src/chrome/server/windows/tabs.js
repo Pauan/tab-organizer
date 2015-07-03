@@ -199,7 +199,7 @@ export const replace_tab = (new_id, old_id) => {
 
     tab.id = new_id;
     tab_ids.remove(old_id);
-    tab_ids.set(new_id, tab);
+    tab_ids.add(new_id, tab);
 
     on_replace.send({
       old_id: old_id,

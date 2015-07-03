@@ -55,7 +55,11 @@ export const init = async(function* () {
       ms: ms
     };
 
-    delaying.set(key, o);
+    if (delaying.has(key)) {
+      delaying.set(key, o);
+    } else {
+      delaying.add(key, o);
+    }
 
     setTimeout(() => {
       if (delaying.get(key) === o) {
