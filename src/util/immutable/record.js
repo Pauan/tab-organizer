@@ -1,6 +1,6 @@
-import { iterator, entries } from "./iterator";
+import { iterator, entries } from "../iterator";
 import { copy, insert, remove } from "./array";
-import { to_json } from "./json";
+import { to_json } from "../json";
 
 
 const get_index = (array, key) => {
@@ -98,14 +98,9 @@ export class ImmutableRecord {
     }
   }
 
-  /*set(key, value) {
-    if (this.has(key)) {
-      return this.modify(key, (_) => value);
-
-    } else {
-      return this.add(key, value);
-    }
-  }*/
+  set(key, value) {
+    return this.modify(key, (_) => value);
+  }
 
   to_json() {
     const out = {};

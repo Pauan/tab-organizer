@@ -1,4 +1,4 @@
-import { each, iterator } from "./iterator";
+import { each, iterator } from "../iterator";
 
 
 // TODO maybe have it inherit from Map ?

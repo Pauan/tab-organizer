@@ -1,6 +1,6 @@
-import { iterator } from "./iterator";
+import { iterator } from "../iterator";
 import { copy, insert, push, remove } from "./array";
-import { to_json } from "./json";
+import { to_json } from "../json";
 
 
 class ImmutableList {

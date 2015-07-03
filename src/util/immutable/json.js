@@ -1,4 +1,4 @@
-import { map, each, entries } from "./iterator";
+import { map, each, entries } from "../iterator";
 import { List } from "./list";
 import { Record } from "./record";
 

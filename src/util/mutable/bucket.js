@@ -1,6 +1,6 @@
 import { Set } from "./set";
 import { Dict } from "./dict";
-import { map, iterator, empty } from "./iterator";
+import { map, iterator, empty } from "../iterator";
 
 
 export class Bucket {

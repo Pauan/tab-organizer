@@ -1,4 +1,4 @@
-import { Set } from "./set";
+import { Set } from "./mutable/set";
 import { each } from "./iterator";
 
 
