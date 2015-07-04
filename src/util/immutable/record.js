@@ -1,4 +1,4 @@
-import { iterator, entries } from "../iterator";
+import { iterator, entries, to_array } from "../iterator";
 import { copy, insert, remove } from "./array";
 import { to_json } from "./json";
 
@@ -133,6 +133,6 @@ export const Record = (x = null) => {
     return new ImmutableRecord([]);
   } else {
     // TODO check for duplicates
-    return new ImmutableRecord(Array["from"](x)["sort"](sort_keys));
+    return new ImmutableRecord(to_array(x)["sort"](sort_keys));
   }
 };

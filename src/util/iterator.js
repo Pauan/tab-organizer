@@ -16,6 +16,9 @@ export const empty = {
   };
 };*/
 
+export const to_array = (x) =>
+  Array["from"](x);
+
 // TODO test this
 export const empty = {
   [Symbol["iterator"]]: () => {
@@ -33,7 +36,7 @@ export const entries = (o) =>
   map(Object["keys"](o), (key) => [key, o[key]]);
 
 export const reverse = (iter) => {
-  const a = Array["from"](iter);
+  const a = to_array(iter);
 
   // TODO faster version of this
   a["reverse"]();

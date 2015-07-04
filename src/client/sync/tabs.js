@@ -1,32 +1,30 @@
 import { uuid_port_tab } from "../../common/uuid";
-import { Ref } from "../../util/ref";
 import { Event } from "../../util/event";
+import { Table } from "../../util/table";
 import { init as init_chrome } from "../../chrome/client";
 import { async, async_callback } from "../../util/async";
 import { assert } from "../../util/assert";
 
 
-const windows    = new Ref(null);
-const window_ids = new Ref(null);
-const tab_ids    = new Ref(null);
-
-const events     = new Event();
+const events = new Event();
+const table  = new Table();
 
 
-const update_tabs = (id, f) => {
-  window_ids.value = window_ids.value.update(id, (window) =>
-    window.update("tabs", f));
+const update_tabs = (table, id, f) => {
+  table.update("window-ids", (window_ids) =>
+    window_ids.update(id, (window) => {
+      assert(window.get("id") === id);
+      return window.update("tabs", f);
+    }));
 };
 
 const handlers = {
   "init": (info) => {
-    assert(windows.value    === null);
-    assert(window_ids.value === null);
-    assert(tab_ids.value    === null);
-
-    windows.value    = info.get("windows");
-    window_ids.value = info.get("window-ids");
-    tab_ids.value    = info.get("tab-ids");
+    table.transaction((table) => {
+      table.add("windows",    info.get("windows"));
+      table.add("window-ids", info.get("window-ids"));
+      table.add("tab-ids",    info.get("tab-ids"));
+    });
   },
 
   "window-open": (info) => {
@@ -36,8 +34,10 @@ const handlers = {
 
     assert(window.get("id") === id);
 
-    window_ids.value = window_ids.value.add(id, window);
-    windows.value = windows.value.insert(index, id);
+    table.transaction((table) => {
+      table.update("window-ids", (window_ids) => window_ids.add(id, window));
+      table.update("windows", (windows) => windows.insert(index, id));
+    });
   },
 
   "window-focus": (info) => {
@@ -46,16 +46,17 @@ const handlers = {
 
     assert(window.get("id") === id);
 
-    window_ids.value = window_ids.value.set(id, window);
+    table.update("window-ids", (window_ids) => window_ids.set(id, window));
   },
 
   "window-close": (info) => {
     const id = info.get("window-id");
     const index = info.get("index");
 
-    assert(windows.value.get(index) === id);
-
-    windows.value = windows.value.remove(index);
+    table.update("windows", (windows) => {
+      assert(windows.get(index) === id);
+      return windows.remove(index);
+    });
   },
 
   "tab-open": (info) => {
@@ -67,10 +68,10 @@ const handlers = {
     assert(tab.get("id") === tab_id);
     assert(tab.get("window") === window_id);
 
-    tab_ids.value = tab_ids.value.add(tab_id, tab);
-
-    update_tabs(window_id, (tabs) =>
-      tabs.insert(index, tab_id));
+    table.transaction((table) => {
+      table.update("tab-ids", (tab_ids) => tab_ids.add(tab_id, tab));
+      update_tabs(table, window_id, (tabs) => tabs.insert(index, tab_id));
+    });
   },
 
   "tab-focus": (info) => {
@@ -79,7 +80,7 @@ const handlers = {
 
     assert(tab.get("id") === id);
 
-    tab_ids.value = tab_ids.value.set(id, tab);
+    table.update("tab-ids", (tab_ids) => tab_ids.set(id, tab));
   },
 
   // TODO code duplication with "tab-focus"
@@ -89,7 +90,7 @@ const handlers = {
 
     assert(tab.get("id") === id);
 
-    tab_ids.value = tab_ids.value.set(id, tab);
+    table.update("tab-ids", (tab_ids) => tab_ids.set(id, tab));
   },
 
   "tab-move": (info) => {
@@ -102,15 +103,17 @@ const handlers = {
     const old_index = info.get("old-index");
     const new_index = info.get("new-index");
 
-    tab_ids.value = tab_ids.value.set(tab_id, tab);
+    table.transaction((table) => {
+      table.update("tab-ids", (tab_ids) => tab_ids.set(tab_id, tab));
 
-    update_tabs(old_window_id, (tabs) => {
-      assert(tabs.get(old_index) === tab_id);
-      return tabs.remove(old_index);
+      update_tabs(table, old_window_id, (tabs) => {
+        assert(tabs.get(old_index) === tab_id);
+        return tabs.remove(old_index);
+      });
+
+      update_tabs(table, new_window_id, (tabs) =>
+        tabs.insert(new_index, tab_id));
     });
-
-    update_tabs(new_window_id, (tabs) =>
-      tabs.insert(new_index, tab_id));
   },
 
   "tab-close": (info) => {
@@ -118,11 +121,13 @@ const handlers = {
     const tab_id = info.get("tab-id");
     const index = info.get("index");
 
-    tab_ids.value = tab_ids.value.remove(tab_id);
+    table.transaction((table) => {
+      table.update("tab-ids", (tab_ids) => tab_ids.remove(tab_id));
 
-    update_tabs(window_id, (tabs) => {
-      assert(tabs.get(index) === tab_id);
-      return tabs.remove(index);
+      update_tabs(table, window_id, (tabs) => {
+        assert(tabs.get(index) === tab_id);
+        return tabs.remove(index);
+      });
     });
   }
 };
@@ -154,5 +159,5 @@ export const sync = async(function* () {
 
   yield ready;
 
-  return { windows, window_ids, tab_ids };
+  return { table };
 });

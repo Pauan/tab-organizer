@@ -1,13 +1,12 @@
 import { sync as sync_tabs } from "./client/sync/tabs";
 import { run_async } from "./util/async";
-import { observe } from "./util/ref";
-import * as dom from "./client/dom";
-
+import { Timer } from "./util/time";
 import { map } from "./util/iterator";
+import * as dom from "./client/dom";
 
 
 run_async(function* () {
-  const { windows, window_ids, tab_ids } = yield sync_tabs;
+  const { table } = yield sync_tabs;
 
   const view_tab = (tab) =>
     dom.div({},
@@ -23,11 +22,23 @@ run_async(function* () {
       map(windows, (window_id) =>
         view_window(window_ids.get(window_id), tab_ids)));
 
-  const render = (windows, window_ids, tab_ids) => {
+  const render = () => {
+    const windows    = table.get("windows");
+    const window_ids = table.get("window-ids");
+    const tab_ids    = table.get("tab-ids");
+
+    const timer = new Timer();
     dom.render(view(windows, window_ids, tab_ids));
+    timer.done();
+
+    console["debug"]("ui: rendered (" + timer.diff() + "ms)");
   };
 
-  observe(render, windows, window_ids, tab_ids);
+  render();
+
+  table.on_change.listen((x) => {
+    render();
+  });
 
   console["debug"]("panel: initialized");
 });

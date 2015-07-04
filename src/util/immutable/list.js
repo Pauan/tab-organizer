@@ -1,4 +1,4 @@
-import { iterator } from "../iterator";
+import { iterator, to_array } from "../iterator";
 import { copy, insert, push, remove } from "./array";
 import { to_json } from "./json";
 
@@ -103,6 +103,12 @@ class ImmutableList {
     }
   }
 
+  // TODO test this
+  concat(x) {
+    // TODO write optimized array concat function ?
+    return new ImmutableList(this._list["concat"](to_array(x)));
+  }
+
   to_json() {
     const a = this._list;
 
@@ -125,6 +131,6 @@ export const List = (x = null) => {
   if (x == null) {
     return new ImmutableList([]);
   } else {
-    return new ImmutableList(Array["from"](x));
+    return new ImmutableList(to_array(x));
   }
 };

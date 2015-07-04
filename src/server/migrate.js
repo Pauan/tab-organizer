@@ -61,11 +61,12 @@ export const migrate = (old_db) => {
 
 migrate_to(1414145108930, (o) => {
   delete localStorage["migrated"];
+  return o;
 });
 
 
 migrate_to(1435820160244, (o) => {
-
+  return o;
 });
 
 

@@ -182,7 +182,7 @@ export const init = async(function* () {
 
   const find_right_index = (window, index) => {
     // TODO a bit inefficient
-    const tabs = window_ids.get(window.id).get("tabs");
+    const tabs = window_ids.get(session.window_id(window.id)).get("tabs");
 
     // TODO test this
     const prev = window.tabs.get(index - 1);
@@ -194,7 +194,7 @@ export const init = async(function* () {
 
   const find_left_index = (window, index) => {
     // TODO a bit inefficient
-    const tabs = window_ids.get(window.id).get("tabs");
+    const tabs = window_ids.get(session.window_id(window.id)).get("tabs");
 
     // TODO test this
     if (window.tabs.has(index + 1)) {
@@ -206,6 +206,27 @@ export const init = async(function* () {
     } else {
       // TODO is this correct ?
       return tabs.size;
+    }
+  };
+
+  const find_move_index = (old_window, new_window, old_index, new_index) => {
+    // TODO is this check correct ?
+    if (old_window === new_window) {
+      // Moved to the left
+      if (new_index < old_index) {
+        return find_left_index(new_window, new_index);
+
+      // Moved to the right
+      } else if (new_index > old_index) {
+        return find_right_index(new_window, new_index);
+
+      } else {
+        fail();
+      }
+
+    } else {
+      // TODO is this correct ?
+      return find_left_index(new_window, new_index);
     }
   };
 
@@ -352,27 +373,6 @@ export const init = async(function* () {
     }
   };
 
-  const find_move_index = (old_window, new_window, old_index, new_index) => {
-    // TODO is this check correct ?
-    if (old_window === new_window) {
-      // Moved to the left
-      if (new_index < old_index) {
-        return find_left_index(new_window, new_index);
-
-      // Moved to the right
-      } else if (new_index > old_index) {
-        return find_right_index(new_window, new_index);
-
-      } else {
-        fail();
-      }
-
-    } else {
-      // TODO is this correct ?
-      return find_left_index(new_window, new_index);
-    }
-  };
-
   // TODO test this
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
     const tab_id = session.tab_id(tab.id);
@@ -380,12 +380,6 @@ export const init = async(function* () {
     const old_window_id = session.window_id(old_window.id);
     const new_window_id = session.window_id(new_window.id);
 
-    // TODO a bit hacky
-    const old_tabs = window_ids.get(old_window_id).get("tabs");
-
-    // TODO can this be implemented more efficiently ?
-    const session_old_index = old_tabs.index_of(tab_id);
-    const session_new_index = find_move_index(old_window, new_window, old_index, new_index);
 
     // TODO is this check correct ?
     if (old_window === new_window) {
@@ -404,14 +398,26 @@ export const init = async(function* () {
       });
     }
 
+
+    // TODO a bit hacky
+    const old_tabs = window_ids.get(old_window_id).get("tabs");
+
+    // TODO can this be implemented more efficiently ?
+    const session_old_index = old_tabs.index_of(tab_id);
+
     window_ids = update_tabs(window_ids, old_window_id, (tabs) =>
       tabs.remove(session_old_index));
+
+
+    const session_new_index = find_move_index(old_window, new_window, old_index, new_index);
 
     window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
       tabs.insert(session_new_index, tab_id));
 
+
     save_tab_ids();
     save_window_ids();
+
 
     ports.send(uuid_port_tab, Record([
       ["type", "tab-move"],

@@ -1,5 +1,5 @@
 import { Event } from "./event";
-import { map, each } from "./iterator";
+import { map, each, to_array } from "./iterator";
 
 
 export class Ref {
@@ -67,8 +67,8 @@ const unlisten = (a) => {
 export const observe = (f, ...a) => {
   const ref = new Ref(values(f, a));
 
-  // TODO I don't think this gets consumed immediately ?
-  const listeners = map(a, (x) => {
+  // This uses `to_array` to force the iterator
+  const listeners = to_array(map(a, (x) => {
     return {
       on_change: x.on_change.listen(() => {
         ref.value = values(f, a);
@@ -80,7 +80,7 @@ export const observe = (f, ...a) => {
         ref.destroy();
       })
     };
-  });
+  }));
 
   ref.on_destroy.listen(() => {
     unlisten(listeners);

@@ -1,4 +1,4 @@
-import { iterator } from "../iterator";
+import { iterator, to_array } from "../iterator";
 
 
 // TODO maybe have it inherit from Array ?
@@ -7,7 +7,7 @@ export class List {
     if (x == null) {
       this._list = [];
     } else {
-      this._list = Array["from"](x);
+      this._list = to_array(x);
     }
 
     this.size = this._list["length"];
