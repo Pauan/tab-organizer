@@ -1,7 +1,7 @@
 import { chrome } from "../../common/globals";
 import { Bucket } from "../../util/mutable/bucket";
 import { Event } from "../../util/event";
-import { Port } from "../common/port";
+import { Port } from "../common/ports";
 import { each } from "../../util/iterator";
 import { throw_error } from "../common/util";
 

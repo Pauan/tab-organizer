@@ -6,9 +6,9 @@ import { each } from "./util/iterator";
 import { fail } from "./util/assert";
 
 run_async(function* () {
-  const { port } = yield init_chrome;
+  const { ports } = yield init_chrome;
 
-  const x = port.connect(uuid_port_tab);
+  const x = ports.connect(uuid_port_tab);
 
   x.on_receive.listen((message) => {
     switch (message.get("type")) {

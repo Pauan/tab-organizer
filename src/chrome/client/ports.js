@@ -1,6 +1,6 @@
 import { chrome } from "../../common/globals";
 import { Cache } from "../../util/mutable/cache";
-import { Port } from "../common/port";
+import { Port } from "../common/ports";
 
 
 const _ports = new Cache();

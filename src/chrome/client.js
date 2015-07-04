@@ -1,11 +1,11 @@
 import { async } from "../util/async";
 
 // Exports
-import * as port from "./client/port";
+import * as ports from "./client/ports";
 
 
 export const init = async(function* () {
   return {
-    port
+    ports
   };
 });

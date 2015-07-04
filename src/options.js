@@ -3,9 +3,9 @@ import { init as init_chrome } from "./chrome/client";
 import { run_async } from "./util/async";
 
 run_async(function* () {
-  const { port } = yield init_chrome;
+  const { ports } = yield init_chrome;
 
-  const x = port.connect(uuid_port_tab);
+  const x = ports.connect(uuid_port_tab);
 
   let i = 0;
   let start = null;
