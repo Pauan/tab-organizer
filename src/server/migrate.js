@@ -85,7 +85,8 @@ export const init = async(function* () {
     console["debug"]("migrate: already at version " + version);
 
   } else {
-    yield db.set_all(new_db);
+    // TODO change this so it no longer needs to use set_all
+    db.set_all(new_db);
 
     console["debug"]("migrate: upgraded to version " +
                      version +

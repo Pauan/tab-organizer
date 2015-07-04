@@ -1,4 +1,3 @@
-import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
 import { map, each, all, zip, indexed } from "../util/iterator";
 import { async } from "../util/async";
@@ -13,20 +12,17 @@ const new_id = () => "" + timestamp();
 
 
 export const init = async(function* () {
-  const { windows } = yield init_chrome;
   const db = yield init_db;
 
-  let saved = db.get("session.windows", List());
+  db.default("session.windows", List());
 
-  const save = () => {
-    db.set("session.windows", saved);
-  };
 
-  const delay = () => {
-    // TODO maybe this should delay everything, not just "session.windows" ?
-    // Delay by 10 seconds, so that when Chrome closes,
-    // it doesn't remove the tabs / windows
-    db.delay("session.windows", 10000);
+  const default_delay = 1000;
+
+  // TODO test this
+  const save = (_db, ms, f) => {
+    _db.delay("session.windows", ms);
+    _db.update("session.windows", f);
   };
 
 
@@ -79,88 +75,86 @@ export const init = async(function* () {
     assert(session_tab.get("id") === tab_ids.get(tab.id));
   };
 
-  const update_tabs = (saved, window, f) =>
-    saved.update(window.index, (session_window) => {
-      check_window(session_window, window);
-      return session_window.update("tabs", f);
-    });
+  const update_tabs = (db, ms, window, f) =>
+    save(db, ms, (windows) =>
+      windows.update(window.index, (session_window) => {
+        check_window(session_window, window);
+        return session_window.update("tabs", f);
+      }));
 
 
   const window_open = ({ window, index }) => {
     assert(window.index === index);
 
     const x = make_new_window(window);
-    saved = saved.insert(index, x);
 
-    save();
+    save(db, default_delay, (windows) => windows.insert(index, x));
   };
 
   const window_close = ({ window, index }) => {
     assert(window.tabs.size === 0);
-    check_window(saved.get(index), window);
+
+    save(db, default_delay, (windows) => {
+      check_window(windows.get(index), window);
+      return windows.remove(index);
+    });
 
     window_ids.remove(window.id);
-    saved = saved.remove(index);
-
-    save();
   };
 
   const tab_open = ({ window, tab, index }) => {
     assert(tab.index === index);
     assert(tab.window === window);
 
-    saved = update_tabs(saved, window, (tabs) => {
+    update_tabs(db, default_delay, window, (tabs) => {
       const x = make_new_tab(tab);
       return tabs.insert(index, x);
     });
-
-    save();
   };
 
   const tab_close = ({ window, tab, index, window_closing }) => {
-    if (window_closing) {
-      delay();
-    }
+    // Delay by 10 seconds, so that when Chrome closes,
+    // it doesn't remove the tabs / windows
+    const delay = (window_closing
+                    ? 10000
+                    : default_delay);
 
-    saved = update_tabs(saved, window, (tabs) => {
+    update_tabs(db, delay, window, (tabs) => {
       check_tab(tabs.get(index), tab);
-
-      tab_ids.remove(tab.id);
-
       return tabs.remove(index);
     });
 
-    save();
+    tab_ids.remove(tab.id);
   };
 
   const tab_update = ({ old, tab }) => {
     if (old.url !== tab.url) {
-      saved = update_tabs(saved, tab.window, (tabs) =>
+      update_tabs(db, default_delay, tab.window, (tabs) =>
         tabs.update(tab.index, (x) => {
           check_tab(x, tab);
           return x.set("url", tab.url);
         }));
-
-      save();
     }
   };
 
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
-    const session_window = saved.get(old_window.index);
-    const session_tab    = session_window.get("tabs").get(old_index);
+    db.transaction((db) => {
+      // TODO a little hacky
+      const session_tab = db.get("session.windows")
+                            .get(old_window.index)
+                            .get("tabs")
+                            .get(old_index);
 
-    check_window(session_window, old_window);
-    check_tab(session_tab, tab);
+      check_tab(session_tab, tab);
 
-    saved = update_tabs(saved, old_window, (tabs) => {
-      check_tab(tabs.get(old_index), tab);
-      return tabs.remove(old_index);
+      update_tabs(db, default_delay, old_window, (tabs) => {
+        check_tab(tabs.get(old_index), tab);
+        return tabs.remove(old_index);
+      });
+
+      update_tabs(db, default_delay, new_window, (tabs) =>
+        tabs.insert(new_index, session_tab));
     });
-
-    saved = update_tabs(saved, new_window, (tabs) =>
-              tabs.insert(new_index, session_tab));
-
-    save();
   };
 
   const tab_replace = ({ old_id, new_id }) => {
@@ -261,21 +255,23 @@ export const init = async(function* () {
       }
     }));
 
-  const timer_merge = new Timer();
+  const init = (new_windows) => {
+    const timer_merge = new Timer();
 
-  saved = merge(saved, windows.get());
-  save();
+    save(db, default_delay, (old_windows) => merge(old_windows, new_windows));
 
-  timer_merge.done();
-  console["debug"]("session: initialized (" +
-                   timer_merge.diff() +
-                   "ms)");
+    timer_merge.done();
+    console["debug"]("session: initialized (" +
+                     timer_merge.diff() +
+                     "ms)");
+  };
 
 
   return {
     window_id,
     tab_id,
 
+    init,
     window_open,
     window_close,
     tab_open,
