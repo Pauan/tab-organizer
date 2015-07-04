@@ -136,7 +136,7 @@ const defocus = (window) => {
 };
 
 
-export const open_window = ({ focused = true, state = "normal" }) => async(function* () {
+export const open = ({ focused = true, state = "normal" }) => async(function* () {
   const window = yield async_chrome((callback) => {
     chrome["windows"]["create"]({
       "focused": focused,

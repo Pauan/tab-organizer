@@ -10,7 +10,7 @@ import * as button from "./server/button";
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows, tabs, popups } = yield init_windows;
+  const { windows, tabs, popups, panels } = yield init_windows;
 
   return {
     db,
@@ -19,6 +19,7 @@ export const init = async(function* () {
     popups,
     port,
     button,
+    panels,
     manifest
   };
 });

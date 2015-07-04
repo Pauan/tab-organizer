@@ -12,7 +12,7 @@
     "watchify": "^3.2.2"
   },
   "scripts": {
-    "prepublish": "./bin/build.sh",
+    "build": "npm install && ./bin/build.sh",
     "watch": "npm install && ./bin/watch.sh"
   }
 }

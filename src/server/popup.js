@@ -3,9 +3,12 @@ import { async } from "../util/async";
 
 
 export const init = async(function* () {
-  const { manifest, button } = yield init_chrome;
+  const { manifest, button, panels } = yield init_chrome;
 
   button.set_tooltip(manifest.get("name"));
 
-  button.set_bubble_url("panel.html");
+  button.on_click.listen(() => {
+    panels.open({ url: "panel.html" });
+  });
+  //button.set_bubble_url("panel.html");
 });

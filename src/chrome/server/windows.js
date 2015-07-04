@@ -11,6 +11,8 @@ import { make_tab, remove_tab, focus_tab, replace_tab,
 // Exports
 import * as windows from "./windows/windows";
 import * as tabs from "./windows/tabs";
+import * as popups from "./windows/popups";
+import * as panels from "./windows/panels";
 
 
 chrome["windows"]["onCreated"]["addListener"]((info) => {
@@ -110,6 +112,7 @@ export const init = async(function* () {
   return {
     windows: {
       get: windows.get,
+      open: windows.open,
       on_open: windows.on_open,
       on_close: windows.on_close,
       on_focus: windows.on_focus
@@ -124,7 +127,16 @@ export const init = async(function* () {
       on_replace: tabs.on_replace
     },
 
+    panels: {
+      open: panels.open
+    },
+
     popups: {
+      get: popups.get,
+      open: popups.open,
+      on_open: popups.on_open,
+      on_close: popups.on_close,
+      on_focus: popups.on_focus
     }
   };
 });

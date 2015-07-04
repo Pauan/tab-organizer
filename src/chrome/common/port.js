@@ -1,5 +1,6 @@
 import { Event } from "../../util/event";
 import { each } from "../../util/iterator";
+import { to_json, from_json } from "../../util/immutable/json";
 
 
 export class Port {
@@ -24,11 +25,13 @@ export class Port {
     });
 
     port["onMessage"]["addListener"]((x) => {
-      this.on_receive.send(x);
+      // TODO is using `from_json` here correct ?
+      this.on_receive.send(from_json(x));
     });
   }
 
   send(value) {
-    this._port["postMessage"](value);
+    // TODO is using `to_json` here correct ?
+    this._port["postMessage"](to_json(value));
   }
 }

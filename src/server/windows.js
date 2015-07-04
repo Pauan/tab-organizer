@@ -13,7 +13,7 @@ import { async } from "../util/async";
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows, tabs } = yield init_chrome;
+  const { windows, tabs, port } = yield init_chrome;
   const session = yield init_session;
 
   let saved_windows = db.get("current.windows", List());
@@ -403,6 +403,17 @@ export const init = async(function* () {
 
   tabs.on_replace.listen((info) => {
     session.tab_replace(info);
+  });
+
+  port.on_connect.listen((port) => {
+    if (port.name === uuid_port_tab) {
+      port.send(Record([
+        ["type", "init"],
+        ["windows", saved_windows],
+        ["window-ids", window_ids],
+        ["tab-ids", tab_ids]
+      ]));
+    }
   });
 
   /*const window = yield open_window({});
