@@ -1,46 +1,27 @@
 import { chrome } from "../../common/globals";
 import { Timer } from "../../util/time";
-import { Dict } from "../../util/mutable/dict";
+import { Record } from "../../util/immutable/record";
+import { Table } from "../../util/table";
 import { to_json, from_json } from "../../util/immutable/json";
-import { async } from "../../util/async";
-import { async_chrome, throw_error } from "../common/util";
+import { async, run_async } from "../../util/async";
+import { async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
 import { each, entries } from "../../util/iterator";
 
 
-// TODO move this into another module
-const warn_if = (test, ...args) => {
-  if (test) {
-    console["warn"](...args);
+let delaying = Record();
+
+const with_delay = (key, f) => {
+  if (delaying.has(key)) {
+    delaying.get(key).thunk = f;
   } else {
-    console["debug"](...args);
+    f();
   }
 };
 
 
-export const init = async(function* () {
-  const timer = new Timer();
-
-  let db = from_json(yield async_chrome((callback) => {
-    chrome["storage"]["local"]["get"](null, callback);
-  }));
-
-  timer.done();
-
-  let setting = false;
-
-
-  const delaying = new Dict();
-
-  const with_delay = (key, f) => {
-    if (delaying.has(key)) {
-      delaying.get(key).thunk = f;
-    } else {
-      f();
-    }
-  };
-
-  const delay = (key, ms) => {
+class DB extends Table {
+  delay(key, ms) {
     if (delaying.has(key)) {
       const info = delaying.get(key);
 
@@ -56,109 +37,136 @@ export const init = async(function* () {
     };
 
     if (delaying.has(key)) {
-      delaying.set(key, o);
+      delaying = delaying.set(key, o);
     } else {
-      delaying.add(key, o);
+      delaying = delaying.add(key, o);
     }
 
     setTimeout(() => {
+      // TODO is this correct ?
       if (delaying.get(key) === o) {
-        delaying.remove(key);
+        delaying = delaying.remove(key);
       }
 
+      // TODO is this correct ?
       o.thunk();
     }, ms);
-  };
+  }
+}
 
 
-  const get = (key, def) => {
-    if (db.has(key)) {
-      return db.get(key);
-    } else {
-      return def;
-    }
-  };
+export const init = async(function* () {
+  const db = new DB();
 
-  const set = (key, value) => {
-    assert(!setting);
+  const timer = new Timer();
 
-    if (db.has(key)) {
-      // If the value hasn't changed, don't do anything
-      if (db.get(key) === value) {
-        return;
+  db.set_all(from_json(yield async_chrome((callback) => {
+    chrome["storage"]["local"]["get"](null, callback);
+  })));
+
+  timer.done();
+
+
+  // TODO this is a little hacky
+  let setting = async(function* () {});
+
+
+  db.on_change.listen((x) => {
+    each(x, (x) => {
+      const type = x.get("type");
+
+      if (type === "default") {
+        console.log("default", x.get("key"));
+
+
+      } else if (type === "set" || type === "add") {
+        const key   = x.get("key");
+        const value = x.get("value");
+
+        with_delay(key, () => {
+          run_async(function* () {
+            // TODO is this correct ?
+            yield setting;
+
+            const timer_serialize = new Timer();
+            const s_value = to_json(value);
+            timer_serialize.done();
+
+            const timer = new Timer();
+
+            yield async_chrome((callback) => {
+              chrome["storage"]["local"]["set"]({ [key]: s_value }, callback);
+            });
+
+            timer.done();
+
+            console["debug"]("db.set: \"" +
+                             key +
+                             "\" (serialize " +
+                             timer_serialize.diff() +
+                             "ms) (commit " +
+                             timer.diff() +
+                             "ms)");
+          });
+        });
+
+
+      } else if (type === "remove") {
+        const key = x.get("key");
+
+        with_delay(key, () => {
+          run_async(function* () {
+            // TODO is this correct ?
+            yield setting;
+
+            const timer = new Timer();
+
+            yield async_chrome((callback) => {
+              chrome["storage"]["local"]["remove"](key, callback);
+            });
+
+            timer.done();
+
+            console["debug"]("db.remove: \"" +
+                             key +
+                             "\" (" +
+                             timer.diff() +
+                             "ms)");
+          });
+        });
+
+
+      // TODO is this correct ?
+      } else if (type === "set_all") {
+        const value = x.get("value");
+
+        setting = async(function* () {
+          try {
+            // TODO is this correct ?
+            // TODO is it possible to have race conditions ?
+            yield setting;
+
+            yield async_chrome((callback) => {
+              chrome["storage"]["local"]["clear"](callback);
+            });
+
+            yield async_chrome((callback) => {
+              chrome["storage"]["local"]["set"](to_json(value), callback);
+            });
+
+          } finally {
+            setting = async(function* () {});
+          }
+        });
+
+
+      } else {
+        fail();
       }
-
-      db = db.set(key, value);
-    } else {
-      db = db.add(key, value);
-    }
-
-    delay(key, 1000);
-
-    with_delay(key, () => {
-      const timer_serialize = new Timer();
-      const s_value = to_json(value);
-      timer_serialize.done();
-
-      const timer = new Timer();
-
-      chrome["storage"]["local"]["set"]({ [key]: s_value }, () => {
-        throw_error();
-        timer.done();
-
-        warn_if((timer.diff() + timer_serialize.diff()) >= 1000,
-                "db.set: \"" +
-                key +
-                "\" (serialize " +
-                timer_serialize.diff() +
-                "ms) (commit " +
-                timer.diff() +
-                "ms)");
-      });
     });
-  };
+  });
 
-  const get_all = () => db;
+  console["debug"]("db: initialized (" + timer.diff() + "ms)", to_json(db.get_all()));
 
-  const set_all = (o) => {
-    assert(!setting);
-
-    if (o === db) {
-      // TODO this is a bit hacky
-      return async(function* () {});
-
-    } else {
-      // TODO is this still necessary ?
-      setting = true;
-
-      db = o;
-
-      return async(function* () {
-        try {
-          yield async_chrome((callback) => {
-            chrome["storage"]["local"]["clear"](callback);
-          });
-
-          const v = to_json(o);
-
-          yield async_chrome((callback) => {
-            chrome["storage"]["local"]["set"](v, callback);
-          });
-
-        } finally {
-          setting = false;
-        }
-      });
-    }
-  };
-
-  console["debug"]("db: initialized (" + timer.diff() + "ms)", to_json(db));
-
-  return {
-    get,
-    set,
-    delay,
-    get_all,
-    set_all
-  };
+  return db;
 });

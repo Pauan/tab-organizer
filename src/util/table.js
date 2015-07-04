@@ -27,7 +27,21 @@ export class Table {
       this._keys = value;
 
       this._push_change(Record([
-        ["type", "set-all"],
+        ["type", "set_all"],
+        ["value", value]
+      ]));
+    }
+  }
+
+  default(key, value) {
+    assert(!this._destroyed);
+
+    if (!this._keys.has(key)) {
+      this._keys = this._keys.add(key, value);
+
+      this._push_change(Record([
+        ["type", "default"],
+        ["key", key],
         ["value", value]
       ]));
     }
