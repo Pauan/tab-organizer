@@ -1,46 +1,33 @@
-import { uuid_port_tab } from "./common/uuid";
-import { init as init_chrome } from "./chrome/client";
+import { sync as sync_tabs } from "./client/sync/tabs";
 import { run_async } from "./util/async";
+import { observe } from "./util/ref";
+import * as dom from "./client/dom";
 
-import { each } from "./util/iterator";
-import { fail } from "./util/assert";
+import { map } from "./util/iterator";
+
 
 run_async(function* () {
-  const { ports } = yield init_chrome;
+  const { windows, window_ids, tab_ids } = yield sync_tabs;
 
-  const x = ports.connect(uuid_port_tab);
+  const view_tab = (tab) =>
+    dom.div({},
+      [tab.get("title") || tab.get("url")]);
 
-  x.on_receive.listen((message) => {
-    switch (message.get("type")) {
-    case "init":
-      const windows = message.get("windows");
-      const window_ids = message.get("window-ids");
-      const tab_ids = message.get("tab-ids");
+  const view_window = (window, tab_ids) =>
+    dom.div({},
+      map(window.get("tabs"), (tab_id) =>
+        view_tab(tab_ids.get(tab_id))));
 
-      each(windows, (window_id) => {
-        const window = window_ids.get(window_id);
+  const view = (windows, window_ids, tab_ids) =>
+    dom.div({},
+      map(windows, (window_id) =>
+        view_window(window_ids.get(window_id), tab_ids)));
 
-        const ui_window = document["createElement"]("div");
+  const render = (windows, window_ids, tab_ids) => {
+    dom.render(view(windows, window_ids, tab_ids));
+  };
 
-        each(window.get("tabs"), (tab_id) => {
-          const tab = tab_ids.get(tab_id);
-
-          const ui_tab = document["createElement"]("div");
-
-          ui_tab["textContent"] = tab.get("title") || tab.get("url");
-
-          ui_window["appendChild"](ui_tab);
-        });
-
-        document["body"]["appendChild"](ui_window);
-      });
-
-      break;
-
-    default:
-      fail();
-    }
-  });
+  observe(render, windows, window_ids, tab_ids);
 
   console["debug"]("panel: initialized");
 });

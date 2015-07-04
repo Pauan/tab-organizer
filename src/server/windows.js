@@ -84,6 +84,8 @@ export const init = async(function* () {
     });
 
   const update_tab = (tab_id, info) => {
+    const old_tab_ids = tab_ids;
+
     tab_ids = tab_ids.update(tab_id, (old_tab) => {
       const new_tab = old_tab.set("url", info.url)
                              .set("title", info.title)
@@ -100,6 +102,9 @@ export const init = async(function* () {
     });
 
     save_tab_ids();
+
+    // TODO test this
+    return tab_ids !== old_tab_ids;
   };
 
   const make_new_tab = (window_id, tab_id, info) => {
@@ -175,26 +180,32 @@ export const init = async(function* () {
     ids.update(id, (window) =>
       window.update("tabs", f));
 
-  const insert_to_right = (tabs, window, index, tab_id) => {
+  const find_right_index = (window, index) => {
+    // TODO a bit inefficient
+    const tabs = window_ids.get(window.id).get("tabs");
+
     // TODO test this
     const prev = window.tabs.get(index - 1);
     const prev_id = session.tab_id(prev.id);
     // TODO can this be implemented more efficiently ?
     const prev_index = tabs.index_of(prev_id);
-    return tabs.insert(prev_index + 1, tab_id);
+    return prev_index + 1;
   };
 
-  const insert_to_left = (tabs, window, index, tab_id) => {
+  const find_left_index = (window, index) => {
+    // TODO a bit inefficient
+    const tabs = window_ids.get(window.id).get("tabs");
+
     // TODO test this
     if (window.tabs.has(index + 1)) {
       const next = window.tabs.get(index + 1);
       const next_id = session.tab_id(next.id);
       // TODO can this be implemented more efficiently ?
-      const next_index = tabs.index_of(next_id);
-      return tabs.insert(next_index, tab_id);
+      return tabs.index_of(next_id);
 
     } else {
-      return tabs.push(tab_id);
+      // TODO is this correct ?
+      return tabs.size;
     }
   };
 
@@ -224,10 +235,39 @@ export const init = async(function* () {
     make_new_window(id, info);
 
     // TODO is this correct ?
+    const new_index = saved_windows.size;
+
+    // TODO is this correct ?
     // TODO what about when reopening a closed window ?
     saved_windows = saved_windows.push(id);
 
     save_windows();
+
+    ports.send(uuid_port_tab, Record([
+      ["type", "window-open"],
+      ["window-id", id],
+      ["index", new_index],
+      // TODO this is a bit inefficient
+      ["window", window_ids.get(id)]
+    ]));
+  };
+
+  const window_focus = (info) => {
+    if (info.new !== null) {
+      const id = session.window_id(info.new.id);
+
+      window_ids = window_ids.update(id, (window) =>
+        update_time(window, "focused"));
+
+      save_window_ids();
+
+      ports.send(uuid_port_tab, Record([
+        ["type", "window-focus"],
+        ["window-id", id],
+        // TODO this is a bit inefficient
+        ["window", window_ids.get(id)]
+      ]));
+    }
   };
 
   const window_close = ({ window: info }) => {
@@ -243,22 +283,19 @@ export const init = async(function* () {
     });
 
     window_ids = window_ids.remove(id);
+
     // TODO can this be implemented more efficiently ?
-    saved_windows = saved_windows.remove(saved_windows.index_of(id));
+    const index = saved_windows.index_of(id);
+    saved_windows = saved_windows.remove(index);
 
     save_window_ids();
     save_windows();
-  };
 
-  const window_focus = (info) => {
-    if (info.new !== null) {
-      const id = session.window_id(info.new.id);
-
-      window_ids = window_ids.update(id, (window) =>
-        update_time(window, "focused"));
-
-      save_window_ids();
-    }
+    ports.send(uuid_port_tab, Record([
+      ["type", "window-close"],
+      ["window-id", id],
+      ["index", index]
+    ]));
   };
 
   const tab_open = ({ window, tab, index }) => {
@@ -267,10 +304,125 @@ export const init = async(function* () {
 
     make_new_tab(window_id, tab_id, tab);
 
+    const new_index = find_left_index(window, index);
+
     window_ids = update_tabs(window_ids, window_id, (tabs) =>
-      insert_to_left(tabs, window, index, tab_id));
+      tabs.insert(new_index, tab_id));
 
     save_window_ids();
+
+    ports.send(uuid_port_tab, Record([
+      ["type", "tab-open"],
+      ["window-id", window_id],
+      ["tab-id", tab_id],
+      ["index", new_index],
+      // TODO this is a bit inefficient
+      ["tab", tab_ids.get(tab_id)]
+    ]));
+  };
+
+  const tab_focus = (info) => {
+    if (info.new !== null) {
+      const tab_id = session.tab_id(info.new.id);
+
+      tab_ids = tab_ids.update(tab_id, (tab) =>
+        update_time(tab, "focused"));
+
+      save_tab_ids();
+
+      ports.send(uuid_port_tab, Record([
+        ["type", "tab-focus"],
+        ["tab-id", tab_id],
+        // TODO a bit inefficient
+        ["tab", tab_ids.get(tab_id)]
+      ]));
+    }
+  };
+
+  const tab_update = ({ tab }) => {
+    const tab_id = session.tab_id(tab.id);
+
+    if (update_tab(tab_id, tab)) {
+      ports.send(uuid_port_tab, Record([
+        ["type", "tab-update"],
+        ["tab-id", tab_id],
+        // TODO this is a bit inefficient
+        ["tab", tab_ids.get(tab_id)]
+      ]));
+    }
+  };
+
+  const find_move_index = (old_window, new_window, old_index, new_index) => {
+    // TODO is this check correct ?
+    if (old_window === new_window) {
+      // Moved to the left
+      if (new_index < old_index) {
+        return find_left_index(new_window, new_index);
+
+      // Moved to the right
+      } else if (new_index > old_index) {
+        return find_right_index(new_window, new_index);
+
+      } else {
+        fail();
+      }
+
+    } else {
+      // TODO is this correct ?
+      return find_left_index(new_window, new_index);
+    }
+  };
+
+  // TODO test this
+  const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
+    const tab_id = session.tab_id(tab.id);
+
+    const old_window_id = session.window_id(old_window.id);
+    const new_window_id = session.window_id(new_window.id);
+
+    // TODO a bit hacky
+    const old_tabs = window_ids.get(old_window_id).get("tabs");
+
+    // TODO can this be implemented more efficiently ?
+    const session_old_index = old_tabs.index_of(tab_id);
+    const session_new_index = find_move_index(old_window, new_window, old_index, new_index);
+
+    // TODO is this check correct ?
+    if (old_window === new_window) {
+      tab_ids = tab_ids.update(tab_id, (tab) => {
+        assert(tab.get("window") === old_window_id);
+        assert(tab.get("window") === new_window_id);
+        return update_time(tab, "moved-in-window");
+      });
+
+    } else {
+      tab_ids = tab_ids.update(tab_id, (tab) => {
+        assert(tab.get("window") === old_window_id);
+        assert(tab.get("window") !== new_window_id);
+        // TODO remove the timestamp for "moved-in-window" ?
+        return update_time(tab.set("window", new_window_id), "moved-to-window");
+      });
+    }
+
+    window_ids = update_tabs(window_ids, old_window_id, (tabs) =>
+      tabs.remove(session_old_index));
+
+    window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
+      tabs.insert(session_new_index, tab_id));
+
+    save_tab_ids();
+    save_window_ids();
+
+    ports.send(uuid_port_tab, Record([
+      ["type", "tab-move"],
+      ["old-window-id", old_window_id],
+      ["new-window-id", new_window_id],
+      ["tab-id", tab_id],
+      ["old-index", session_old_index],
+      ["new-index", session_new_index],
+      // TODO this is a bit inefficient
+      ["tab", tab_ids.get(tab_id)]
+    ]));
   };
 
   const tab_close = (info) => {
@@ -283,77 +435,22 @@ export const init = async(function* () {
 
     tab_ids = tab_ids.remove(tab_id);
 
+    // TODO a bit hacky
+    // TODO can this be implemented more efficiently ?
+    const index = window_ids.get(window_id).get("tabs").index_of(tab_id);
+
     window_ids = update_tabs(window_ids, window_id, (tabs) =>
-      // TODO can this be implemented more efficiently ?
-      tabs.remove(tabs.index_of(tab_id)));
+      tabs.remove(index));
 
     save_window_ids();
     save_tab_ids();
-  };
 
-  const tab_focus = (info) => {
-    if (info.new !== null) {
-      const id = session.tab_id(info.new.id);
-
-      tab_ids = tab_ids.update(id, (tab) =>
-        update_time(tab, "focused"));
-
-      save_tab_ids();
-    }
-  };
-
-  const tab_update = ({ tab }) => {
-    const tab_id = session.tab_id(tab.id);
-    update_tab(tab_id, tab);
-  };
-
-  // TODO test this
-  const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
-    const tab_id = session.tab_id(tab.id);
-    const old_window_id = session.window_id(old_window.id);
-    const new_window_id = session.window_id(new_window.id);
-
-    window_ids = update_tabs(window_ids, old_window_id, (tabs) =>
-      // TODO can this be implemented more efficiently ?
-      tabs.remove(tabs.index_of(tab_id)));
-
-    // TODO is this check correct ?
-    if (old_window === new_window && old_window_id === new_window_id) {
-      tab_ids = tab_ids.update(tab_id, (tab) => {
-        assert(tab.get("window") === old_window_id);
-        assert(tab.get("window") === new_window_id);
-        return update_time(tab, "moved-in-window");
-      });
-
-      // Moved to the left
-      if (new_index < old_index) {
-        window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
-          insert_to_left(tabs, new_window, new_index, tab_id));
-
-      // Moved to the right
-      } else if (new_index > old_index) {
-        window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
-          insert_to_right(tabs, new_window, new_index, tab_id));
-
-      } else {
-        fail();
-      }
-
-    } else {
-      tab_ids = tab_ids.update(tab_id, (tab) => {
-        assert(tab.get("window") === old_window_id);
-        assert(tab.get("window") !== new_window_id);
-        // TODO remove the timestamp for "moved-in-window" ?
-        return update_time(tab.set("window", new_window_id), "moved-to-window");
-      });
-
-      window_ids = update_tabs(window_ids, new_window_id, (tabs) =>
-        // TODO is this correct ?
-        insert_to_left(tabs, new_window, new_index, tab_id));
-    }
-
-    save_tab_ids();
-    save_window_ids();
+    ports.send(uuid_port_tab, Record([
+      ["type", "tab-close"],
+      ["window-id", window_id],
+      ["tab-id", tab_id],
+      ["index", index]
+    ]));
   };
 
 

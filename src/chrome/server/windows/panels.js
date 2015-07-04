@@ -11,6 +11,7 @@ class Panel {
 }
 
 export const open = (info) => async(function* () {
+  // TODO does this create a new panel id every time it's called ?
   const panel = yield async_chrome((callback) => {
     const o = dimensions(info);
 

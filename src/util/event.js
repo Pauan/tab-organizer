@@ -9,6 +9,12 @@ export class Event {
 
   listen(f) {
     this._listeners.add(f);
+
+    return {
+      unlisten: () => {
+        this._listeners.remove(f);
+      }
+    };
   }
 
   send(value) {
