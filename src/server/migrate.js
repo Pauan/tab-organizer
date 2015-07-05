@@ -10,18 +10,16 @@ const version = 1435820160244;
 const migrators = new List();
 
 const migrate_to = (version, f) => {
-  migrators.push((old_version, o) => {
+  migrators.push((old_version, db) => {
     if (old_version < version) {
-      return f(o);
-    } else {
-      return o;
+      f(db);
     }
   });
 };
 
-const get_version = (o) => {
-  if (o.has("version")) {
-    const version = o.get("version");
+const get_version = (db) => {
+  if (db.has(["version"])) {
+    const version = db.get(["version"]);
 
     if (typeof version === "number") {
       return version;
@@ -34,18 +32,32 @@ const get_version = (o) => {
   }
 };
 
-export const migrate = (old_db) => {
-  const old_version = get_version(old_db);
+export const migrate = (db) => {
+  const old_version = get_version(db);
 
   if (old_version < version) {
-    const new_db = foldl(old_db, migrators, (old_db, f) =>
-                     f(old_version, old_db));
+    const timer = new Timer();
 
-    if (new_db.has("version")) {
-      return new_db.set("version", version);
-    } else {
-      return new_db.add("version", version);
-    }
+    db.transaction((db) => {
+      each(migrators, (f) => {
+        f(old_version, db);
+      });
+
+      // TODO is this correct ?
+      if (db.has(["version"])) {
+        db.set(["version"], version);
+      } else {
+        db.add(["version"], version);
+      }
+    });
+
+    timer.done();
+
+    console["debug"]("migrate: upgraded to version " +
+                     version +
+                     " (" +
+                     timer.diff() +
+                     "ms)");
 
   } else if (old_version > version) {
     throw new Error("Cannot downgrade from version " +
@@ -54,46 +66,26 @@ export const migrate = (old_db) => {
                     version);
 
   } else {
-    return old_db;
+    console["debug"]("migrate: already at version " + version);
   }
 };
 
 
-migrate_to(1414145108930, (o) => {
+migrate_to(1414145108930, (db) => {
   delete localStorage["migrated"];
-  return o;
+
 });
 
 
-migrate_to(1435820160244, (o) => {
-  return o;
+migrate_to(1435820160244, (db) => {
+
 });
 
 
 export const init = async(function* () {
   const { db } = yield init_chrome;
 
-  const old_db = db.get_all();
-
-  const timer = new Timer();
-
-  const new_db = migrate(old_db);
-
-  timer.done();
-
-  if (old_db === new_db) {
-    console["debug"]("migrate: already at version " + version);
-
-  } else {
-    // TODO change this so it no longer needs to use set_all
-    db.set_all(new_db);
-
-    console["debug"]("migrate: upgraded to version " +
-                     version +
-                     " (" +
-                     timer.diff() +
-                     "ms)");
-  }
+  migrate(db);
 
   return db;
 });

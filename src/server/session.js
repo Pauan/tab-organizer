@@ -14,16 +14,10 @@ const new_id = () => "" + timestamp();
 export const init = async(function* () {
   const db = yield init_db;
 
-  db.default("session.windows", List());
 
+  const namespace = "session.windows";
 
-  const default_delay = 1000;
-
-  // TODO test this
-  const save = (_db, ms, f) => {
-    _db.delay("session.windows", ms);
-    _db.update("session.windows", f);
-  };
+  db.default([namespace], List());
 
 
   const window_ids = new Dict();
@@ -75,12 +69,13 @@ export const init = async(function* () {
     assert(session_tab.get("id") === tab_ids.get(tab.id));
   };
 
-  const update_tabs = (db, ms, window, f) =>
-    save(db, ms, (windows) =>
+  const update_tabs = (db, window, f) => {
+    db.update([namespace], (windows) =>
       windows.update(window.index, (session_window) => {
         check_window(session_window, window);
         return session_window.update("tabs", f);
       }));
+  };
 
 
   const window_open = ({ window, index }) => {
@@ -88,13 +83,13 @@ export const init = async(function* () {
 
     const x = make_new_window(window);
 
-    save(db, default_delay, (windows) => windows.insert(index, x));
+    db.update([namespace], (windows) => windows.insert(index, x));
   };
 
   const window_close = ({ window, index }) => {
     assert(window.tabs.size === 0);
 
-    save(db, default_delay, (windows) => {
+    db.update([namespace], (windows) => {
       check_window(windows.get(index), window);
       return windows.remove(index);
     });
@@ -106,7 +101,7 @@ export const init = async(function* () {
     assert(tab.index === index);
     assert(tab.window === window);
 
-    update_tabs(db, default_delay, window, (tabs) => {
+    update_tabs(db, window, (tabs) => {
       const x = make_new_tab(tab);
       return tabs.insert(index, x);
     });
@@ -115,11 +110,11 @@ export const init = async(function* () {
   const tab_close = ({ window, tab, index, window_closing }) => {
     // Delay by 10 seconds, so that when Chrome closes,
     // it doesn't remove the tabs / windows
-    const delay = (window_closing
-                    ? 10000
-                    : default_delay);
+    if (window_closing) {
+      db.delay(namespace, 10000);
+    }
 
-    update_tabs(db, delay, window, (tabs) => {
+    update_tabs(db, window, (tabs) => {
       check_tab(tabs.get(index), tab);
       return tabs.remove(index);
     });
@@ -129,7 +124,7 @@ export const init = async(function* () {
 
   const tab_update = ({ old, tab }) => {
     if (old.url !== tab.url) {
-      update_tabs(db, default_delay, tab.window, (tabs) =>
+      update_tabs(db, tab.window, (tabs) =>
         tabs.update(tab.index, (x) => {
           check_tab(x, tab);
           return x.set("url", tab.url);
@@ -147,12 +142,12 @@ export const init = async(function* () {
 
       check_tab(session_tab, tab);
 
-      update_tabs(db, default_delay, old_window, (tabs) => {
+      update_tabs(db, old_window, (tabs) => {
         check_tab(tabs.get(old_index), tab);
         return tabs.remove(old_index);
       });
 
-      update_tabs(db, default_delay, new_window, (tabs) =>
+      update_tabs(db, new_window, (tabs) =>
         tabs.insert(new_index, session_tab));
     });
   };
@@ -258,7 +253,7 @@ export const init = async(function* () {
   const init = (new_windows) => {
     const timer_merge = new Timer();
 
-    save(db, default_delay, (old_windows) => merge(old_windows, new_windows));
+    db.update([namespace], (old_windows) => merge(old_windows, new_windows));
 
     timer_merge.done();
     console["debug"]("session: initialized (" +
