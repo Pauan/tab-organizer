@@ -23,7 +23,7 @@ const loop = (init, keys, i, end, f) => {
   const key = keys[i];
 
   if (i === end) {
-    return init.update(key, (x) => f(x, key));
+    return f(init, key);
 
   } else {
     return init.update(key, (x) => loop(x, keys, i + 1, end, f));
@@ -165,7 +165,7 @@ export class Table {
       ]));
 
     } else {
-      assert(!new_value.has());
+      assert(new_value.has());
     }
   }
 

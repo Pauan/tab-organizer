@@ -14,6 +14,10 @@ class _Set {
     }
   }
 
+  has(value) {
+    return this._set["has"](value);
+  }
+
   add(value) {
     if (this._set["has"](value)) {
       throw new Error("Value already exists in Set: " + value);

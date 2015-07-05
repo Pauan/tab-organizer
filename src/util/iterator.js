@@ -83,7 +83,7 @@ export const all = (iter, f) => {
   return true;
 };
 
-export const some = (iter, f) => {
+export const any = (iter, f) => {
   for (let x of iter) {
     if (f(x)) {
       return true;

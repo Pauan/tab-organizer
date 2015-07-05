@@ -15,7 +15,7 @@ export const init = async(function* () {
   const db = yield init_db;
   const { windows, tabs, ports } = yield init_chrome;
   const session = yield init_session;
-  const sync = yield init_sync;
+  const { sync } = yield init_sync;
 
 
   db.default(["current.windows"], List());
@@ -351,11 +351,11 @@ export const init = async(function* () {
         if (old_window === new_window) {
           // Moved to the left
           if (new_index < old_index) {
-            tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
+            return tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
 
           // Moved to the right
           } else if (new_index > old_index) {
-            tabs.insert(find_right_index(tabs, new_window, new_index), tab_id);
+            return tabs.insert(find_right_index(tabs, new_window, new_index), tab_id);
 
           } else {
             fail();
@@ -363,7 +363,7 @@ export const init = async(function* () {
 
         } else {
           // TODO is this correct ?
-          tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
+          return tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
         }
       });
 

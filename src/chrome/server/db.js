@@ -80,8 +80,6 @@ export const init = async(function* () {
       } else if (type === "set" || type === "add" || type === "remove") {
         const key = x.get("key").get(0);
 
-        console.log(x.get("key"), key);
-
         // TODO this doesn't seem like quite the right spot for this, but I don't know any better spots...
         db.delay(key, 1000);
 
@@ -113,8 +111,6 @@ export const init = async(function* () {
         } else {
           const table = x.get("table");
           const value = table.get(key);
-
-          console.log(table, value, x.get("value"));
 
           with_delay(key, () => {
             run_async(function* () {

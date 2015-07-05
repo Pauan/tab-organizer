@@ -135,7 +135,7 @@ export const init = async(function* () {
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
     db.transaction((db) => {
       // TODO a little hacky
-      const session_tab = db.get("session.windows")
+      const session_tab = db.get(["session.windows"])
                             .get(old_window.index)
                             .get("tabs")
                             .get(old_index);

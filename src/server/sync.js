@@ -20,24 +20,20 @@ export const init = async(function* () {
 
   ports.on_connect.listen((port) => {
     if (port.name === uuid_port_sync) {
-      port.send(Record([
+      port.send(List([Record([
         ["type", "init"],
         ["tables", Record(map(set, (s) => [s, db.get([s])]))]
-      ]));
+      ])]));
     }
   });
 
-  db.on_change.listen((x) => {
-    const y1 = keep(x, (x) => {
+  db.on_change.listen((transaction) => {
+    const y1 = keep(transaction, (x) => {
       const key = x.get("key").get(0);
-      console.log(key, set.has(key));
       return set.has(key);
     });
 
     const y2 = List(map(y1, (x) => x.remove("table")));
-
-    console.log(x);
-    console.log(y2);
 
     if (y2.size > 0) {
       ports.send(uuid_port_sync, y2);
