@@ -1,14 +1,52 @@
 import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
+import { Some, None } from "./immutable/maybe";
 import { Event } from "./event";
 import { assert } from "./assert";
 
 
+const lookup = (init, keys, f) => {
+  assert(keys["length"] >= 1);
+
+  let i = 0;
+
+  // TODO test this
+  while (i < keys["length"] - 1) {
+    init = init.get(keys[i]);
+    ++i;
+  }
+
+  return f(init, keys[i]);
+};
+
+const loop = (init, keys, i, end, f) => {
+  const key = keys[i];
+
+  if (i === end) {
+    return init.update(key, (x) => f(x, key));
+
+  } else {
+    return init.update(key, (x) => loop(x, keys, i + 1, end, f));
+  }
+};
+
+const update = (init, keys, f) => {
+  assert(keys["length"] >= 1);
+
+  return loop(init, keys, 0, keys["length"] - 1, f);
+};
+
+
 export class Table {
-  constructor() {
+  constructor(x = null) {
     this._destroyed = false;
-    this._keys = Record();
     this.on_change = new Event();
+
+    if (x == null) {
+      this._keys = Record();
+    } else {
+      this._keys = x;
+    }
   }
 
   _push_change(x) {
@@ -20,102 +58,114 @@ export class Table {
     return this._keys;
   }
 
-  set_all(value) {
+  // TODO code duplication
+  default(keys, value) {
     assert(!this._destroyed);
 
-    if (this._keys !== value) {
-      this._keys = value;
+    const old_keys = this._keys;
 
-      this._push_change(Record([
-        ["type", "set_all"],
-        ["value", value]
-      ]));
-    }
-  }
+    this._keys = update(old_keys, keys, (x, key) => {
+      // TODO is this correct ?
+      // TODO test this
+      if (x.has(key)) {
+        return x;
+      } else {
+        return x.add(key, value);
+      }
+    });
 
-  default(key, value) {
-    assert(!this._destroyed);
-
-    if (!this._keys.has(key)) {
-      this._keys = this._keys.add(key, value);
-
+    // TODO test this
+    if (this._keys !== old_keys) {
       this._push_change(Record([
         ["type", "default"],
-        ["key", key],
+        ["table", this._keys],
+        ["key", List(keys)],
         ["value", value]
       ]));
     }
   }
 
-  has(key) {
+  has(keys) {
     assert(!this._destroyed);
-    return this._keys.has(key);
+    return lookup(this._keys, keys, (x, key) => x.has(key));
   }
 
-  get(key) {
+  get(keys) {
     assert(!this._destroyed);
-    return this._keys.get(key);
+    return lookup(this._keys, keys, (x, key) => x.get(key));
   }
 
-  add(key, value) {
+  add(keys, value) {
     assert(!this._destroyed);
 
-    this._keys = this._keys.add(key, value);
+    this._keys = update(this._keys, keys, (x, key) => x.add(key, value));
 
     // No need to check for changes, because `add` always changes the Record
     this._push_change(Record([
       ["type", "add"],
-      ["key", key],
+      ["table", this._keys],
+      ["key", List(keys)],
       ["value", value]
     ]));
   }
 
-  remove(key) {
+  remove(keys) {
     assert(!this._destroyed);
 
-    this._keys = this._keys.remove(key);
+    this._keys = update(this._keys, keys, (x, key) => x.remove(key));
 
     // No need to check for changes, because `remove` always changes the Record
     this._push_change(Record([
       ["type", "remove"],
-      ["key", key]
+      ["table", this._keys],
+      ["key", List(keys)]
     ]));
   }
 
-  set(key, value) {
+  // TODO code duplication
+  set(keys, value) {
     assert(!this._destroyed);
 
     const old_keys = this._keys;
-    const new_keys = old_keys.set(key, value);
 
-    if (new_keys !== old_keys) {
-      this._keys = new_keys;
+    this._keys = update(old_keys, keys, (x, key) => x.set(key, value));
 
+    if (this._keys !== old_keys) {
       this._push_change(Record([
         ["type", "set"],
-        ["key", key],
+        ["table", this._keys],
+        ["key", List(keys)],
         ["value", value]
       ]));
     }
   }
 
   // TODO test this
-  update(key, f) {
+  update(keys, f) {
     assert(!this._destroyed);
 
-    const old_keys  = this._keys;
-    const old_value = old_keys.get(key);
-    const new_value = f(old_value);
-    const new_keys  = old_keys.set(key, new_value);
+    // TODO this is a little hacky
+    let new_value = None();
 
-    if (new_keys !== old_keys) {
-      this._keys = new_keys;
+    const old_keys = this._keys;
 
+    this._keys = update(old_keys, keys, (x, key) =>
+      x.update(key, (old_value) => {
+        const x = f(old_value);
+        new_value = Some(x);
+        return x;
+      }));
+
+    if (this._keys !== old_keys) {
       this._push_change(Record([
         ["type", "set"],
-        ["key", key],
-        ["value", new_value]
+        ["table", this._keys],
+        ["key", List(keys)],
+        ["value", new_value.get()]
       ]));
+
+    } else {
+      assert(!new_value.has());
     }
   }
 
