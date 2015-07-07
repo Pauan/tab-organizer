@@ -8,8 +8,26 @@ export class Port {
     this.name = port["name"];
 
     this._port = port;
-    this.on_receive = new Event();
+
     this.on_disconnect = new Event();
+
+    this.on_receive = new Event({
+      // TODO test this
+      bind: (event) => {
+        const onMessage = (x) => {
+          // TODO is using `from_json` here correct ?
+          event.send(from_json(x));
+        };
+
+        port["onMessage"]["addListener"](onMessage);
+
+        return { onMessage };
+      },
+      // TODO test this
+      unbind: (event, { onMessage }) => {
+        port["onMessage"]["removeListener"](onMessage);
+      }
+    });
 
     // TODO test this
     port["onDisconnect"]["addListener"](() => {
@@ -22,11 +40,6 @@ export class Port {
       this.on_disconnect = null;
 
       on_disconnect.send(undefined);
-    });
-
-    port["onMessage"]["addListener"]((x) => {
-      // TODO is using `from_json` here correct ?
-      this.on_receive.send(from_json(x));
     });
   }
 

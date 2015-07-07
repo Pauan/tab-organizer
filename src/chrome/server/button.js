@@ -3,7 +3,22 @@ import { Event } from "../../util/event";
 import { async_chrome } from "../common/util";
 
 
-export const on_click = new Event();
+export const on_click = new Event({
+  // TODO test this
+  bind: (event) => {
+    const onClicked = () => {
+      event.send(undefined);
+    };
+
+    chrome["browserAction"]["onClicked"]["addListener"](onClicked);
+
+    return { onClicked };
+  },
+  // TODO test this
+  unbind: (event, { onClicked }) => {
+    chrome["browserAction"]["onClicked"]["removeListener"](onClicked);
+  }
+});
 
 export const set_tooltip = (x) => {
   if (x == null || x === "") {
@@ -32,8 +47,3 @@ export const set_color = (r, g, b, a) => {
     "color": [r, g, b, Math["round"](a * 255)]
   });
 };
-
-
-chrome["browserAction"]["onClicked"]["addListener"](() => {
-  on_click.send(undefined);
-});
