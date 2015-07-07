@@ -102,6 +102,15 @@ export class ImmutableRecord {
     return this.update(key, (_) => value);
   }
 
+  // TODO maybe change this to accept a thunk rather than a value ?
+  default(key, value) {
+    if (this.has(key)) {
+      return this;
+    } else {
+      return this.add(key, value);
+    }
+  }
+
   to_json() {
     const out = {};
 

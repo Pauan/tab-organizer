@@ -58,21 +58,36 @@ export class Table {
     return this._keys;
   }
 
+  // TODO test this
+  set_all(new_db) {
+    assert(!this._destroyed);
+
+    const old_db = this._keys;
+
+    this.transaction((db) => {
+      each(old_db, ([key, value]) => {
+        if (!new_db.has(key)) {
+          db.remove([key]);
+        }
+      });
+
+      each(new_db, ([key, value]) => {
+        if (db.has([key])) {
+          db.set([key], value);
+        } else {
+          db.add([key], value);
+        }
+      });
+    });
+  }
+
   // TODO code duplication
   default(keys, value) {
     assert(!this._destroyed);
 
     const old_keys = this._keys;
 
-    this._keys = update(old_keys, keys, (x, key) => {
-      // TODO is this correct ?
-      // TODO test this
-      if (x.has(key)) {
-        return x;
-      } else {
-        return x.add(key, value);
-      }
-    });
+    this._keys = update(old_keys, keys, (x, key) => x.default(key, value));
 
     // TODO test this
     if (this._keys !== old_keys) {

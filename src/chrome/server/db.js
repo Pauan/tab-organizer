@@ -78,14 +78,15 @@ export const init = async(function* () {
 
 
       } else if (type === "set" || type === "add" || type === "remove") {
-        const key = x.get("key").get(0);
+        const keys = x.get("key");
+        const key = keys.get(0);
 
         // TODO this doesn't seem like quite the right spot for this, but I don't know any better spots...
         db.delay(key, 1000);
 
 
         // TODO test this
-        if (type === "remove" && key.size === 1) {
+        if (type === "remove" && keys.size === 1) {
           with_delay(key, () => {
             run_async(function* () {
               // TODO is this correct ?
