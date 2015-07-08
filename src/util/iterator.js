@@ -60,6 +60,24 @@ export const foldl = (current, iter, f) => {
 export const foldr = (current, iter, f) =>
   foldl(current, reverse(iter), f);
 
+export const join = (iter, s = "") => {
+  let first = true;
+
+  let out = "";
+
+  for (let x of iter) {
+    if (first) {
+      first = false;
+      out = out + x;
+
+    } else {
+      out = out + s + x;
+    }
+  }
+
+  return out;
+};
+
 export const map = function* (iter, f) {
   for (let x of iter) {
     yield f(x);
