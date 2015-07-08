@@ -70,10 +70,10 @@ export const init = async(function* () {
   };
 
   const update_tabs = (db, window, f) => {
-    db.update([namespace], (windows) =>
-      windows.update(window.index, (session_window) => {
+    db.modify([namespace], (windows) =>
+      windows.modify(window.index, (session_window) => {
         check_window(session_window, window);
-        return session_window.update("tabs", f);
+        return session_window.modify("tabs", f);
       }));
   };
 
@@ -83,13 +83,13 @@ export const init = async(function* () {
 
     const x = make_new_window(window);
 
-    db.update([namespace], (windows) => windows.insert(index, x));
+    db.modify([namespace], (windows) => windows.insert(index, x));
   };
 
   const window_close = ({ window, index }) => {
     assert(window.tabs.size === 0);
 
-    db.update([namespace], (windows) => {
+    db.modify([namespace], (windows) => {
       check_window(windows.get(index), window);
       return windows.remove(index);
     });
@@ -125,7 +125,7 @@ export const init = async(function* () {
   const tab_update = ({ old, tab }) => {
     if (old.url !== tab.url) {
       update_tabs(db, tab.window, (tabs) =>
-        tabs.update(tab.index, (x) => {
+        tabs.modify(tab.index, (x) => {
           check_tab(x, tab);
           return x.set("url", tab.url);
         }));
@@ -253,7 +253,7 @@ export const init = async(function* () {
   const init = (new_windows) => {
     const timer_merge = new Timer();
 
-    db.update([namespace], (old_windows) => merge(old_windows, new_windows));
+    db.modify([namespace], (old_windows) => merge(old_windows, new_windows));
 
     timer_merge.done();
     console["debug"]("session: initialized (" +

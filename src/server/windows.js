@@ -80,7 +80,7 @@ export const init = async(function* () {
   };
 
   const update_tab = (db, tab_id, info) => {
-    db.update(["current.tab-ids", tab_id], (old_tab) => {
+    db.modify(["current.tab-ids", tab_id], (old_tab) => {
       const new_tab = old_tab.set("url", info.url)
                              .set("title", info.title)
                              .set("favicon", info.favicon)
@@ -91,7 +91,7 @@ export const init = async(function* () {
         return old_tab;
 
       } else {
-        return new_tab.update("time", (time) =>
+        return new_tab.modify("time", (time) =>
           update_time(time, "updated"));
       }
     });
@@ -124,7 +124,7 @@ export const init = async(function* () {
   const update_window = (db, window_id, info) => {
     const tab_ids = db.get(["current.tab-ids"]);
 
-    db.update(["current.window-ids", window_id, "tabs"], (tabs) =>
+    db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
       foldl(tabs, info.tabs, (tabs, info) => {
         const tab_id = session.tab_id(info.id);
 
@@ -203,7 +203,7 @@ export const init = async(function* () {
 
         // TODO is this correct ?
         // TODO what about when reopening a closed window ?
-        db.update(["current.windows"], (windows) => windows.push(id));
+        db.modify(["current.windows"], (windows) => windows.push(id));
       }
     });
   };
@@ -216,7 +216,7 @@ export const init = async(function* () {
 
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
-      db.update(["current.windows"], (windows) => windows.push(id));
+      db.modify(["current.windows"], (windows) => windows.push(id));
 
       /*ports.send(uuid_port_tab, Record([
         ["type", "window-open"],
@@ -233,7 +233,7 @@ export const init = async(function* () {
       if (info.new !== null) {
         const id = session.window_id(info.new.id);
 
-        db.update(["current.window-ids", id, "time"], (time) =>
+        db.modify(["current.window-ids", id, "time"], (time) =>
           update_time(time, "focused"));
 
         /*ports.send(uuid_port_tab, Record([
@@ -260,7 +260,7 @@ export const init = async(function* () {
 
       db.remove(["current.window-ids", id]);
 
-      db.update(["current.windows"], (windows) =>
+      db.modify(["current.windows"], (windows) =>
         // TODO can this be implemented more efficiently ?
         windows.remove(windows.index_of(id)));
 
@@ -279,7 +279,7 @@ export const init = async(function* () {
 
       make_new_tab(db, window_id, tab_id, tab);
 
-      db.update(["current.window-ids", window_id, "tabs"], (tabs) =>
+      db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
         tabs.insert(find_left_index(tabs, window, index), tab_id));
 
       /*ports.send(uuid_port_tab, Record([
@@ -297,7 +297,7 @@ export const init = async(function* () {
       if (info.new !== null) {
         const tab_id = session.tab_id(info.new.id);
 
-        db.update(["current.tab-ids", tab_id, "time"], (time) =>
+        db.modify(["current.tab-ids", tab_id, "time"], (time) =>
           update_time(time, "focused"));
 
         /*ports.send(uuid_port_tab, Record([
@@ -339,14 +339,14 @@ export const init = async(function* () {
 
       db.set(["current.tab-ids", tab_id, "window"], new_window_id);
 
-      db.update(["current.tab-ids", tab_id, "time"], (time) =>
+      db.modify(["current.tab-ids", tab_id, "time"], (time) =>
         update_time(time, "moved"));
 
 
-      db.update(["current.window-ids", old_window_id, "tabs"], (tabs) =>
+      db.modify(["current.window-ids", old_window_id, "tabs"], (tabs) =>
         tabs.remove(tabs.index_of(tab_id)));
 
-      db.update(["current.window-ids", new_window_id, "tabs"], (tabs) => {
+      db.modify(["current.window-ids", new_window_id, "tabs"], (tabs) => {
         // TODO is this check correct ?
         if (old_window === new_window) {
           // Moved to the left
@@ -393,7 +393,7 @@ export const init = async(function* () {
 
       db.remove(["current.tab-ids", tab_id]);
 
-      db.update(["current.window-ids", window_id, "tabs"], (tabs) =>
+      db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
         // TODO can this be implemented more efficiently ?
         tabs.remove(tabs.index_of(tab_id)));
 

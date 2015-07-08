@@ -47,7 +47,7 @@ export class Ref {
     on_destroy.send(undefined);
   }
 
-  /*update(f) {
+  /*modify(f) {
     this.value = f(this.value);
   }*/
 }

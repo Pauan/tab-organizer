@@ -59,7 +59,7 @@ export class ImmutableRecord {
     }
   }
 
-  update(key, f) {
+  modify(key, f) {
     const x = get_index(this._keys, key);
 
     if (x.value === null) {
@@ -103,7 +103,7 @@ export class ImmutableRecord {
   }
 
   set(key, value) {
-    return this.update(key, (_) => value);
+    return this.modify(key, (_) => value);
   }
 
   // TODO maybe change this to accept a thunk rather than a value ?
