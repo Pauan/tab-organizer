@@ -1,0 +1,41 @@
+@charset "UTF-8";
+
+* {
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  vertical-align: middle; /* TODO I can probably get rid of this */
+
+  background-size: 100% 100%;
+  cursor: inherit;
+  position: relative;
+
+  -moz-box-sizing: border-box; /* TODO is this still needed ? */
+  box-sizing: border-box;
+
+  /* TODO are these a good idea ? */
+  outline-width: 0px;
+  outline-color: transparent;
+  outline-style: solid;
+
+  border-width: 0px;
+  border-color: transparent;
+  border-style: solid;
+
+  margin: 0px;
+  padding: 0px;
+
+  background-color: transparent;
+
+  flex-shrink: 0; /* 1 */
+  flex-grow: 0; /* 1 */
+  flex-basis: auto; /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
+}
+
+html, body {
+  -webkit-user-select: none; /* TODO this is hacky, use JS instead ? */
+  cursor: default;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
