@@ -73,7 +73,7 @@ export const init = async(function* () {
   // TODO test this
   const update_time = (time, s) => {
     if (time.has(s)) {
-      return time.set(s, timestamp());
+      return time.update(s, timestamp());
     } else {
       return time.insert(s, timestamp());
     }
@@ -81,10 +81,10 @@ export const init = async(function* () {
 
   const update_tab = (db, tab_id, info) => {
     db.modify(["current.tab-ids", tab_id], (old_tab) => {
-      const new_tab = old_tab.set("url", info.url)
-                             .set("title", info.title)
-                             .set("favicon", info.favicon)
-                             .set("pinned", info.pinned);
+      const new_tab = old_tab.update("url", info.url)
+                             .update("title", info.title)
+                             .update("favicon", info.favicon)
+                             .update("pinned", info.pinned);
 
       // TODO test this
       if (old_tab === new_tab) {
@@ -337,7 +337,7 @@ export const init = async(function* () {
       const new_window_id = session.window_id(new_window.id);
 
 
-      db.set(["current.tab-ids", tab_id, "window"], new_window_id);
+      db.update(["current.tab-ids", tab_id, "window"], new_window_id);
 
       db.modify(["current.tab-ids", tab_id, "time"], (time) =>
         update_time(time, "moved"));

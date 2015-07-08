@@ -42,7 +42,7 @@ export const migrate = (db) => {
 
     // TODO is this correct ?
     if (new_db.has("version")) {
-      return new_db.set("version", version);
+      return new_db.update("version", version);
     } else {
       return new_db.insert("version", version);
     }

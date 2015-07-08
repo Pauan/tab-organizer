@@ -127,7 +127,7 @@ export const init = async(function* () {
       update_tabs(db, tab.window, (tabs) =>
         tabs.modify(tab.index, (x) => {
           check_tab(x, tab);
-          return x.set("url", tab.url);
+          return x.update("url", tab.url);
         }));
     }
   };

@@ -38,7 +38,7 @@ class DB extends Table {
     };
 
     if (delaying.has(key)) {
-      delaying = delaying.set(key, o);
+      delaying = delaying.update(key, o);
     } else {
       delaying = delaying.insert(key, o);
     }
@@ -77,7 +77,7 @@ export const init = async(function* () {
         // Do nothing
 
 
-      } else if (type === "set" || type === "insert" || type === "remove") {
+      } else if (type === "update" || type === "insert" || type === "remove") {
         const keys = x.get("key");
         const key = keys.get(0);
 

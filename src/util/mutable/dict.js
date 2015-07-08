@@ -27,7 +27,7 @@ export class Dict {
     }
   }
 
-  set(key, value) {
+  update(key, value) {
     if (this._dict["has"](key)) {
       this._dict["set"](key, value);
       // TODO this is probably unnecessary

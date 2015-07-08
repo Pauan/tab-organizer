@@ -102,7 +102,7 @@ export class ImmutableRecord {
     }
   }
 
-  set(key, value) {
+  update(key, value) {
     return this.modify(key, (_) => value);
   }
 

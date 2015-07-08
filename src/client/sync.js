@@ -46,8 +46,8 @@ export const init = async(function* () {
               } else if (type === "insert") {
                 db.insert(key, value);
 
-              } else if (type === "set") {
-                db.set(key, value);
+              } else if (type === "update") {
+                db.update(key, value);
 
               } else {
                 fail();
