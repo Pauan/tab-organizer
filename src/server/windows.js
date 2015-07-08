@@ -71,13 +71,8 @@ export const init = async(function* () {
 
 
   // TODO test this
-  const update_time = (time, s) => {
-    if (time.has(s)) {
-      return time.update(s, timestamp());
-    } else {
-      return time.insert(s, timestamp());
-    }
-  };
+  const update_time = (time, s) =>
+    time.assign(s, timestamp());
 
   const update_tab = (db, tab_id, info) => {
     db.modify(["current.tab-ids", tab_id], (old_tab) => {

@@ -37,11 +37,7 @@ class DB extends Table {
       ms: ms
     };
 
-    if (delaying.has(key)) {
-      delaying = delaying.update(key, o);
-    } else {
-      delaying = delaying.insert(key, o);
-    }
+    delaying = delaying.assign(key, o);
 
     setTimeout(() => {
       // TODO is this correct ?

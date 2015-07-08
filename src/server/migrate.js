@@ -41,11 +41,7 @@ export const migrate = (db) => {
     const new_db = foldl(db, migrators, (db, f) => f(old_version, db));
 
     // TODO is this correct ?
-    if (new_db.has("version")) {
-      return new_db.update("version", version);
-    } else {
-      return new_db.insert("version", version);
-    }
+    return new_db.assign("version", version);
 
   } else if (old_version > version) {
     throw new Error("Cannot downgrade from version " +

@@ -115,6 +115,15 @@ export class ImmutableRecord {
     }
   }
 
+  // TODO more efficient implementation of this
+  assign(key, value) {
+    if (this.has(key)) {
+      return this.update(key, value);
+    } else {
+      return this.insert(key, value);
+    }
+  }
+
   to_json() {
     const out = {};
 

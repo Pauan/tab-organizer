@@ -59,6 +59,15 @@ export class Dict {
     }
   }
 
+  // TODO more efficient implementation of this
+  assign(key, value) {
+    if (this.has(key)) {
+      return this.update(key, value);
+    } else {
+      return this.insert(key, value);
+    }
+  }
+
   [Symbol["iterator"]]() {
     return iterator(this._dict);
   }
