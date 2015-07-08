@@ -8,7 +8,7 @@ export class Cache {
 
   get(key, f) {
     if (!this._cache.has(key)) {
-      this._cache.add(key, f());
+      this._cache.insert(key, f());
     }
 
     return this._cache.get(key);

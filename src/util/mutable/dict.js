@@ -9,7 +9,7 @@ export class Dict {
 
     if (x != null) {
       each(x, ([key, value]) => {
-        this.add(key, value);
+        this.insert(key, value);
       });
     }
   }
@@ -38,7 +38,7 @@ export class Dict {
     }
   }
 
-  add(key, value) {
+  insert(key, value) {
     if (this._dict["has"](key)) {
       throw new Error("Key already exists: " + key);
 

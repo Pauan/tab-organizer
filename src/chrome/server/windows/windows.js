@@ -218,7 +218,7 @@ export const make_window = (info, events) => {
   if (info["type"] === "normal") {
     const window = new Window(info);
 
-    window_ids.add(window.id, window);
+    window_ids.insert(window.id, window);
 
     // TODO assertions that `window` is not in `windows` ?
     windows.push(window);

@@ -127,7 +127,7 @@ export const make_tab = (info, events) => {
     const window = window_ids.get(info["windowId"]);
     const tab = new Tab(info, window);
 
-    tab_ids.add(tab.id, tab);
+    tab_ids.insert(tab.id, tab);
 
     // TODO assert that tab does not exist in window.tabs ?
     window.tabs.insert(tab.index, tab);
@@ -199,7 +199,7 @@ export const replace_tab = (new_id, old_id) => {
 
     tab.id = new_id;
     tab_ids.remove(old_id);
-    tab_ids.add(new_id, tab);
+    tab_ids.insert(new_id, tab);
 
     on_replace.send({
       old_id: old_id,

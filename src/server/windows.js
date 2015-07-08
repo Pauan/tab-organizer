@@ -75,7 +75,7 @@ export const init = async(function* () {
     if (time.has(s)) {
       return time.set(s, timestamp());
     } else {
-      return time.add(s, timestamp());
+      return time.insert(s, timestamp());
     }
   };
 
@@ -118,7 +118,7 @@ export const init = async(function* () {
       ["tags", Record()]
     ]);
 
-    db.add(["current.tab-ids", tab_id], tab);
+    db.insert(["current.tab-ids", tab_id], tab);
   };
 
   const update_window = (db, window_id, info) => {
@@ -159,7 +159,7 @@ export const init = async(function* () {
       ])]
     ]);
 
-    db.add(["current.window-ids", window_id], window);
+    db.insert(["current.window-ids", window_id], window);
   };
 
   const find_right_index = (tabs, window, index) => {

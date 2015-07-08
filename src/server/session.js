@@ -24,7 +24,7 @@ export const init = async(function* () {
   const tab_ids    = new Dict();
 
   const make_tab = (id, tab) => {
-    tab_ids.add(tab.id, id);
+    tab_ids.insert(tab.id, id);
 
     return Record([
       ["id", id],
@@ -33,7 +33,7 @@ export const init = async(function* () {
   };
 
   const make_window = (id, window, tabs) => {
-    window_ids.add(window.id, id);
+    window_ids.insert(window.id, id);
 
     return Record([
       ["id", id],
@@ -155,7 +155,7 @@ export const init = async(function* () {
   const tab_replace = ({ old_id, new_id }) => {
     const x = tab_ids.get(old_id);
     tab_ids.remove(old_id);
-    tab_ids.add(new_id, x);
+    tab_ids.insert(new_id, x);
   };
 
 

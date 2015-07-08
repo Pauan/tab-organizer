@@ -17,9 +17,9 @@ export class Bucket {
   }
 
   // TODO code duplication with cache.js
-  add(key, value) {
+  insert(key, value) {
     if (!this._keys.has(key)) {
-      this._keys.add(key, new Set());
+      this._keys.insert(key, new Set());
     }
 
     this._keys.get(key).add(value);

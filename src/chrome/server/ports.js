@@ -17,7 +17,7 @@ chrome["runtime"]["onConnect"]["addListener"]((x) => {
 
   const port = new Port(x);
 
-  _ports.add(port.name, port);
+  _ports.insert(port.name, port);
 
   port.on_disconnect.listen(() => {
     _ports.remove(port.name, port);

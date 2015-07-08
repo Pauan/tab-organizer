@@ -25,7 +25,7 @@ export const init = async(function* () {
 
           if (type === "init") {
             each(x.get("tables"), ([key, value]) => {
-              db.add([key], value);
+              db.insert([key], value);
             });
 
             success(undefined);
@@ -43,8 +43,8 @@ export const init = async(function* () {
               if (type === "default") {
                 db.default(key, value);
 
-              } else if (type === "add") {
-                db.add(key, value);
+              } else if (type === "insert") {
+                db.insert(key, value);
 
               } else if (type === "set") {
                 db.set(key, value);

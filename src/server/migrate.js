@@ -44,7 +44,7 @@ export const migrate = (db) => {
     if (new_db.has("version")) {
       return new_db.set("version", version);
     } else {
-      return new_db.add("version", version);
+      return new_db.insert("version", version);
     }
 
   } else if (old_version > version) {

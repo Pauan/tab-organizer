@@ -40,6 +40,10 @@ export class ImmutableRecord {
     this.size = keys["length"];
   }
 
+  clear() {
+    return new ImmutableRecord([]);
+  }
+
   has(key) {
     return get_index(this._keys, key).value !== null;
   }
@@ -76,7 +80,7 @@ export class ImmutableRecord {
     }
   }
 
-  add(key, value) {
+  insert(key, value) {
     const x = get_index(this._keys, key);
 
     if (x.value === null) {
@@ -107,7 +111,7 @@ export class ImmutableRecord {
     if (this.has(key)) {
       return this;
     } else {
-      return this.add(key, value);
+      return this.insert(key, value);
     }
   }
 
