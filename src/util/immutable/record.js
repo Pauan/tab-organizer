@@ -1,9 +1,12 @@
 import { iterator, entries, to_array } from "../iterator";
 import { copy, insert, remove } from "./array";
 import { to_json } from "./json";
+import { assert } from "../assert";
 
 
 const get_index = (array, key) => {
+  assert(typeof key === "string");
+
   let start = 0;
   let end   = array["length"];
 
@@ -141,6 +144,10 @@ export class ImmutableRecord {
 }
 
 const sort_keys = ([key1, value1], [key2, value2]) => {
+  // TODO a bit inefficient ?
+  assert(typeof key1 === "string");
+  assert(typeof key2 === "string");
+
   if (key1 === key2) {
     return 0;
   } else if (key1 < key2) {

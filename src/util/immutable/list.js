@@ -1,6 +1,7 @@
 import { iterator, to_array } from "../iterator";
 import { copy, insert, push, remove } from "./array";
 import { to_json } from "./json";
+import { assert } from "../assert";
 
 
 class ImmutableList {
@@ -10,6 +11,8 @@ class ImmutableList {
   }
 
   has(index) {
+    assert(typeof index === "number");
+
     // TODO test this
     if (index < 0) {
       index += this.size;
@@ -19,6 +22,8 @@ class ImmutableList {
   }
 
   get(index) {
+    assert(typeof index === "number");
+
     // TODO test this
     if (index < 0) {
       index += this.size;
@@ -33,6 +38,8 @@ class ImmutableList {
   }
 
   insert(index, value) {
+    assert(typeof index === "number");
+
     // TODO test this
     if (index < 0) {
       index += this.size + 1;
@@ -47,6 +54,8 @@ class ImmutableList {
   }
 
   update(index, f) {
+    assert(typeof index === "number");
+
     // TODO test this
     if (index < 0) {
       index += this.size;
@@ -71,6 +80,8 @@ class ImmutableList {
   }
 
   remove(index) {
+    assert(typeof index === "number");
+
     // TODO test this
     if (index < 0) {
       index += this.size;
