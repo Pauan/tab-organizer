@@ -45,7 +45,7 @@ run_async(function* () {
 
   render();
 
-  db.on_change.listen((transaction) => {
+  db.on_commit.listen((transaction) => {
     const should_render = any(transaction, (x) => {
       const key = x.get("key").get(0);
 

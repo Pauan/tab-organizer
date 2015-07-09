@@ -65,8 +65,8 @@ export const init = async(function* () {
   let setting = async(function* () {});
 
 
-  db.on_change.listen((x) => {
-    each(x, (x) => {
+  db.on_commit.listen((transaction) => {
+    each(transaction, (x) => {
       const type = x.get("type");
 
       if (type === "default") {

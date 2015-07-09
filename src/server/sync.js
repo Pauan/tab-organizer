@@ -27,7 +27,7 @@ export const init = async(function* () {
     }
   });
 
-  db.on_change.listen((transaction) => {
+  db.on_commit.listen((transaction) => {
     const y1 = keep(transaction, (x) => {
       const key = x.get("key").get(0);
       return set.has(key);
