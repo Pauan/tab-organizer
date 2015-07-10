@@ -1,46 +1,58 @@
-import { Event } from "../../util/event";
-import { each } from "../../util/iterator";
+import { Event } from "../../util/stream";
 import { to_json, from_json } from "../../util/immutable/json";
+import { check_error } from "./util";
 
 
 export class Port {
   constructor(port) {
-    this.name = port["name"];
+    const on_receive = new Event();
 
-    this._port = port;
+    const onMessage = (x) => {
+      const err = check_error();
 
-    this.on_disconnect = new Event();
+      if (err === null) {
+        // TODO is using `from_json` here correct ?
+        on_receive.send(from_json(x));
 
-    this.on_receive = new Event({
-      // TODO test this
-      bind: (event) => {
-        const onMessage = (x) => {
-          // TODO is using `from_json` here correct ?
-          event.send(from_json(x));
-        };
-
-        port["onMessage"]["addListener"](onMessage);
-
-        return { onMessage };
-      },
-      // TODO test this
-      unbind: (event, { onMessage }) => {
-        port["onMessage"]["removeListener"](onMessage);
+      } else {
+        cleanup();
+        this._cleanup();
+        on_receive.error(err);
       }
-    });
+    };
 
-    // TODO test this
-    port["onDisconnect"]["addListener"](() => {
+    const onDisconnect = () => {
       //this._port["disconnect"]();
 
-      const on_disconnect = this.on_disconnect;
+      cleanup();
+      this._cleanup();
 
-      this._port = null;
-      this.on_receive = null;
-      this.on_disconnect = null;
+      const err = check_error();
+      if (err === null) {
+        on_receive.complete();
 
-      on_disconnect.send(undefined);
-    });
+      } else {
+        on_receive.error(err);
+      }
+    };
+
+    // TODO test this
+    const cleanup = () => {
+      port["onMessage"]["removeListener"](onMessage);
+      port["onDisconnect"]["removeListener"](onDisconnect);
+    };
+
+    port["onMessage"]["addListener"](onMessage);
+    port["onDisconnect"]["addListener"](onDisconnect);
+
+    this.name = port["name"];
+    this._port = port;
+    this.on_receive = on_receive;
+  }
+
+  _cleanup() {
+    this._port = null;
+    this.on_receive = null;
   }
 
   send(value) {

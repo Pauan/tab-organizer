@@ -1,56 +1,292 @@
 import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
 import { Some, None } from "./immutable/maybe";
-import { Event } from "./event";
+import { Event } from "./stream";
 import { assert } from "./assert";
+import { each, to_array } from "./iterator";
 
 
-const lookup = (init, keys, f) => {
-  assert(keys["length"] >= 1);
-
-  let i = 0;
-
+const nested_lookup = (init, keys, f) => {
   // TODO test this
-  while (i < keys["length"] - 1) {
+  for (let i = 0; i < keys["length"]; ++i) {
     init = init.get(keys[i]);
-    ++i;
   }
 
-  return f(init, keys[i]);
+  return f(init);
 };
 
 const loop = (init, keys, i, end, f) => {
-  const key = keys[i];
-
-  if (i === end) {
-    return f(init, key);
+  if (i < end) {
+    return init.modify(keys[i], (x) => loop(x, keys, i + 1, end, f));
 
   } else {
-    return init.update(key, (x) => loop(x, keys, i + 1, end, f));
+    return f(init);
   }
 };
 
-const update = (init, keys, f) => {
-  assert(keys["length"] >= 1);
-
-  return loop(init, keys, 0, keys["length"] - 1, f);
-};
+const nested_modify = (init, keys, f) =>
+  loop(init, keys, 0, keys["length"], f);
 
 
-export class Table {
-  constructor(x = null) {
+class Base {
+  constructor(keys, path) {
     this._destroyed = false;
-    this.on_change = new Event();
+    this._keys = keys;
+    this._path = path;
+  }
 
-    if (x == null) {
-      this._keys = Record();
+  _destroy() {
+    assert(!this._destroyed);
+
+    this._destroyed = true;
+    this._keys = null;
+    this._path = null;
+  }
+
+  // TODO guarantee that it's impossible to create conflicts
+  transaction(f) {
+    assert(!this._destroyed);
+
+    const transaction = new Transaction(this);
+
+    f(transaction);
+
+    const keys    = transaction._keys;
+    const changes = transaction._changes;
+
+    transaction._destroy();
+
+    if (this._keys !== keys) {
+      assert(changes.size > 0);
+
+      this._keys = keys;
+      this._commit_changes(changes);
+
     } else {
-      this._keys = x;
+      assert(changes.size === 0);
     }
   }
 
+  sub(path, f) {
+    const x = new Subpath(this, path);
+    f(x);
+    x._destroy();
+  }
+
+
+  _modify_key_value(type, key, value, f) {
+    assert(!this._destroyed);
+
+    const old_keys = this._keys;
+
+    this._keys = nested_modify(old_keys, this._path, f);
+
+    if (this._keys !== old_keys) {
+      this._push_change(Record([
+        ["type", type],
+        ["table", this._keys],
+        ["path", List(this._path)], // TODO a bit inefficient
+        ["key", key],
+        ["value", value]
+      ]));
+    }
+  }
+
+  _modify_value(type, value, f) {
+    assert(!this._destroyed);
+
+    const old_keys = this._keys;
+
+    this._keys = nested_modify(old_keys, this._path, f);
+
+    if (this._keys !== old_keys) {
+      this._push_change(Record([
+        ["type", type],
+        ["table", this._keys],
+        ["path", List(this._path)], // TODO a bit inefficient
+        ["value", value]
+      ]));
+    }
+  }
+
+  has(key) {
+    assert(!this._destroyed);
+    return nested_lookup(this._keys, this._path, (x) => x.has(key));
+  }
+
+  get(key) {
+    assert(!this._destroyed);
+    return nested_lookup(this._keys, this._path, (x) => x.get(key));
+  }
+
+  index_of(value) {
+    assert(!this._destroyed);
+    return nested_lookup(this._keys, this._path, (x) => x.index_of(value));
+  }
+
+  default(key, value) {
+    this._modify_key_value("default", key, value, (x) => x.default(key, value));
+  }
+
+  insert(key, value) {
+    this._modify_key_value("insert", key, value, (x) => x.insert(key, value));
+  }
+
+  update(key, value) {
+    this._modify_key_value("update", key, value, (x) => x.update(key, value));
+  }
+
+  assign(key, value) {
+    this._modify_key_value("assign", key, value, (x) => x.assign(key, value));
+  }
+
+  concat(value) {
+    this._modify_value("concat", value, (x) => x.concat(value));
+  }
+
+  push(value) {
+    this._modify_value("push", value, (x) => x.push(value));
+  }
+
+  clear() {
+    assert(!this._destroyed);
+
+    const old_keys = this._keys;
+
+    this._keys = nested_modify(old_keys, this._path, (x) => x.clear());
+
+    if (this._keys !== old_keys) {
+      this._push_change(Record([
+        ["type", "clear"],
+        ["table", this._keys],
+        ["path", List(this._path)] // TODO a bit inefficient
+      ]));
+    }
+  }
+
+  remove(key) {
+    assert(!this._destroyed);
+
+    const old_keys = this._keys;
+
+    this._keys = nested_modify(old_keys, this._path, (x) =>
+      x.remove(key));
+
+    assert(this._keys !== old_keys);
+
+    this._push_change(Record([
+      ["type", "remove"],
+      ["table", this._keys],
+      ["path", List(this._path)], // TODO a bit inefficient
+      ["key", key]
+    ]));
+  }
+
+  // TODO test this
+  modify(key, f) {
+    assert(!this._destroyed);
+
+    // TODO this is a little hacky
+    let new_value = None;
+
+    const old_keys = this._keys;
+
+    this._keys = nested_modify(old_keys, this._path, (x) =>
+      x.modify(key, (old_value) => {
+        const x = f(old_value);
+        new_value = Some(x);
+        return x;
+      }));
+
+    if (this._keys !== old_keys) {
+      this._push_change(Record([
+        ["type", "update"],
+        ["table", this._keys],
+        ["path", List(this._path)], // TODO a bit inefficient
+        ["key", key],
+        ["value", new_value.get()]
+      ]));
+
+    } else {
+      assert(new_value.has());
+    }
+  }
+}
+
+
+class Subpath extends Base {
+  constructor(parent, path) {
+    // TODO test this
+    super(parent._keys, parent._path["concat"](path));
+    this._parent = parent;
+  }
+
   _push_change(x) {
-    this.on_change.send(List([x]));
+    // TODO test this
+    // TODO what if the parent's keys changed ?
+    this._parent.keys = this._keys;
+    this._parent._push_change(x);
+  }
+
+  _commit_changes(changes) {
+    this._parent._commit_changes(changes);
+  }
+
+  _destroy() {
+    super._destroy();
+
+    this._parent = null;
+  }
+}
+
+
+class Transaction extends Base {
+  constructor(parent) {
+    super(parent._keys, parent._path);
+    this._changes = List();
+  }
+
+  _push_change(x) {
+    this._changes = this._changes.push(x);
+  }
+
+  _commit_changes(changes) {
+    this._changes = this._changes.concat(changes);
+  }
+
+  _destroy() {
+    super._destroy();
+
+    this._changes = null;
+  }
+}
+
+
+export class Table extends Base {
+  constructor(keys = null) {
+    // TODO assert that keys is a Record ?
+    if (keys == null) {
+      keys = Record();
+    }
+
+    super(keys, []);
+
+    // TODO replace with Stream ?
+    this.on_commit = new Event();
+  }
+
+  _push_change(x) {
+    this.on_commit.send(List([x]));
+  }
+
+  _commit_changes(changes) {
+    this.on_commit.send(changes);
+  }
+
+  _destroy() {
+    super._destroy();
+
+    this.on_commit = null;
   }
 
   get_all() {
@@ -67,191 +303,60 @@ export class Table {
     this.transaction((db) => {
       each(old_db, ([key, value]) => {
         if (!new_db.has(key)) {
-          db.remove([key]);
+          db.remove(key);
         }
       });
 
       each(new_db, ([key, value]) => {
-        if (db.has([key])) {
-          db.set([key], value);
-        } else {
-          db.add([key], value);
-        }
+        db.assign(key, value);
       });
     });
   }
 
-  // TODO code duplication
-  default(keys, value) {
-    assert(!this._destroyed);
-
-    const old_keys = this._keys;
-
-    this._keys = update(old_keys, keys, (x, key) => x.default(key, value));
-
-    // TODO test this
-    if (this._keys !== old_keys) {
-      this._push_change(Record([
-        ["type", "default"],
-        ["table", this._keys],
-        ["key", List(keys)],
-        ["value", value]
-      ]));
-    }
-  }
-
-  has(keys) {
-    assert(!this._destroyed);
-    return lookup(this._keys, keys, (x, key) => x.has(key));
-  }
-
-  get(keys) {
-    assert(!this._destroyed);
-    return lookup(this._keys, keys, (x, key) => x.get(key));
-  }
-
-  add(keys, value) {
-    assert(!this._destroyed);
-
-    this._keys = update(this._keys, keys, (x, key) => x.add(key, value));
-
-    // No need to check for changes, because `add` always changes the Record
-    this._push_change(Record([
-      ["type", "add"],
-      ["table", this._keys],
-      ["key", List(keys)],
-      ["value", value]
-    ]));
-  }
-
-  remove(keys) {
-    assert(!this._destroyed);
-
-    this._keys = update(this._keys, keys, (x, key) => x.remove(key));
-
-    // No need to check for changes, because `remove` always changes the Record
-    this._push_change(Record([
-      ["type", "remove"],
-      ["table", this._keys],
-      ["key", List(keys)]
-    ]));
-  }
-
-  // TODO code duplication
-  set(keys, value) {
-    assert(!this._destroyed);
-
-    const old_keys = this._keys;
-
-    this._keys = update(old_keys, keys, (x, key) => x.set(key, value));
-
-    if (this._keys !== old_keys) {
-      this._push_change(Record([
-        ["type", "set"],
-        ["table", this._keys],
-        ["key", List(keys)],
-        ["value", value]
-      ]));
-    }
-  }
-
   // TODO test this
-  update(keys, f) {
-    assert(!this._destroyed);
+  commit_transaction(transaction) {
+    this.transaction((db) => {
+      each(transaction, (x) => {
+        // TODO a bit hacky to use to_array
+        db.sub(to_array(x.get("path")), (db) => {
+          switch (x.get("type")) {
+          case "update":
+            db.update(x.get("key"), x.get("value"));
+            break;
 
-    // TODO this is a little hacky
-    let new_value = None();
+          case "assign":
+            db.assign(x.get("key"), x.get("value"));
+            break;
 
-    const old_keys = this._keys;
+          case "insert":
+            db.insert(x.get("key"), x.get("value"));
+            break;
 
-    this._keys = update(old_keys, keys, (x, key) =>
-      x.update(key, (old_value) => {
-        const x = f(old_value);
-        new_value = Some(x);
-        return x;
-      }));
+          case "default":
+            db.default(x.get("key"), x.get("value"));
+            break;
 
-    if (this._keys !== old_keys) {
-      this._push_change(Record([
-        ["type", "set"],
-        ["table", this._keys],
-        ["key", List(keys)],
-        ["value", new_value.get()]
-      ]));
+          case "push":
+            db.push(x.get("value"));
+            break;
 
-    } else {
-      assert(new_value.has());
-    }
-  }
+          case "concat":
+            db.concat(x.get("value"));
+            break;
 
-  // TODO guarantee that it's impossible to create conflicts
-  transaction(f) {
-    assert(!this._destroyed);
+          case "remove":
+            db.remove(x.get("key"));
+            break;
 
-    const transaction = new Transaction(this);
+          case "clear":
+            db.clear();
+            break;
 
-    f(transaction);
-
-    const keys    = transaction._keys;
-    const changes = transaction._changes;
-
-    transaction._destroy();
-
-    if (this._keys !== keys) {
-      assert(changes.size > 0);
-
-      this._keys = keys;
-      this.on_change.send(changes);
-
-    } else {
-      assert(changes.size === 0);
-    }
-  }
-}
-
-
-class Transaction extends Table {
-  constructor(parent) {
-    super();
-    this._destroyed = false;
-    this._keys = parent._keys;
-    this._changes = List();
-  }
-
-  _push_change(x) {
-    this._changes = this._changes.push(x);
-  }
-
-  _destroy() {
-    assert(!this._destroyed);
-
-    this._destroyed = true;
-    this._keys = null;
-    this._changes = null;
-  }
-
-  // TODO code duplication
-  // TODO guarantee that it's impossible to create conflicts
-  transaction(f) {
-    assert(!this._destroyed);
-
-    const transaction = new Transaction(this);
-
-    f(transaction);
-
-    const keys    = transaction._keys;
-    const changes = transaction._changes;
-
-    transaction._destroy();
-
-    if (this._keys !== keys) {
-      assert(changes.size > 0);
-
-      this._keys = keys;
-      this._changes = this._changes.concat(changes);
-
-    } else {
-      assert(changes.size === 0);
-    }
+          default:
+            fail();
+          }
+        });
+      });
+    });
   }
 }

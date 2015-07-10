@@ -1,23 +1,31 @@
-class Maybe {
-  constructor(x) {
-    this._maybe = x;
-  }
+class _None {
+  constructor() {}
 
+  // TODO maybe use static properties rather than methods ?
   has() {
-    // TODO test this
-    return this._maybe["length"] === 1;
+    return false;
   }
 
+  // TODO maybe use a getter rather than methods ?
   get() {
-    // TODO test this
-    if (this._maybe["length"] === 1) {
-      return this._maybe[0];
-    } else {
-      throw new Error("Cannot get from None");
-    }
+    throw new Error("Cannot get from None");
   }
 }
 
-export const None = () => new Maybe([]);
+class _Some {
+  constructor(x) {
+    this._value = x;
+  }
 
-export const Some = (x) => new Maybe([x]);
+  has() {
+    return true;
+  }
+
+  get() {
+    return this._value;
+  }
+}
+
+export const None = new _None();
+
+export const Some = (x) => new _Some(x);

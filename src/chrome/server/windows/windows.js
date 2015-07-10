@@ -63,7 +63,7 @@
  * windows.onCreated
  */
 import { chrome } from "../../../common/globals";
-import { Event } from "../../../util/event";
+import { Event } from "../../../util/stream";
 import { List } from "../../../util/mutable/list";
 import { Dict } from "../../../util/mutable/dict";
 import { async, ignore } from "../../../util/async";

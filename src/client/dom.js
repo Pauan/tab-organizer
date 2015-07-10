@@ -1,6 +1,6 @@
 import { TweenLite, Power3 } from "../common/globals";
 import { each } from "../util/iterator";
-import { Event } from "../util/event";
+import { Stream } from "../util/stream";
 import { batch_read, batch_write } from "./dom/batch";
 import { make_style, make_animation } from "./dom/style";
 import { assert } from "../util/assert";
@@ -15,53 +15,45 @@ class DOM {
     this._dom = dom;
 
     // TODO does this leak when the DOM element is removed ?
-    this.on_hover = new Event({
+    // TODO test this
+    this.on_hover = new Stream((send, error, complete) => {
+      const mouseover = () => {
+        send(true);
+      };
+
+      const mouseout = () => {
+        send(false);
+      };
+
+      this._dom["addEventListener"]("mouseover", mouseover, true);
+      this._dom["addEventListener"]("mouseout", mouseout, true);
+
       // TODO test this
-      bind: (event) => {
-        const mouseover = () => {
-          event.send(true);
-        };
-
-        const mouseout = () => {
-          event.send(false);
-        };
-
-        this._dom["addEventListener"]("mouseover", mouseover, true);
-        this._dom["addEventListener"]("mouseout", mouseout, true);
-
-        return { mouseover, mouseout };
-      },
-      // TODO test this
-      unbind: (event, { mouseover, mouseout }) => {
+      return () => {
         this._dom["removeEventListener"]("mouseover", mouseover, true);
         this._dom["removeEventListener"]("mouseout", mouseout, true);
-      }
+      };
     });
 
     // TODO does this leak when the DOM element is removed ?
-    this.on_hold = new Event({
+    // TODO test this
+    this.on_hold = new Stream((send, error, complete) => {
+      const mousedown = () => {
+        send(true);
+      };
+
+      const mouseup = () => {
+        send(false);
+      };
+
+      this._dom["addEventListener"]("mousedown", mousedown, true);
+      addEventListener("mouseup", mouseup, true);
+
       // TODO test this
-      bind: (event) => {
-        let hold = false;
-
-        const mousedown = () => {
-          event.send(true);
-        };
-
-        const mouseup = () => {
-          event.send(false);
-        };
-
-        this._dom["addEventListener"]("mousedown", mousedown, true);
-        addEventListener("mouseup", mouseup, true);
-
-        return { mousedown, mouseup };
-      },
-      // TODO test this
-      unbind: (event, { mousedown, mouseup }) => {
+      return () => {
         this._dom["removeEventListener"]("mousedown", mousedown, true);
         removeEventListener("mouseup", mouseup, true);
-      }
+      };
     });
   }
 

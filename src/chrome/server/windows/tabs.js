@@ -1,5 +1,5 @@
 import { Dict } from "../../../util/mutable/dict";
-import { Event } from "../../../util/event";
+import { Event } from "../../../util/stream";
 import { assert } from "../../../util/assert";
 import { update_indexes } from "../../common/util";
 import { window_ids } from "./windows";

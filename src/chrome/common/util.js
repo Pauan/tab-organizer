@@ -30,6 +30,7 @@ export const dimensions = (info) => {
 };
 
 
+// TODO test this
 export const check_error = () => {
   if (chrome["runtime"]["lastError"] != null) {
     return new Error(chrome["runtime"]["lastError"]["message"]);

@@ -92,6 +92,15 @@ export const keep = function* (iter, f) {
   }
 };
 
+export const keep_map = function* (iter, f) {
+  for (let x of iter) {
+    const maybe = f(x);
+    if (maybe.has()) {
+      yield maybe.get();
+    }
+  }
+};
+
 export const all = (iter, f) => {
   for (let x of iter) {
     if (!f(x)) {

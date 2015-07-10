@@ -1,7 +1,8 @@
 import { uuid_port_sync } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
-import { map, keep } from "../util/iterator";
+import { keep_map } from "../util/iterator";
+import { None, Some } from "../util/immutable/maybe";
 import { Set } from "../util/mutable/set";
 import { List } from "../util/immutable/list";
 import { Record } from "../util/immutable/record";
@@ -18,26 +19,46 @@ export const init = async(function* () {
     set.add(s);
   };
 
-  ports.on_connect.listen((port) => {
-    if (port.name === uuid_port_sync) {
-      port.send(List([Record([
-        ["type", "init"],
-        ["tables", Record(map(set, (s) => [s, db.get([s])]))]
-      ])]));
+  const transactions = db.on_commit.keep_map((transaction) => {
+    const x = List(keep_map(transaction, (x) => {
+      const path = x.get("path");
+
+      // TODO utility function for this ?
+      // TODO what if it doesn't have the "key" property ?
+      const key = (path.size === 0
+                    ? x.get("key")
+                    : path.get(0));
+
+      if (set.has(key)) {
+        return Some(x.remove("table"));
+      } else {
+        return None;
+      }
+    }));
+
+    if (x.size > 0) {
+      return Some(x);
+    } else {
+      return None;
     }
   });
 
-  db.on_commit.listen((transaction) => {
-    const y1 = keep(transaction, (x) => {
-      const key = x.get("key").get(0);
-      return set.has(key);
+  ports.on_connect(uuid_port_sync).each((port) => {
+    port.send(Record([
+      ["type", "init"],
+      ["tables", Record(map(set, (s) => [s, db.get([s])]))]
+    ]));
+
+    const x = transactions.each((transaction) => {
+      port.send(Record([
+        ["type", "transaction"],
+        ["value", transaction]
+      ]));
     });
 
-    const y2 = List(map(y1, (x) => x.remove("table")));
-
-    if (y2.size > 0) {
-      ports.send(uuid_port_sync, y2);
-    }
+    port.on_receive.on_complete(() => {
+      x.stop();
+    });
   });
 
   return {

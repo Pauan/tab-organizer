@@ -418,47 +418,47 @@ export const init = async(function* () {
   check_integrity();
 
 
-  windows.on_open.listen((info) => {
+  windows.on_open.each((info) => {
     session.window_open(info);
     window_open(info);
   });
 
-  windows.on_close.listen((info) => {
+  windows.on_close.each((info) => {
     window_close(info);
     // This must be after `window_close`
     session.window_close(info);
   });
 
-  windows.on_focus.listen((info) => {
+  windows.on_focus.each((info) => {
     window_focus(info);
   });
 
-  tabs.on_open.listen((info) => {
+  tabs.on_open.each((info) => {
     session.tab_open(info);
     tab_open(info);
   });
 
-  tabs.on_close.listen((info) => {
+  tabs.on_close.each((info) => {
     tab_close(info);
     // This must be after `tab_close`
     session.tab_close(info);
   });
 
-  tabs.on_focus.listen((info) => {
+  tabs.on_focus.each((info) => {
     tab_focus(info);
   });
 
-  tabs.on_move.listen((info) => {
+  tabs.on_move.each((info) => {
     session.tab_move(info);
     tab_move(info);
   });
 
-  tabs.on_update.listen((info) => {
+  tabs.on_update.each((info) => {
     session.tab_update(info);
     tab_update(info);
   });
 
-  tabs.on_replace.listen((info) => {
+  tabs.on_replace.each((info) => {
     session.tab_replace(info);
   });
 

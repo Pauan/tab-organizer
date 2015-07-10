@@ -16,46 +16,19 @@ export const init = async(function* () {
   yield async_callback((success, error) => {
     const port = ports.connect(uuid_port_sync);
 
-    port.on_receive.listen((transaction) => {
-      db.transaction((db) => {
-        each(transaction, (x) => {
-          console.log(to_json(x));
+    port.on_receive.each((x) => {
+      const type = x.get("type");
 
-          const type = x.get("type");
+      if (type === "init") {
+        db.set_all(x.get("tables"));
+        success(undefined);
 
-          if (type === "init") {
-            each(x.get("tables"), ([key, value]) => {
-              db.insert([key], value);
-            });
+      } else if (type === "transaction") {
+        db.commit_transaction(x.get("value"));
 
-            success(undefined);
-
-          } else {
-            // TODO a little inefficient
-            const key = to_array(x.get("key"));
-
-            if (type === "remove") {
-              db.remove(key);
-
-            } else {
-              const value = x.get("value");
-
-              if (type === "default") {
-                db.default(key, value);
-
-              } else if (type === "insert") {
-                db.insert(key, value);
-
-              } else if (type === "update") {
-                db.update(key, value);
-
-              } else {
-                fail();
-              }
-            }
-          }
-        });
-      });
+      } else {
+        fail();
+      }
     });
   });
 

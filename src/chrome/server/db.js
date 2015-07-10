@@ -65,24 +65,34 @@ export const init = async(function* () {
   let setting = async(function* () {});
 
 
-  db.on_commit.listen((transaction) => {
+  db.on_commit.each((transaction) => {
     each(transaction, (x) => {
       const type = x.get("type");
+      const path = x.get("path");
 
       if (type === "default") {
         // Do nothing
 
+      // TODO hacky
+      } else if (path.size === 0 &&
+                 (type === "clear"  ||
+                  type === "concat" ||
+                  type === "push")) {
+        throw new Error("db: not allowed: " + type);
 
-      } else if (type === "update" || type === "insert" || type === "remove") {
-        const keys = x.get("key");
-        const key = keys.get(0);
+      } else {
+        const key = (path.size === 0
+                      ? x.get("key")
+                      : path.get(0));
+
+        console.log(key);
 
         // TODO this doesn't seem like quite the right spot for this, but I don't know any better spots...
         db.delay(key, 1000);
 
 
         // TODO test this
-        if (type === "remove" && keys.size === 1) {
+        if (type === "remove" && path.size === 0) {
           with_delay(key, () => {
             run_async(function* () {
               // TODO is this correct ?
