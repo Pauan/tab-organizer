@@ -53,7 +53,7 @@ class ImmutableList {
     }
   }
 
-  update(index, f) {
+  modify(index, f) {
     assert(typeof index === "number");
 
     // TODO test this
