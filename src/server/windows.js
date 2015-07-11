@@ -110,7 +110,7 @@ export const init = async(function* () {
     db.insert(["current.tab-ids", tab_id], tab);
   };
 
-  const update_window = (db, window_id) => {
+  const update_window = (db, window_id, info) => {
     const tab_ids = db.get(["current.tab-ids"]);
 
     each(info.tabs, (info) => {

@@ -1,7 +1,7 @@
 import { uuid_port_sync } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
-import { keep_map } from "../util/iterator";
+import { keep_map, map } from "../util/iterator";
 import { None, Some } from "../util/immutable/maybe";
 import { Set } from "../util/mutable/set";
 import { List } from "../util/immutable/list";

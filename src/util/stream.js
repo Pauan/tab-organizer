@@ -1,5 +1,6 @@
 import { Set } from "./mutable/set";
 import { copy } from "./immutable/array";
+import { each } from "./iterator";
 import { Some, None } from "./immutable/maybe";
 
 
@@ -36,7 +37,7 @@ export class Stream {
 
   each(f) {
     return {
-      stop: this._run(f, on_error, noop);
+      stop: this._run(f, on_error, noop)
     };
   }
 
@@ -68,7 +69,7 @@ export class Stream {
       }, () => {
         f();
         complete();
-      });
+      }));
   }
 
   drain() {
