@@ -31,7 +31,7 @@ const loop = (init, keys, i, end, f) => {
     return init.modify(key, (x) => loop(x, keys, i + 1, end, f));
 
   } else {
-    return init.modify(key, (x) => f(x, key));
+    return f(init, key);
   }
 };
 
@@ -240,12 +240,12 @@ export class Table extends Base {
     this.transaction((db) => {
       each(old_db, ([key, value]) => {
         if (!new_db.has(key)) {
-          db.remove(key);
+          db.remove([key]);
         }
       });
 
       each(new_db, ([key, value]) => {
-        db.assign(key, value);
+        db.assign([key], value);
       });
     });
   }

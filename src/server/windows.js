@@ -175,25 +175,23 @@ export const init = async(function* () {
 
 
   const window_init = (db, info) => {
-    db.transaction((db) => {
-      const id = session.window_id(info.id);
+    const id = session.window_id(info.id);
 
-      // TODO this is a little inefficient
-      const window_ids = db.get(["current.window-ids"]);
+    // TODO this is a little inefficient
+    const window_ids = db.get(["current.window-ids"]);
+
+    // TODO is this correct ?
+    if (window_ids.has(id)) {
+      // TODO assert that the index is correct ?
+      update_window(db, id, info);
+
+    } else {
+      make_new_window(db, id, info);
 
       // TODO is this correct ?
-      if (window_ids.has(id)) {
-        // TODO assert that the index is correct ?
-        update_window(db, id, info);
-
-      } else {
-        make_new_window(db, id, info);
-
-        // TODO is this correct ?
-        // TODO what about when reopening a closed window ?
-        db.push(["current.windows"], id);
-      }
-    });
+      // TODO what about when reopening a closed window ?
+      db.push(["current.windows"], id);
+    }
   };
 
   const window_open = ({ window: info }) => {

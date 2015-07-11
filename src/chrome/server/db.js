@@ -74,8 +74,6 @@ export const init = async(function* () {
         const keys = x.get("keys");
         const key  = keys.get(0);
 
-        console.log(key);
-
         // TODO this doesn't seem like quite the right spot for this, but I don't know any better spots...
         db.delay(key, 1000);
 

@@ -102,29 +102,47 @@ const ui_tab_close_style = dom.style({
 });
 
 const ui_favicon = (tab) =>
-  dom.image({ style: ui_tab_icon_style,
-              url: tab.get("favicon") });
+  dom.image((e) => {
+    e.add_style(ui_tab_icon_style);
+    e.add_style(ui_tab_favicon_style);
+    e.set_url(tab.get("favicon"));
+  });
 
 const ui_text = (tab) =>
-  dom.stretch({ style: ui_tab_text_style }, [
-    dom.text(tab.get("title") || tab.get("url"))
-  ]);
+  dom.stretch((e) => {
+    e.add_style(ui_tab_text_style);
+    e.push(dom.text(tab.get("title") || tab.get("url")));
+  });
 
 const ui_close = (tab) =>
-  dom.image({ style: ui_tab_close_style,
-              style_hover: ui_tab_close_style_hover,
-              style_hold: ui_tab_close_style_hold,
-              url: "data/images/button-close.png" });
+  dom.image((e) => {
+    e.add_style(ui_tab_icon_style);
+    e.add_style(ui_tab_close_style);
 
-export const ui_tab = (id) =>
-  new dom.Component(db.ref(["current.tab-ids", id]), (tab) => {
-    dom.row({ style: ui_tab_style,
-              style_hover: ui_tab_style_hover,
-              style_hold: ui_tab_style_hold,
+    /*e.on_hover.each((hover) => {
+      e.set_style(ui_tab_close_style_hover, hover);
+    });
 
-              animate_add: ui_tab_style_hidden,
-              animate_remove: ui_tab_style_hidden },
-      (options["tab-side"] === "left"
-        ? [ui_favicon(tab), ui_text(tab), ui_close(tab)]
-        : [ui_close(tab), ui_text(tab), ui_favicon(tab)]))
+    e.on_hold.each((hold) => {
+      e.set_style(ui_tab_close_style_hold, hold);
+    });*/
+
+    e.set_url("data/images/button-close.png");
+  });
+
+export const ui_tab = (tab) =>
+  dom.row((e) => {
+    e.add_style(ui_tab_style);
+
+    e.on_hover.each((hover) => {
+      e.set_style(ui_tab_style_hover, hover);
+    });
+
+    e.on_hold.each((hold) => {
+      e.set_style(ui_tab_style_hold, hold);
+    });
+
+    e.push(ui_favicon(tab));
+    e.push(ui_text(tab));
+    e.push(ui_close(tab));
   });
