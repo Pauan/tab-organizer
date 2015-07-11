@@ -21,13 +21,7 @@ export const init = async(function* () {
 
   const transactions = db.on_commit.keep_map((transaction) => {
     const x = List(keep_map(transaction, (x) => {
-      const path = x.get("path");
-
-      // TODO utility function for this ?
-      // TODO what if it doesn't have the "key" property ?
-      const key = (path.size === 0
-                    ? x.get("key")
-                    : path.get(0));
+      const key = x.get("keys").get(0);
 
       if (set.has(key)) {
         return Some(x.remove("table"));
@@ -49,13 +43,17 @@ export const init = async(function* () {
       ["tables", Record(map(set, (s) => [s, db.get([s])]))]
     ]));
 
-    // TODO seems a little hacky
-    transactions.using(port.on_receive).each((transaction) => {
+    // TODO a little hacky
+    const x = transactions.finally(() => { y.stop(); }).each((transaction) => {
       port.send(Record([
         ["type", "transaction"],
         ["value", transaction]
       ]));
     });
+
+    // TODO a little hacky
+    // When the port closes, stop iterating over `transactions`
+    const y = port.on_receive.finally(() => { x.stop(); }).drain();
   });
 
   return {

@@ -2,7 +2,8 @@ import { init as init_sync } from "./client/sync";
 import { run_async } from "./util/async";
 import { Timer } from "./util/time";
 import { assert } from "./util/assert";
-import { any, each } from "./util/iterator";
+import { keep_map, any, each } from "./util/iterator";
+import { Some, None } from "./util/immutable/maybe";
 import { ui_tab } from "./client/panel/tab";
 import * as dom from "./client/dom";
 
@@ -30,11 +31,7 @@ run_async(function* () {
       });
     });
 
-  const render = () => {
-    const windows    = db.get(["current.windows"]);
-    const window_ids = db.get(["current.window-ids"]);
-    const tab_ids    = db.get(["current.tab-ids"]);
-
+  const render = ({ windows, window_ids, tab_ids }) => {
     const timer = new Timer();
     dom.main.clear();
     dom.main.push(view(windows, window_ids, tab_ids));
@@ -45,9 +42,9 @@ run_async(function* () {
 
   render();
 
-  db.on_commit.each((transaction) => {
+  const changes = db.on_commit.keep_map((transaction) => {
     const should_render = any(transaction, (x) => {
-      const key = x.get("key").get(0);
+      const key  = x.get("keys").get(0);
 
       return key === "current.windows"    ||
              key === "current.window-ids" ||
@@ -55,8 +52,19 @@ run_async(function* () {
     });
 
     if (should_render) {
-      render();
+      return Some({
+        windows:    db.get("current.windows"),
+        window_ids: db.get("current.window-ids"),
+        tab_ids:    db.get("current.tab-ids")
+      });
+
+    } else {
+      return None;
     }
+  });
+
+  changes.each((x) => {
+    render(x);
   });
 
   console["debug"]("panel: initialized");

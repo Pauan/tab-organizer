@@ -110,12 +110,6 @@ class ImmutableList {
     }
   }
 
-  // TODO test this
-  concat(x) {
-    // TODO write optimized array concat function ?
-    return new ImmutableList(this._list["concat"](to_array(x)));
-  }
-
   to_json() {
     const a = this._list;
 

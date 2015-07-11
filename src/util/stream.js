@@ -40,16 +40,16 @@ export class Stream {
     };
   }
 
-/*
-  // TODO is this a good idea ?
-  on_error(f) {
-    return this._run(noop, f, noop);
-  }
+  indexed() {
+    return new Stream((send, error, complete) => {
+      let i = 0;
 
-  // TODO is this a good idea ?
-  on_complete(f) {
-    return this._run(noop, on_error, f);
-  }*/
+      return this._run((x) => {
+        send([i, x]);
+        ++i;
+      }, error, complete);
+    });
+  }
 
   /*initial(x) {
     return new Stream((send, error, complete) => {
@@ -59,30 +59,26 @@ export class Stream {
     });
   }*/
 
-  // TODO is there a better abstraction / name than `using` ?
-  using(x) {
-    return new Stream((send, error, complete) => {
-      const on_error = (err) => {
-        cleanup();
+  finally(f) {
+    return new Stream((send, error, complete) =>
+      this._run(send, (err) => {
+        f();
         error(err);
-      };
 
-      const on_complete = () => {
-        cleanup();
+      }, () => {
+        f();
         complete();
-      };
-
-      const stop1 = this._run(send, on_error, on_complete);
-      const stop2 = x._run(noop, on_error, on_complete);
-
-      const cleanup = () => {
-        stop1();
-        stop2();
-      };
-
-      return cleanup;
-    });
+      });
   }
+
+  drain() {
+    return this.each(noop);
+  }
+
+  /*ignore() {
+    return new Stream((send, error, complete) =>
+      this._run(noop, error, complete));
+  }*/
 
   // TODO test this
   any(f) {
@@ -314,6 +310,7 @@ export class Event extends Stream {
     });
   }
 
+  // TODO is it possible for the error to be swallowed ?
   error(err) {
     const listeners = this._listeners;
 

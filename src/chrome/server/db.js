@@ -52,37 +52,27 @@ class DB extends Table {
 
 
 export const init = async(function* () {
+  const db = new DB();
+
   const timer = new Timer();
 
-  const db = new DB(from_json(yield async_chrome((callback) => {
+  db.set_all(from_json(yield async_chrome((callback) => {
     chrome["storage"]["local"]["get"](null, callback);
   })));
 
   timer.done();
 
 
-  // TODO this is a little hacky
-  let setting = async(function* () {});
-
-
   db.on_commit.each((transaction) => {
     each(transaction, (x) => {
       const type = x.get("type");
-      const path = x.get("path");
 
       if (type === "default") {
         // Do nothing
 
-      // TODO hacky
-      } else if (path.size === 0 &&
-                 (type === "concat" ||
-                  type === "push")) {
-        throw new Error("db: not allowed: " + type);
-
       } else {
-        const key = (path.size === 0
-                      ? x.get("key")
-                      : path.get(0));
+        const keys = x.get("keys");
+        const key  = keys.get(0);
 
         console.log(key);
 
@@ -91,12 +81,9 @@ export const init = async(function* () {
 
 
         // TODO test this
-        if (type === "remove" && path.size === 0) {
+        if (type === "remove" && keys.size === 1) {
           with_delay(key, () => {
             run_async(function* () {
-              // TODO is this correct ?
-              yield setting;
-
               const timer = new Timer();
 
               yield async_chrome((callback) => {
@@ -120,9 +107,6 @@ export const init = async(function* () {
 
           with_delay(key, () => {
             run_async(function* () {
-              // TODO is this correct ?
-              yield setting;
-
               const timer_serialize = new Timer();
               const s_value = to_json(value);
               timer_serialize.done();
@@ -145,10 +129,6 @@ export const init = async(function* () {
             });
           });
         }
-
-
-      } else {
-        fail();
       }
     });
   });

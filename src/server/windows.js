@@ -70,26 +70,20 @@ export const init = async(function* () {
   };
 
 
-  // TODO test this
-  const update_time = (time, s) =>
-    time.assign(s, timestamp());
-
   const update_tab = (db, tab_id, info) => {
-    db.modify(["current.tab-ids", tab_id], (old_tab) => {
-      const new_tab = old_tab.update("url", info.url)
-                             .update("title", info.title)
-                             .update("favicon", info.favicon)
-                             .update("pinned", info.pinned);
+    const old_tab = db.get(["current.tab-ids", tab_id]);
 
-      // TODO test this
-      if (old_tab === new_tab) {
-        return old_tab;
+    db.update(["current.tab-ids", tab_id, "url"], info.url);
+    db.update(["current.tab-ids", tab_id, "title"], info.title);
+    db.update(["current.tab-ids", tab_id, "favicon"], info.favicon);
+    db.update(["current.tab-ids", tab_id, "pinned"], info.pinned);
 
-      } else {
-        return new_tab.modify("time", (time) =>
-          update_time(time, "updated"));
-      }
-    });
+    const new_tab = db.get(["current.tab-ids", tab_id]);
+
+    // TODO is this correct ?
+    if (old_tab !== new_tab) {
+      db.assign(["current.tab-ids", tab_id, "time", "updated"], timestamp());
+    }
   };
 
   const make_new_tab = (db, window_id, tab_id, info) => {
@@ -116,24 +110,23 @@ export const init = async(function* () {
     db.insert(["current.tab-ids", tab_id], tab);
   };
 
-  const update_window = (db, window_id, info) => {
+  const update_window = (db, window_id) => {
     const tab_ids = db.get(["current.tab-ids"]);
 
-    db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
-      foldl(tabs, info.tabs, (tabs, info) => {
-        const tab_id = session.tab_id(info.id);
+    each(info.tabs, (info) => {
+      const tab_id = session.tab_id(info.id);
 
-        if (tab_ids.has(tab_id)) {
-          // TODO assert that the index is correct ?
-          update_tab(db, tab_id, info);
-          return tabs;
+      if (tab_ids.has(tab_id)) {
+        // TODO assert that the index is correct ?
+        update_tab(db, tab_id, info);
 
-        } else {
-          make_new_tab(db, window_id, tab_id, info);
-          // TODO is this correct ?
-          return tabs.push(tab_id);
-        }
-      }));
+      } else {
+        make_new_tab(db, window_id, tab_id, info);
+
+        // TODO is this correct ?
+        db.push(["current.window-ids", window_id, "tabs"], tab_id);
+      }
+    });
   };
 
   const make_new_window = (db, window_id, info) => {
@@ -198,7 +191,7 @@ export const init = async(function* () {
 
         // TODO is this correct ?
         // TODO what about when reopening a closed window ?
-        db.modify(["current.windows"], (windows) => windows.push(id));
+        db.push(["current.windows"], id);
       }
     });
   };
@@ -211,7 +204,7 @@ export const init = async(function* () {
 
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
-      db.modify(["current.windows"], (windows) => windows.push(id));
+      db.push(["current.windows"], id);
     });
   };
 
@@ -220,8 +213,7 @@ export const init = async(function* () {
       if (info.new !== null) {
         const id = session.window_id(info.new.id);
 
-        db.modify(["current.window-ids", id, "time"], (time) =>
-          update_time(time, "focused"));
+        db.assign(["current.window-ids", id, "time", "focused"], timestamp());
       }
     });
   };
@@ -240,9 +232,10 @@ export const init = async(function* () {
 
       db.remove(["current.window-ids", id]);
 
-      db.modify(["current.windows"], (windows) =>
-        // TODO can this be implemented more efficiently ?
-        windows.remove(windows.index_of(id)));
+      // TODO can this be implemented more efficiently ?
+      const index = db.get(["current.windows"]).index_of(id);
+
+      db.remove(["current.windows", index]);
     });
   };
 
@@ -253,8 +246,11 @@ export const init = async(function* () {
 
       make_new_tab(db, window_id, tab_id, tab);
 
-      db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
-        tabs.insert(find_left_index(tabs, window, index), tab_id));
+      const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+
+      const session_index = find_left_index(tabs, window, index);
+
+      db.insert(["current.window-ids", window_id, "tabs", session_index], tab_id);
     });
   };
 
@@ -263,8 +259,7 @@ export const init = async(function* () {
       if (info.new !== null) {
         const tab_id = session.tab_id(info.new.id);
 
-        db.modify(["current.tab-ids", tab_id, "time"], (time) =>
-          update_time(time, "focused"));
+        db.assign(["current.tab-ids", tab_id, "time", "focused"], timestamp());
       }
     });
   };
@@ -288,23 +283,30 @@ export const init = async(function* () {
 
       db.update(["current.tab-ids", tab_id, "window"], new_window_id);
 
-      db.modify(["current.tab-ids", tab_id, "time"], (time) =>
-        update_time(time, "moved"));
+      // TODO what if it wasn't moved ?
+      db.assign(["current.tab-ids", tab_id, "time", "moved"], timestamp());
 
 
-      db.modify(["current.window-ids", old_window_id, "tabs"], (tabs) =>
-        tabs.remove(tabs.index_of(tab_id)));
+      const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
 
-      db.modify(["current.window-ids", new_window_id, "tabs"], (tabs) => {
+      const session_old_index = old_tabs.index_of(tab_id);
+
+      db.remove(["current.window-ids", old_window_id, "tabs", session_old_index]);
+
+
+      const new_tabs = db.get(["current.window-ids", new_window_id, "tabs"]);
+
+      // TODO a little bit inefficient
+      const session_new_index = (() => {
         // TODO is this check correct ?
         if (old_window === new_window) {
           // Moved to the left
           if (new_index < old_index) {
-            return tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
+            return find_left_index(new_tabs, new_window, new_index);
 
           // Moved to the right
           } else if (new_index > old_index) {
-            return tabs.insert(find_right_index(tabs, new_window, new_index), tab_id);
+            return find_right_index(new_tabs, new_window, new_index);
 
           } else {
             fail();
@@ -312,9 +314,12 @@ export const init = async(function* () {
 
         } else {
           // TODO is this correct ?
-          return tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
+          return find_left_index(new_tabs, new_window, new_index);
         }
-      });
+      })();
+
+      db.insert(["current.window-ids", new_window_id, "tabs", session_new_index],
+                tab_id);
     });
   };
 
@@ -332,9 +337,12 @@ export const init = async(function* () {
 
       db.remove(["current.tab-ids", tab_id]);
 
-      db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
-        // TODO can this be implemented more efficiently ?
-        tabs.remove(tabs.index_of(tab_id)));
+      const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+
+      // TODO can this be implemented more efficiently ?
+      const index = tabs.index_of(tab_id);
+
+      db.remove(["current.window-ids", window_id, "tabs", index]);
     });
   };
 

@@ -61,38 +61,34 @@ export const init = async(function* () {
   const window_id = (id) => window_ids.get(id);
   const tab_id = (id) => tab_ids.get(id);
 
-  const check_window = (session_window, window) => {
-    assert(session_window.get("id") === window_ids.get(window.id));
+  const check_window = (db, index, window) => {
+    assert(db.get([namespace, index, "id"]) ===
+           window_ids.get(window.id));
   };
 
-  const check_tab = (session_tab, tab) => {
-    assert(session_tab.get("id") === tab_ids.get(tab.id));
+  const check_tab = (db, window, index, tab) => {
+    check_window(db, window.index, window);
+
+    assert(db.get([namespace, window.index, "tabs", index, "id"]) ===
+           tab_ids.get(tab.id));
   };
 
-  const update_tabs = (db, window, f) => {
-    db.modify([namespace], (windows) =>
-      windows.modify(window.index, (session_window) => {
-        check_window(session_window, window);
-        return session_window.modify("tabs", f);
-      }));
-  };
+  const lookup = (window, index, ...args) =>
+    [namespace, window.index, "tabs", index, ...args];
 
 
   const window_open = ({ window, index }) => {
     assert(window.index === index);
 
-    const x = make_new_window(window);
-
-    db.modify([namespace], (windows) => windows.insert(index, x));
+    db.insert([namespace, index], make_new_window(window));
   };
 
   const window_close = ({ window, index }) => {
     assert(window.tabs.size === 0);
 
-    db.modify([namespace], (windows) => {
-      check_window(windows.get(index), window);
-      return windows.remove(index);
-    });
+    check_window(db, index, window);
+
+    db.remove([namespace, index]);
 
     window_ids.remove(window.id);
   };
@@ -101,10 +97,9 @@ export const init = async(function* () {
     assert(tab.index === index);
     assert(tab.window === window);
 
-    update_tabs(db, window, (tabs) => {
-      const x = make_new_tab(tab);
-      return tabs.insert(index, x);
-    });
+    check_window(db, window.index, window);
+
+    db.insert(lookup(window, index), make_new_tab(tab));
   };
 
   const tab_close = ({ window, tab, index, window_closing }) => {
@@ -114,41 +109,29 @@ export const init = async(function* () {
       db.delay(namespace, 10000);
     }
 
-    update_tabs(db, window, (tabs) => {
-      check_tab(tabs.get(index), tab);
-      return tabs.remove(index);
-    });
+    check_tab(db, window, index, tab);
+
+    db.remove(lookup(window, index));
 
     tab_ids.remove(tab.id);
   };
 
   const tab_update = ({ old, tab }) => {
     if (old.url !== tab.url) {
-      update_tabs(db, tab.window, (tabs) =>
-        tabs.modify(tab.index, (x) => {
-          check_tab(x, tab);
-          return x.update("url", tab.url);
-        }));
+      check_tab(db, tab.window, tab.index, tab);
+
+      db.update(lookup(tab.window, tab.index, "url"), tab.url);
     }
   };
 
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
     db.transaction((db) => {
-      // TODO a little hacky
-      const session_tab = db.get(["session.windows"])
-                            .get(old_window.index)
-                            .get("tabs")
-                            .get(old_index);
+      check_tab(db, old_window, old_index, tab);
+      check_window(db, new_window.index, new_window);
 
-      check_tab(session_tab, tab);
-
-      update_tabs(db, old_window, (tabs) => {
-        check_tab(tabs.get(old_index), tab);
-        return tabs.remove(old_index);
-      });
-
-      update_tabs(db, new_window, (tabs) =>
-        tabs.insert(new_index, session_tab));
+      const session_tab = db.get(lookup(old_window, old_index));
+      db.remove(lookup(old_window, old_index));
+      db.insert(lookup(new_window, new_index), session_tab);
     });
   };
 
