@@ -75,8 +75,7 @@ export const init = async(function* () {
 
       // TODO hacky
       } else if (path.size === 0 &&
-                 (type === "clear"  ||
-                  type === "concat" ||
+                 (type === "concat" ||
                   type === "push")) {
         throw new Error("db: not allowed: " + type);
 

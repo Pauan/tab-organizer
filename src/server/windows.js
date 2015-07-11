@@ -13,7 +13,7 @@ import { async } from "../util/async";
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows, tabs, ports } = yield init_chrome;
+  const { windows, tabs } = yield init_chrome;
   const session = yield init_session;
   const { sync } = yield init_sync;
 
@@ -212,14 +212,6 @@ export const init = async(function* () {
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
       db.modify(["current.windows"], (windows) => windows.push(id));
-
-      /*ports.send(uuid_port_tab, Record([
-        ["type", "window-open"],
-        ["window-id", id],
-        ["index", new_index],
-        // TODO this is a bit inefficient
-        ["window", window_ids.get(id)]
-      ]));*/
     });
   };
 
@@ -230,13 +222,6 @@ export const init = async(function* () {
 
         db.modify(["current.window-ids", id, "time"], (time) =>
           update_time(time, "focused"));
-
-        /*ports.send(uuid_port_tab, Record([
-          ["type", "window-focus"],
-          ["window-id", id],
-          // TODO this is a bit inefficient
-          ["window", window]
-        ]));*/
       }
     });
   };
@@ -258,12 +243,6 @@ export const init = async(function* () {
       db.modify(["current.windows"], (windows) =>
         // TODO can this be implemented more efficiently ?
         windows.remove(windows.index_of(id)));
-
-      /*ports.send(uuid_port_tab, Record([
-        ["type", "window-close"],
-        ["window-id", id],
-        ["index", index]
-      ]));*/
     });
   };
 
@@ -276,14 +255,6 @@ export const init = async(function* () {
 
       db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
         tabs.insert(find_left_index(tabs, window, index), tab_id));
-
-      /*ports.send(uuid_port_tab, Record([
-        ["type", "tab-open"],
-        ["window-id", window_id],
-        ["tab-id", tab_id],
-        ["index", new_index],
-        ["tab", new_tab]
-      ]));*/
     });
   };
 
@@ -294,12 +265,6 @@ export const init = async(function* () {
 
         db.modify(["current.tab-ids", tab_id, "time"], (time) =>
           update_time(time, "focused"));
-
-        /*ports.send(uuid_port_tab, Record([
-          ["type", "tab-focus"],
-          ["tab-id", tab_id],
-          ["tab", new_tab]
-        ]));*/
       }
     });
   };
@@ -310,17 +275,6 @@ export const init = async(function* () {
 
       update_tab(db, tab_id, tab);
     });
-
-    /*
-    // TODO test this
-    if (new_tab_ids !== old_tab_ids) {
-      ports.send(uuid_port_tab, Record([
-        ["type", "tab-update"],
-        ["tab-id", tab_id],
-        // TODO this is a bit inefficient
-        ["tab", new_tab_ids.get(tab_id)]
-      ]));
-    }*/
   };
 
   // TODO test this
@@ -361,16 +315,6 @@ export const init = async(function* () {
           return tabs.insert(find_left_index(tabs, new_window, new_index), tab_id);
         }
       });
-
-      /*ports.send(uuid_port_tab, Record([
-        ["type", "tab-move"],
-        ["old-window-id", old_window_id],
-        ["new-window-id", new_window_id],
-        ["tab-id", tab_id],
-        ["old-index", session_old_index],
-        ["new-index", session_new_index],
-        ["tab", new_tab]
-      ]));*/
     });
   };
 
@@ -391,13 +335,6 @@ export const init = async(function* () {
       db.modify(["current.window-ids", window_id, "tabs"], (tabs) =>
         // TODO can this be implemented more efficiently ?
         tabs.remove(tabs.index_of(tab_id)));
-
-      /*ports.send(uuid_port_tab, Record([
-        ["type", "tab-close"],
-        ["window-id", window_id],
-        ["tab-id", tab_id],
-        ["index", index]
-      ]));*/
     });
   };
 

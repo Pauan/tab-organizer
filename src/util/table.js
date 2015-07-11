@@ -148,22 +148,6 @@ class Base {
     this._modify_value("push", value, (x) => x.push(value));
   }
 
-  clear() {
-    assert(!this._destroyed);
-
-    const old_keys = this._keys;
-
-    this._keys = nested_modify(old_keys, this._path, (x) => x.clear());
-
-    if (this._keys !== old_keys) {
-      this._push_change(Record([
-        ["type", "clear"],
-        ["table", this._keys],
-        ["path", List(this._path)] // TODO a bit inefficient
-      ]));
-    }
-  }
-
   remove(key) {
     assert(!this._destroyed);
 
@@ -346,10 +330,6 @@ export class Table extends Base {
 
           case "remove":
             db.remove(x.get("key"));
-            break;
-
-          case "clear":
-            db.clear();
             break;
 
           default:

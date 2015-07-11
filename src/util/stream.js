@@ -59,6 +59,31 @@ export class Stream {
     });
   }*/
 
+  // TODO is there a better abstraction / name than `using` ?
+  using(x) {
+    return new Stream((send, error, complete) => {
+      const on_error = (err) => {
+        cleanup();
+        error(err);
+      };
+
+      const on_complete = () => {
+        cleanup();
+        complete();
+      };
+
+      const stop1 = this._run(send, on_error, on_complete);
+      const stop2 = x._run(noop, on_error, on_complete);
+
+      const cleanup = () => {
+        stop1();
+        stop2();
+      };
+
+      return cleanup;
+    });
+  }
+
   // TODO test this
   any(f) {
     return new Stream((send, error, complete) => {

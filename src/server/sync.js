@@ -49,15 +49,12 @@ export const init = async(function* () {
       ["tables", Record(map(set, (s) => [s, db.get([s])]))]
     ]));
 
-    const x = transactions.each((transaction) => {
+    // TODO seems a little hacky
+    transactions.using(port.on_receive).each((transaction) => {
       port.send(Record([
         ["type", "transaction"],
         ["value", transaction]
       ]));
-    });
-
-    port.on_receive.on_complete(() => {
-      x.stop();
     });
   });
 

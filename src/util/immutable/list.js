@@ -95,10 +95,6 @@ class ImmutableList {
     }
   }
 
-  clear() {
-    return new ImmutableList([]);
-  }
-
   push(value) {
     return new ImmutableList(push(this._list, value));
   }

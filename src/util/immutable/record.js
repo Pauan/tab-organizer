@@ -43,10 +43,6 @@ export class ImmutableRecord {
     this.size = keys["length"];
   }
 
-  clear() {
-    return new ImmutableRecord([]);
-  }
-
   has(key) {
     return get_index(this._keys, key).value !== null;
   }
