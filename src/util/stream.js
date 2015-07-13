@@ -12,7 +12,7 @@ const on_error = (e) => {
 const noop = () => {};
 
 
-export class Stream {
+class _Stream {
   constructor(fn) {
     this._fn = fn;
   }
@@ -42,7 +42,7 @@ export class Stream {
   }
 
   indexed() {
-    return new Stream((send, error, complete) => {
+    return Stream((send, error, complete) => {
       let i = 0;
 
       return this._run((x) => {
@@ -53,7 +53,7 @@ export class Stream {
   }
 
   /*initial(x) {
-    return new Stream((send, error, complete) => {
+    return Stream((send, error, complete) => {
       send(x);
 
       return this._run(send, error, complete);
@@ -61,7 +61,7 @@ export class Stream {
   }*/
 
   finally(f) {
-    return new Stream((send, error, complete) =>
+    return Stream((send, error, complete) =>
       this._run(send, (err) => {
         f();
         error(err);
@@ -76,14 +76,31 @@ export class Stream {
     return this.each(noop);
   }
 
+  // TODO is this correct ?
+  forever() {
+    return Stream((send, error, complete) => {
+      let stop;
+
+      const loop = () => {
+        stop = this._run(send, error, loop);
+      };
+
+      loop();
+
+      return () => {
+        stop();
+      };
+    });
+  }
+
   /*ignore() {
-    return new Stream((send, error, complete) =>
+    return Stream((send, error, complete) =>
       this._run(noop, error, complete));
   }*/
 
   // TODO test this
   any(f) {
-    return new Stream((send, error, complete) => {
+    return Stream((send, error, complete) => {
       const stop = this._run((x) => {
         if (f(x)) {
           stop();
@@ -101,7 +118,7 @@ export class Stream {
 
   // TODO test this
   all(f) {
-    return new Stream((send, error, complete) => {
+    return Stream((send, error, complete) => {
       const stop = this._run((x) => {
         if (!f(x)) {
           stop();
@@ -118,7 +135,7 @@ export class Stream {
   }
 
   keep_map(f) {
-    return new Stream((send, error, complete) =>
+    return Stream((send, error, complete) =>
       this._run((x) => {
         const maybe = f(x);
         if (maybe.has()) {
@@ -143,7 +160,7 @@ export class Stream {
 
   // TODO test this
   accumulate(init, f) {
-    return new Stream((send, error, complete) => {
+    return Stream((send, error, complete) => {
       send(init);
 
       return this._run((x) => {
@@ -154,7 +171,7 @@ export class Stream {
   }
 
   fold(init, f) {
-    return new Stream((send, error, complete) =>
+    return Stream((send, error, complete) =>
       this._run((x) => {
         init = f(init, x);
 
@@ -163,12 +180,30 @@ export class Stream {
         complete();
       }));
   }
+
+  delay(ms) {
+    return Stream((send, error, complete) => {
+      const id = setTimeout(() => {
+        stop = this._run(send, error, complete);
+      }, ms);
+
+      let stop = () => {
+        clearTimeout(id);
+      };
+
+      return () => {
+        stop();
+      };
+    });
+  }
 }
+
+export const Stream = (f) => new _Stream(f);
 
 
 // TODO test this
 export const concat = (args) =>
-  new Stream((send, error, complete) => {
+  Stream((send, error, complete) => {
     const end = args["length"];
 
     // TODO is this correct ?
@@ -194,7 +229,7 @@ export const concat = (args) =>
 
 // TODO test this
 export const merge = (args) =>
-  new Stream((send, error, complete) => {
+  Stream((send, error, complete) => {
     let pending_complete = args["length"];
 
     // TODO is this correct ?
@@ -231,7 +266,7 @@ export const merge = (args) =>
 
 // TODO test this
 export const latest = (args) =>
-  new Stream((send, error, complete) => {
+  Stream((send, error, complete) => {
     let pending_values = args["length"];
 
     // TODO is this correct ?
@@ -292,7 +327,7 @@ const event_run = function (send, error, complete) {
   };
 };
 
-export class Event extends Stream {
+export class Event extends _Stream {
   constructor() {
     super(event_run);
 

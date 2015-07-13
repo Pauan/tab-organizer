@@ -4,7 +4,7 @@ import { async_chrome, check_error } from "../common/util";
 
 
 // TODO test this
-export const on_click = new Stream((send, error, complete) => {
+export const on_click = Stream((send, error, complete) => {
   const onClicked = () => {
     const err = check_error();
 

@@ -1,20 +1,21 @@
 import * as dom from "../dom";
+import { animate, ease_in_out, range, round_range } from "../../util/animate";
+import { concat, Stream } from "../../util/stream";
 
 
-const ui_tab_style_hidden = dom.animation({
-  duration: 1000,
-  style: {
+const ui_tab_style_hidden = dom.style({
+  /*"transform": {
     "rotationX": "-90deg", // 120deg
     "rotationY": "5deg", // 20deg
     //"rotationZ": "-1deg", // -1deg
+  },*/
 
-    "border-top-width": "0px",
-    "border-bottom-width": "0px",
-    "padding-top": "0px",
-    "padding-bottom": "0px",
-    "height": "0px",
-    "opacity": "0"
-  }
+  "border-top-width": "0px",
+  "border-bottom-width": "0px",
+  "padding-top": "0px",
+  "padding-bottom": "0px",
+  "height": "0px",
+  "opacity": "0"
 });
 
 const ui_tab_style = dom.style({
@@ -142,7 +143,65 @@ export const ui_tab = (tab) =>
       e.set_style(ui_tab_style_hold, hold);
     });
 
+    const random = Stream((send, error, complete) => {
+      setTimeout(() => {
+        complete();
+      }, Math["random"]() * 2000);
+    });
+
+    concat([
+      //e.animate_from(ui_tab_style_hidden),
+
+      //random,
+
+      //e.animate_to(ui_tab_style_hidden),
+
+      // /[0-9]+(px)?/
+
+      animate(1000).map(ease_in_out).map((t) => {
+        if (t === 1) {
+          e._dom.style["border-top-width"] = "";
+          e._dom.style["border-bottom-width"] = "";
+          e._dom.style["padding-top"] = "";
+          e._dom.style["padding-bottom"] = "";
+          e._dom.style["height"] = "";
+          e._dom.style["opacity"] = "";
+
+        } else {
+          e._dom.style["border-top-width"] = round_range(t, 0, 1) + "px";
+          e._dom.style["border-bottom-width"] = round_range(t, 0, 1) + "px";
+          e._dom.style["padding-top"] = round_range(t, 0, 1) + "px";
+          e._dom.style["padding-bottom"] = round_range(t, 0, 1) + "px";
+          e._dom.style["height"] = round_range(t, 0, 20) + "px";
+          e._dom.style["opacity"] = range(t, 0, 1) + "";
+        }
+      }),
+
+      animate(1000).map(ease_in_out).map((t) => {
+        if (t === 1) {
+          e._dom.style["border-top-width"] = "";
+          e._dom.style["border-bottom-width"] = "";
+          e._dom.style["padding-top"] = "";
+          e._dom.style["padding-bottom"] = "";
+          e._dom.style["height"] = "";
+          e._dom.style["opacity"] = "";
+
+        } else {
+          e._dom.style["border-top-width"] = round_range(t, 1, 0) + "px";
+          e._dom.style["border-bottom-width"] = round_range(t, 1, 0) + "px";
+          e._dom.style["padding-top"] = round_range(t, 1, 0) + "px";
+          e._dom.style["padding-bottom"] = round_range(t, 1, 0) + "px";
+          e._dom.style["height"] = round_range(t, 20, 0) + "px";
+          e._dom.style["opacity"] = range(t, 1, 0) + "";
+        }
+      })
+    ]).forever().drain();
+
     e.push(ui_favicon(tab));
     e.push(ui_text(tab));
     e.push(ui_close(tab));
   });
+
+/*animate(1000).map(ease_in_out).each((t) => {
+  console.log(range(t, 0, 20));
+});*/

@@ -1,4 +1,3 @@
-import { TweenLite, Power3 } from "../common/globals";
 import { each } from "../util/iterator";
 import { Stream } from "../util/stream";
 import { batch_read, batch_write } from "./dom/batch";
@@ -7,16 +6,13 @@ import { assert } from "../util/assert";
 import { async, async_callback } from "../util/async";
 
 
-TweenLite["defaultEase"] = Power3["easeInOut"];
-
-
 class DOM {
   constructor(dom) {
     this._dom = dom;
 
     // TODO does this leak when the DOM element is removed ?
     // TODO test this
-    this.on_hover = new Stream((send, error, complete) => {
+    this.on_hover = Stream((send, error, complete) => {
       const mouseover = () => {
         send(true);
       };
@@ -37,7 +33,7 @@ class DOM {
 
     // TODO does this leak when the DOM element is removed ?
     // TODO test this
-    this.on_hold = new Stream((send, error, complete) => {
+    this.on_hold = Stream((send, error, complete) => {
       const mousedown = () => {
         send(true);
       };
@@ -77,28 +73,6 @@ class DOM {
     } else {
       this.remove_style(style);
     }
-  }
-
-  animate_from(x) {
-    return async_callback((success, error) => {
-      TweenLite["from"](this._dom, x._duration, {
-        "css": x._css,
-        "onComplete": () => {
-          success(undefined);
-        }
-      });
-    });
-  }
-
-  animate_to(x) {
-    return async_callback((success, error) => {
-      TweenLite["to"](this._dom, x._duration, {
-        "css": x._css,
-        "onComplete": () => {
-          success(undefined);
-        }
-      });
-    });
   }
 }
 
