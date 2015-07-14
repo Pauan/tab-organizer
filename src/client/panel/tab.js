@@ -1,6 +1,5 @@
 import * as dom from "../dom";
-import { animate, ease_in_out, range, round_range } from "../../util/animate";
-import { concat, Stream } from "../../util/stream";
+import { concat, Stream, merge, latest, empty } from "../../util/stream";
 
 
 const ui_tab_style_hidden = dom.style({
@@ -18,18 +17,32 @@ const ui_tab_style_hidden = dom.style({
   "opacity": "0"
 });
 
-const ui_tab_style = dom.style({
-  "border-width": "1px",
-  "padding": "1px",
+const ui_tab_dragging = dom.style({
+  "visibility": "hidden"
+});
+
+const ui_tab_style_visible = dom.style({
+  "border-top-width": "1px",
+  "border-bottom-width": "1px",
+  "padding-top": "1px",
+  "padding-bottom": "1px",
   "height": "20px",
+  "opacity": "1"
+});
+
+const ui_tab_style = dom.style({
+  "border-left-width": "1px",
+  "border-right-width": "1px",
+  "padding-left": "1px",
+  "padding-right": "1px",
   "border-radius": "5px",
 
   "cursor": "pointer",
   "transition-property": "background-color",
   "transition-timing-function": "ease-in-out",
 
-  "transform-origin": "11px 50%",
-  "transform": "translate3d(0, 0, 0)", /* TODO this is a hack to make animation smoother, should replace with something else */
+  //"transform-origin": "11px 50%",
+  //"transform": "translate3d(0, 0, 0)", /* TODO this is a hack to make animation smoother, should replace with something else */
 
   "text-shadow": "0px 1px 1px " + dom.hsl(211, 61, 50, 0.1),
   "transition-duration": "100ms"
@@ -107,12 +120,14 @@ const ui_favicon = (tab) =>
     e.add_style(ui_tab_icon_style);
     e.add_style(ui_tab_favicon_style);
     e.set_url(tab.get("favicon"));
+    return empty;
   });
 
 const ui_text = (tab) =>
   dom.stretch((e) => {
     e.add_style(ui_tab_text_style);
     e.push(dom.text(tab.get("title") || tab.get("url")));
+    return empty;
   });
 
 const ui_close = (tab) =>
@@ -120,28 +135,31 @@ const ui_close = (tab) =>
     e.add_style(ui_tab_icon_style);
     e.add_style(ui_tab_close_style);
 
-    /*e.on_hover.each((hover) => {
-      e.set_style(ui_tab_close_style_hover, hover);
-    });
-
-    e.on_hold.each((hold) => {
-      e.set_style(ui_tab_close_style_hold, hold);
-    });*/
-
     e.set_url("data/images/button-close.png");
+
+    return latest([
+      e.hovering,
+      e.holding
+    ]).map(([hover, hold]) => {
+      //e.set_style(ui_tab_close_style_hover, hover);
+      //e.set_style(ui_tab_close_style_hold, hold);
+    });
+  });
+
+const tab_placeholder =
+  dom.floating((e) => {
+    //e.hide();
+    return empty;
   });
 
 export const ui_tab = (tab) =>
   dom.row((e) => {
     e.add_style(ui_tab_style);
+    e.add_style(ui_tab_style_visible);
 
-    e.on_hover.each((hover) => {
-      e.set_style(ui_tab_style_hover, hover);
-    });
-
-    e.on_hold.each((hold) => {
-      e.set_style(ui_tab_style_hold, hold);
-    });
+    e.push(ui_favicon(tab));
+    e.push(ui_text(tab));
+    e.push(ui_close(tab));
 
     const random = Stream((send, error, complete) => {
       setTimeout(() => {
@@ -149,57 +167,119 @@ export const ui_tab = (tab) =>
       }, Math["random"]() * 2000);
     });
 
-    concat([
-      //e.animate_from(ui_tab_style_hidden),
+    return merge([
+      latest([
+        e.hovering,
+        e.holding
+      ]).map(([hover, hold]) => {
+        e.set_style(ui_tab_style_hover, hover);
+        e.set_style(ui_tab_style_hold, hover && hold);
+      }),
 
-      //random,
+      e.on_left_click().map((e) => {
+        console.log("left click", e);
+      }),
 
-      //e.animate_to(ui_tab_style_hidden),
+      e.on_middle_click().map((e) => {
+        console.log("middle click", e);
+      }),
 
-      // /[0-9]+(px)?/
+      e.on_right_click().map((e) => {
+        console.log("right click", e);
+      }),
 
-      animate(1000).map(ease_in_out).map((t) => {
-        if (t === 1) {
-          e._dom.style["border-top-width"] = "";
-          e._dom.style["border-bottom-width"] = "";
-          e._dom.style["padding-top"] = "";
-          e._dom.style["padding-bottom"] = "";
-          e._dom.style["height"] = "";
-          e._dom.style["opacity"] = "";
+      /*e.drag_target({
 
-        } else {
-          e._dom.style["border-top-width"] = round_range(t, 0, 1) + "px";
-          e._dom.style["border-bottom-width"] = round_range(t, 0, 1) + "px";
-          e._dom.style["padding-top"] = round_range(t, 0, 1) + "px";
-          e._dom.style["padding-bottom"] = round_range(t, 0, 1) + "px";
-          e._dom.style["height"] = round_range(t, 0, 20) + "px";
-          e._dom.style["opacity"] = range(t, 0, 1) + "";
+      }),*/
+
+      e.drag_source({
+        threshold: 10,
+
+        start: ({ y }) => {
+          const box = e._dom["getBoundingClientRect"]();
+          const offset = box["height"] / 2;
+
+          const copy = e.copy();
+
+          copy.add_style(ui_tab_style_hover);
+          copy._dom["style"]["width"] = box["width"] + "px";
+
+          e.add_style(ui_tab_dragging);
+
+          tab_placeholder.set_top(y - offset);
+          tab_placeholder.push(copy);
+          tab_placeholder.show();
+
+          return { offset };
+        },
+
+        move: (info, { y }) => {
+          tab_placeholder.set_top(y - info.offset);
+          return info;
+        },
+
+        end: (info) => {
+          e.remove_style(ui_tab_dragging);
+
+          tab_placeholder.clear();
+          tab_placeholder.hide();
         }
       }),
 
-      animate(1000).map(ease_in_out).map((t) => {
-        if (t === 1) {
-          e._dom.style["border-top-width"] = "";
-          e._dom.style["border-bottom-width"] = "";
-          e._dom.style["padding-top"] = "";
-          e._dom.style["padding-bottom"] = "";
-          e._dom.style["height"] = "";
-          e._dom.style["opacity"] = "";
+      concat([
+        random,
 
-        } else {
-          e._dom.style["border-top-width"] = round_range(t, 1, 0) + "px";
-          e._dom.style["border-bottom-width"] = round_range(t, 1, 0) + "px";
-          e._dom.style["padding-top"] = round_range(t, 1, 0) + "px";
-          e._dom.style["padding-bottom"] = round_range(t, 1, 0) + "px";
-          e._dom.style["height"] = round_range(t, 20, 0) + "px";
-          e._dom.style["opacity"] = range(t, 1, 0) + "";
-        }
-      })
-    ]).forever().drain();
+        e.animate({ from: ui_tab_style_visible,
+                    to: ui_tab_style_hidden,
+                    duration: 1000 }),
 
-    e.push(ui_favicon(tab));
-    e.push(ui_text(tab));
-    e.push(ui_close(tab));
+        random,
+
+        e.animate({ from: ui_tab_style_hidden,
+                    to: ui_tab_style_visible,
+                    duration: 1000 }),
+
+        // /[0-9]+(px)?/
+
+        /*animate(1000).map(ease_in_out).map((t) => {
+          if (t === 1) {
+            e._dom.style["border-top-width"] = "";
+            e._dom.style["border-bottom-width"] = "";
+            e._dom.style["padding-top"] = "";
+            e._dom.style["padding-bottom"] = "";
+            e._dom.style["height"] = "";
+            e._dom.style["opacity"] = "";
+
+          } else {
+            e._dom.style["border-top-width"] = round_range(t, 0, 1) + "px";
+            e._dom.style["border-bottom-width"] = round_range(t, 0, 1) + "px";
+            e._dom.style["padding-top"] = round_range(t, 0, 1) + "px";
+            e._dom.style["padding-bottom"] = round_range(t, 0, 1) + "px";
+            e._dom.style["height"] = round_range(t, 0, 20) + "px";
+            e._dom.style["opacity"] = range(t, 0, 1) + "";
+          }
+        }),
+
+        animate(1000).map(ease_in_out).map((t) => {
+          if (t === 1) {
+            e._dom.style["border-top-width"] = "";
+            e._dom.style["border-bottom-width"] = "";
+            e._dom.style["padding-top"] = "";
+            e._dom.style["padding-bottom"] = "";
+            e._dom.style["height"] = "";
+            e._dom.style["opacity"] = "";
+
+          } else {
+            e._dom.style["border-top-width"] = round_range(t, 1, 0) + "px";
+            e._dom.style["border-bottom-width"] = round_range(t, 1, 0) + "px";
+            e._dom.style["padding-top"] = round_range(t, 1, 0) + "px";
+            e._dom.style["padding-bottom"] = round_range(t, 1, 0) + "px";
+            e._dom.style["height"] = round_range(t, 20, 0) + "px";
+            e._dom.style["opacity"] = range(t, 1, 0) + "";
+          }
+        })*/
+      ])//.forever()
+    ]);
   });
 
 /*animate(1000).map(ease_in_out).each((t) => {

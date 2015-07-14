@@ -53,7 +53,7 @@ export const init = async(function* () {
 
     // TODO a little hacky
     // When the port closes, stop iterating over `transactions`
-    const y = port.on_receive.finally(() => { x.stop(); }).drain();
+    const y = port.on_receive.finally(() => { x.stop(); }).run();
   });
 
   return {

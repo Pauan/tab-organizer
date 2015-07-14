@@ -72,7 +72,7 @@ class _Stream {
       }));
   }
 
-  drain() {
+  run() {
     return this.each(noop);
   }
 
@@ -227,6 +227,11 @@ export const concat = (args) =>
     };
   });
 
+export const empty = Stream((send, error, complete) => {
+  complete();
+  return noop;
+});
+
 // TODO test this
 export const merge = (args) =>
   Stream((send, error, complete) => {
@@ -238,16 +243,8 @@ export const merge = (args) =>
       return noop;
 
     } else {
-      const stops = args["map"]((x) =>
-        x._run(send, on_error, on_complete));
-
-      // TODO can this call the stop function after it's already stopped ?
-      const stop = () => {
-        stops["forEach"]((f) => {
-          f();
-        });
-      };
-
+      // TODO test this
+      // TODO is it possible for this to be called before `stop` is defined ?
       const on_error = (err) => {
         stop();
         error(err);
@@ -258,6 +255,16 @@ export const merge = (args) =>
         if (pending_complete === 0) {
           complete();
         }
+      };
+
+      const stops = args["map"]((x) =>
+        x._run(send, on_error, on_complete));
+
+      // TODO can this call the stop function after it's already stopped ?
+      const stop = () => {
+        stops["forEach"]((f) => {
+          f();
+        });
       };
 
       return stop;
@@ -277,11 +284,13 @@ export const latest = (args) =>
     } else {
       const values = new Array(args["length"]);
 
+      // TODO is it possible for this to be called before `stop` is defined ?
       const on_error = (err) => {
         stop();
         error(err);
       };
 
+      // TODO is it possible for this to be called before `stop` is defined ?
       const on_complete = () => {
         stop();
         complete();
@@ -365,5 +374,44 @@ export class Event extends _Stream {
     each(listeners, ({ complete }) => {
       complete();
     });
+  }
+}
+
+
+// TODO code duplication with Event
+const signal_run = function (send, error, complete) {
+  send(this._value);
+
+  this._listeners.add(send);
+
+  return () => {
+    this._listeners.remove(send);
+  };
+};
+
+// TODO code duplication with Event
+export class Signal extends _Stream {
+  constructor(value) {
+    super(signal_run);
+
+    this._listeners = new Set();
+    this._value = value;
+  }
+
+  _cleanup() {
+    super._cleanup();
+
+    this._listeners = null;
+    this._value = null;
+  }
+
+  set(value) {
+    if (this._value !== value) {
+      this._value = value;
+
+      each(this._listeners, (send) => {
+        send(value);
+      });
+    }
   }
 }

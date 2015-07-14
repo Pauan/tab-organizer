@@ -4,6 +4,7 @@ import { Timer } from "./util/time";
 import { assert } from "./util/assert";
 import { any, each, map } from "./util/iterator";
 import { Some, None } from "./util/immutable/maybe";
+import { empty } from "./util/stream";
 import { ui_tab } from "./client/panel/tab";
 import * as dom from "./client/dom";
 
@@ -12,7 +13,7 @@ run_async(function* () {
   const db = yield init_sync;
 
   const view_window_style = dom.style({
-    "border": "1px solid black"
+    "border": "5px solid black"
   });
 
   const view_window = (window, tab_ids) =>
@@ -22,6 +23,8 @@ run_async(function* () {
       each(window.get("tabs"), (tab_id) => {
         e.push(ui_tab(tab_ids.get(tab_id)));
       });
+
+      return empty;
     });
 
   const view = (windows, window_ids, tab_ids) =>
@@ -29,6 +32,8 @@ run_async(function* () {
       each(windows, (window_id) => {
         e.push(view_window(window_ids.get(window_id), tab_ids));
       });
+
+      return empty;
     });
 
   const render = ([windows, window_ids, tab_ids]) => {
