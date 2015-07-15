@@ -50,7 +50,7 @@ export const init = async(function* () {
 
     each(window_ids, ([id, window]) => {
       assert(window.get("id") === id);
-      windows.index_of(id);
+      windows.index_of(id).get();
 
       const seen = new Set();
 
@@ -65,7 +65,7 @@ export const init = async(function* () {
 
       const window = window_ids.get(tab.get("window"));
 
-      window.get("tabs").index_of(id);
+      window.get("tabs").index_of(id).get();
     });
   };
 
@@ -155,7 +155,7 @@ export const init = async(function* () {
     const prev = window.tabs.get(index - 1);
     const prev_id = session.tab_id(prev.id);
     // TODO can this be implemented more efficiently ?
-    const prev_index = tabs.index_of(prev_id);
+    const prev_index = tabs.index_of(prev_id).get();
     return prev_index + 1;
   };
 
@@ -165,7 +165,7 @@ export const init = async(function* () {
       const next = window.tabs.get(index + 1);
       const next_id = session.tab_id(next.id);
       // TODO can this be implemented more efficiently ?
-      return tabs.index_of(next_id);
+      return tabs.index_of(next_id).get();
 
     } else {
       // TODO is this correct ?
@@ -231,7 +231,7 @@ export const init = async(function* () {
       db.remove(["current.window-ids", id]);
 
       // TODO can this be implemented more efficiently ?
-      const index = db.get(["current.windows"]).index_of(id);
+      const index = db.get(["current.windows"]).index_of(id).get();
 
       db.remove(["current.windows", index]);
     });
@@ -287,7 +287,7 @@ export const init = async(function* () {
 
       const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
 
-      const session_old_index = old_tabs.index_of(tab_id);
+      const session_old_index = old_tabs.index_of(tab_id).get();
 
       db.remove(["current.window-ids", old_window_id, "tabs", session_old_index]);
 
@@ -338,7 +338,7 @@ export const init = async(function* () {
       const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 
       // TODO can this be implemented more efficiently ?
-      const index = tabs.index_of(tab_id);
+      const index = tabs.index_of(tab_id).get();
 
       db.remove(["current.window-ids", window_id, "tabs", index]);
     });

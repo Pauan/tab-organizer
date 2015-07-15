@@ -1,4 +1,5 @@
 import { iterator, to_array } from "../iterator";
+import { Some, None } from "../immutable/maybe";
 
 
 // TODO maybe have it inherit from Array ?
@@ -96,10 +97,10 @@ export class List {
     const index = this._list["indexOf"](value);
 
     if (index === -1) {
-      throw new Error("Value was not found in List: " + value);
+      return None;
 
     } else {
-      return index;
+      return Some(index);
     }
   }
 

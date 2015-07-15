@@ -1,5 +1,7 @@
 import * as dom from "../dom";
+import { url } from "./url-bar";
 import { concat, Stream, merge, latest, empty } from "../../util/stream";
+import { each } from "../../util/iterator";
 
 
 const ui_tab_style_hidden = dom.style({
@@ -18,6 +20,11 @@ const ui_tab_style_hidden = dom.style({
 });
 
 const ui_tab_dragging = dom.style({
+  "pointer-events": "none",
+  "opacity": "0.94"
+});
+
+const ui_tab_placeholder = dom.style({
   "visibility": "hidden"
 });
 
@@ -37,7 +44,6 @@ const ui_tab_style = dom.style({
   "padding-right": "1px",
   "border-radius": "5px",
 
-  "cursor": "pointer",
   "transition-property": "background-color",
   "transition-timing-function": "ease-in-out",
 
@@ -55,6 +61,7 @@ const repeating = dom.repeating_gradient("-45deg",
                                          ["10px", dom.hsl(0, 0, 100, 0.05)]);
 
 const ui_tab_style_hover = dom.style({
+  "cursor": "pointer",
   "font-weight": "bold",
 
   "transition-duration": "0ms",
@@ -119,7 +126,7 @@ const ui_favicon = (tab) =>
   dom.image((e) => {
     e.add_style(ui_tab_icon_style);
     e.add_style(ui_tab_favicon_style);
-    e.set_url(tab.get("favicon"));
+    e.url = tab.get("favicon");
     return empty;
   });
 
@@ -135,20 +142,28 @@ const ui_close = (tab) =>
     e.add_style(ui_tab_icon_style);
     e.add_style(ui_tab_close_style);
 
-    e.set_url("data/images/button-close.png");
+    e.url = "data/images/button-close.png";
 
     return latest([
-      e.hovering,
-      e.holding
+      e.hovering(),
+      e.holding()
     ]).map(([hover, hold]) => {
       //e.set_style(ui_tab_close_style_hover, hover);
       //e.set_style(ui_tab_close_style_hold, hold);
     });
   });
 
-const tab_placeholder =
+
+const tab_dragging =
   dom.floating((e) => {
-    //e.hide();
+    e.add_style(ui_tab_dragging);
+    e.hide();
+    return empty;
+  });
+
+const tab_placeholder =
+  dom.row((e) => {
+    e.add_style(ui_tab_placeholder);
     return empty;
   });
 
@@ -168,12 +183,32 @@ export const ui_tab = (tab) =>
     });
 
     return merge([
+      e.animate({ from: ui_tab_style_hidden,
+                  to: ui_tab_style_visible,
+                  duration: 1000 }),
+
       latest([
-        e.hovering,
-        e.holding
-      ]).map(([hover, hold]) => {
-        e.set_style(ui_tab_style_hover, hover);
-        e.set_style(ui_tab_style_hold, hover && hold);
+        e.hovering(),
+        e.holding(),
+        dom.dragging
+      ]).map(([hover, hold, dragging]) => {
+        e.set_style(ui_tab_style_hover, !dragging && hover);
+        e.set_style(ui_tab_style_hold, !dragging && hover && hold);
+      }),
+
+      latest([
+        e.hovering()
+      ]).map(([hover]) => {
+        if (hover) {
+          url.value = {
+            x: hover.x,
+            y: hover.y,
+            url: tab.get("url")
+          };
+
+        } else {
+          url.value = null;
+        }
       }),
 
       e.on_left_click().map((e) => {
@@ -188,100 +223,64 @@ export const ui_tab = (tab) =>
         console.log("right click", e);
       }),
 
-      /*e.drag_target({
+      e.on_drag_hover().map(() => {
+        const parent = e.parent;
+        const index = parent.index_of(e).get();
 
-      }),*/
+        if (tab_placeholder.parent === parent || index === 0) {
+          parent.insert(index, tab_placeholder);
+        } else {
+          parent.insert(index + 1, tab_placeholder);
+        }
+      }),
 
-      e.drag_source({
+      e.drag({
         threshold: 10,
 
         start: ({ y }) => {
           const box = e._dom["getBoundingClientRect"]();
           const offset = box["height"] / 2;
 
-          const copy = e.copy();
+          //e.add_style(ui_tab_style_hover);
+          //e.remove_style(ui_tab_style_hold);
 
-          copy.add_style(ui_tab_style_hover);
-          copy._dom["style"]["width"] = box["width"] + "px";
+          tab_placeholder._dom["style"]["height"] = box["height"] + "px";
 
-          e.add_style(ui_tab_dragging);
+          const index = e.parent.index_of(e).get();
 
-          tab_placeholder.set_top(y - offset);
-          tab_placeholder.push(copy);
-          tab_placeholder.show();
+          e.parent.insert(index, tab_placeholder);
+
+          tab_dragging.top = y - offset;
+          tab_dragging.left = box["left"];
+          tab_dragging.width = box["width"];
+
+          tab_dragging.push(e);
+          tab_dragging.show();
 
           return { offset };
         },
 
         move: (info, { y }) => {
-          tab_placeholder.set_top(y - info.offset);
+          tab_dragging.top = y - info.offset;
           return info;
         },
 
         end: (info) => {
-          e.remove_style(ui_tab_dragging);
+          const parent = tab_placeholder.parent;
+          const index = parent.index_of(tab_placeholder).get();
 
-          tab_placeholder.clear();
-          tab_placeholder.hide();
+          console.log(index);
+
+          parent.remove(index);
+
+          each(tab_dragging.children, (x) => {
+            console.log(x);
+            parent.insert(index, x);
+          });
+
+          tab_dragging.clear();
+          tab_dragging.hide();
         }
-      }),
-
-      concat([
-        random,
-
-        e.animate({ from: ui_tab_style_visible,
-                    to: ui_tab_style_hidden,
-                    duration: 1000 }),
-
-        random,
-
-        e.animate({ from: ui_tab_style_hidden,
-                    to: ui_tab_style_visible,
-                    duration: 1000 }),
-
-        // /[0-9]+(px)?/
-
-        /*animate(1000).map(ease_in_out).map((t) => {
-          if (t === 1) {
-            e._dom.style["border-top-width"] = "";
-            e._dom.style["border-bottom-width"] = "";
-            e._dom.style["padding-top"] = "";
-            e._dom.style["padding-bottom"] = "";
-            e._dom.style["height"] = "";
-            e._dom.style["opacity"] = "";
-
-          } else {
-            e._dom.style["border-top-width"] = round_range(t, 0, 1) + "px";
-            e._dom.style["border-bottom-width"] = round_range(t, 0, 1) + "px";
-            e._dom.style["padding-top"] = round_range(t, 0, 1) + "px";
-            e._dom.style["padding-bottom"] = round_range(t, 0, 1) + "px";
-            e._dom.style["height"] = round_range(t, 0, 20) + "px";
-            e._dom.style["opacity"] = range(t, 0, 1) + "";
-          }
-        }),
-
-        animate(1000).map(ease_in_out).map((t) => {
-          if (t === 1) {
-            e._dom.style["border-top-width"] = "";
-            e._dom.style["border-bottom-width"] = "";
-            e._dom.style["padding-top"] = "";
-            e._dom.style["padding-bottom"] = "";
-            e._dom.style["height"] = "";
-            e._dom.style["opacity"] = "";
-
-          } else {
-            e._dom.style["border-top-width"] = round_range(t, 1, 0) + "px";
-            e._dom.style["border-bottom-width"] = round_range(t, 1, 0) + "px";
-            e._dom.style["padding-top"] = round_range(t, 1, 0) + "px";
-            e._dom.style["padding-bottom"] = round_range(t, 1, 0) + "px";
-            e._dom.style["height"] = round_range(t, 20, 0) + "px";
-            e._dom.style["opacity"] = range(t, 1, 0) + "";
-          }
-        })*/
-      ])//.forever()
+      })
     ]);
   });
-
-/*animate(1000).map(ease_in_out).each((t) => {
-  console.log(range(t, 0, 20));
-});*/

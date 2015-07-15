@@ -1,5 +1,6 @@
 import { each } from "../util/iterator";
-import { Signal, Stream, empty } from "../util/stream";
+import { Ref, Stream, empty } from "../util/stream";
+import { List } from "../util/immutable/list";
 import { batch_read, batch_write } from "./dom/batch";
 import { make_style, make_animation } from "./dom/style";
 import { assert, fail } from "../util/assert";
@@ -40,8 +41,6 @@ const parse_range = (key, from, to) => {
 };
 
 
-let holding = null;
-
 const preventDefault = (e) => {
   e["preventDefault"]();
 };
@@ -51,62 +50,125 @@ const preventDefault = (e) => {
 const hypot = (x, y) =>
   Math["sqrt"](x * x + y * y);
 
+
+// TODO what if there are multiple draggers ?
+export const dragging = new Ref(false);
+
+
 class DOM {
   constructor(dom) {
     this._dom = dom;
+    this._parent = null;
+  }
+
+  get parent() {
+    return this._parent;
+  }
+
+  // TODO a bit inefficient
+  _remove() {
+    const parent = this._parent;
+
+    if (parent !== null) {
+      const index = parent._children.index_of(this).get();
+      parent._children = parent._children.remove(index);
+      parent._dom["removeChild"](this._dom);
+      this._parent = null;
+    }
+  }
+
+/*
+  // TODO is this correct ?
+  copy() {
+    return new this.constructor(this._dom["cloneNode"](true));
+  }*/
+}
+
+
+class Text extends DOM {
+  get text() {
+    return this._dom["textContent"];
+  }
+
+  set text(value) {
+    this._dom["textContent"] = value;
+  }
+}
+
+
+class Element extends DOM {
+  constructor(dom) {
+    super(dom);
+
     this._running = null;
+  }
 
-    // TODO what if there are multiple draggers ?
-    this._dragging = false;
+  on_mouse_hover() {
+    return Stream((send, error, complete) => {
+      // TODO code duplication
+      const mouseover = (e) => {
+        const related = e["relatedTarget"];
 
-    // TODO figure out some way to opt into this
-    this.hovering = new Signal(false);
-    this.holding  = new Signal(false);
-
-    // TODO code duplication
-    const mouseover = (e) => {
-      if (!this._dragging) {
-        if (holding === null || this._dom["contains"](holding)) {
-          const related = e["relatedTarget"];
-
-          if (related === null || !this._dom["contains"](related)) {
-            this.hovering.set(true);
-          }
+        // This is done to simulate "mouseenter"
+        if (related === null || !this._dom["contains"](related)) {
+          send({
+            x: e["clientX"],
+            y: e["clientY"]
+          });
         }
-      }
-    };
+      };
 
-    // TODO code duplication
-    const mouseout = (e) => {
-      if (!this._dragging) {
-        if (holding === null || this._dom["contains"](holding)) {
-          const related = e["relatedTarget"];
+      // TODO code duplication
+      const mouseout = (e) => {
+        const related = e["relatedTarget"];
 
-          if (related === null || !this._dom["contains"](related)) {
-            this.hovering.set(false);
-          }
+        // This is done to simulate "mouseleave"
+        if (related === null || !this._dom["contains"](related)) {
+          send(null);
         }
-      }
-    };
+      };
 
-    this._dom["addEventListener"]("mouseover", mouseover, true);
-    this._dom["addEventListener"]("mouseout", mouseout, true);
+      this._dom["addEventListener"]("mouseover", mouseover, true);
+      this._dom["addEventListener"]("mouseout", mouseout, true);
 
+      return () => {
+        this._dom["removeEventListener"]("mouseover", mouseover, true);
+        this._dom["removeEventListener"]("mouseout", mouseout, true);
+      };
+    });
+  }
 
-    const mousedown = () => {
-      holding = this._dom;
-      // TODO is it possible for this to leak ?
-      addEventListener("mouseup", mouseup, true);
-      this.holding.set(true);
-    };
+  on_mouse_hold() {
+    return Stream((send, error, complete) => {
+      const mousedown = (e) => {
+        // TODO is it possible for this to leak ?
+        addEventListener("mouseup", mouseup, true);
+        send({
+          x: e["clientX"],
+          y: e["clientY"]
+        });
+      };
 
-    const mouseup = () => {
-      holding = null;
-      removeEventListener("mouseup", mouseup, true);
-      this.holding.set(false);
-    };
+      const mouseup = () => {
+        removeEventListener("mouseup", mouseup, true);
+        send(null);
+      };
 
-    this._dom["addEventListener"]("mousedown", mousedown, true);
+      this._dom["addEventListener"]("mousedown", mousedown, true);
+
+      return () => {
+        this._dom["removeEventListener"]("mousedown", mousedown, true);
+        removeEventListener("mouseup", mouseup, true);
+      };
+    });
+  }
+
+  hovering() {
+    return this.on_mouse_hover().initial(null);
+  }
+
+  holding() {
+    return this.on_mouse_hold().initial(null);
   }
 
   // TODO code duplication
@@ -170,7 +232,28 @@ class DOM {
     });
   }
 
-  drag_source({ start, move, end, threshold }) {
+  on_mouse_move() {
+    return Stream((send, error, complete) => {
+      const mousemove = (e) => {
+        send({
+          x: e["clientX"],
+          y: e["clientY"]
+        });
+      };
+
+      this._dom["addEventListener"]("mousemove", mousemove, true);
+
+      return () => {
+        this._dom["removeEventListener"]("mousemove", mousemove, true);
+      };
+    });
+  }
+
+  on_drag_hover() {
+    return this.on_mouse_hover().keep((x) => x && dragging.value);
+  }
+
+  drag({ start, move, end, threshold }) {
     return Stream((send, error, complete) => {
       let info = null;
       let start_x = null;
@@ -191,18 +274,13 @@ class DOM {
         const x = e["clientX"];
         const y = e["clientY"];
 
-        if (this._dragging) {
+        if (dragging.value) {
           info = move(info, { x, y });
 
         } else if (hypot(start_x - x, start_y - y) > threshold) {
-          this._dragging = true;
-
-          this._dom["style"]["pointer-events"] = "none";
+          dragging.value = true;
 
           info = start({ x, y });
-
-          this.hovering.set(true);
-          this.holding.set(false);
         }
       };
 
@@ -213,10 +291,8 @@ class DOM {
         start_x = null;
         start_y = null;
 
-        if (this._dragging) {
-          this._dragging = false;
-
-          this._dom["style"]["pointer-events"] = "";
+        if (dragging.value) {
+          dragging.value = false;
 
           const x = e["clientX"];
           const y = e["clientY"];
@@ -226,9 +302,6 @@ class DOM {
           info = null;
 
           end(old_info, { x, y });
-
-          this.hovering.set(false);
-          this.holding.set(false);
         }
       };
 
@@ -242,30 +315,28 @@ class DOM {
 
   add_style(style) {
     batch_write(() => {
-      assert(!this._dom["classList"]["contains"](style._name));
+      //assert(!this._dom["classList"]["contains"](style._name));
       this._dom["classList"]["add"](style._name);
     });
   }
 
   remove_style(style) {
     batch_write(() => {
-      assert(this._dom["classList"]["contains"](style._name));
+      //assert(this._dom["classList"]["contains"](style._name));
       this._dom["classList"]["remove"](style._name);
     });
   }
 
   set_style(style, test) {
     if (test) {
-      this._dom["classList"]["add"](style._name);
-      //this.add_style(style);
+      this.add_style(style);
     } else {
-      this._dom["classList"]["remove"](style._name);
-      //this.remove_style(style);
+      this.remove_style(style);
     }
   }
 
   // TODO test this
-  animate({ from, to, duration }) {
+  animate({ from, to, duration, easing = (x) => x }) {
     // TODO a bit inefficient ?
     each(from._keys, (key) => {
       assert(to._style[key]);
@@ -278,28 +349,31 @@ class DOM {
       return parse_range(key, from, to);
     });
 
-    return animate(duration).map(ease_in_out).map((t) => {
-      /*if (t === 1) {
+    return animate(duration).map(easing).map((t) => {
+      // TODO what about bouncing ?
+      if (t === 1) {
+        this.add_style(to);
+
         for (let i = 0; i < transitions["length"]; ++i) {
           const { key } = transitions[i];
           this._dom["style"][key] = "";
         }
 
-      } else {*/
+      } else {
+        if (t === 0) {
+          // TODO remove `to` as well ?
+          this.remove_style(from);
+        }
+
         // TODO can this be made more efficient ?
         for (let i = 0; i < transitions["length"]; ++i) {
           const { key, from, to, range } = transitions[i];
           this._dom["style"][key] = range(t, from, to);
         }
-      //}
+      }
 
       return t;
     });
-  }
-
-  // TODO is this correct ?
-  copy() {
-    return new this.constructor(this._dom["cloneNode"](true));
   }
 
   show() {
@@ -311,80 +385,77 @@ class DOM {
   }
 }
 
-class Text {
-  constructor(s) {
-    this._dom = document["createTextNode"](s);
+
+class Image extends Element {
+  set url(s) {
+    this._dom["src"] = s;
   }
 }
 
-class Image extends DOM {
-  set_url(s) {
-    batch_write(() => {
-      this._dom["src"] = s;
-    });
-  }
-}
 
-class Parent extends DOM {
+class Parent extends Element {
+  constructor(dom) {
+    super(dom);
+
+    this._children = List();
+  }
+
+  get children() {
+    return this._children;
+  }
+
+  // TODO is this correct ? maybe it should use `_remove` ?
   clear() {
-    batch_write(() => {
-      this._dom["innerHTML"] = "";
-    });
-  }
-
-  insert(index, x) {
-    batch_write(() => {
-      const children = this._dom["children"];
-      const len = children["length"];
-
-      // TODO test this
-      if (index < 0) {
-        index += len + 1;
-      }
-
-      // TODO test this
-      if (index === len) {
-        this._dom["appendChild"](x._dom);
-
-      } else if (index >= 0 && index < len) {
-        this._dom["insertBefore"](x._dom, children[index]);
-
-      } else {
-        throw new Error("Invalid index: " + index);
-      }
-    });
+    this._children = List();
+    this._dom["innerHTML"] = "";
   }
 
   remove(index) {
-    batch_write(() => {
-      const children = this._dom["children"];
-      const len = children["length"];
+    // TODO this can be implemented more efficiently
+    this._children.get(index)._remove();
+  }
 
-      // TODO test this
-      if (index < 0) {
-        index += len;
-      }
+  insert(index, x) {
+    x._remove();
 
-      // TODO test this
-      if (index >= 0 && index < len) {
-        this._dom["removeChild"](children[index]);
+    // TODO is this correct ?
+    if (this._children.has(index)) {
+      this._dom["insertBefore"](x._dom, this._children.get(index)._dom);
 
-      } else {
-        throw new Error("Invalid index: " + index);
-      }
-    });
+    } else {
+      this._dom["appendChild"](x._dom);
+    }
+
+    this._children = this._children.insert(index, x);
+    x._parent = this;
   }
 
   push(x) {
-    batch_write(() => {
-      this._dom["appendChild"](x._dom);
-    });
+    x._remove();
+
+    this._dom["appendChild"](x._dom);
+
+    this._children = this._children.push(x);
+    x._parent = this;
+  }
+
+  index_of(x) {
+    return this._children.index_of(x);
   }
 }
 
 class Floating extends Parent {
-  set_top(y) {
-    this._dom["style"]["top"] = y + "px";
+  set left(x) {
+    this._dom["style"]["left"] = x + "px";
+  }
+  set top(x) {
+    this._dom["style"]["top"] = x + "px";
+  }
+  set width(x) {
+    this._dom["style"]["width"] = x + "px";
+  }
+  set height(x) {
+    this._dom["style"]["height"] = x + "px";
   }
 }
 
@@ -392,6 +463,9 @@ class Floating extends Parent {
 export const style = (o) => make_style(o);
 
 export const animation = (o) => make_animation(o);
+
+export const calc = (...args) =>
+  "calc(" + args["join"](" ") + ")";
 
 // TODO code duplication
 export const gradient = (x, ...args) => {
@@ -480,7 +554,8 @@ export const floating = (f) => {
   return e;
 };
 
-export const text = (s) => new Text(s);
+export const text = (s) =>
+  new Text(document["createTextNode"](s));
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));

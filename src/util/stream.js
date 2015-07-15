@@ -52,13 +52,13 @@ class _Stream {
     });
   }
 
-  /*initial(x) {
+  initial(x) {
     return Stream((send, error, complete) => {
       send(x);
 
       return this._run(send, error, complete);
     });
-  }*/
+  }
 
   finally(f) {
     return Stream((send, error, complete) =>
@@ -379,7 +379,7 @@ export class Event extends _Stream {
 
 
 // TODO code duplication with Event
-const signal_run = function (send, error, complete) {
+const ref_run = function (send, error, complete) {
   send(this._value);
 
   this._listeners.add(send);
@@ -390,9 +390,9 @@ const signal_run = function (send, error, complete) {
 };
 
 // TODO code duplication with Event
-export class Signal extends _Stream {
+export class Ref extends _Stream {
   constructor(value) {
-    super(signal_run);
+    super(ref_run);
 
     this._listeners = new Set();
     this._value = value;
@@ -405,7 +405,11 @@ export class Signal extends _Stream {
     this._value = null;
   }
 
-  set(value) {
+  get value() {
+    return this._value;
+  }
+
+  set value(value) {
     if (this._value !== value) {
       this._value = value;
 

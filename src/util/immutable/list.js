@@ -1,4 +1,5 @@
 import { iterator, to_array } from "../iterator";
+import { None, Some } from "./maybe";
 import { copy, insert, push, remove } from "./array";
 import { to_json } from "./json";
 import { assert } from "../assert";
@@ -103,10 +104,10 @@ class ImmutableList {
     const index = this._list["indexOf"](value);
 
     if (index === -1) {
-      throw new Error("Value was not found in List: " + value);
+      return None;
 
     } else {
-      return index;
+      return Some(index);
     }
   }
 
