@@ -324,6 +324,39 @@ export const latest = (args) =>
     }
   });
 
+export const race = (args) =>
+  Stream((send, error, complete) => {
+    if (args["length"] === 0) {
+      complete();
+      return noop;
+
+    } else {
+      // TODO is it possible for this to be called before `stop` is defined ?
+      const on_error = (err) => {
+        stop();
+        error(err);
+      };
+
+      // TODO is it possible for this to be called before `stop` is defined ?
+      const on_complete = () => {
+        stop();
+        complete();
+      };
+
+      const stops = args["map"]((x) =>
+        x._run(noop, on_error, on_complete));
+
+      // TODO can this call the stop function after it's already stopped ?
+      const stop = () => {
+        stops["forEach"]((f) => {
+          f();
+        });
+      };
+
+      return stop;
+    }
+  });
+
 
 // TODO is the `this` binding correct ?
 const event_run = function (send, error, complete) {

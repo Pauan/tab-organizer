@@ -22,9 +22,9 @@ export const init = async(function* () {
   db.default(["current.window-ids"], Record());
   db.default(["current.tab-ids"], Record());
 
-  sync("current.windows");
-  sync("current.window-ids");
-  sync("current.tab-ids");
+  sync(db, "current.windows");
+  sync(db, "current.window-ids");
+  sync(db, "current.tab-ids");
 
 
   const delay = (ms) => {

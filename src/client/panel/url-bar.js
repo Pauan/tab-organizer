@@ -186,6 +186,7 @@ const make = (style, f) =>
 dom.floating((e) => {
   e.add_style(top_style);
 
+  // TODO check if any of these need "flex-shrink": 1
   e.push(dom.row((e) => {
     e.push(make(protocol_style, (x) => x.protocol));
     e.push(make(domain_style, (x) => x.domain));
