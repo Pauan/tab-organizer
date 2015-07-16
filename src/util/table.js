@@ -1,7 +1,7 @@
 import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
 import { Some, None } from "./immutable/maybe";
-import { Event } from "./stream";
+import { Event, Stream } from "./stream";
 import { assert, fail } from "./assert";
 import { each, to_array } from "./iterator";
 
@@ -282,6 +282,39 @@ export class Table extends Base {
           fail();
         }
       });
+    });
+  }
+
+  // TODO test this
+  // TODO is this inefficient ?
+  ref(keys) {
+    return Stream((send, error, complete) => {
+      let old_value = this.get(keys);
+
+      send(old_value);
+
+      // TODO is it possible to call `x.stop` before `x` is defined ?
+      const x = this.on_commit.each(() => {
+        // TODO is this inefficient ?
+        if (this.has(keys)) {
+          const new_value = this.get(keys);
+
+          // TODO test this
+          if (old_value !== new_value) {
+            old_value = new_value;
+
+            send(new_value);
+          }
+
+        // TODO is this correct ?
+        } else {
+          x.stop();
+          complete();
+        }
+      });
+
+      // TODO is this correct ?
+      return x.stop;
     });
   }
 }

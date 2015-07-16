@@ -182,8 +182,10 @@ const selected = new Ref(Set());
 
 const dragging = new Ref(false);
 
-export const ui_tab = (tab, init) =>
+export const ui_tab = (db, tab_id, init) =>
   dom.row((e) => {
+    const tab = db.get(["current.tab-ids", tab_id]);
+
     e.add_style(ui_tab_style);
     e.add_style(ui_tab_style_visible);
 
