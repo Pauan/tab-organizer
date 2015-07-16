@@ -10,6 +10,23 @@ const check_keys = (keys) => {
   assert(keys["length"] >= 1);
 };
 
+// TODO is this correct ?
+// TODO is this needed ?
+const nested_has = (init, keys) => {
+  for (let i = 0; i < keys["length"]; ++i) {
+    const key = keys[i];
+
+    if (init.has(key)) {
+      init = init.get(key);
+
+    } else {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const nested_lookup = (init, keys, f) => {
   const end = keys["length"] - 1;
 
@@ -286,9 +303,9 @@ export class Table extends Base {
   }
 
   // TODO test this
-  // TODO is this inefficient ?
   ref(keys) {
     return Stream((send, error, complete) => {
+      // TODO is this inefficient ?
       let old_value = this.get(keys);
 
       send(old_value);
@@ -296,7 +313,9 @@ export class Table extends Base {
       // TODO is it possible to call `x.stop` before `x` is defined ?
       const x = this.on_commit.each(() => {
         // TODO is this inefficient ?
-        if (this.has(keys)) {
+        // TODO is this correct ?
+        if (nested_has(this._keys, keys)) {
+          // TODO is this inefficient ?
           const new_value = this.get(keys);
 
           // TODO test this

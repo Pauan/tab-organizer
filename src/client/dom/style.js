@@ -1,6 +1,4 @@
-import { each, entries, join } from "../../util/iterator";
-import { assert } from "../../util/assert";
-import { batch_write } from "./batch";
+import { each, entries } from "../../util/iterator";
 
 
 const add_rules = (() => {
@@ -75,37 +73,5 @@ export const make_style = (() => {
     //});
 
     return new Style(class_name, style, rules);
-  };
-})();
-
-
-class Animation {
-  constructor(css, duration) {
-    this._css = css;
-    this._duration = duration;
-  }
-}
-
-const mangle_property = (key) =>
-  key["replace"](/([a-z])\-([a-z])/g, (_, x1, x2) => x1 + x2["toUpperCase"]());
-
-// TODO verify that the CSS properties exist ?
-export const make_animation = (() => {
-  //const tester = document["createElement"]("div");
-
-  return (o) => {
-    const css = {};
-
-    const props = [];
-
-    each(entries(o.style), ([key, value]) => {
-      const mangled = mangle_property(key);
-      css[mangled] = value;
-      props["push"](mangled);
-    });
-
-    css["clearProps"] = join(props, ",");
-
-    return new Animation(css, o.duration / 1000);
   };
 })();

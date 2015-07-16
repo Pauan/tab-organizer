@@ -1,9 +1,21 @@
 import * as dom from "../dom";
-import { url } from "./url-bar";
-import { concat, Stream, merge, latest, empty, Ref } from "../../util/stream";
+import { url_bar } from "./url-bar";
+import { merge, latest, empty, Ref, and, not } from "../../util/stream";
 import { each, indexed } from "../../util/iterator";
 import { Set } from "../../util/immutable/set";
 
+
+const ui_tab_drag_hidden = dom.style({
+  "margin-top": "-20px"
+});
+
+const ui_tab_drag_stacked = dom.style({
+  "margin-top": "-18px"
+});
+
+const ui_tab_drag_normal = dom.style({
+  "margin-top": "0px"
+});
 
 const ui_tab_style_hidden = dom.style({
   /*"transform": {
@@ -22,7 +34,7 @@ const ui_tab_style_hidden = dom.style({
 
 const ui_tab_dragging = dom.style({
   "pointer-events": "none",
-  "opacity": "0.75"
+  "opacity": "0.94"
 });
 
 const ui_tab_placeholder = dom.style({
@@ -39,6 +51,10 @@ const ui_tab_style_visible = dom.style({
 });
 
 const ui_tab_style = dom.style({
+  "overflow": "hidden",
+
+  "background-color": "inherit",
+
   "border-left-width": "1px",
   "border-right-width": "1px",
   "padding-left": "1px",
@@ -55,6 +71,17 @@ const ui_tab_style = dom.style({
   "transition-duration": "100ms"
 });
 
+const ui_tab_style_unloaded = dom.style({
+  "color": dom.hsl(0, 0, 30),
+  "opacity": "0.75",
+});
+
+const ui_tab_style_focused = dom.style({
+  "background-color": dom.hsl(30, 100, 94),
+  "border-color":     dom.hsl(30, 100, 40),
+  "transition-duration": "0ms",
+});
+
 const repeating = dom.repeating_gradient("-45deg",
                                          ["0px",  "transparent"],
                                          ["4px",  "transparent"],
@@ -64,6 +91,8 @@ const repeating = dom.repeating_gradient("-45deg",
 const ui_tab_style_hover = dom.style({
   "cursor": "pointer",
   "font-weight": "bold",
+
+  "z-index": "1",
 
   "transition-duration": "0ms",
   "background-image": dom.gradient("to bottom",
@@ -133,73 +162,109 @@ const ui_tab_close_style = dom.style({
   "padding-right": "1px"
 });
 
-const ui_favicon = (tab) =>
+const ui_favicon = (db, tab_id) =>
   dom.image((e) => {
-    e.add_style(ui_tab_icon_style);
-    e.add_style(ui_tab_favicon_style);
-    e.url = tab.get("favicon");
-    return empty;
+    return merge([
+      db.ref(["current.tab-ids", tab_id, "favicon"]).map((favicon) => {
+        e.url = favicon;
+      }),
+
+      e.style_always(ui_tab_icon_style),
+      e.style_always(ui_tab_favicon_style)
+    ]);
   });
 
-const ui_text = (tab) =>
+const ui_text = (db, tab_id) =>
   dom.stretch((e) => {
-    e.add_style(ui_tab_text_style);
-    e.push(dom.text(tab.get("title") || tab.get("url")));
-    return empty;
+    e.push(dom.text(latest([
+      db.ref(["current.tab-ids", tab_id, "title"]),
+      db.ref(["current.tab-ids", tab_id, "url"])
+    ], (title, url) => {
+      return title || url;
+    })));
+
+    return e.style_always(ui_tab_text_style);
   });
 
-const ui_close = (tab) =>
+const ui_close = (top, db, tab_id) =>
   dom.image((e) => {
-    e.add_style(ui_tab_icon_style);
-    e.add_style(ui_tab_close_style);
-
     e.url = "data/images/button-close.png";
 
-    return latest([
-      e.hovering(),
-      e.holding()
-    ]).map(([hover, hold]) => {
-      //e.set_style(ui_tab_close_style_hover, hover);
-      //e.set_style(ui_tab_close_style_hold, hold);
-    });
+    return merge([
+      e.style_always(ui_tab_icon_style),
+      e.style_always(ui_tab_close_style),
+
+      e.visible(and([
+        not(dragging),
+        top.hovering()
+      ]))
+
+      //e.style(ui_tab_close_style_hover,
+      //  e.hovering()),
+
+      //e.style(ui_tab_close_style_hold,
+      //  and([
+      //    e.hovering(),
+      //    e.holding()
+      //  ])),
+    ]);
   });
 
 
 const tab_dragging =
   dom.floating((e) => {
-    e.add_style(ui_tab_dragging);
     e.hide();
-    return empty;
+
+    return e.style_always(ui_tab_dragging);
   });
 
 const tab_placeholder =
   dom.row((e) => {
-    e.add_style(ui_tab_placeholder);
-    return empty;
+    return e.style_always(ui_tab_placeholder);
   });
 
 const selected = new Ref(Set());
 
 const dragging = new Ref(false);
 
+// TODO move this into another module
+// TODO better implementation of this ?
+const hypot = (x, y) =>
+  Math["sqrt"](x * x + y * y);
+
 export const ui_tab = (db, tab_id, init) =>
   dom.row((e) => {
-    const tab = db.get(["current.tab-ids", tab_id]);
-
-    e.add_style(ui_tab_style);
-    e.add_style(ui_tab_style_visible);
-
-    e.push(ui_favicon(tab));
-    e.push(ui_text(tab));
-    e.push(ui_close(tab));
-
-    const random = Stream((send, error, complete) => {
-      setTimeout(() => {
-        complete();
-      }, Math["random"]() * 2000);
-    });
+    e.push(ui_favicon(db, tab_id));
+    e.push(ui_text(db, tab_id));
+    e.push(ui_close(e, db, tab_id));
 
     return merge([
+      e.style_always(ui_tab_style),
+      e.style_always(ui_tab_style_visible),
+
+      e.style(ui_tab_style_hover,
+        and([
+          not(dragging),
+          e.hovering()
+        ])),
+
+      e.style(ui_tab_style_hold,
+        and([
+          not(dragging),
+          e.hovering(),
+          e.holding()
+        ])),
+
+      e.style(ui_tab_selected_style,
+        // TODO a bit inefficient
+        selected.map((selected) => selected.has(e))),
+
+      /*e.style(ui_tab_style_focused,
+        db.ref(["transient.tab-ids", tab_id, "focused"])),
+
+      e.style(ui_tab_style_unloaded,
+        db.ref(["transient.tab-ids", tab_id, "unloaded"])),*/
+
       (init
         ? empty
         : e.animate({ from: ui_tab_style_hidden,
@@ -208,32 +273,18 @@ export const ui_tab = (db, tab_id, init) =>
 
       latest([
         e.hovering(),
-        e.holding(),
-        dragging
-      ]).map(([hover, hold, dragging]) => {
-        e.set_style(ui_tab_style_hover, !dragging && hover);
-        e.set_style(ui_tab_style_hold, !dragging && hover && hold);
-      }),
-
-      latest([
-        selected
-      ]).map(([selected]) => {
-        e.set_style(ui_tab_selected_style, selected.has(e));
-      }),
-
-      latest([
-        e.hovering(),
-        dragging
-      ]).map(([hover, dragging]) => {
-        if (hover && !dragging) {
-          url.value = {
+        dragging,
+        db.ref(["current.tab-ids", tab_id, "url"])
+      ], (hover, dragging, url) => {
+        if (hover && !dragging && url) {
+          url_bar.value = {
             x: hover.x,
             y: hover.y,
-            url: tab.get("url")
+            url: url
           };
 
         } else {
-          url.value = null;
+          url_bar.value = null;
         }
       }),
 
@@ -263,6 +314,7 @@ export const ui_tab = (db, tab_id, init) =>
 
       e.on_mouse_hover().keep((x) => x && dragging.value).map(() => {
         const parent = e.parent;
+        // TODO a bit inefficient
         const index = parent.index_of(e).get();
 
         if (tab_placeholder.parent === parent || index === 0) {
@@ -273,9 +325,12 @@ export const ui_tab = (db, tab_id, init) =>
       }),
 
       e.drag({
-        threshold: 10,
+        start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) => {
+          return !alt && !ctrl && !shift && hypot(start_x - x, start_y - y) > 5
+        },
 
         start: ({ y }) => {
+          // TODO a bit inefficient
           const index   = e.parent.index_of(e).get();
           const tab_box = e.get_position();
 
@@ -288,30 +343,45 @@ export const ui_tab = (db, tab_id, init) =>
 
           e.parent.insert(index, tab_placeholder);
 
+          let height = 0;
+          let offset = 0;
+
           each(indexed(selected.value), ([i, e]) => {
-            if (i !== 0) {
+            if (i === 0) {
+              // TODO a bit hacky
+              height += 20;
+              offset += 10;
+
+            } else {
               if (i < 5) {
-                e._dom["style"]["margin-top"] = -(tab_box.height - 2) + "px";
+                // TODO a bit hacky
+                height += 2 + 1;
+                offset += 1;
+
+                e.animate({ from: ui_tab_drag_normal,
+                            to: ui_tab_drag_stacked,
+                            duration: 250 }).run();
               } else {
-                e._dom["style"]["margin-top"] = -tab_box.height + "px";
+                e.animate({ from: ui_tab_drag_normal,
+                            to: ui_tab_drag_hidden,
+                            duration: 250 }).run();
               }
 
+              // TODO hacky
               e._dom["style"]["z-index"] = -i + "";
             }
 
             tab_dragging.push(e);
           });
 
+          // TODO hacky
+          tab_placeholder._dom["style"]["height"] = height + "px";
+
           tab_dragging.left = tab_box.left;
           tab_dragging.width = tab_box.width;
+          tab_dragging.top = y - offset;
 
           tab_dragging.show();
-
-          const drag_box = tab_dragging.get_position();
-          const offset   = drag_box.height / 2;
-
-          tab_dragging.top = y - offset;
-          tab_placeholder._dom["style"]["height"] = drag_box.height + "px";
 
 
           return { offset };
@@ -324,6 +394,7 @@ export const ui_tab = (db, tab_id, init) =>
 
         end: (info) => {
           const parent = tab_placeholder.parent;
+          // TODO a bit inefficient
           const index = parent.index_of(tab_placeholder).get();
 
           console.log(index);
@@ -331,10 +402,22 @@ export const ui_tab = (db, tab_id, init) =>
           parent.remove(index);
 
           each(indexed(selected.value), ([i, e]) => {
-            console.log(e);
             parent.insert(index + i, e);
-            e._dom["style"]["margin-top"] = "";
-            e._dom["style"]["z-index"] = "";
+
+            if (i !== 0) {
+              if (i < 5) {
+                e.animate({ from: ui_tab_drag_stacked,
+                            to: ui_tab_drag_normal,
+                            duration: 250 }).run();
+              } else {
+                e.animate({ from: ui_tab_drag_hidden,
+                            to: ui_tab_drag_normal,
+                            duration: 250 }).run();
+              }
+
+              // TODO hacky
+              e._dom["style"]["z-index"] = "";
+            }
           });
 
           tab_dragging.hide();

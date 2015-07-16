@@ -1,8 +1,8 @@
 import * as dom from "../dom";
-import { Ref, empty } from "../../util/stream";
+import { Ref, empty, merge } from "../../util/stream";
 
 
-export const url = new Ref(null);
+export const url_bar = new Ref(null);
 
 const top_style = dom.style({
   "left": "0px",
@@ -159,33 +159,30 @@ const minify = (x) => {
   return y;
 };
 
-const parsed_url = url.keep((x) => x !== null).map(({ url }) => minify(url));
+const parsed_url = url_bar.keep((x) => x !== null).map(({ url }) => minify(url));
 
 const make = (style, f) =>
   dom.row((e) => {
-    e.add_style(text_style);
-    e.add_style(style);
+    e.push(dom.text(parsed_url.map(f)));
 
-    const text = dom.text("");
+    return merge([
+      e.style_always(text_style),
+      e.style_always(style),
 
-    e.push(text);
+      parsed_url.map((x) => {
+        const s = f(x);
 
-    return parsed_url.map((x) => {
-      const s = f(x);
+        if (s === null) {
+          e.hide();
 
-      if (s === null) {
-        e.hide();
-
-      } else {
-        text.text = s;
-        e.show();
-      }
-    });
+        } else {
+          e.show();
+        }
+      })
+    ]);
   });
 
 dom.floating((e) => {
-  e.add_style(top_style);
-
   // TODO check if any of these need "flex-shrink": 1
   e.push(dom.row((e) => {
     e.push(make(protocol_style, (x) => x.protocol));
@@ -197,18 +194,22 @@ dom.floating((e) => {
     return empty;
   }));
 
-  return url.map((o) => {
-    if (o === null) {
-      e.hide();
+  return merge([
+    e.style_always(top_style),
 
-    } else {
-      e.show();
-
-      const box = e.get_position();
-
-      if (o.x <= box.right && o.y >= box.top) {
+    url_bar.map((o) => {
+      if (o === null) {
         e.hide();
+
+      } else {
+        e.show();
+
+        const box = e.get_position();
+
+        if (o.x <= box.right && o.y >= box.top) {
+          e.hide();
+        }
       }
-    }
-  });
+    })
+  ]);
 });

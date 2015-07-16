@@ -2,7 +2,7 @@ import { init as init_sync } from "./client/sync";
 import { run_async } from "./util/async";
 import { Timer } from "./util/time";
 import { each } from "./util/iterator";
-import { empty, latest } from "./util/stream";
+import { empty, latest, merge } from "./util/stream";
 import { ui_tab } from "./client/panel/tab";
 import * as dom from "./client/dom";
 
@@ -11,20 +11,22 @@ run_async(function* () {
   const db = yield init_sync;
 
   const view_window_style = dom.style({
-    "border": "5px solid black"
+    "border": "5px solid black",
+    // TODO
+    "background-color": "white"
   });
 
   const view_window = (db, window_id) =>
     dom.col((e) => {
       const window = db.get(["current.window-ids", window_id]);
 
-      e.add_style(view_window_style);
-
       each(window.get("tabs"), (tab_id) => {
         e.push(ui_tab(db, tab_id, true));
       });
 
-      return empty;
+      return merge([
+        e.style_always(view_window_style)
+      ]);
     });
 
   const view = (db) =>
@@ -50,13 +52,15 @@ run_async(function* () {
   };
 
   // TODO should this use `latest` or `merge` ?
-  latest([
+  /*latest([
     db.ref(["current.windows"]),
     db.ref(["current.window-ids"]),
     db.ref(["current.tab-ids"])
-  ]).each(() => {
+  ], () => {
     render(db);
-  });
+  }).run();*/
+
+  render(db);
 
   console["debug"]("panel: initialized");
 });

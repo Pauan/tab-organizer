@@ -1,5 +1,4 @@
 import { Set } from "./mutable/set";
-import { copy } from "./immutable/array";
 import { each } from "./iterator";
 import { Some, None } from "./immutable/maybe";
 
@@ -201,6 +200,41 @@ class _Stream {
 export const Stream = (f) => new _Stream(f);
 
 
+// TODO is this correct ?
+export const not = (x) =>
+  x.map((x) => !x);
+
+// TODO is this correct ?
+export const and = (args) =>
+  latest(args, (...args) => {
+    for (let i = 0; i < args["length"]; ++i) {
+      if (!args[i]) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+// TODO is this correct ?
+export const or = (args) =>
+  latest(args, (...args) => {
+    for (let i = 0; i < args["length"]; ++i) {
+      if (args[i]) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+// TODO should this call `complete` ?
+export const always = (x) =>
+  Stream((send, error, complete) => {
+    send(x);
+    return noop;
+  });
+
 // TODO test this
 export const concat = (args) =>
   Stream((send, error, complete) => {
@@ -272,7 +306,7 @@ export const merge = (args) =>
   });
 
 // TODO test this
-export const latest = (args) =>
+export const latest = (args, f) =>
   Stream((send, error, complete) => {
     let pending_values = args["length"];
 
@@ -308,7 +342,7 @@ export const latest = (args) =>
           }
 
           if (pending_values === 0) {
-            send(copy(values));
+            send(f(...values));
           }
         }, on_error, on_complete);
       });

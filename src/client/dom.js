@@ -1,8 +1,8 @@
 import { each } from "../util/iterator";
-import { Ref, Stream, empty } from "../util/stream";
+import { Ref, Stream, empty, always } from "../util/stream";
 import { List } from "../util/immutable/list";
 import { batch_read, batch_write } from "./dom/batch";
-import { make_style, make_animation } from "./dom/style";
+import { make_style } from "./dom/style";
 import { assert, fail } from "../util/assert";
 import { async, async_callback } from "../util/async";
 import { animate, ease_in_out, range, round_range } from "../util/animate";
@@ -10,7 +10,7 @@ import { animate, ease_in_out, range, round_range } from "../util/animate";
 
 // TODO can this be made more efficient ?
 const parse_css = (x) =>
-  /^([0-9]+)(px)?$/["exec"](x);
+  /^(\-?[0-9]+)(px)?$/["exec"](x);
 
 const range_px = (t, from, to) =>
   round_range(t, from, to) + "px";
@@ -45,16 +45,12 @@ const preventDefault = (e) => {
   e["preventDefault"]();
 };
 
-// TODO move this into another module
-// TODO better implementation of this ?
-const hypot = (x, y) =>
-  Math["sqrt"](x * x + y * y);
-
 
 class DOM {
   constructor(dom) {
     this._dom = dom;
     this._parent = null;
+    this._running = null;
   }
 
   get parent() {
@@ -81,17 +77,6 @@ class DOM {
 }
 
 
-class Text extends DOM {
-  get text() {
-    return this._dom["textContent"];
-  }
-
-  set text(value) {
-    this._dom["textContent"] = value;
-  }
-}
-
-
 const mouse_event = (e) => {
   return {
     x: e["clientX"],
@@ -103,12 +88,6 @@ const mouse_event = (e) => {
 };
 
 class Element extends DOM {
-  constructor(dom) {
-    super(dom);
-
-    this._running = null;
-  }
-
   on_mouse_hover() {
     return Stream((send, error, complete) => {
       // TODO code duplication
@@ -237,7 +216,7 @@ class Element extends DOM {
     });
   }
 
-  drag({ start, move, end, threshold }) {
+  drag({ start, move, end, start_if }) {
     return Stream((send, error, complete) => {
       let info = null;
       let start_x = null;
@@ -252,6 +231,14 @@ class Element extends DOM {
 
           start_x = e["clientX"];
           start_y = e["clientY"];
+
+          const o = mouse_event(e);
+
+          if (start_if(start_x, start_y, o)) {
+            dragging = true;
+
+            info = start(o);
+          }
         }
       };
 
@@ -261,7 +248,7 @@ class Element extends DOM {
         if (dragging) {
           info = move(info, o);
 
-        } else if (hypot(start_x - o.x, start_y - o.y) > threshold) {
+        } else if (start_if(start_x, start_y, o)) {
           dragging = true;
 
           info = start(o);
@@ -296,26 +283,27 @@ class Element extends DOM {
     });
   }
 
-  add_style(style) {
-    batch_write(() => {
-      //assert(!this._dom["classList"]["contains"](style._name));
-      this._dom["classList"]["add"](style._name);
+  _add_style(style) {
+    this._dom["classList"]["add"](style._name);
+  }
+
+  _remove_style(style) {
+    this._dom["classList"]["remove"](style._name);
+  }
+
+  style(style, stream) {
+    return stream.map((x) => {
+      if (x) {
+        this._add_style(style);
+      } else {
+        this._remove_style(style);
+      }
+      return x;
     });
   }
 
-  remove_style(style) {
-    batch_write(() => {
-      //assert(this._dom["classList"]["contains"](style._name));
-      this._dom["classList"]["remove"](style._name);
-    });
-  }
-
-  set_style(style, test) {
-    if (test) {
-      this.add_style(style);
-    } else {
-      this.remove_style(style);
-    }
+  style_always(style) {
+    return this.style(style, always(true));
   }
 
   get_position() {
@@ -347,7 +335,7 @@ class Element extends DOM {
     return animate(duration).map(easing).map((t) => {
       // TODO what about bouncing ?
       if (t === 1) {
-        this.add_style(to);
+        this._add_style(to);
 
         for (let i = 0; i < transitions["length"]; ++i) {
           const { key } = transitions[i];
@@ -357,7 +345,7 @@ class Element extends DOM {
       } else {
         if (t === 0) {
           // TODO remove `to` as well ?
-          this.remove_style(from);
+          this._remove_style(from);
         }
 
         // TODO can this be made more efficient ?
@@ -377,6 +365,17 @@ class Element extends DOM {
 
   hide() {
     this._dom["style"]["display"] = "none";
+  }
+
+  visible(stream) {
+    return stream.map((x) => {
+      if (x) {
+        this.show();
+      } else {
+        this.hide();
+      }
+      return x;
+    });
   }
 }
 
@@ -457,8 +456,6 @@ class Floating extends Parent {
 
 export const style = (o) => make_style(o);
 
-export const animation = (o) => make_animation(o);
-
 export const calc = (...args) =>
   "calc(" + args["join"](" ") + ")";
 
@@ -520,7 +517,7 @@ const stretch_style = style({
 
 export const row = (f) => {
   const e = new Parent(document["createElement"]("div"));
-  e.add_style(row_style);
+  e._add_style(row_style);
   // TODO test this
   e._running = f(e).run();
   return e;
@@ -528,7 +525,7 @@ export const row = (f) => {
 
 export const stretch = (f) => {
   const e = new Parent(document["createElement"]("div"));
-  e.add_style(stretch_style);
+  e._add_style(stretch_style);
   // TODO test this
   e._running = f(e).run();
   return e;
@@ -536,7 +533,7 @@ export const stretch = (f) => {
 
 export const col = (f) => {
   const e = new Parent(document["createElement"]("div"));
-  e.add_style(col_style);
+  e._add_style(col_style);
   // TODO test this
   e._running = f(e).run();
   return e;
@@ -545,8 +542,8 @@ export const col = (f) => {
 // TODO not quite right...
 export const floating = (f) => {
   const e = new Floating(document["createElement"]("div"));
-  e.add_style(floating_style);
-  e.add_style(col_style); // TODO is this correct ?
+  e._add_style(floating_style);
+  e._add_style(col_style); // TODO is this correct ?
   // TODO test this
   e._running = f(e).run();
   // TODO is this correct ?
@@ -554,8 +551,18 @@ export const floating = (f) => {
   return e;
 };
 
-export const text = (s) =>
-  new Text(document["createTextNode"](s));
+// TODO is this correct ?
+export const text = (x) => {
+  const s = document["createTextNode"]("");
+  const e = new DOM(s);
+
+  // TODO is this correct ?
+  e._running = x.each((x) => {
+    s["textContent"] = x;
+  });
+
+  return e;
+};
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
