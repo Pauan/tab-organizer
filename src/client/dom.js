@@ -359,20 +359,12 @@ class Element extends DOM {
     });
   }
 
-  show() {
-    this._dom["style"]["display"] = "";
-  }
-
-  hide() {
-    this._dom["style"]["display"] = "none";
-  }
-
   visible(stream) {
     return stream.map((x) => {
       if (x) {
-        this.show();
+        this._dom["style"]["display"] = "";
       } else {
-        this.hide();
+        this._dom["style"]["display"] = "none";
       }
       return x;
     });

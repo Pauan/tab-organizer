@@ -169,16 +169,7 @@ const make = (style, f) =>
       e.style_always(text_style),
       e.style_always(style),
 
-      parsed_url.map((x) => {
-        const s = f(x);
-
-        if (s === null) {
-          e.hide();
-
-        } else {
-          e.show();
-        }
-      })
+      e.visible(parsed_url.map(f))
     ]);
   });
 
@@ -197,19 +188,13 @@ dom.floating((e) => {
   return merge([
     e.style_always(top_style),
 
-    url_bar.map((o) => {
-      if (o === null) {
-        e.hide();
-
-      } else {
-        e.show();
-
-        const box = e.get_position();
-
-        if (o.x <= box.right && o.y >= box.top) {
-          e.hide();
-        }
-      }
-    })
+    // TODO is this correct ?
+    // This makes the element visible if `url_bar` is not `null`, and then
+    // it uses `get_position` to check if the mouse is on top of the element,
+    // and if so, it will then hide the element
+    e.visible(e.visible(url_bar).keep((o) => o !== null).map((o) => {
+      const box = e.get_position();
+      return o.x > box.right || o.y < box.top;
+    }))
   ]);
 });

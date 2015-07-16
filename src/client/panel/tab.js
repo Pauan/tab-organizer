@@ -5,6 +5,16 @@ import { each, indexed } from "../../util/iterator";
 import { Set } from "../../util/immutable/set";
 
 
+const selected = new Ref(Set());
+
+const dragging = new Ref(false);
+
+// TODO move this into another module
+// TODO better implementation of this ?
+const hypot = (x, y) =>
+  Math["sqrt"](x * x + y * y);
+
+
 const ui_tab_drag_hidden = dom.style({
   "margin-top": "-20px"
 });
@@ -186,7 +196,7 @@ const ui_text = (db, tab_id) =>
     return e.style_always(ui_tab_text_style);
   });
 
-const ui_close = (top, db, tab_id) =>
+const ui_close = (db, tab_id, show) =>
   dom.image((e) => {
     e.url = "data/images/button-close.png";
 
@@ -194,10 +204,7 @@ const ui_close = (top, db, tab_id) =>
       e.style_always(ui_tab_icon_style),
       e.style_always(ui_tab_close_style),
 
-      e.visible(and([
-        not(dragging),
-        top.hovering()
-      ]))
+      e.visible(show)
 
       //e.style(ui_tab_close_style_hover,
       //  e.hovering()),
@@ -212,31 +219,30 @@ const ui_close = (top, db, tab_id) =>
 
 
 const tab_dragging =
-  dom.floating((e) => {
-    e.hide();
-
-    return e.style_always(ui_tab_dragging);
-  });
+  dom.floating((e) =>
+    merge([
+      e.style_always(ui_tab_dragging),
+      e.visible(dragging)
+    ]));
 
 const tab_placeholder =
-  dom.row((e) => {
-    return e.style_always(ui_tab_placeholder);
-  });
-
-const selected = new Ref(Set());
-
-const dragging = new Ref(false);
-
-// TODO move this into another module
-// TODO better implementation of this ?
-const hypot = (x, y) =>
-  Math["sqrt"](x * x + y * y);
+  dom.row((e) =>
+    merge([
+      e.style_always(ui_tab_placeholder),
+      e.visible(dragging)
+    ]));
 
 export const ui_tab = (db, tab_id, init) =>
   dom.row((e) => {
     e.push(ui_favicon(db, tab_id));
+
     e.push(ui_text(db, tab_id));
-    e.push(ui_close(e, db, tab_id));
+
+    e.push(ui_close(db, tab_id,
+      and([
+        not(dragging),
+        e.hovering()
+      ])));
 
     return merge([
       e.style_always(ui_tab_style),
@@ -338,8 +344,6 @@ export const ui_tab = (db, tab_id, init) =>
             selected.value = selected.value.insert(e);
           }
 
-          dragging.value = true;
-
 
           e.parent.insert(index, tab_placeholder);
 
@@ -381,8 +385,7 @@ export const ui_tab = (db, tab_id, init) =>
           tab_dragging.width = tab_box.width;
           tab_dragging.top = y - offset;
 
-          tab_dragging.show();
-
+          dragging.value = true;
 
           return { offset };
         },
@@ -419,8 +422,6 @@ export const ui_tab = (db, tab_id, init) =>
               e._dom["style"]["z-index"] = "";
             }
           });
-
-          tab_dragging.hide();
 
           selected.value = Set();
           dragging.value = false;
