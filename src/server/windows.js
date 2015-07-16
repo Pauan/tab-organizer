@@ -22,9 +22,12 @@ export const init = async(function* () {
   db.default(["current.window-ids"], Record());
   db.default(["current.tab-ids"], Record());
 
-  sync(db, "current.windows");
-  sync(db, "current.window-ids");
-  sync(db, "current.tab-ids");
+  db.transient("transient.tab-ids", Record());
+
+  sync("current.windows");
+  sync("current.window-ids");
+  sync("current.tab-ids");
+  sync("transient.tab-ids");
 
 
   const delay = (ms) => {
@@ -45,7 +48,7 @@ export const init = async(function* () {
 
     each(windows, (id) => {
       assert(window_ids.has(id));
-      seen.add(id);
+      seen.insert(id);
     });
 
     each(window_ids, ([id, window]) => {
@@ -56,7 +59,7 @@ export const init = async(function* () {
 
       each(window.get("tabs"), (id) => {
         assert(tab_ids.has(id));
-        seen.add(id);
+        seen.insert(id);
       });
     });
 
@@ -108,6 +111,14 @@ export const init = async(function* () {
     ]);
 
     db.insert(["current.tab-ids", tab_id], tab);
+
+    make_new_tab_transient(db, tab_id, info);
+  };
+
+  const make_new_tab_transient = (db, tab_id, info) => {
+    db.insert(["transient.tab-ids", tab_id], Record([
+      ["focused", info.focused]
+    ]));
   };
 
   const update_window = (db, window_id, info) => {
@@ -119,6 +130,7 @@ export const init = async(function* () {
       if (tab_ids.has(tab_id)) {
         // TODO assert that the index is correct ?
         update_tab(db, tab_id, info);
+        make_new_tab_transient(db, tab_id, info);
 
       } else {
         make_new_tab(db, window_id, tab_id, info);
@@ -226,6 +238,8 @@ export const init = async(function* () {
       // TODO test this
       each(tabs, (tab_id) => {
         db.remove(["current.tab-ids", tab_id]);
+        // TODO what if the tab isn't unloaded ?
+        db.remove(["transient.tab-ids", tab_id]);
       });
 
       db.remove(["current.window-ids", id]);
@@ -254,10 +268,19 @@ export const init = async(function* () {
 
   const tab_focus = (info) => {
     db.transaction((db) => {
+      if (info.old !== null) {
+        const tab_id = session.tab_id(info.old.id);
+
+        // TODO assert that it was true ?
+        db.update(["transient.tab-ids", tab_id, "focused"], false);
+      }
+
       if (info.new !== null) {
         const tab_id = session.tab_id(info.new.id);
 
         db.assign(["current.tab-ids", tab_id, "time", "focused"], timestamp());
+        // TODO assert that it was false ?
+        db.update(["transient.tab-ids", tab_id, "focused"], true);
       }
     });
   };
@@ -334,6 +357,7 @@ export const init = async(function* () {
       const tab_id = session.tab_id(info.tab.id);
 
       db.remove(["current.tab-ids", tab_id]);
+      db.remove(["transient.tab-ids", tab_id]);
 
       const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 

@@ -3,10 +3,10 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
 import { keep_map, map } from "../util/iterator";
 import { None, Some } from "../util/immutable/maybe";
-import { Cache } from "../util/mutable/cache";
+import { Set } from "../util/mutable/set";
 import { List } from "../util/immutable/list";
 import { Record } from "../util/immutable/record";
-import { Event } from "../util/stream";
+import { race } from "../util/stream";
 import { async } from "../util/async";
 
 
@@ -14,14 +14,10 @@ export const init = async(function* () {
   const db = yield init_db;
   const { ports } = yield init_chrome;
 
-  let keys = Record();
+  const keys = new Set();
 
-  const dbs = new Cache();
-
-  // TODO handle completion in some way ?
-  const transactions = new Event();
-
-  const handle_transaction = (transaction) => {
+  // TODO test this
+  const transactions = db.on_commit.keep_map((transaction) => {
     const x = List(keep_map(transaction, (x) => {
       const key = x.get("keys").get(0);
 
@@ -34,29 +30,21 @@ export const init = async(function* () {
     }));
 
     if (x.size > 0) {
-      transactions.send(x);
+      return Some(x);
+    } else {
+      return None;
     }
-  };
+  });
 
-  const sync = (db, key) => {
+  const sync = (key) => {
     // This ensures that there aren't any duplicate keys
-    keys = keys.insert(key, db);
-
-    // TODO test this
-    // If we listen to the same db multiple times, it will trigger duplicate
-    // events. So we use a cache to make sure that we listen to each db
-    // exactly once.
-    // TODO should this maybe cache `db.on_commit` instead ?
-    dbs.get(db, () => {
-      // TODO handle completion in some way ?
-      db.on_commit.each(handle_transaction);
-    });
+    keys.insert(key);
   };
 
   ports.on_connect(uuid_port_sync).each((port) => {
     port.send(Record([
       ["type", "init"],
-      ["tables", Record(map(keys, ([key, db]) => [key, db.get([key])]))]
+      ["tables", Record(map(keys, (key) => [key, db.get([key])]))]
     ]));
 
     // TODO test this

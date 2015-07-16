@@ -324,6 +324,7 @@ export const latest = (args) =>
     }
   });
 
+// TODO test this
 export const race = (args) =>
   Stream((send, error, complete) => {
     if (args["length"] === 0) {

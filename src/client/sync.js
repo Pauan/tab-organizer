@@ -17,6 +17,8 @@ export const init = async(function* () {
     const port = ports.connect(uuid_port_sync);
 
     port.on_receive.each((x) => {
+      console.log(to_json(x));
+
       const type = x.get("type");
 
       if (type === "init") {
