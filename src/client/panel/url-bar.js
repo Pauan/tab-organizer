@@ -204,10 +204,9 @@ dom.floating((e) => {
     } else {
       e.show();
 
-      // TODO
-      const box = e._dom["getBoundingClientRect"]();
+      const box = e.get_position();
 
-      if (o.x <= box["right"] && o.y >= box["top"]) {
+      if (o.x <= box.right && o.y >= box.top) {
         e.hide();
       }
     }

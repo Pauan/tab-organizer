@@ -5,6 +5,7 @@ import { to_json } from "./json";
 import { assert } from "../assert";
 
 
+// TODO inefficient, it's O(n)
 class ImmutableList {
   constructor(x) {
     this._list = x;

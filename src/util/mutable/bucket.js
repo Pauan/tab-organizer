@@ -22,7 +22,7 @@ export class Bucket {
       this._keys.insert(key, new Set());
     }
 
-    this._keys.get(key).add(value);
+    this._keys.get(key).insert(value);
   }
 
   remove(key, value) {

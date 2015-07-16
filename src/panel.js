@@ -21,7 +21,7 @@ run_async(function* () {
       e.add_style(view_window_style);
 
       each(window.get("tabs"), (tab_id) => {
-        e.push(ui_tab(tab_ids.get(tab_id)));
+        e.push(ui_tab(tab_ids.get(tab_id), true));
       });
 
       return empty;

@@ -1,7 +1,8 @@
 import * as dom from "../dom";
 import { url } from "./url-bar";
-import { concat, Stream, merge, latest, empty } from "../../util/stream";
-import { each } from "../../util/iterator";
+import { concat, Stream, merge, latest, empty, Ref } from "../../util/stream";
+import { each, indexed } from "../../util/iterator";
+import { Set } from "../../util/immutable/set";
 
 
 const ui_tab_style_hidden = dom.style({
@@ -21,7 +22,7 @@ const ui_tab_style_hidden = dom.style({
 
 const ui_tab_dragging = dom.style({
   "pointer-events": "none",
-  "opacity": "0.94"
+  "opacity": "0.75"
 });
 
 const ui_tab_placeholder = dom.style({
@@ -99,6 +100,16 @@ const ui_tab_style_hold = dom.style({
                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.225),
 });
 
+const ui_tab_selected_style = dom.style({
+  "background-color": "green",
+  "border-color": "black",
+
+  // TODO code duplication
+  "box-shadow":       "1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
+                "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
+                "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25),
+});
+
 const ui_tab_icon_style = dom.style({
   "height": "16px",
   "border-radius": "4px",
@@ -167,7 +178,11 @@ const tab_placeholder =
     return empty;
   });
 
-export const ui_tab = (tab) =>
+const selected = new Ref(Set());
+
+const dragging = new Ref(false);
+
+export const ui_tab = (tab, init) =>
   dom.row((e) => {
     e.add_style(ui_tab_style);
     e.add_style(ui_tab_style_visible);
@@ -183,23 +198,32 @@ export const ui_tab = (tab) =>
     });
 
     return merge([
-      e.animate({ from: ui_tab_style_hidden,
-                  to: ui_tab_style_visible,
-                  duration: 1000 }),
+      (init
+        ? empty
+        : e.animate({ from: ui_tab_style_hidden,
+                      to: ui_tab_style_visible,
+                      duration: 1000 })),
 
       latest([
         e.hovering(),
         e.holding(),
-        dom.dragging
+        dragging
       ]).map(([hover, hold, dragging]) => {
         e.set_style(ui_tab_style_hover, !dragging && hover);
         e.set_style(ui_tab_style_hold, !dragging && hover && hold);
       }),
 
       latest([
-        e.hovering()
-      ]).map(([hover]) => {
-        if (hover) {
+        selected
+      ]).map(([selected]) => {
+        e.set_style(ui_tab_selected_style, selected.has(e));
+      }),
+
+      latest([
+        e.hovering(),
+        dragging
+      ]).map(([hover, dragging]) => {
+        if (hover && !dragging) {
           url.value = {
             x: hover.x,
             y: hover.y,
@@ -211,8 +235,20 @@ export const ui_tab = (tab) =>
         }
       }),
 
-      e.on_left_click().map((e) => {
-        console.log("left click", e);
+      e.on_left_click().map(({ shift, ctrl, alt }) => {
+        if (!shift && !ctrl && !alt) {
+
+        } else if (shift && !ctrl && !alt) {
+
+
+        } else if (!shift && ctrl && !alt) {
+          // TODO code duplication
+          if (selected.value.has(e)) {
+            selected.value = selected.value.remove(e);
+          } else {
+            selected.value = selected.value.insert(e);
+          }
+        }
       }),
 
       e.on_middle_click().map((e) => {
@@ -223,7 +259,7 @@ export const ui_tab = (tab) =>
         console.log("right click", e);
       }),
 
-      e.on_drag_hover().map(() => {
+      e.on_mouse_hover().keep((x) => x && dragging.value).map(() => {
         const parent = e.parent;
         const index = parent.index_of(e).get();
 
@@ -238,24 +274,43 @@ export const ui_tab = (tab) =>
         threshold: 10,
 
         start: ({ y }) => {
-          const box = e._dom["getBoundingClientRect"]();
-          const offset = box["height"] / 2;
+          const index   = e.parent.index_of(e).get();
+          const tab_box = e.get_position();
 
-          //e.add_style(ui_tab_style_hover);
-          //e.remove_style(ui_tab_style_hold);
+          if (selected.value.size === 0) {
+            selected.value = selected.value.insert(e);
+          }
 
-          tab_placeholder._dom["style"]["height"] = box["height"] + "px";
+          dragging.value = true;
 
-          const index = e.parent.index_of(e).get();
 
           e.parent.insert(index, tab_placeholder);
 
-          tab_dragging.top = y - offset;
-          tab_dragging.left = box["left"];
-          tab_dragging.width = box["width"];
+          each(indexed(selected.value), ([i, e]) => {
+            if (i !== 0) {
+              if (i < 5) {
+                e._dom["style"]["margin-top"] = -(tab_box.height - 2) + "px";
+              } else {
+                e._dom["style"]["margin-top"] = -tab_box.height + "px";
+              }
 
-          tab_dragging.push(e);
+              e._dom["style"]["z-index"] = -i + "";
+            }
+
+            tab_dragging.push(e);
+          });
+
+          tab_dragging.left = tab_box.left;
+          tab_dragging.width = tab_box.width;
+
           tab_dragging.show();
+
+          const drag_box = tab_dragging.get_position();
+          const offset   = drag_box.height / 2;
+
+          tab_dragging.top = y - offset;
+          tab_placeholder._dom["style"]["height"] = drag_box.height + "px";
+
 
           return { offset };
         },
@@ -273,13 +328,17 @@ export const ui_tab = (tab) =>
 
           parent.remove(index);
 
-          each(tab_dragging.children, (x) => {
-            console.log(x);
-            parent.insert(index, x);
+          each(indexed(selected.value), ([i, e]) => {
+            console.log(e);
+            parent.insert(index + i, e);
+            e._dom["style"]["margin-top"] = "";
+            e._dom["style"]["z-index"] = "";
           });
 
-          tab_dragging.clear();
           tab_dragging.hide();
+
+          selected.value = Set();
+          dragging.value = false;
         }
       })
     ]);

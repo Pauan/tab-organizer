@@ -1,7 +1,6 @@
 @charset "UTF-8";
 
 * {
-  overflow: hidden;
   text-overflow: ellipsis;
 
   vertical-align: middle; /* TODO I can probably get rid of this */

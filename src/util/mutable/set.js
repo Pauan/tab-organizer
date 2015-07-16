@@ -9,7 +9,7 @@ class _Set {
 
     if (x != null) {
       each(x, (value) => {
-        this.add(value);
+        this.insert(value);
       });
     }
   }
@@ -18,7 +18,7 @@ class _Set {
     return this._set["has"](value);
   }
 
-  add(value) {
+  insert(value) {
     if (this._set["has"](value)) {
       throw new Error("Value already exists in Set: " + value);
 
@@ -36,6 +36,11 @@ class _Set {
     } else {
       throw new Error("Value does not exist in Set: " + value);
     }
+  }
+
+  clear() {
+    this._set["clear"]();
+    this.size = this._set["size"];
   }
 
   [Symbol["iterator"]]() {

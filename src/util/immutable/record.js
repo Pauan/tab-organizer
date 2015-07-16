@@ -37,6 +37,7 @@ const get_index = (array, key) => {
 };
 
 
+// TODO inefficient, it's O(n)
 export class ImmutableRecord {
   constructor(keys) {
     this._keys = keys;

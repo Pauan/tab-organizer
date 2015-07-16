@@ -51,10 +51,6 @@ const hypot = (x, y) =>
   Math["sqrt"](x * x + y * y);
 
 
-// TODO what if there are multiple draggers ?
-export const dragging = new Ref(false);
-
-
 class DOM {
   constructor(dom) {
     this._dom = dom;
@@ -96,6 +92,16 @@ class Text extends DOM {
 }
 
 
+const mouse_event = (e) => {
+  return {
+    x: e["clientX"],
+    y: e["clientY"],
+    alt: e["altKey"],
+    ctrl: e["ctrlKey"], // TODO what about Macs ?
+    shift: e["shiftKey"]
+  };
+};
+
 class Element extends DOM {
   constructor(dom) {
     super(dom);
@@ -111,10 +117,7 @@ class Element extends DOM {
 
         // This is done to simulate "mouseenter"
         if (related === null || !this._dom["contains"](related)) {
-          send({
-            x: e["clientX"],
-            y: e["clientY"]
-          });
+          send(mouse_event(e));
         }
       };
 
@@ -143,10 +146,7 @@ class Element extends DOM {
       const mousedown = (e) => {
         // TODO is it possible for this to leak ?
         addEventListener("mouseup", mouseup, true);
-        send({
-          x: e["clientX"],
-          y: e["clientY"]
-        });
+        send(mouse_event(e));
       };
 
       const mouseup = () => {
@@ -176,10 +176,7 @@ class Element extends DOM {
     return Stream((send, error, complete) => {
       const click = (e) => {
         if (e["button"] === 0) {
-          send({
-            x: e["clientX"],
-            y: e["clientY"]
-          });
+          send(mouse_event(e));
         }
       };
 
@@ -196,10 +193,7 @@ class Element extends DOM {
     return Stream((send, error, complete) => {
       const click = (e) => {
         if (e["button"] === 1) {
-          send({
-            x: e["clientX"],
-            y: e["clientY"]
-          });
+          send(mouse_event(e));
         }
       };
 
@@ -215,10 +209,7 @@ class Element extends DOM {
     return Stream((send, error, complete) => {
       const click = (e) => {
         if (e["button"] === 2) {
-          send({
-            x: e["clientX"],
-            y: e["clientY"]
-          });
+          send(mouse_event(e));
         }
       };
 
@@ -235,10 +226,7 @@ class Element extends DOM {
   on_mouse_move() {
     return Stream((send, error, complete) => {
       const mousemove = (e) => {
-        send({
-          x: e["clientX"],
-          y: e["clientY"]
-        });
+        send(mouse_event(e));
       };
 
       this._dom["addEventListener"]("mousemove", mousemove, true);
@@ -249,15 +237,12 @@ class Element extends DOM {
     });
   }
 
-  on_drag_hover() {
-    return this.on_mouse_hover().keep((x) => x && dragging.value);
-  }
-
   drag({ start, move, end, threshold }) {
     return Stream((send, error, complete) => {
       let info = null;
       let start_x = null;
       let start_y = null;
+      let dragging = false;
 
       const mousedown = (e) => {
         if (e["button"] === 0) {
@@ -271,16 +256,15 @@ class Element extends DOM {
       };
 
       const mousemove = (e) => {
-        const x = e["clientX"];
-        const y = e["clientY"];
+        const o = mouse_event(e);
 
-        if (dragging.value) {
-          info = move(info, { x, y });
+        if (dragging) {
+          info = move(info, o);
 
-        } else if (hypot(start_x - x, start_y - y) > threshold) {
-          dragging.value = true;
+        } else if (hypot(start_x - o.x, start_y - o.y) > threshold) {
+          dragging = true;
 
-          info = start({ x, y });
+          info = start(o);
         }
       };
 
@@ -291,17 +275,16 @@ class Element extends DOM {
         start_x = null;
         start_y = null;
 
-        if (dragging.value) {
-          dragging.value = false;
+        if (dragging) {
+          dragging = false;
 
-          const x = e["clientX"];
-          const y = e["clientY"];
+          const o = mouse_event(e);
 
           const old_info = info;
 
           info = null;
 
-          end(old_info, { x, y });
+          end(old_info, o);
         }
       };
 
@@ -333,6 +316,18 @@ class Element extends DOM {
     } else {
       this.remove_style(style);
     }
+  }
+
+  get_position() {
+    const box = this._dom["getBoundingClientRect"]();
+    return {
+      left: box["left"],
+      top: box["top"],
+      right: box["right"],
+      bottom: box["bottom"],
+      width: box["width"],
+      height: box["height"]
+    };
   }
 
   // TODO test this
@@ -499,7 +494,7 @@ export const hsl = (hue, sat, light, alpha = 1) => {
 
 const floating_style = style({
   "position": "fixed",
-  "z-index": "1"
+  "z-index": "9001" // TODO highest z-index
 });
 
 const row_style = style({
@@ -516,7 +511,11 @@ const col_style = style({
 const stretch_style = style({
   "flex-shrink": "1",
   "flex-grow": "1",
-  "flex-basis": "0%"
+  "flex-basis": "0%",
+
+  // TODO is this correct ?
+  "overflow": "hidden",
+  "white-space": "nowrap"
 });
 
 export const row = (f) => {
@@ -547,6 +546,7 @@ export const col = (f) => {
 export const floating = (f) => {
   const e = new Floating(document["createElement"]("div"));
   e.add_style(floating_style);
+  e.add_style(col_style); // TODO is this correct ?
   // TODO test this
   e._running = f(e).run();
   // TODO is this correct ?

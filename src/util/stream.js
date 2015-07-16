@@ -362,7 +362,7 @@ export const race = (args) =>
 const event_run = function (send, error, complete) {
   const info = { send, error, complete };
 
-  this._listeners.add(info);
+  this._listeners.insert(info);
 
   return () => {
     this._listeners.remove(info);
@@ -415,7 +415,7 @@ export class Event extends _Stream {
 const ref_run = function (send, error, complete) {
   send(this._value);
 
-  this._listeners.add(send);
+  this._listeners.insert(send);
 
   return () => {
     this._listeners.remove(send);
