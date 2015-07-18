@@ -373,8 +373,11 @@ class Element extends DOM {
 
 
 class Image extends Element {
-  set url(s) {
-    this._dom["src"] = s;
+  url(stream) {
+    return stream.map((x) => {
+      this._dom["src"] = x;
+      return x;
+    });
   }
 }
 

@@ -1,5 +1,5 @@
-import * as dom from "../dom";
-import { Ref, empty, merge } from "../../util/stream";
+import * as dom from "../../dom";
+import { Ref, empty, merge } from "../../../util/stream";
 
 
 export const url_bar = new Ref(null);
