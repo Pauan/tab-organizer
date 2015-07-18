@@ -1,4 +1,5 @@
 import { Some, None } from "./maybe";
+import { assert } from "../assert";
 
 
 export const copy = (array) => {

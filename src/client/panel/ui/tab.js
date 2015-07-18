@@ -182,10 +182,7 @@ const favicon = (tab) =>
 
 const text = (tab) =>
   dom.stretch((e) => {
-    e.push(dom.text(latest([
-      tab.get("title"),
-      tab.get("url")
-    ], (title, url) => title || url)));
+    e.push(dom.text(tab.get("title")));
 
     return e.style_always(style_text);
   });
