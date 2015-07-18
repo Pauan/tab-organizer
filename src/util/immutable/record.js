@@ -1,40 +1,28 @@
 import { iterator, entries, to_array } from "../iterator";
-import { copy, insert, remove } from "./array";
+import { get_sorted, copy, insert, remove } from "./array";
 import { to_json } from "./json";
 import { assert } from "../assert";
 
 
-const get_index = (array, key) => {
-  assert(typeof key === "string");
+const sort_strings = (key1, key2) => {
+  // TODO a bit inefficient ?
+  assert(typeof key1 === "string");
+  assert(typeof key2 === "string");
 
-  let start = 0;
-  let end   = array["length"];
-
-  while (start < end) {
-    // TODO is this faster/slower than using Math.floor ?
-    const pivot = (start + end) >> 1;
-
-    const other = array[pivot][0];
-
-    if (key === other) {
-      return {
-        index: pivot,
-        value: array[pivot]
-      };
-
-    } else if (key < other) {
-      end = pivot;
-
-    } else {
-      start = pivot + 1;
-    }
+  if (key1 === key2) {
+    return 0;
+  } else if (key1 < key2) {
+    return -1;
+  } else {
+    return 1;
   }
-
-  return {
-    index: start,
-    value: null
-  };
 };
+
+const sort_keys = ([key1, value1], [key2, value2]) =>
+  sort_strings(key1, key2);
+
+const sort_key = (key1, [key2, value2]) =>
+  sort_strings(key1, key2);
 
 
 // TODO inefficient, it's O(n)
@@ -45,28 +33,25 @@ export class ImmutableRecord {
   }
 
   has(key) {
-    return get_index(this._keys, key).value !== null;
+    return get_sorted(this._keys, key, sort_key).value.has();
   }
 
   get(key) {
-    const x = get_index(this._keys, key).value;
+    const x = get_sorted(this._keys, key, sort_key).value;
 
-    if (x === null) {
-      throw new Error("Key not found: " + key);
+    if (x.has()) {
+      return x.get()[1];
 
     } else {
-      return x[1];
+      throw new Error("Key not found: " + key);
     }
   }
 
   modify(key, f) {
-    const x = get_index(this._keys, key);
+    const x = get_sorted(this._keys, key, sort_key);
 
-    if (x.value === null) {
-      throw new Error("Key not found: " + key);
-
-    } else {
-      const old_value = x.value[1];
+    if (x.value.has()) {
+      const old_value = x.value.get()[1];
       const new_value = f(old_value);
 
       if (old_value === new_value) {
@@ -77,28 +62,31 @@ export class ImmutableRecord {
         keys[x.index] = [key, new_value];
         return new ImmutableRecord(keys);
       }
+
+    } else {
+      throw new Error("Key not found: " + key);
     }
   }
 
   insert(key, value) {
-    const x = get_index(this._keys, key);
+    const x = get_sorted(this._keys, key, sort_key);
 
-    if (x.value === null) {
-      return new ImmutableRecord(insert(this._keys, x.index, [key, value]));
+    if (x.value.has()) {
+      throw new Error("Key already exists: " + key);
 
     } else {
-      throw new Error("Key already exists: " + key);
+      return new ImmutableRecord(insert(this._keys, x.index, [key, value]));
     }
   }
 
   remove(key) {
-    const x = get_index(this._keys, key);
+    const x = get_sorted(this._keys, key, sort_key);
 
-    if (x.value === null) {
-      throw new Error("Key not found: " + key);
+    if (x.value.has()) {
+      return new ImmutableRecord(remove(this._keys, x.index));
 
     } else {
-      return new ImmutableRecord(remove(this._keys, x.index));
+      throw new Error("Key not found: " + key);
     }
   }
 
@@ -139,20 +127,6 @@ export class ImmutableRecord {
     return iterator(this._keys);
   }
 }
-
-const sort_keys = ([key1, value1], [key2, value2]) => {
-  // TODO a bit inefficient ?
-  assert(typeof key1 === "string");
-  assert(typeof key2 === "string");
-
-  if (key1 === key2) {
-    return 0;
-  } else if (key1 < key2) {
-    return -1;
-  } else {
-    return 1;
-  }
-};
 
 export const Record = (x = null) => {
   if (x == null) {
