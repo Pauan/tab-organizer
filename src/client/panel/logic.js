@@ -1,11 +1,13 @@
 import { init as init_sync } from "../sync";
 import { async } from "../../util/async";
-import { get_sorted, insert } from "../../util/immutable/array"; // TODO hacky
+import { get_sorted, remove_sorted,
+         insert_sorted, insert } from "../../util/immutable/array"; // TODO hacky
 import { assert } from "../../util/assert";
 import { Record } from "../../util/immutable/record";
 import { List } from "../../util/immutable/list";
 import { Ref } from "../../util/stream";
 import { each } from "../../util/iterator";
+import { current_time, difference, round_to_hour } from "../../util/time";
 import { tab as ui_tab } from "./ui/tab";
 import { group as ui_group } from "./ui/group";
 import * as dom from "../dom";
@@ -13,7 +15,7 @@ import * as dom from "../dom";
 
 let group_ids = Record();
 let tab_ids   = Record();
-let groups    = List();
+let groups    = [];
 
 
 const open_tab = (db, tab) => {
@@ -30,18 +32,57 @@ const open_tab = (db, tab) => {
     ["favicon", new Ref(tab.get("favicon"))],
     ["focused", new Ref(transients.has(id) && transients.get(id).get("focused"))],
     ["selected", new Ref(false)],
-    ["unloaded", new Ref(!transients.has(id))]
+    ["unloaded", new Ref(!transients.has(id))],
+    ["ui", new Ref(null)]
   ]);
 
   tab_ids = tab_ids.insert(id, x);
 };
 
+
+// TODO move this to another module
+const pluralize = (x, s) => {
+  if (x === 1) {
+    return x + s;
+  } else {
+    return x + s + "s";
+  }
+};
+
+const diff_to_text = (diff) => {
+  if (diff.day === 0) {
+    if (diff.hour === 0) {
+      return "Less than an hour ago";
+    } else {
+      return pluralize(diff.hour, " hour") + " ago";
+    }
+  } else {
+    // TODO is this correct ?
+    const hours = diff.hour - (diff.day * 24);
+    return pluralize(diff.day, " day") + " " + pluralize(hours, " hour") + " ago";
+  }
+};
+
 const get_groups = new Ref((tab) => {
-  const title = tab.get("title").value;
-  return [title ? title[0] : ""];
+  const now = round_to_hour(current_time());
+  const id  = round_to_hour(tab.get("time").get("created"));
+  return [
+    Record([
+      ["id", "" + id],
+      ["name", diff_to_text(difference(now, id))],
+      ["sort", (group1, group2) => {
+        return group2.get("id") - group1.get("id");
+      }]
+    ])
+  ];
 });
 
-const sort_tab = new Ref((tab1, tab2) => {
+/*const get_groups = new Ref((tab) => {
+  const title = tab.get("title").value;
+  return [title ? title[0] : ""];
+});*/
+
+/*const sort_tab = new Ref((tab1, tab2) => {
   const title1 = tab1.get("title").value;
   const title2 = tab2.get("title").value;
 
@@ -54,47 +95,84 @@ const sort_tab = new Ref((tab1, tab2) => {
   } else {
     return 1;
   }
+});*/
+
+const sort_group = new Ref();
+
+const sort_tab = new Ref((tab1, tab2) => {
+  return tab2.get("time").get("created") -
+         tab1.get("time").get("created");
 });
 
-const add_group = (id, f) => {
+const add_group = (x, f) => {
+  const id = x.get("id");
+
   if (group_ids.has(id)) {
     return group_ids.modify(id, f);
 
   } else {
-    const x = Record([
-      ["id", id],
-      ["tabs", []]
-    ]);
+    const x2 = x.insert("tabs", [])
+                .insert("selected", new Ref([]))
+                .insert("ui", new Ref(null));
 
-    const ui = ui_group(x, true);
+    const ui = ui_group(x2, true);
 
-    dom.main.push(ui);
+    x2.get("ui").value = ui;
 
-    return group_ids.insert(id, f(x.insert("ui", ui)));
+    const { index, value } = get_sorted(groups, x2, x2.get("sort"));
+
+    assert(!value.has());
+
+    groups = insert(groups, index, x2);
+    dom.main.insert(index, ui.get("top"));
+
+    return group_ids.insert(id, f(x2));
   }
 };
 
-const add_tab_to_group = (group_id, tab) => {
-  group_ids = add_group(group_id, (group) =>
+// TODO test this
+export const select_tab = (group, tab) => {
+  const group_selected = group.get("selected");
+  const selected = tab.get("selected");
+
+  if (selected.value) {
+    selected.value = false;
+    group_selected.value = remove_sorted(group_selected.value, tab, sort_tab.value);
+
+  } else {
+    selected.value = true;
+    group_selected.value = insert_sorted(group_selected.value, tab, sort_tab.value);
+  }
+};
+
+/*export const deselect_tab = (group, tab) => {
+  const group_selected = group.get("selected");
+  const selected = tab.get("selected");
+
+  selected.value = false;
+  group_selected.value = remove_sorted(group_selected.value, tab, sort_tab.value);
+};*/
+
+const add_tab_to_group = (x, tab) => {
+  group_ids = add_group(x, (group) =>
     group.modify("tabs", (tabs) => {
+      const ui = ui_tab(group, tab, true);
+
+      tab.get("ui").value = ui;
+
       const { index, value } = get_sorted(tabs, tab, sort_tab.value);
 
-      if (value.has()) {
-        console.log(tabs[index], value.get());
-      }
       assert(!value.has());
 
-      const ui = ui_tab(tab, true);
+      group.get("ui").value.get("tabs").insert(index, ui);
 
-      group.get("ui").insert(index, ui);
-
-      return insert(tabs, index, tab.insert("ui", ui));
+      return insert(tabs, index, tab);
     }));
 };
 
 const add_tab = (tab) => {
-  each(get_groups.value(tab), (id) => {
-    add_tab_to_group(id, tab);
+  each(get_groups.value(tab), (x) => {
+    add_tab_to_group(x, tab);
   });
 };
 

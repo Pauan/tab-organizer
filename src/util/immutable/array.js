@@ -103,11 +103,14 @@ export const get_sorted = (array, key, sort) => {
 };
 
 // TODO what about duplicates ?
-export const insert_sorted = (array, key, sort) =>
-  insert(array, get_sorted(array, key, sort).index, key);
+export const insert_sorted = (array, key, sort) => {
+  const { index, value } = get_sorted(array, key, sort);
+  assert(!value.has());
+  return insert(array, index, key);
+};
 
 export const remove_sorted = (array, key, sort) => {
-  const sorted = get_sorted(array, key, sort);
-  assert(array[sorted.index] === sorted.value.get());
-  return remove(array, sorted.index);
+  const { index, value } = get_sorted(array, key, sort);
+  assert(array[index] === value.get());
+  return remove(array, index);
 };

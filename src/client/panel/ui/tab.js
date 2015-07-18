@@ -3,6 +3,7 @@ import { url_bar } from "./url-bar";
 import { merge, latest, empty, Ref, and, not, always } from "../../../util/stream";
 import { each, indexed } from "../../../util/iterator";
 import { Set } from "../../../util/immutable/set";
+import { select_tab } from "../logic";
 
 
 const $dragging = new Ref(false);
@@ -13,18 +14,6 @@ const hypot = (x, y) =>
   Math["sqrt"](x * x + y * y);
 
 
-const style_drag_hidden = dom.style({
-  "margin-top": "-20px"
-});
-
-const style_drag_stacked = dom.style({
-  "margin-top": "-18px"
-});
-
-const style_drag_normal = dom.style({
-  "margin-top": "0px"
-});
-
 const style_dragging = dom.style({
   "pointer-events": "none",
   "opacity": "0.94"
@@ -32,30 +21,6 @@ const style_dragging = dom.style({
 
 const style_placeholder = dom.style({
   "visibility": "hidden"
-});
-
-const style_hidden = dom.style({
-  /*"transform": {
-    "rotationX": "-90deg", // 120deg
-    "rotationY": "5deg", // 20deg
-    //"rotationZ": "-1deg", // -1deg
-  },*/
-
-  "border-top-width": "0px",
-  "border-bottom-width": "0px",
-  "padding-top": "0px",
-  "padding-bottom": "0px",
-  "height": "0px",
-  "opacity": "0"
-});
-
-const style_visible = dom.style({
-  "border-top-width": "1px",
-  "border-bottom-width": "1px",
-  "padding-top": "1px",
-  "padding-bottom": "1px",
-  "height": "20px",
-  "opacity": "1"
 });
 
 const style_tab = dom.style({
@@ -170,6 +135,38 @@ const style_close = dom.style({
   "padding-right": "1px"
 });
 
+const style_hidden = dom.style({
+  /*"transform": {
+    "rotationX": "-90deg", // 120deg
+    "rotationY": "5deg", // 20deg
+    //"rotationZ": "-1deg", // -1deg
+  },*/
+
+  "border-top-width": "0px",
+  "border-bottom-width": "0px",
+  "padding-top": "0px",
+  "padding-bottom": "0px",
+  "height": "0px",
+  "opacity": "0"
+});
+
+const style_visible = dom.style({
+  "border-top-width": "1px",
+  "border-bottom-width": "1px",
+  "padding-top": "1px",
+  "padding-bottom": "1px",
+  "height": "20px",
+  "opacity": "1"
+});
+
+const style_drag_stacked = dom.style({
+  "margin-top": "-18px"
+});
+
+const style_drag_normal = dom.style({
+  "margin-top": "0px"
+});
+
 const favicon = (tab) =>
   dom.image((e) =>
     merge([
@@ -182,7 +179,16 @@ const favicon = (tab) =>
 
 const text = (tab) =>
   dom.stretch((e) => {
-    e.push(dom.text(tab.get("title")));
+    e.push(dom.text(latest([
+      tab.get("title"),
+      tab.get("unloaded")
+    ], (title, unloaded) => {
+      if (unloaded) {
+        return "➔ " + title;
+      } else {
+        return title;
+      }
+    })));
 
     return e.style_always(style_text);
   });
@@ -222,7 +228,7 @@ const placeholder =
       e.visible($dragging)
     ]));
 
-export const tab = (tab, init) =>
+export const tab = (group, tab, init) =>
   dom.row((e) => {
     e.push(favicon(tab));
 
@@ -290,12 +296,7 @@ export const tab = (tab, init) =>
 
 
         } else if (!shift && ctrl && !alt) {
-          // TODO code duplication
-          /*if (selected.value.has(e)) {
-            selected.value = selected.value.remove(e);
-          } else {
-            selected.value = selected.value.insert(e);
-          }*/
+          select_tab(group, tab);
         }
       }),
 
@@ -319,27 +320,33 @@ export const tab = (tab, init) =>
         }
       }),
 
-      /*e.drag({
+      e.drag({
         start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) => {
           return !alt && !ctrl && !shift && hypot(start_x - x, start_y - y) > 5;
         },
 
         start: ({ y }) => {
+          const selected = group.get("selected").value;
           // TODO a bit inefficient
           const index   = e.parent.index_of(e).get();
           const tab_box = e.get_position();
 
-          if (selected.value.size === 0) {
+          /*if (selected.value.size === 0) {
             selected.value = selected.value.insert(e);
-          }
+          }*/
 
 
-          e.parent.insert(index, tab_placeholder);
+          e.parent.insert(index, placeholder);
 
           let height = 0;
           let offset = 0;
 
-          each(indexed(selected.value), ([i, e]) => {
+          each(indexed(selected), ([i, tab]) => {
+            const e = tab.get("ui").value;
+
+            // TODO a little hacky
+            e.set_style("z-index", -i + "").run();
+
             if (i === 0) {
               // TODO a bit hacky
               height += 20;
@@ -351,70 +358,83 @@ export const tab = (tab, init) =>
                 height += 2 + 1;
                 offset += 1;
 
-                e.animate({ from: ui_tab_drag_normal,
-                            to: ui_tab_drag_stacked,
-                            duration: 250 }).run();
-              } else {
-                e.animate({ from: ui_tab_drag_normal,
-                            to: ui_tab_drag_hidden,
-                            duration: 250 }).run();
-              }
+                // TODO a little hacky
+                e.animate({ from: style_drag_normal,
+                            to: style_drag_stacked,
+                            duration: 200 }).run();
 
-              // TODO hacky
-              e._dom["style"]["z-index"] = -i + "";
+              } else {
+                // TODO a little hacky
+                e.animate({ from: style_visible,
+                            to: style_hidden,
+                            duration: 200 }).run();
+              }
             }
 
             dragging.push(e);
           });
 
-          // TODO hacky
-          tab_placeholder._dom["style"]["height"] = height + "px";
-
-          dragging.left = tab_box.left;
-          dragging.width = tab_box.width;
-          dragging.top = y - offset;
+          // TODO a little hacky
+          merge([
+            placeholder.set_style("height", height + "px"),
+            dragging.set_style("left", tab_box.left + "px"),
+            dragging.set_style("width", tab_box.width + "px"),
+            dragging.set_style("top", (y - offset) + "px")
+          ]).run();
 
           $dragging.value = true;
 
-          return { offset };
+          return { offset, selected };
         },
 
         move: (info, { y }) => {
-          dragging.top = y - info.offset;
+          // TODO a little hacky
+          dragging.set_style("top", (y - info.offset) + "px").run();
           return info;
         },
 
-        end: (info) => {
-          const parent = tab_placeholder.parent;
+        end: ({ selected }) => {
+          const parent = placeholder.parent;
           // TODO a bit inefficient
-          const index = parent.index_of(tab_placeholder).get();
+          const index = parent.index_of(placeholder).get();
 
           console.log(index);
 
           parent.remove(index);
 
-          each(indexed(selected.value), ([i, e]) => {
+          each(indexed(selected), ([i, tab]) => {
+            const e = tab.get("ui").value;
+
             parent.insert(index + i, e);
+
+            // TODO a little hacky
+            e.set_style("z-index", "").run();
 
             if (i !== 0) {
               if (i < 5) {
-                e.animate({ from: ui_tab_drag_stacked,
-                            to: ui_tab_drag_normal,
-                            duration: 250 }).run();
-              } else {
-                e.animate({ from: ui_tab_drag_hidden,
-                            to: ui_tab_drag_normal,
-                            duration: 250 }).run();
-              }
+                // TODO a little hacky
+                merge([
+                  // TODO is this guaranteed to take 0 time ?
+                  // TODO is it guaranteed that separate animations synchronize together ?
+                  e.animate({ from: style_drag_stacked,
+                              to: style_drag_normal,
+                              duration: 0 }),
+                  e.animate({ from: style_hidden,
+                              to: style_visible,
+                              duration: 200 }),
+                ]).run();
 
-              // TODO hacky
-              e._dom["style"]["z-index"] = "";
+              } else {
+                // TODO a little hacky
+                e.animate({ from: style_hidden,
+                            to: style_visible,
+                            duration: 200 }).run();
+              }
             }
           });
 
-          selected.value = Set();
           $dragging.value = false;
         }
-      })*/
+      })
     ]);
   });

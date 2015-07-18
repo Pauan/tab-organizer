@@ -10,6 +10,7 @@ const add_rules = (() => {
   };
 
   return (style, rules) => {
+    // TODO verify that `key` and `value` are strings
     each(entries(rules), ([key, value]) => {
       const keys = (prefixes[key]
                      ? prefixes[key]

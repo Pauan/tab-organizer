@@ -10,7 +10,7 @@ import { animate, ease_in_out, range, round_range } from "../util/animate";
 
 // TODO can this be made more efficient ?
 const parse_css = (x) =>
-  /^(\-?[0-9]+)(px)?$/["exec"](x);
+  /^(\-?(?:[0-9]+\.)?[0-9]+)(px)?$/["exec"](x);
 
 const range_px = (t, from, to) =>
   round_range(t, from, to) + "px";
@@ -369,6 +369,14 @@ class Element extends DOM {
       return x;
     });
   }
+
+  set_style(key, value) {
+    return Stream((success, error, complete) => {
+      // TODO check that the style is valid
+      this._dom["style"][key] = value;
+      complete();
+    });
+  }
 }
 
 
@@ -434,7 +442,8 @@ class Parent extends Element {
 }
 
 class Floating extends Parent {
-  set left(x) {
+  // TODO change these to accept a Stream as input ?
+  /*set left(x) {
     this._dom["style"]["left"] = x + "px";
   }
   set top(x) {
@@ -445,7 +454,7 @@ class Floating extends Parent {
   }
   set height(x) {
     this._dom["style"]["height"] = x + "px";
-  }
+  }*/
 }
 
 
