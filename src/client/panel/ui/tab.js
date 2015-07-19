@@ -1,12 +1,12 @@
 import * as dom from "../../dom";
 import { url_bar } from "./url-bar";
-import { merge, latest, empty, Ref, and, not, always } from "../../../util/stream";
+import { merge, latest, empty, Ref, and, or, not, always } from "../../../util/stream";
 import { each, indexed } from "../../../util/iterator";
 import { Set } from "../../../util/immutable/set";
 import { select_tab } from "../logic";
 
 
-const $dragging = new Ref(false);
+const $dragging = new Ref(null);
 
 // TODO move this into another module
 // TODO better implementation of this ?
@@ -245,9 +245,13 @@ export const tab = (group, tab, init) =>
       e.style_always(style_visible),
 
       e.style(style_hover,
-        and([
-          not($dragging),
-          e.hovering()
+        or([
+          $dragging.map((dragging) =>
+            dragging !== null && dragging.tab === tab),
+          and([
+            not($dragging),
+            e.hovering()
+          ])
         ])),
 
       e.style(style_hold,
@@ -310,14 +314,19 @@ export const tab = (group, tab, init) =>
 
       e.on_mouse_hover().keep((x) => x && $dragging.value).map(() => {
         const parent = e.parent;
-        // TODO a bit inefficient
-        const index = parent.index_of(e).get();
 
-        if (placeholder.parent === parent || index === 0) {
-          parent.insert(index, placeholder);
-        } else {
-          parent.insert(index + 1, placeholder);
+        // TODO a bit inefficient
+        let index = parent.index_of(e).get();
+
+        // TODO a bit hacky
+        if (!(placeholder.parent === parent || index === 0)) {
+          ++index;
         }
+
+        $dragging.value.index = index;
+        $dragging.value.group = group;
+
+        parent.insert(index, placeholder);
       }),
 
       e.drag({
@@ -326,14 +335,16 @@ export const tab = (group, tab, init) =>
         },
 
         start: ({ y }) => {
-          const selected = group.get("selected").value;
           // TODO a bit inefficient
           const index   = e.parent.index_of(e).get();
           const tab_box = e.get_position();
 
-          /*if (selected.value.size === 0) {
-            selected.value = selected.value.insert(e);
-          }*/
+          let selected = group.get("selected").value;
+
+          // TODO hacky
+          if (selected["length"] === 0) {
+            selected = [tab];
+          }
 
 
           e.parent.insert(index, placeholder);
@@ -382,7 +393,12 @@ export const tab = (group, tab, init) =>
             dragging.set_style("top", (y - offset) + "px")
           ]).run();
 
-          $dragging.value = true;
+          $dragging.value = {
+            // TODO a bit hacky
+            tab: selected[0],
+            index: null,
+            group: null
+          };
 
           return { offset, selected };
         },
@@ -394,12 +410,14 @@ export const tab = (group, tab, init) =>
         },
 
         end: ({ selected }) => {
+          const group = $dragging.value.group;
+          const index = $dragging.value.index;
+
           const parent = placeholder.parent;
-          // TODO a bit inefficient
-          const index = parent.index_of(placeholder).get();
 
-          console.log(index);
+          console.log(group.get("id"), $dragging.value.index);
 
+          // TODO assert that `parent[index] === placeholder`
           parent.remove(index);
 
           each(indexed(selected), ([i, tab]) => {
@@ -433,7 +451,7 @@ export const tab = (group, tab, init) =>
             }
           });
 
-          $dragging.value = false;
+          $dragging.value = null;
         }
       })
     ]);
