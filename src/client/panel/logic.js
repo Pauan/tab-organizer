@@ -10,7 +10,14 @@ import { each } from "../../util/iterator";
 import { current_time, difference, round_to_hour } from "../../util/time";
 import { tab as ui_tab } from "./ui/tab";
 import { group as ui_group } from "./ui/group";
+import { group_list as ui_group_list } from "./ui/group-list";
 import * as dom from "../dom";
+
+
+// TODO hacky
+const group_list = ui_group_list();
+
+dom.main.push(group_list);
 
 
 let group_ids = Record();
@@ -124,7 +131,7 @@ const add_group = (x, f) => {
     assert(!value.has());
 
     groups = insert(groups, index, x2);
-    dom.main.insert(index, ui.get("top"));
+    group_list.insert(index, ui.get("top"));
 
     return group_ids.insert(id, f(x2));
   }

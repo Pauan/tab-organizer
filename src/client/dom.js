@@ -1,5 +1,5 @@
 import { each } from "../util/iterator";
-import { Ref, Stream, empty, always } from "../util/stream";
+import { Stream, always } from "../util/stream";
 import { List } from "../util/immutable/list";
 import { batch_read, batch_write } from "./dom/batch";
 import { make_style } from "./dom/style";
@@ -501,12 +501,12 @@ const floating_style = style({
 const row_style = style({
   "display": "flex",
   "flex-direction": "row",
-  "align-items": "center"
+  "align-items": "center", // TODO get rid of this ?
 });
 
 const col_style = style({
   "display": "flex",
-  "flex-direction": "column"
+  "flex-direction": "column",
 });
 
 const stretch_style = style({
@@ -517,6 +517,11 @@ const stretch_style = style({
   // TODO is this correct ?
   "overflow": "hidden",
   "white-space": "nowrap"
+});
+
+const main_style = style({
+  "width": "100%",
+  "height": "100%"
 });
 
 export const row = (f) => {
@@ -577,9 +582,8 @@ export const image = (f) => {
 
 const panels = document["createElement"]("div");
 
-export const main = col((e) => {
-  return empty;
-});
+export const main = col((e) =>
+  e.style_always(main_style));
 
 // TODO use batch_write ?
 // TODO a little hacky

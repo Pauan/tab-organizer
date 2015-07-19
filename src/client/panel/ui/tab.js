@@ -6,7 +6,7 @@ import { Set } from "../../../util/immutable/set";
 import { select_tab } from "../logic";
 
 
-const $dragging = new Ref(null);
+export const $dragging = new Ref(null);
 
 // TODO move this into another module
 // TODO better implementation of this ?
@@ -221,7 +221,7 @@ const dragging =
       e.visible($dragging)
     ]));
 
-const placeholder =
+export const placeholder =
   dom.row((e) =>
     merge([
       e.style_always(style_placeholder),
@@ -316,12 +316,13 @@ export const tab = (group, tab, init) =>
         const parent = e.parent;
 
         // TODO a bit inefficient
-        let index = parent.index_of(e).get();
+        const index = parent.index_of(e).get();
 
+        /*
         // TODO a bit hacky
         if (!(placeholder.parent === parent || index === 0)) {
           ++index;
-        }
+        }*/
 
         $dragging.value.index = index;
         $dragging.value.group = group;
@@ -330,11 +331,12 @@ export const tab = (group, tab, init) =>
       }),
 
       e.drag({
-        start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) => {
-          return !alt && !ctrl && !shift && hypot(start_x - x, start_y - y) > 5;
-        },
+        start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
+          //false &&
+          !alt && !ctrl && !shift &&
+          hypot(start_x - x, start_y - y) > 5,
 
-        start: ({ y }) => {
+        start: ({ x, y }) => {
           // TODO a bit inefficient
           const index   = e.parent.index_of(e).get();
           const tab_box = e.get_position();
@@ -349,8 +351,10 @@ export const tab = (group, tab, init) =>
 
           e.parent.insert(index, placeholder);
 
-          let height = 0;
-          let offset = 0;
+          const offset_x = (x - tab_box.left);
+
+          let height   = 0;
+          let offset_y = 0;
 
           each(indexed(selected), ([i, tab]) => {
             const e = tab.get("ui").value;
@@ -361,13 +365,13 @@ export const tab = (group, tab, init) =>
             if (i === 0) {
               // TODO a bit hacky
               height += 20;
-              offset += 10;
+              offset_y += 10;
 
             } else {
               if (i < 5) {
                 // TODO a bit hacky
                 height += 2 + 1;
-                offset += 1;
+                offset_y += 1;
 
                 // TODO a little hacky
                 e.animate({ from: style_drag_normal,
@@ -388,24 +392,27 @@ export const tab = (group, tab, init) =>
           // TODO a little hacky
           merge([
             placeholder.set_style("height", height + "px"),
-            dragging.set_style("left", tab_box.left + "px"),
+            dragging.set_style("left", (x - offset_x) + "px"),
+            dragging.set_style("top", (y - offset_y) + "px"),
             dragging.set_style("width", tab_box.width + "px"),
-            dragging.set_style("top", (y - offset) + "px")
           ]).run();
 
           $dragging.value = {
             // TODO a bit hacky
             tab: selected[0],
-            index: null,
-            group: null
+            index: index,
+            group: group
           };
 
-          return { offset, selected };
+          return { offset_x, offset_y, selected };
         },
 
-        move: (info, { y }) => {
-          // TODO a little hacky
-          dragging.set_style("top", (y - info.offset) + "px").run();
+        move: (info, { x, y }) => {
+          if (true) {
+            // TODO a little hacky
+            dragging.set_style("left", (x - info.offset_x) + "px").run();
+          }
+          dragging.set_style("top", (y - info.offset_y) + "px").run();
           return info;
         },
 
