@@ -1,4 +1,4 @@
-import { Set } from "./mutable/set";
+import { Set } from "./immutable/set";
 import { each } from "./iterator";
 import { Some, None } from "./immutable/maybe";
 
@@ -194,6 +194,25 @@ class _Stream {
         stop();
       };
     });
+  }
+
+  // TODO test this
+  skip_duplicates() {
+    return Stream((send, error, complete) => {
+      let value = None;
+
+      this._run((x) => {
+        if (!value.has() || value.get() !== x) {
+          value = Some(x);
+          send(x);
+        }
+      }, error, complete);
+    });
+  }
+
+  // TODO test this
+  get(key) {
+    return this.map((value) => value.get(key)).skip_duplicates();
   }
 }
 
@@ -393,67 +412,65 @@ export const race = (args) =>
   });
 
 
-// TODO is the `this` binding correct ?
-const event_run = function (send, error, complete) {
-  const info = { send, error, complete };
+export const Event = () => {
+  let listeners = Set();
 
-  this._listeners.insert(info);
+  const output = Stream((send, error, complete) => {
+    const info = { send, error, complete };
 
-  return () => {
-    this._listeners.remove(info);
+    listeners = listeners.insert(info);
+
+    return () => {
+      listeners = listeners.remove(info);
+    };
+  });
+
+  const cleanup = () => {
+    listeners = null;
   };
-};
 
-export class Event extends _Stream {
-  constructor() {
-    super(event_run);
-
-    this._listeners = new Set();
-  }
-
-  _cleanup() {
-    super._cleanup();
-
-    this._listeners = null;
-  }
-
-  send(value) {
-    each(this._listeners, ({ send }) => {
+  const send = (value) => {
+    each(listeners, ({ send }) => {
       send(value);
     });
-  }
+  };
 
   // TODO is it possible for the error to be swallowed ?
-  error(err) {
-    const listeners = this._listeners;
+  const error = (err) => {
+    const a = listeners;
 
-    this._cleanup();
+    cleanup();
 
-    each(listeners, ({ error }) => {
+    each(a, ({ error }) => {
       error(err);
     });
-  }
+  };
 
-  complete() {
-    const listeners = this._listeners;
+  const complete = () => {
+    const a = listeners;
 
-    this._cleanup();
+    cleanup();
 
-    each(listeners, ({ complete }) => {
+    each(a, ({ complete }) => {
       complete();
     });
-  }
-}
+  };
+
+  return {
+    input: { send, error, complete },
+    output
+  };
+};
 
 
 // TODO code duplication with Event
 const ref_run = function (send, error, complete) {
   send(this._value);
 
-  this._listeners.insert(send);
+  this._listeners = this._listeners.insert(send);
 
   return () => {
-    this._listeners.remove(send);
+    this._listeners = this._listeners.remove(send);
   };
 };
 
@@ -462,7 +479,7 @@ export class Ref extends _Stream {
   constructor(value) {
     super(ref_run);
 
-    this._listeners = new Set();
+    this._listeners = Set();
     this._value = value;
   }
 

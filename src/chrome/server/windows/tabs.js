@@ -5,12 +5,19 @@ import { update_indexes } from "../../common/util";
 import { window_ids } from "./windows";
 
 
-export const on_open    = new Event();
-export const on_focus   = new Event();
-export const on_close   = new Event();
-export const on_replace = new Event();
-export const on_move    = new Event();
-export const on_update  = new Event();
+const _on_open    = Event();
+const _on_focus   = Event();
+const _on_close   = Event();
+const _on_replace = Event();
+const _on_move    = Event();
+const _on_update  = Event();
+
+export const on_open    = _on_open.output;
+export const on_focus   = _on_focus.output;
+export const on_close   = _on_close.output;
+export const on_replace = _on_replace.output;
+export const on_move    = _on_move.output;
+export const on_update  = _on_update.output;
 
 export const tab_ids = new Dict();
 
@@ -31,7 +38,7 @@ const focus = (tab, events) => {
   tab.window.focused_tab = tab;
 
   if (events) {
-    on_focus.send({
+    _on_focus.input.send({
       window: tab.window,
       old: old,
       new: tab
@@ -48,7 +55,7 @@ const unfocus = (window) => {
 
     window.focused_tab = null;
 
-    on_focus.send({
+    _on_focus.input.send({
       window: window,
       old: old,
       new: null
@@ -114,7 +121,7 @@ export const update_tab = (id, info) => {
         old.title   !== tab.title  ||
         old.favicon !== tab.favicon) {
 
-      on_update.send({
+      _on_update.input.send({
         old: old,
         tab: tab
       });
@@ -134,7 +141,7 @@ export const make_tab = (info, events) => {
     update_indexes(window.tabs);
 
     if (events) {
-      on_open.send({
+      _on_open.input.send({
         window: window,
         tab: tab,
         index: tab.index
@@ -170,7 +177,7 @@ export const remove_tab = (id, { "windowId": window_id,
     tab.index = null;
     tab.window = null;
 
-    on_close.send({
+    _on_close.input.send({
       window: window,
       tab: tab,
       index: index,
@@ -201,7 +208,7 @@ export const replace_tab = (new_id, old_id) => {
     tab_ids.remove(old_id);
     tab_ids.insert(new_id, tab);
 
-    on_replace.send({
+    _on_replace.input.send({
       old_id: old_id,
       new_id: new_id,
       tab: tab
@@ -241,7 +248,7 @@ export const attach_tab = (id, { "newWindowId": window_id,
     tab.window = new_window;
     tab.index = new_index;
 
-    on_move.send({
+    _on_move.input.send({
       tab: tab,
       old_window: old_window,
       new_window: new_window,
@@ -272,7 +279,7 @@ export const move_tab = (id, { "windowId": window_id,
 
     tab.index = new_index;
 
-    on_move.send({
+    _on_move.input.send({
       tab: tab,
       old_window: window,
       new_window: window,

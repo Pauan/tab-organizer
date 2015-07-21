@@ -201,21 +201,25 @@ export class Table extends Base {
   constructor() {
     super(Record());
 
+    const { input, output } = Event();
+
     // TODO replace with Stream ?
-    this.on_commit = new Event();
+    this._on_commit = input;
+    this.on_commit = output;
   }
 
   _push_change(x) {
-    this.on_commit.send(List([x]));
+    this._on_commit.send(List([x]));
   }
 
   _commit_changes(changes) {
-    this.on_commit.send(changes);
+    this._on_commit.send(changes);
   }
 
   _destroy() {
     super._destroy();
 
+    this._on_commit = null;
     this.on_commit = null;
   }
 

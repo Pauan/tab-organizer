@@ -5,19 +5,19 @@ import { check_error } from "./util";
 
 export class Port {
   constructor(port) {
-    const on_receive = new Event();
+    const { input, output } = Event();
 
     const onMessage = (x) => {
       const err = check_error();
 
       if (err === null) {
         // TODO is using `from_json` here correct ?
-        on_receive.send(from_json(x));
+        input.send(from_json(x));
 
       } else {
         cleanup();
         this._cleanup();
-        on_receive.error(err);
+        input.error(err);
       }
     };
 
@@ -29,10 +29,10 @@ export class Port {
 
       const err = check_error();
       if (err === null) {
-        on_receive.complete();
+        input.complete();
 
       } else {
-        on_receive.error(err);
+        input.error(err);
       }
     };
 
@@ -47,7 +47,7 @@ export class Port {
 
     this.name = port["name"];
     this._port = port;
-    this.on_receive = on_receive;
+    this.on_receive = output;
   }
 
   _cleanup() {

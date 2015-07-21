@@ -73,9 +73,13 @@ import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
 
 
-export const on_open  = new Event();
-export const on_close = new Event();
-export const on_focus = new Event();
+const _on_open  = Event();
+const _on_close = Event();
+const _on_focus = Event();
+
+export const on_open  = _on_open.output;
+export const on_close = _on_close.output;
+export const on_focus = _on_focus.output;
 
 export const windows    = new List();
 export const window_ids = new Dict();
@@ -105,7 +109,7 @@ const focus = (window, events) => {
     _focused = window;
 
     if (events) {
-      on_focus.send({
+      _on_focus.input.send({
         old: old,
         new: window
       });
@@ -122,7 +126,7 @@ const unfocus = () => {
 
     _focused = null;
 
-    on_focus.send({
+    _on_focus.input.send({
       old: old,
       new: null
     });
@@ -224,7 +228,7 @@ export const make_window = (info, events) => {
     windows.push(window);
 
     if (events) {
-      on_open.send({
+      _on_open.input.send({
         window: window,
         index: window.index
       });
@@ -261,7 +265,7 @@ export const remove_window = (id) => {
 
     window.index = null;
 
-    on_close.send({
+    _on_close.input.send({
       window: window,
       index: index
     });
