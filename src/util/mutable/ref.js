@@ -19,6 +19,8 @@ class Base {
 
 class Latest extends Base {
   constructor(args, f) {
+    super();
+
     this._args = args;
     this._fn = f;
   }
@@ -43,6 +45,8 @@ class Latest extends Base {
 
 export class Ref extends Base {
   constructor(value) {
+    super();
+
     // TODO use mutable Set ?
     this._listeners = Set();
     this._value = value;

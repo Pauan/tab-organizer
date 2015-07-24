@@ -1,5 +1,6 @@
 import { each, entries, iterator } from "../iterator";
-import { to_json } from "./json";
+import { to_json } from "../immutable/json";
+import { assert } from "../assert";
 
 
 // TODO test this

@@ -1,7 +1,9 @@
-import { iterator, to_array } from "../iterator";
+import { each, iterator, to_array } from "../iterator";
 import { insert, remove, get_sorted } from "../immutable/array";
+import { Set } from "../immutable/set";
 import { Some, None } from "../immutable/maybe";
-import { fail } from "../assert";
+import { assert, fail } from "../assert";
+import { to_json } from "../immutable/json";
 
 
 export const uuid_list_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
@@ -23,6 +25,8 @@ class Base {
 
 class Map extends Base {
   constructor(parent, fn) {
+    super();
+
     this._parent = parent;
     this._fn = fn;
   }
@@ -66,6 +70,8 @@ class Map extends Base {
 
 class ListBase extends Base {
   constructor(x = null) {
+    super();
+
     if (x == null) {
       this._list = [];
     } else {
@@ -306,6 +312,17 @@ export class SortedList extends ListBase {
     return value.has();
   }
 
+  _remove(index) {
+    // TODO hacky
+    this._list["splice"](index, 1);
+    --this.size;
+
+    this._send({
+      type: uuid_list_remove,
+      index: index
+    });
+  }
+
   insert(x) {
     const { index, value } = get_sorted(this._list, x, this._sort);
 
@@ -322,18 +339,7 @@ export class SortedList extends ListBase {
     });
   }
 
-  _remove(index) {
-    // TODO hacky
-    this._list["splice"](index, 1);
-    --this.size;
-
-    this._send({
-      type: uuid_list_remove,
-      index: index
-    });
-  }
-
-  remove(value) {
+  remove(x) {
     const { index, value } = get_sorted(this._list, x, this._sort);
 
     assert(value.has());
