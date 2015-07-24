@@ -1,62 +1,54 @@
-import { each, indexed, iterator, to_array } from "../iterator";
-import { Event, Stream, concat } from "../stream";
+import { iterator, to_array } from "../iterator";
 import { insert, remove, get_sorted } from "../immutable/array";
 import { Some, None } from "../immutable/maybe";
 import { fail } from "../assert";
 
 
-export const uuid_list_initial = "80a3cdd8-ba5e-4ca4-9fde-9fee2271a882";
-export const uuid_list_insert  = "fa4a6522-a031-4294-861e-d536b21b3b2d";
-export const uuid_list_remove  = "df55a53e-ce78-40b4-b751-d6a356f311c2";
-export const uuid_list_update  = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
-export const uuid_list_clear   = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
+export const uuid_list_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
+export const uuid_list_remove = "df55a53e-ce78-40b4-b751-d6a356f311c2";
+export const uuid_list_update = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
+export const uuid_list_clear  = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
 
 
 class Base {
-  constructor(x = null) {
-    if (x == null) {
-      this._list = [];
-    } else {
-      this._list = to_array(x);
-    }
-
-    this.size = this._list["length"];
-
-
-    const { input, output } = Event();
-
-    this._input = input;
-
-    // TODO hacky
-    this.changes = concat([
-      Stream((send, error, complete) => {
-        each(indexed(this._list), ([i, value]) => {
-          send({
-            type: uuid_list_initial,
-            index: i,
-            value: value
-          });
-        });
-      }),
-      output
-    ]);
+  map(f) {
+    return new Map(this, f);
   }
 
-  map_changes(f) {
-    return this.changes.map((x) => {
+  each_change(f) {
+    return this._listen(f);
+  }
+}
+
+
+class Map extends Base {
+  constructor(parent, fn) {
+    this._parent = parent;
+    this._fn = fn;
+  }
+
+/*
+  // TODO a bit hacky
+  get size() {
+    return this._parent.size;
+  }*/
+
+  _listen(f) {
+    return this._parent._listen((x) => {
       switch (x.type) {
-      case uuid_list_initial:
       case uuid_list_insert:
       case uuid_list_update:
-        return {
+        f({
           type: x.type,
           index: x.index,
-          value: f(x.value)
-        };
+          value: this._fn(x.value)
+        });
+        break;
 
       case uuid_list_remove:
       case uuid_list_clear:
-        return x;
+        f(x);
+        break;
 
       default:
         fail();
@@ -65,11 +57,52 @@ class Base {
     });
   }
 
+  [Symbol["iterator"]]() {
+    // TODO is this correct ?
+    return iterator(this._parent);
+  }
+}
+
+
+class ListBase extends Base {
+  constructor(x = null) {
+    if (x == null) {
+      this._list = [];
+    } else {
+      this._list = to_array(x);
+    }
+
+    // TODO use a getter to prevent assignment to the `size` ?
+    this.size = this._list["length"];
+
+    // TODO code duplication with Ref
+    // TODO use mutable Set ?
+    this._listeners = Set();
+  }
+
+  _send(x) {
+    // TODO code duplication with Ref
+    each(this._listeners, (f) => {
+      f(x);
+    });
+  }
+
+  // TODO code duplication with Ref
+  _listen(f) {
+    this._listeners = this._listeners.insert(f);
+
+    return {
+      stop: () => {
+        this._listeners = this._listeners.remove(f);
+      }
+    };
+  }
+
   clear() {
     this._list["length"] = 0;
     this.size = 0;
 
-    this._input.send({
+    this._send({
       type: uuid_list_clear
     });
   }
@@ -96,7 +129,7 @@ const index_in_range = (index, len) =>
   index >= 0 && index < len;
 
 // TODO test this
-export class List extends Base {
+export class List extends ListBase {
   has(index) {
     assert(typeof index === "number");
 
@@ -139,7 +172,7 @@ export class List extends Base {
       if (old_value !== new_value) {
         this._list[index] = new_value;
 
-        this._input.send({
+        this._send({
           type: uuid_list_update,
           index: index,
           value: new_value
@@ -176,7 +209,7 @@ export class List extends Base {
 
     ++this.size;
 
-    this._input.send({
+    this._send({
       type: uuid_list_insert,
       index: index,
       value: value
@@ -209,21 +242,21 @@ export class List extends Base {
 
     --this.size;
 
-    this._input.send({
+    this._send({
       type: uuid_list_remove,
       index: index
     });
   }
 
   push(value) {
-    const last = this.size;
+    // TODO is this correct ?
+    const index = this._list["push"](value) - 1;
 
-    this._list["push"](value);
     ++this.size;
 
-    this._input.send({
+    this._send({
       type: uuid_list_insert,
-      index: last,
+      index: index,
       value: value
     });
   }
@@ -245,8 +278,22 @@ export class List extends Base {
 }
 
 
+/*const is_sorted = (self, x, index) => {
+  assert(index !== -1);
+  assert(index_in_range(index, self.size));
+
+  const prev = index - 1;
+  const next = index + 1;
+
+  // TODO code duplication
+  return (!index_in_range(prev, self.size) ||
+          self._sort(self._list[prev], x) <= 0) &&
+         (!index_in_range(next, self.size) ||
+          self._sort(x, self._list[next]) >= 0);
+};*/
+
 // TODO test this
-export class SortedList extends Base {
+export class SortedList extends ListBase {
   constructor(sort) {
     super();
 
@@ -268,11 +315,21 @@ export class SortedList extends Base {
     this._list["splice"](index, 0, x);
     ++this.size;
 
-    // TODO code duplication
-    this._input.send({
+    this._send({
       type: uuid_list_insert,
       index: index,
       value: x
+    });
+  }
+
+  _remove(index) {
+    // TODO hacky
+    this._list["splice"](index, 1);
+    --this.size;
+
+    this._send({
+      type: uuid_list_remove,
+      index: index
     });
   }
 
@@ -281,32 +338,45 @@ export class SortedList extends Base {
 
     assert(value.has());
 
-    // TODO hacky
-    this._list["splice"](index, 1);
-    --this.size;
+    this._remove(index);
+  }
 
-    // TODO code duplication
-    this._input.send({
-      type: uuid_list_remove,
-      index: index
+  // TODO test this
+  // TODO use cycle sort or something ?
+  change_sort(sort) {
+    this._sort = sort;
+
+    const changes = [];
+
+    let index = 0;
+
+    // TODO this might be incorrect
+    while (index < this._list["length"] - 1) {
+      // TODO assert that `index + 1` is a valid index ?
+      const x = this._list[index];
+      const y = this._list[index + 1];
+
+      if (this._sort(x, y) <= 0) {
+        ++index;
+
+      } else {
+        changes["push"](y);
+
+        this._remove(index + 1);
+      }
+    }
+
+    changes["forEach"]((x) => {
+      this.insert(x);
     });
   }
 
+/*
   // TODO can this be made any better ?
   is_sorted(x) {
     // TODO hacky
     const index = this._list["indexOf"](x);
 
-    assert(index !== -1);
-    assert(index_in_range(index, this.size));
-
-    const prev = index - 1;
-    const next = index + 1;
-
-    // TODO code duplication
-    return (!index_in_range(prev, this.size) ||
-            this._sort(this._list[prev], x) <= 0) &&
-           (!index_in_range(next, this.size) ||
-            this._sort(x, this._list[next]) >= 0);
-  }
+    return is_sorted(this, x, index);
+  }*/
 }
