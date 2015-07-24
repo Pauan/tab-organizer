@@ -219,34 +219,6 @@ class _Stream {
 export const Stream = (f) => new _Stream(f);
 
 
-// TODO is this correct ?
-export const not = (x) =>
-  x.map((x) => !x);
-
-// TODO is this correct ?
-export const and = (args) =>
-  latest(args, (...args) => {
-    for (let i = 0; i < args["length"]; ++i) {
-      if (!args[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
-// TODO is this correct ?
-export const or = (args) =>
-  latest(args, (...args) => {
-    for (let i = 0; i < args["length"]; ++i) {
-      if (args[i]) {
-        return true;
-      }
-    }
-
-    return false;
-  });
-
 // TODO should this call `complete` ?
 export const always = (x) =>
   Stream((send, error, complete) => {
@@ -312,59 +284,6 @@ export const merge = (args) =>
 
       const stops = args["map"]((x) =>
         x._run(send, on_error, on_complete));
-
-      // TODO can this call the stop function after it's already stopped ?
-      const stop = () => {
-        stops["forEach"]((f) => {
-          f();
-        });
-      };
-
-      return stop;
-    }
-  });
-
-// TODO test this
-export const latest = (args, f) =>
-  Stream((send, error, complete) => {
-    let pending_values = args["length"];
-
-    // TODO is this correct ?
-    if (pending_values === 0) {
-      complete();
-      return noop;
-
-    } else {
-      const values = new Array(args["length"]);
-
-      // TODO is it possible for this to be called before `stop` is defined ?
-      const on_error = (err) => {
-        stop();
-        error(err);
-      };
-
-      // TODO is it possible for this to be called before `stop` is defined ?
-      const on_complete = () => {
-        stop();
-        complete();
-      };
-
-      const stops = args["map"]((x, i) => {
-        let has = false;
-
-        return x._run((x) => {
-          values[i] = x;
-
-          if (!has) {
-            has = true;
-            --pending_values;
-          }
-
-          if (pending_values === 0) {
-            send(f(...values));
-          }
-        }, on_error, on_complete);
-      });
 
       // TODO can this call the stop function after it's already stopped ?
       const stop = () => {
@@ -461,46 +380,3 @@ export const Event = () => {
     output
   };
 };
-
-
-// TODO code duplication with Event
-const ref_run = function (send, error, complete) {
-  send(this._value);
-
-  this._listeners = this._listeners.insert(send);
-
-  return () => {
-    this._listeners = this._listeners.remove(send);
-  };
-};
-
-// TODO code duplication with Event
-export class Ref extends _Stream {
-  constructor(value) {
-    super(ref_run);
-
-    this._listeners = Set();
-    this._value = value;
-  }
-
-  _cleanup() {
-    super._cleanup();
-
-    this._listeners = null;
-    this._value = null;
-  }
-
-  get value() {
-    return this._value;
-  }
-
-  set value(value) {
-    if (this._value !== value) {
-      this._value = value;
-
-      each(this._listeners, (send) => {
-        send(value);
-      });
-    }
-  }
-}
