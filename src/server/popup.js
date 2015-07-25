@@ -7,7 +7,7 @@ export const init = async(function* () {
 
   button.set_tooltip(manifest.get("name"));
 
-  button.on_click.each(() => {
+  button.on_click(() => {
     panels.open({ url: "panel.html" });
   });
   //button.set_bubble_url("panel.html");

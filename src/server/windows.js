@@ -1,10 +1,11 @@
+import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { init as init_sync } from "./sync";
 import { each, map, foldl } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
+import { Event } from "../util/event";
 import { List } from "../util/immutable/list";
 import { Record } from "../util/immutable/record";
 import { Set } from "../util/mutable/set"; // TODO this is only needed for development
@@ -13,9 +14,8 @@ import { async } from "../util/async";
 
 export const init = async(function* () {
   const db = yield init_db;
-  const { windows, tabs } = yield init_chrome;
+  const { windows, tabs, ports } = yield init_chrome;
   const session = yield init_session;
-  const { sync } = yield init_sync;
 
 
   db.default(["current.windows"], List());
@@ -24,10 +24,27 @@ export const init = async(function* () {
 
   db.transient("transient.tab-ids", Record());
 
-  sync("current.windows");
-  sync("current.window-ids");
-  sync("current.tab-ids");
-  sync("transient.tab-ids");
+
+  const tab_events = Event();
+
+  ports.on_connect(uuid_port_tab, (port) => {
+    port.send(Record([
+      ["type", "init"],
+      ["current.windows", db.get(["current.windows"])],
+      ["current.window-ids", db.get(["current.window-ids"])],
+      ["current.tab-ids", db.get(["current.tab-ids"])],
+      ["transient.tab-ids", db.get(["transient.tab-ids"])]
+    ]));
+
+    const x = tab_events.receive((x) => {
+      port.send(x);
+    });
+
+    // When the port closes, stop listening for `tab_events`
+    port.on_disconnect(() => {
+      x.stop();
+    });
+  });
 
 
   const delay = (ms) => {
@@ -385,47 +402,47 @@ export const init = async(function* () {
   check_integrity();
 
 
-  windows.on_open.each((info) => {
+  windows.on_open((info) => {
     session.window_open(info);
     window_open(info);
   });
 
-  windows.on_close.each((info) => {
+  windows.on_close((info) => {
     window_close(info);
     // This must be after `window_close`
     session.window_close(info);
   });
 
-  windows.on_focus.each((info) => {
+  windows.on_focus((info) => {
     window_focus(info);
   });
 
-  tabs.on_open.each((info) => {
+  tabs.on_open((info) => {
     session.tab_open(info);
     tab_open(info);
   });
 
-  tabs.on_close.each((info) => {
+  tabs.on_close((info) => {
     tab_close(info);
     // This must be after `tab_close`
     session.tab_close(info);
   });
 
-  tabs.on_focus.each((info) => {
+  tabs.on_focus((info) => {
     tab_focus(info);
   });
 
-  tabs.on_move.each((info) => {
+  tabs.on_move((info) => {
     session.tab_move(info);
     tab_move(info);
   });
 
-  tabs.on_update.each((info) => {
+  tabs.on_update((info) => {
     session.tab_update(info);
     tab_update(info);
   });
 
-  tabs.on_replace.each((info) => {
+  tabs.on_replace((info) => {
     session.tab_replace(info);
   });
 

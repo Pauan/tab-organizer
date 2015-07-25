@@ -1,5 +1,6 @@
 import { Set } from "../immutable/set";
 import { each } from "../iterator";
+import { Event } from "../event";
 
 
 class Base {
@@ -31,10 +32,11 @@ class Latest extends Base {
 
   _listen(f) {
     const x = this._args["map"]((x) =>
-      x._listen(() => {
-        // TODO hacky
-        f();
-      }));
+    /*(x) => {
+      // TODO hacky
+      f(x);
+    }*/
+      x._listen(f));
 
     return {
       stop: () => {
@@ -51,19 +53,12 @@ export class Ref extends Base {
   constructor(value) {
     super();
 
-    // TODO use mutable Set ?
-    this._listeners = Set();
     this._value = value;
+    this._event = Event();
   }
 
   _listen(f) {
-    this._listeners = this._listeners.insert(f);
-
-    return {
-      stop: () => {
-        this._listeners = this._listeners.remove(f);
-      }
-    };
+    return this._event.receive(f);
   }
 
   get() {
@@ -73,10 +68,7 @@ export class Ref extends Base {
   set(value) {
     if (this._value !== value) {
       this._value = value;
-
-      each(this._listeners, (f) => {
-        f();
-      });
+      this._event.send(undefined);
     }
   }
 

@@ -1,58 +1,54 @@
-import { Event } from "../../util/stream";
+import { Event } from "../../util/event";
 import { to_json, from_json } from "../../util/immutable/json";
-import { check_error } from "./util";
+import { throw_error } from "./util";
 
 
 export class Port {
   constructor(port) {
-    const { input, output } = Event();
+    const on_receive = Event({
+      start: (e) => {
+        const onMessage = (x) => {
+          throw_error();
 
-    const onMessage = (x) => {
-      const err = check_error();
+          // TODO is using `from_json` here correct ?
+          e.send(from_json(x));
+        };
 
-      if (err === null) {
-        // TODO is using `from_json` here correct ?
-        input.send(from_json(x));
+        port["onMessage"]["addListener"](onMessage);
 
-      } else {
-        cleanup();
-        this._cleanup();
-        input.error(err);
+        return { onMessage };
+      },
+      stop: (e, { onMessage }) => {
+        port["onMessage"]["removeListener"](onMessage);
       }
-    };
+    });
 
-    const onDisconnect = () => {
-      //this._port["disconnect"]();
 
-      cleanup();
-      this._cleanup();
-
-      const err = check_error();
-      if (err === null) {
-        input.complete();
-
-      } else {
-        input.error(err);
-      }
-    };
+    const on_disconnect = Event();
 
     // TODO test this
-    const cleanup = () => {
-      port["onMessage"]["removeListener"](onMessage);
+    const onDisconnect = () => {
+      throw_error();
+
+      this._port = null;
+      this.on_receive = null;
+      this.on_disconnect = null;
+
       port["onDisconnect"]["removeListener"](onDisconnect);
+
+      on_disconnect.send(undefined);
+
+      on_receive.close();
+      on_disconnect.close();
     };
 
-    port["onMessage"]["addListener"](onMessage);
     port["onDisconnect"]["addListener"](onDisconnect);
 
-    this.name = port["name"];
-    this._port = port;
-    this.on_receive = output;
-  }
 
-  _cleanup() {
-    this._port = null;
-    this.on_receive = null;
+    this.name          = port["name"];
+    this._port         = port;
+    this.on_receive    = on_receive.receive;
+    this.on_disconnect = on_disconnect.receive;
   }
 
   send(value) {

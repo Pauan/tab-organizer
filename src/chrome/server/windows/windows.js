@@ -63,7 +63,7 @@
  * windows.onCreated
  */
 import { chrome } from "../../../common/globals";
-import { Event } from "../../../util/stream";
+import { Event } from "../../../util/event";
 import { List } from "../../../util/mutable/list";
 import { Dict } from "../../../util/mutable/dict";
 import { async, ignore } from "../../../util/async";
@@ -77,9 +77,9 @@ const _on_open  = Event();
 const _on_close = Event();
 const _on_focus = Event();
 
-export const on_open  = _on_open.output;
-export const on_close = _on_close.output;
-export const on_focus = _on_focus.output;
+export const on_open  = _on_open.receive;
+export const on_close = _on_close.receive;
+export const on_focus = _on_focus.receive;
 
 export const windows    = new List();
 export const window_ids = new Dict();
@@ -109,7 +109,7 @@ const focus = (window, events) => {
     _focused = window;
 
     if (events) {
-      _on_focus.input.send({
+      _on_focus.send({
         old: old,
         new: window
       });
@@ -126,7 +126,7 @@ const unfocus = () => {
 
     _focused = null;
 
-    _on_focus.input.send({
+    _on_focus.send({
       old: old,
       new: null
     });
@@ -228,7 +228,7 @@ export const make_window = (info, events) => {
     windows.push(window);
 
     if (events) {
-      _on_open.input.send({
+      _on_open.send({
         window: window,
         index: window.index
       });
@@ -265,7 +265,7 @@ export const remove_window = (id) => {
 
     window.index = null;
 
-    _on_close.input.send({
+    _on_close.send({
       window: window,
       index: index
     });

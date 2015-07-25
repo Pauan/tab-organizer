@@ -1,31 +1,28 @@
 import { chrome } from "../../common/globals";
-import { Stream } from "../../util/stream";
-import { async_chrome, check_error } from "../common/util";
+import { Event } from "../../util/event";
+import { throw_error } from "../common/util";
 
 
 // TODO test this
-export const on_click = Stream((send, error, complete) => {
-  const onClicked = () => {
-    const err = check_error();
+const _on_click = Event({
+  start: (e) => {
+    const onClicked = () => {
+      throw_error();
 
-    if (err === null) {
-      send(undefined);
+      e.send(undefined);
+    };
 
-    } else {
-      cleanup();
-      error(err);
-    }
-  };
+    chrome["browserAction"]["onClicked"]["addListener"](onClicked);
 
-  // TODO test this
-  const cleanup = () => {
+    return { onClicked };
+  },
+  stop: (e, { onClicked }) => {
     chrome["browserAction"]["onClicked"]["removeListener"](onClicked);
-  };
-
-  chrome["browserAction"]["onClicked"]["addListener"](onClicked);
-
-  return cleanup;
+  }
 });
+
+export const on_click = _on_click.receive;
+
 
 export const set_tooltip = (x) => {
   if (x == null || x === "") {

@@ -41,7 +41,7 @@ export const init = async(function* () {
     keys.insert(key);
   };
 
-  ports.on_connect(uuid_port_sync).each((port) => {
+  ports.on_connect(uuid_port_sync, (port) => {
     port.send(Record([
       ["type", "init"],
       ["tables", Record(map(keys, (key) => [key, db.get([key])]))]

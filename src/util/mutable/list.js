@@ -3,6 +3,7 @@ import { insert, remove, get_sorted } from "../immutable/array";
 import { Set } from "../immutable/set";
 import { Some, None } from "../immutable/maybe";
 import { assert, fail } from "../assert";
+import { Event } from "../event";
 import { to_json } from "../immutable/json";
 
 
@@ -17,7 +18,7 @@ class Base {
     return new Map(this, f);
   }
 
-  each_change(f) {
+  on_change(f) {
     return this._listen(f);
   }
 }
@@ -81,34 +82,18 @@ class ListBase extends Base {
     // TODO use a getter to prevent assignment to the `size` ?
     this.size = this._list["length"];
 
-    // TODO code duplication with Ref
-    // TODO use mutable Set ?
-    this._listeners = Set();
+    this._event = Event();
   }
 
-  _send(x) {
-    // TODO code duplication with Ref
-    each(this._listeners, (f) => {
-      f(x);
-    });
-  }
-
-  // TODO code duplication with Ref
   _listen(f) {
-    this._listeners = this._listeners.insert(f);
-
-    return {
-      stop: () => {
-        this._listeners = this._listeners.remove(f);
-      }
-    };
+    return this._event.receive(f);
   }
 
   clear() {
     this._list["length"] = 0;
     this.size = 0;
 
-    this._send({
+    this._event.send({
       type: uuid_list_clear
     });
   }
@@ -178,7 +163,7 @@ export class List extends ListBase {
       if (old_value !== new_value) {
         this._list[index] = new_value;
 
-        this._send({
+        this._event.send({
           type: uuid_list_update,
           index: index,
           value: new_value
@@ -215,7 +200,7 @@ export class List extends ListBase {
 
     ++this.size;
 
-    this._send({
+    this._event.send({
       type: uuid_list_insert,
       index: index,
       value: value
@@ -248,7 +233,7 @@ export class List extends ListBase {
 
     --this.size;
 
-    this._send({
+    this._event.send({
       type: uuid_list_remove,
       index: index
     });
@@ -260,7 +245,7 @@ export class List extends ListBase {
 
     ++this.size;
 
-    this._send({
+    this._event.send({
       type: uuid_list_insert,
       index: index,
       value: value
@@ -317,7 +302,7 @@ export class SortedList extends ListBase {
     this._list["splice"](index, 1);
     --this.size;
 
-    this._send({
+    this._event.send({
       type: uuid_list_remove,
       index: index
     });
@@ -332,7 +317,7 @@ export class SortedList extends ListBase {
     this._list["splice"](index, 0, x);
     ++this.size;
 
-    this._send({
+    this._event.send({
       type: uuid_list_insert,
       index: index,
       value: x

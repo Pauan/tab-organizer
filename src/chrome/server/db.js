@@ -71,7 +71,7 @@ export const init = async(function* () {
   timer.done();
 
 
-  db.on_commit.each((transaction) => {
+  db.on_commit((transaction) => {
     each(transaction, (x) => {
       const type = x.get("type");
 

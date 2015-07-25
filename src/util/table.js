@@ -1,7 +1,7 @@
 import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
 import { Some, None } from "./immutable/maybe";
-import { Event, Stream } from "./stream";
+import { Event } from "./event";
 import { assert, fail } from "./assert";
 import { each, to_array } from "./iterator";
 
@@ -201,11 +201,8 @@ export class Table extends Base {
   constructor() {
     super(Record());
 
-    const { input, output } = Event();
-
-    // TODO replace with Stream ?
-    this._on_commit = input;
-    this.on_commit = output;
+    this._on_commit = Event();
+    this.on_commit  = this._on_commit.receive;
   }
 
   _push_change(x) {
@@ -303,41 +300,6 @@ export class Table extends Base {
           fail();
         }
       });
-    });
-  }
-
-  // TODO test this
-  ref(keys) {
-    return Stream((send, error, complete) => {
-      // TODO is this inefficient ?
-      let old_value = this.get(keys);
-
-      send(old_value);
-
-      // TODO is it possible to call `x.stop` before `x` is defined ?
-      const x = this.on_commit.each(() => {
-        // TODO is this inefficient ?
-        // TODO is this correct ?
-        if (nested_has(this._keys, keys)) {
-          // TODO is this inefficient ?
-          const new_value = this.get(keys);
-
-          // TODO test this
-          if (old_value !== new_value) {
-            old_value = new_value;
-
-            send(new_value);
-          }
-
-        // TODO is this correct ?
-        } else {
-          x.stop();
-          complete();
-        }
-      });
-
-      // TODO is this correct ?
-      return x.stop;
     });
   }
 }
