@@ -1,9 +1,8 @@
 import * as dom from "../../dom";
 import { url_bar } from "./url-bar";
-import { merge, latest, empty, Ref, and, or, not, always } from "../../../util/stream";
+import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
-import { Set } from "../../../util/immutable/set";
-import { select_tab } from "../logic";
+//import { select_tab } from "../logic";
 
 
 export const $dragging = new Ref(null);
@@ -168,298 +167,305 @@ const style_drag_normal = dom.style({
 });
 
 const favicon = (tab) =>
-  dom.image((e) =>
-    merge([
-      // TODO use setTimeout to fix a bug with Chrome ?
-      e.url(tab.get("favicon")),
+  dom.image((e) => [
+    // TODO use setTimeout to fix a bug with Chrome ?
+    e.url(tab.get("favicon")),
 
-      e.style_always(style_icon),
-      e.style_always(style_favicon)
-    ]));
+    e.style(style_icon, always(true)),
+    e.style(style_favicon, always(true))
+  ]);
 
 const text = (tab) =>
-  dom.stretch((e) => {
-    e.push(dom.text(latest([
-      tab.get("title"),
-      tab.get("unloaded")
-    ], (title, unloaded) => {
-      if (unloaded) {
-        return "➔ " + title;
-      } else {
-        return title;
-      }
-    })));
+  dom.stretch((e) => [
+    e.style(style_text, always(true)),
 
-    return e.style_always(style_text);
-  });
+    e.children([
+      dom.text(latest([
+        tab.get("title"),
+        tab.get("unloaded")
+      ], (title, unloaded) => {
+        if (unloaded) {
+          return "➔ " + title;
+        } else {
+          return title;
+        }
+      }))
+    ])
+  ]);
 
 const close = (tab, show) =>
-  dom.image((e) =>
-    merge([
-      e.url(always("data/images/button-close.png")),
+  dom.image((e) => [
+    e.url(always("data/images/button-close.png")),
 
-      e.style_always(style_icon),
-      e.style_always(style_close),
+    e.style(style_icon, always(true)),
+    e.style(style_close, always(true)),
 
-      e.visible(show)
+    e.visible(show)
 
-      //e.style(ui_tab_close_style_hover,
-      //  e.hovering()),
+    //e.style(ui_tab_close_style_hover,
+    //  e.hovering()),
 
-      //e.style(ui_tab_close_style_hold,
-      //  and([
-      //    e.hovering(),
-      //    e.holding()
-      //  ])),
-    ]));
+    //e.style(ui_tab_close_style_hold,
+    //  and([
+    //    e.hovering(),
+    //    e.holding()
+    //  ])),
+  ]);
 
 
 const dragging =
-  dom.floating((e) =>
-    merge([
-      e.style_always(style_dragging),
-      e.visible($dragging)
-    ]));
+  dom.floating((e) => [
+    e.style(style_dragging, always(true)),
+    e.visible($dragging)
+  ]);
 
 export const placeholder =
-  dom.row((e) =>
-    merge([
-      e.style_always(style_placeholder),
-      e.visible($dragging)
-    ]));
+  dom.row((e) => [
+    e.style(style_placeholder, always(true)),
+    e.visible($dragging)
+  ]);
 
-export const tab = (group, tab, init) =>
-  dom.row((e) => {
-    e.push(favicon(tab));
+export const tab = (tab) =>
+  dom.row((e) => [
+    e.style(style_tab, always(true)),
 
-    e.push(text(tab));
+    e.style(style_visible, always(true)),
 
-    e.push(close(tab,
+    e.style(style_hover, or([
+      $dragging.map((dragging) =>
+        dragging !== null && dragging.tab === tab),
       and([
         not($dragging),
         e.hovering()
-      ])));
+      ])
+    ])),
 
-    return merge([
-      e.style_always(style_tab),
-      e.style_always(style_visible),
+    e.style(style_hold, and([
+      not($dragging),
+      e.hovering(),
+      e.holding()
+    ])),
 
-      e.style(style_hover,
-        or([
-          $dragging.map((dragging) =>
-            dragging !== null && dragging.tab === tab),
-          and([
-            not($dragging),
-            e.hovering()
-          ])
-        ])),
+    e.style(style_selected, tab.get("selected")),
 
-      e.style(style_hold,
+    e.style(style_focused, tab.get("focused")),
+
+    e.style(style_unloaded, tab.get("unloaded")),
+
+    e.children([
+      favicon(tab),
+
+      text(tab),
+
+      close(tab,
         and([
           not($dragging),
-          e.hovering(),
-          e.holding()
-        ])),
+          e.hovering()
+        ]))
+    ]),
 
-      e.style(style_selected,
-        tab.get("selected")),
+    latest([
+      e.hovering(),
+      $dragging,
+      tab.get("url")
+    ], (hover, dragging, url) => {
+      if (hover && !dragging && url) {
+        return {
+          x: hover.x,
+          y: hover.y,
+          url: url
+        };
 
-      e.style(style_focused,
-        tab.get("focused")),
+      } else {
+        return null;
+      }
+    }).each((x) => {
+      url_bar.set(x);
+    }),
 
-      e.style(style_unloaded,
-        tab.get("unloaded")),
+    /*e.animate_on({
+      insert: {
+        from: style_hidden,
+        to: style_visible,
+        duration: 1000
+      },
 
-      (init
-        ? empty
-        : e.animate({ from: style_hidden,
-                      to: style_visible,
-                      duration: 1000 })),
+      remove: {
+        from: style_visible,
+        to: style_hidden,
+        duration: 1000
+      }
+    }),*/
 
-      latest([
-        e.hovering(),
-        $dragging,
-        tab.get("url")
-      ], (hover, dragging, url) => {
-        if (hover && !dragging && url) {
-          url_bar.value = {
-            x: hover.x,
-            y: hover.y,
-            url: url
-          };
+    e.on_left_click(({ shift, ctrl, alt }) => {
+      if (!shift && !ctrl && !alt) {
 
-        } else {
-          url_bar.value = null;
-        }
-      }),
-
-      e.on_left_click().map(({ shift, ctrl, alt }) => {
-        if (!shift && !ctrl && !alt) {
-
-        } else if (shift && !ctrl && !alt) {
+      } else if (shift && !ctrl && !alt) {
 
 
-        } else if (!shift && ctrl && !alt) {
-          select_tab(group, tab);
-        }
-      }),
+      } else if (!shift && ctrl && !alt) {
+        //select_tab(group.value, tab);
+      }
+    }),
 
-      e.on_middle_click().map((e) => {
-        console.log("middle click", e);
-      }),
+    e.on_middle_click((e) => {
+      console.log("middle click", e);
+    }),
 
-      e.on_right_click().map((e) => {
-        console.log("right click", e);
-      }),
+    e.on_right_click((e) => {
+      console.log("right click", e);
+    }),
 
-      e.on_mouse_hover().keep((x) => x && $dragging.value).map(() => {
+    /*e.on_mouse_hover((hover) => {
+      // TODO test this
+      if (hover && $dragging.get()) {
         const parent = e.parent;
 
         // TODO a bit inefficient
         const index = parent.index_of(e).get();
 
-        /*
         // TODO a bit hacky
-        if (!(placeholder.parent === parent || index === 0)) {
-          ++index;
-        }*/
+        //if (!(placeholder.parent === parent || index === 0)) {
+        //  ++index;
+        //}
 
         $dragging.value.index = index;
-        $dragging.value.group = group;
+        $dragging.value.group.value = group;
 
         parent.insert(index, placeholder);
-      }),
+      }
+    }),*/
 
-      e.drag({
-        start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
-          //false &&
-          !alt && !ctrl && !shift &&
-          hypot(start_x - x, start_y - y) > 5,
+    /*e.draggable({
+      start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
+        //false &&
+        !alt && !ctrl && !shift &&
+        hypot(start_x - x, start_y - y) > 5,
 
-        start: ({ x, y }) => {
-          // TODO a bit inefficient
-          const index   = e.parent.index_of(e).get();
-          const tab_box = e.get_position();
+      start: ({ x, y }) => {
+        // TODO a bit inefficient
+        const index   = e.parent.index_of(e).get();
+        const tab_box = e.get_position();
 
-          let selected = group.get("selected").value;
+        let selected = group.value.get("selected").value;
 
-          // TODO hacky
-          if (selected["length"] === 0) {
-            selected = [tab];
-          }
+        // TODO hacky
+        if (selected["length"] === 0) {
+          selected = [tab];
+        }
 
 
-          e.parent.insert(index, placeholder);
+        e.parent.insert(index, placeholder);
 
-          const offset_x = (x - tab_box.left);
+        const offset_x = (x - tab_box.left);
 
-          let height   = 0;
-          let offset_y = 0;
+        let height   = 0;
+        let offset_y = 0;
 
-          each(indexed(selected), ([i, tab]) => {
-            const e = tab.get("ui").value;
-
-            // TODO a little hacky
-            e.set_style("z-index", -i + "").run();
-
-            if (i === 0) {
-              // TODO a bit hacky
-              height += 20;
-              offset_y += 10;
-
-            } else {
-              if (i < 5) {
-                // TODO a bit hacky
-                height += 2 + 1;
-                offset_y += 1;
-
-                // TODO a little hacky
-                e.animate({ from: style_drag_normal,
-                            to: style_drag_stacked,
-                            duration: 200 }).run();
-
-              } else {
-                // TODO a little hacky
-                e.animate({ from: style_visible,
-                            to: style_hidden,
-                            duration: 200 }).run();
-              }
-            }
-
-            dragging.push(e);
-          });
+        each(indexed(selected), ([i, tab]) => {
+          const e = tab.get("ui").value;
 
           // TODO a little hacky
-          merge([
-            placeholder.set_style("height", height + "px"),
-            dragging.set_style("left", (x - offset_x) + "px"),
-            dragging.set_style("top", (y - offset_y) + "px"),
-            dragging.set_style("width", tab_box.width + "px"),
-          ]).run();
+          e.set_style("z-index", -i + "").run();
 
-          $dragging.value = {
+          if (i === 0) {
             // TODO a bit hacky
-            tab: selected[0],
-            index: index,
-            group: group
-          };
+            height += 20;
+            offset_y += 10;
 
-          return { offset_x, offset_y, selected };
-        },
+          } else {
+            if (i < 5) {
+              // TODO a bit hacky
+              height += 2 + 1;
+              offset_y += 1;
 
-        move: (info, { x, y }) => {
-          if (true) {
-            // TODO a little hacky
-            dragging.set_style("left", (x - info.offset_x) + "px").run();
+              // TODO a little hacky
+              e.animate({ from: style_drag_normal,
+                          to: style_drag_stacked,
+                          duration: 200 }).run();
+
+            } else {
+              // TODO a little hacky
+              e.animate({ from: style_visible,
+                          to: style_hidden,
+                          duration: 200 }).run();
+            }
           }
-          dragging.set_style("top", (y - info.offset_y) + "px").run();
-          return info;
-        },
 
-        end: ({ selected }) => {
-          const group = $dragging.value.group;
-          const index = $dragging.value.index;
+          dragging.push(e);
+        });
 
-          const parent = placeholder.parent;
+        // TODO a little hacky
+        merge([
+          placeholder.set_style("height", height + "px"),
+          dragging.set_style("left", (x - offset_x) + "px"),
+          dragging.set_style("top", (y - offset_y) + "px"),
+          dragging.set_style("width", tab_box.width + "px"),
+        ]).run();
 
-          console.log(group.get("id"), $dragging.value.index);
+        $dragging.value = {
+          // TODO a bit hacky
+          tab: selected[0],
+          index: index,
+          group: group
+        };
 
-          // TODO assert that `parent[index] === placeholder`
-          parent.remove(index);
+        return { offset_x, offset_y, selected };
+      },
 
-          each(indexed(selected), ([i, tab]) => {
-            const e = tab.get("ui").value;
+      move: (info, { x, y }) => {
+        if (true) {
+          // TODO a little hacky
+          dragging.set_style("left", (x - info.offset_x) + "px").run();
+        }
+        dragging.set_style("top", (y - info.offset_y) + "px").run();
+        return info;
+      },
 
-            parent.insert(index + i, e);
+      end: ({ selected }) => {
+        const $group = $dragging.value.group;
+        const $index = $dragging.value.index;
 
-            // TODO a little hacky
-            e.set_style("z-index", "").run();
+        const parent = placeholder.parent;
 
-            if (i !== 0) {
-              if (i < 5) {
-                // TODO a little hacky
-                merge([
-                  // TODO is this guaranteed to take 0 time ?
-                  // TODO is it guaranteed that separate animations synchronize together ?
-                  e.animate({ from: style_drag_stacked,
-                              to: style_drag_normal,
-                              duration: 0 }),
-                  e.animate({ from: style_hidden,
-                              to: style_visible,
-                              duration: 200 }),
-                ]).run();
+        console.log($group.get("id"), $dragging.value.index);
 
-              } else {
-                // TODO a little hacky
+        // TODO assert that `parent[index] === placeholder`
+        parent.remove($index);
+
+        each(indexed(selected), ([i, tab]) => {
+          const e = tab.get("ui").value;
+
+          parent.insert($index + i, e);
+
+          // TODO a little hacky
+          e.set_style("z-index", "").run();
+
+          if (i !== 0) {
+            if (i < 5) {
+              // TODO a little hacky
+              merge([
+                // TODO is this guaranteed to take 0 time ?
+                // TODO is it guaranteed that separate animations synchronize together ?
+                e.animate({ from: style_drag_stacked,
+                            to: style_drag_normal,
+                            duration: 0 }),
                 e.animate({ from: style_hidden,
                             to: style_visible,
-                            duration: 200 }).run();
-              }
-            }
-          });
+                            duration: 200 }),
+              ]).run();
 
-          $dragging.value = null;
-        }
-      })
-    ]);
-  });
+            } else {
+              // TODO a little hacky
+              e.animate({ from: style_hidden,
+                          to: style_visible,
+                          duration: 200 }).run();
+            }
+          }
+        });
+
+        group.value = $group;
+        $dragging.value = null;
+      }
+    })*/
+  ]);

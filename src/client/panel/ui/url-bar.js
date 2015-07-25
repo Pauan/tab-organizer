@@ -1,5 +1,5 @@
 import * as dom from "../../dom";
-import { Ref, empty, merge } from "../../../util/stream";
+import { Ref, always } from "../../../util/mutable/ref";
 
 
 export const url_bar = new Ref(null);
@@ -159,42 +159,60 @@ const minify = (x) => {
   return y;
 };
 
-const parsed_url = url_bar.keep((x) => x !== null).map(({ url }) => minify(url));
+const parsed_url = url_bar.map((x) => {
+  if (x === null) {
+    return x;
+  } else {
+    return minify(x.url);
+  }
+});
 
-const make = (style, f) =>
-  dom.row((e) => {
-    e.push(dom.text(parsed_url.map(f)));
-
-    return merge([
-      e.style_always(text_style),
-      e.style_always(style),
-
-      e.visible(parsed_url.map(f))
-    ]);
+const make = (style, f) => {
+  const x = parsed_url.map((x) => {
+    if (x === null) {
+      return "";
+    } else {
+      return f(x);
+    }
   });
 
-dom.floating((e) => {
-  // TODO check if any of these need "flex-shrink": 1
-  e.push(dom.row((e) => {
-    e.push(make(protocol_style, (x) => x.protocol));
-    e.push(make(domain_style, (x) => x.domain));
-    e.push(make(path_style, (x) => x.path));
-    e.push(make(file_style, (x) => x.file));
-    e.push(make(query_style, (x) => x.query));
-    e.push(make(hash_style, (x) => x.hash));
-    return empty;
-  }));
+  return dom.row((e) => [
+    e.children([
+      dom.text(x)
+    ]),
 
-  return merge([
-    e.style_always(top_style),
+    e.style(text_style, always(true)),
+    e.style(style, always(true)),
 
-    // TODO is this correct ?
-    // This makes the element visible if `url_bar` is not `null`, and then
-    // it uses `get_position` to check if the mouse is on top of the element,
-    // and if so, it will then hide the element
-    e.visible(e.visible(url_bar).keep((o) => o !== null).map((o) => {
-      const box = e.get_position();
-      return o.x > box.right || o.y < box.top;
-    }))
+    e.visible(x)
   ]);
-});
+};
+
+dom.floating((e) => [
+  e.children([
+    dom.row((e) => [
+      // TODO check if any of these need "flex-shrink": 1
+      e.children([
+        make(protocol_style, (x) => x.protocol),
+        make(domain_style, (x) => x.domain),
+        make(path_style, (x) => x.path),
+        make(file_style, (x) => x.file),
+        make(query_style, (x) => x.query),
+        make(hash_style, (x) => x.hash)
+      ])
+    ])
+  ]),
+
+  e.style(top_style, always(true)),
+
+  e.visible(url_bar)
+/*
+  // TODO is this correct ?
+  // This makes the element visible if `url_bar` is not `null`, and then
+  // it uses `get_position` to check if the mouse is on top of the element,
+  // and if so, it will then hide the element
+  e.visible(e.visible(url_bar).keep((o) => o !== null).map((o) => {
+    const box = e.get_position();
+    return o.x > box.right || o.y < box.top;
+  }))*/
+]);

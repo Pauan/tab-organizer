@@ -1,11 +1,15 @@
 import { each } from "../util/iterator";
-import { Stream, always } from "../util/stream";
+import { Ref, always } from "../util/mutable/ref";
 import { List } from "../util/immutable/list";
+import { uuid_list_insert,
+         uuid_list_update,
+         uuid_list_remove,
+         uuid_list_clear } from "../util/mutable/list";
 import { batch_read, batch_write } from "./dom/batch";
 import { make_style } from "./dom/style";
 import { assert, fail } from "../util/assert";
 import { async, async_callback } from "../util/async";
-import { animate, ease_in_out, range, round_range } from "../util/animate";
+import { animate, range, round_range } from "../util/animate";
 
 
 // TODO can this be made more efficient ?
@@ -50,7 +54,11 @@ class DOM {
   constructor(dom) {
     this._dom = dom;
     this._parent = null;
-    this._running = null;
+    this._running = [];
+  }
+
+  _run(x) {
+    this._running["push"](x);
   }
 
   get parent() {
@@ -58,7 +66,7 @@ class DOM {
   }
 
   // TODO a bit inefficient
-  _remove() {
+  _remove_self() {
     const parent = this._parent;
 
     if (parent !== null) {
@@ -88,199 +96,212 @@ const mouse_event = (e) => {
 };
 
 class Element extends DOM {
-  on_mouse_hover() {
-    return Stream((send, error, complete) => {
-      // TODO code duplication
-      const mouseover = (e) => {
-        const related = e["relatedTarget"];
+  on_mouse_hover(send) {
+    // TODO code duplication
+    const mouseover = (e) => {
+      const related = e["relatedTarget"];
 
-        // This is done to simulate "mouseenter"
-        if (related === null || !this._dom["contains"](related)) {
-          send(mouse_event(e));
-        }
-      };
+      // This is done to simulate "mouseenter"
+      if (related === null || !this._dom["contains"](related)) {
+        send(mouse_event(e));
+      }
+    };
 
-      // TODO code duplication
-      const mouseout = (e) => {
-        const related = e["relatedTarget"];
+    // TODO code duplication
+    const mouseout = (e) => {
+      const related = e["relatedTarget"];
 
-        // This is done to simulate "mouseleave"
-        if (related === null || !this._dom["contains"](related)) {
-          send(null);
-        }
-      };
+      // This is done to simulate "mouseleave"
+      if (related === null || !this._dom["contains"](related)) {
+        send(null);
+      }
+    };
 
-      this._dom["addEventListener"]("mouseover", mouseover, true);
-      this._dom["addEventListener"]("mouseout", mouseout, true);
+    this._dom["addEventListener"]("mouseover", mouseover, true);
+    this._dom["addEventListener"]("mouseout", mouseout, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("mouseover", mouseover, true);
         this._dom["removeEventListener"]("mouseout", mouseout, true);
-      };
-    });
+      }
+    };
   }
 
-  on_mouse_hold() {
-    return Stream((send, error, complete) => {
-      const mousedown = (e) => {
-        // TODO is it possible for this to leak ?
-        addEventListener("mouseup", mouseup, true);
-        send(mouse_event(e));
-      };
+  on_mouse_hold(send) {
+    const mousedown = (e) => {
+      // TODO is it possible for this to leak ?
+      addEventListener("mouseup", mouseup, true);
+      send(mouse_event(e));
+    };
 
-      const mouseup = () => {
-        removeEventListener("mouseup", mouseup, true);
-        send(null);
-      };
+    const mouseup = () => {
+      removeEventListener("mouseup", mouseup, true);
+      send(null);
+    };
 
-      this._dom["addEventListener"]("mousedown", mousedown, true);
+    this._dom["addEventListener"]("mousedown", mousedown, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("mousedown", mousedown, true);
         removeEventListener("mouseup", mouseup, true);
-      };
-    });
+      }
+    };
   }
 
   hovering() {
-    return this.on_mouse_hover().initial(null);
+    const x = new Ref(null);
+
+    this._run(this.on_mouse_hover((hover) => {
+      x.set(hover);
+    }));
+
+    return x;
   }
 
   holding() {
-    return this.on_mouse_hold().initial(null);
+    const x = new Ref(null);
+
+    this._run(this.on_mouse_hold((hold) => {
+      x.set(hold);
+    }));
+
+    return x;
   }
 
   // TODO code duplication
-  on_left_click() {
-    return Stream((send, error, complete) => {
-      const click = (e) => {
-        if (e["button"] === 0) {
-          send(mouse_event(e));
-        }
-      };
+  on_left_click(send) {
+    const click = (e) => {
+      if (e["button"] === 0) {
+        send(mouse_event(e));
+      }
+    };
 
-      this._dom["addEventListener"]("click", click, true);
+    this._dom["addEventListener"]("click", click, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("click", click, true);
-      };
-    });
+      }
+    };
   }
 
   // TODO code duplication
-  on_middle_click() {
-    return Stream((send, error, complete) => {
-      const click = (e) => {
-        if (e["button"] === 1) {
-          send(mouse_event(e));
-        }
-      };
+  on_middle_click(send) {
+    const click = (e) => {
+      if (e["button"] === 1) {
+        send(mouse_event(e));
+      }
+    };
 
-      this._dom["addEventListener"]("click", click, true);
+    this._dom["addEventListener"]("click", click, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("click", click, true);
-      };
-    });
+      }
+    };
   }
 
-  on_right_click() {
-    return Stream((send, error, complete) => {
-      const click = (e) => {
-        if (e["button"] === 2) {
-          send(mouse_event(e));
-        }
-      };
+  on_right_click(send) {
+    const click = (e) => {
+      if (e["button"] === 2) {
+        send(mouse_event(e));
+      }
+    };
 
-      this._dom["addEventListener"]("contextmenu", preventDefault, true);
-      this._dom["addEventListener"]("mousedown", click, true);
+    this._dom["addEventListener"]("contextmenu", preventDefault, true);
+    this._dom["addEventListener"]("mousedown", click, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("contextmenu", preventDefault, true);
         this._dom["removeEventListener"]("mousedown", click, true);
-      };
-    });
+      }
+    };
   }
 
-  on_mouse_move() {
-    return Stream((send, error, complete) => {
-      const mousemove = (e) => {
-        send(mouse_event(e));
-      };
+  on_mouse_move(send) {
+    const mousemove = (e) => {
+      send(mouse_event(e));
+    };
 
-      this._dom["addEventListener"]("mousemove", mousemove, true);
+    this._dom["addEventListener"]("mousemove", mousemove, true);
 
-      return () => {
+    return {
+      stop: () => {
         this._dom["removeEventListener"]("mousemove", mousemove, true);
-      };
-    });
+      }
+    };
   }
 
-  drag({ start, move, end, start_if }) {
-    return Stream((send, error, complete) => {
-      let info = null;
-      let start_x = null;
-      let start_y = null;
-      let dragging = false;
+  draggable({ start, move, end, start_if }) {
+    let info = null;
+    let start_x = null;
+    let start_y = null;
+    let dragging = false;
 
-      const mousedown = (e) => {
-        if (e["button"] === 0) {
-          // TODO is it possible for these to leak ?
-          addEventListener("mousemove", mousemove, true);
-          addEventListener("mouseup", mouseup, true);
+    const mousedown = (e) => {
+      if (e["button"] === 0) {
+        // TODO is it possible for these to leak ?
+        addEventListener("mousemove", mousemove, true);
+        addEventListener("mouseup", mouseup, true);
 
-          start_x = e["clientX"];
-          start_y = e["clientY"];
+        start_x = e["clientX"];
+        start_y = e["clientY"];
 
-          const o = mouse_event(e);
-
-          if (start_if(start_x, start_y, o)) {
-            dragging = true;
-
-            info = start(o);
-          }
-        }
-      };
-
-      const mousemove = (e) => {
         const o = mouse_event(e);
 
-        if (dragging) {
-          info = move(info, o);
-
-        } else if (start_if(start_x, start_y, o)) {
+        if (start_if(start_x, start_y, o)) {
           dragging = true;
 
           info = start(o);
         }
-      };
+      }
+    };
 
-      const mouseup = (e) => {
-        removeEventListener("mousemove", mousemove, true);
-        removeEventListener("mouseup", mouseup, true);
+    const mousemove = (e) => {
+      const o = mouse_event(e);
 
-        start_x = null;
-        start_y = null;
+      if (dragging) {
+        info = move(info, o);
 
-        if (dragging) {
-          dragging = false;
+      } else if (start_if(start_x, start_y, o)) {
+        dragging = true;
 
-          const o = mouse_event(e);
+        info = start(o);
+      }
+    };
 
-          const old_info = info;
+    const mouseup = (e) => {
+      removeEventListener("mousemove", mousemove, true);
+      removeEventListener("mouseup", mouseup, true);
 
-          info = null;
+      start_x = null;
+      start_y = null;
 
-          end(old_info, o);
-        }
-      };
+      if (dragging) {
+        dragging = false;
 
-      this._dom["addEventListener"]("mousedown", mousedown, true);
+        const o = mouse_event(e);
 
-      return () => {
+        const old_info = info;
+
+        info = null;
+
+        end(old_info, o);
+      }
+    };
+
+    this._dom["addEventListener"]("mousedown", mousedown, true);
+
+    return {
+      // TODO what about `mousemove` and `mouseup` ?
+      stop: () => {
         this._dom["removeEventListener"]("mousedown", mousedown, true);
-      };
-    });
+      }
+    };
   }
 
   _add_style(style) {
@@ -291,19 +312,14 @@ class Element extends DOM {
     this._dom["classList"]["remove"](style._name);
   }
 
-  style(style, stream) {
-    return stream.map((x) => {
+  style(style, ref) {
+    return ref.each((x) => {
       if (x) {
         this._add_style(style);
       } else {
         this._remove_style(style);
       }
-      return x;
     });
-  }
-
-  style_always(style) {
-    return this.style(style, always(true));
   }
 
   get_position() {
@@ -332,9 +348,11 @@ class Element extends DOM {
       return parse_range(key, from, to);
     });
 
-    return animate(duration).map(easing).map((t) => {
+    return animate(duration, (t1) => {
+      const t2 = easing(t1);
+
       // TODO what about bouncing ?
-      if (t === 1) {
+      if (t2 === 1) {
         this._add_style(to);
 
         for (let i = 0; i < transitions["length"]; ++i) {
@@ -343,7 +361,7 @@ class Element extends DOM {
         }
 
       } else {
-        if (t === 0) {
+        if (t2 === 0) {
           // TODO remove `to` as well ?
           this._remove_style(from);
         }
@@ -351,40 +369,33 @@ class Element extends DOM {
         // TODO can this be made more efficient ?
         for (let i = 0; i < transitions["length"]; ++i) {
           const { key, from, to, range } = transitions[i];
-          this._dom["style"][key] = range(t, from, to);
+          this._dom["style"][key] = range(t2, from, to);
         }
       }
-
-      return t;
     });
   }
 
-  visible(stream) {
-    return stream.map((x) => {
+  visible(ref) {
+    return ref.each((x) => {
       if (x) {
         this._dom["style"]["display"] = "";
       } else {
         this._dom["style"]["display"] = "none";
       }
-      return x;
     });
   }
 
   set_style(key, value) {
-    return Stream((success, error, complete) => {
-      // TODO check that the style is valid
-      this._dom["style"][key] = value;
-      complete();
-    });
+    // TODO check that the style is valid
+    this._dom["style"][key] = value;
   }
 }
 
 
 class Image extends Element {
-  url(stream) {
-    return stream.map((x) => {
+  url(ref) {
+    return ref.each((x) => {
       this._dom["src"] = x;
-      return x;
     });
   }
 }
@@ -397,23 +408,33 @@ class Parent extends Element {
     this._children = List();
   }
 
-  get children() {
-    return this._children;
-  }
-
-  // TODO is this correct ? maybe it should use `_remove` ?
-  clear() {
+  // TODO is this correct ? maybe it should use `_remove_self` ?
+  _clear() {
     this._children = List();
     this._dom["innerHTML"] = "";
   }
 
-  remove(index) {
-    // TODO this can be implemented more efficiently
-    this._children.get(index)._remove();
+  _remove(index) {
+    const child = this._children.get(index);
+
+    assert(child._parent === this);
+
+    this._children = this._children.remove(index);
+    this._dom["removeChild"](child._dom);
+    child._parent = null;
   }
 
-  insert(index, x) {
-    x._remove();
+  _update(index, x) {
+    x._remove_self();
+
+    this._dom["replaceChild"](x._dom, this._children.get(index)._dom);
+
+    this._children = this._children.update(index, x);
+    x._parent = this;
+  }
+
+  _insert(index, x) {
+    x._remove_self();
 
     // TODO is this correct ?
     if (this._children.has(index)) {
@@ -427,8 +448,8 @@ class Parent extends Element {
     x._parent = this;
   }
 
-  push(x) {
-    x._remove();
+  _push(x) {
+    x._remove_self();
 
     this._dom["appendChild"](x._dom);
 
@@ -436,8 +457,42 @@ class Parent extends Element {
     x._parent = this;
   }
 
-  index_of(x) {
-    return this._children.index_of(x);
+  children(x) {
+    each(x, (x) => {
+      this._push(x);
+    });
+
+    // TODO hacky
+    if (Array["isArray"](x)) {
+      return {
+        stop: () => {}
+      };
+
+    } else {
+      return x.on_change((x) => {
+        switch (x.type) {
+        case uuid_list_insert:
+          this._insert(x.index, x.value);
+          break;
+
+        case uuid_list_update:
+          this._update(x.index, x.value);
+          break;
+
+        case uuid_list_remove:
+          this._remove(x.index);
+          break;
+
+        case uuid_list_clear:
+          this._clear();
+          break;
+
+        default:
+          fail();
+          break;
+        }
+      });
+    }
   }
 }
 
@@ -528,7 +583,7 @@ export const row = (f) => {
   const e = new Parent(document["createElement"]("div"));
   e._add_style(row_style);
   // TODO test this
-  e._running = f(e).run();
+  e._running = e._running["concat"](f(e));
   return e;
 };
 
@@ -536,7 +591,7 @@ export const stretch = (f) => {
   const e = new Parent(document["createElement"]("div"));
   e._add_style(stretch_style);
   // TODO test this
-  e._running = f(e).run();
+  e._running = e._running["concat"](f(e));
   return e;
 };
 
@@ -544,7 +599,7 @@ export const col = (f) => {
   const e = new Parent(document["createElement"]("div"));
   e._add_style(col_style);
   // TODO test this
-  e._running = f(e).run();
+  e._running = e._running["concat"](f(e));
   return e;
 };
 
@@ -554,7 +609,7 @@ export const floating = (f) => {
   e._add_style(floating_style);
   e._add_style(col_style); // TODO is this correct ?
   // TODO test this
-  e._running = f(e).run();
+  e._running = e._running["concat"](f(e));
   // TODO is this correct ?
   panels["appendChild"](e._dom);
   return e;
@@ -566,9 +621,9 @@ export const text = (x) => {
   const e = new DOM(s);
 
   // TODO is this correct ?
-  e._running = x.each((x) => {
+  e._run(x.each((x) => {
     s["textContent"] = x;
-  });
+  }));
 
   return e;
 };
@@ -576,16 +631,21 @@ export const text = (x) => {
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
   // TODO test this
-  e._running = f(e).run();
+  e._running = e._running["concat"](f(e));
   return e;
 };
 
 const panels = document["createElement"]("div");
 
-export const main = col((e) =>
-  e.style_always(main_style));
+const _main = col((e) =>
+  e.style(main_style, always(true)));
+
+export const main = (x) => {
+  // TODO hacky
+  _main._dom["appendChild"](x._dom);
+};
 
 // TODO use batch_write ?
 // TODO a little hacky
-document["body"]["appendChild"](main._dom);
+document["body"]["appendChild"](_main._dom);
 document["body"]["appendChild"](panels);

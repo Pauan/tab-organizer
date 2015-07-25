@@ -1,50 +1,50 @@
-import { init as init_sync } from "../sync";
+import { uuid_port_tab } from "../../common/uuid";
+import { init as init_chrome } from "../../chrome/client";
 import { async } from "../../util/async";
-import { get_sorted, remove_sorted,
-         insert_sorted, insert } from "../../util/immutable/array"; // TODO hacky
-import { assert } from "../../util/assert";
-import { Record } from "../../util/immutable/record";
-import { List } from "../../util/immutable/list";
-import { Ref } from "../../util/stream";
+import { Ref } from "../../util/mutable/ref";
+import { Set } from "../../util/mutable/set";
+import { Record } from "../../util/mutable/record";
+import { SortedList } from "../../util/mutable/list";
 import { each } from "../../util/iterator";
-import { current_time, difference, round_to_hour } from "../../util/time";
-import { tab as ui_tab } from "./ui/tab";
-import { group as ui_group } from "./ui/group";
+import { fail } from "../../util/assert";
+
+import { current_time, round_to_hour, difference } from "../../util/time";
 import { group_list as ui_group_list } from "./ui/group-list";
 import * as dom from "../dom";
 
 
-// TODO hacky
-const group_list = ui_group_list();
+/*const get_groups = new Ref((tab) => {
+  const title = tab.get("title").value;
+  return [title ? title[0] : ""];
+});*/
 
-dom.main.push(group_list);
+/*const sort_tab = new Ref((tab1, tab2) => {
+  const title1 = tab1.get("title").value;
+  const title2 = tab2.get("title").value;
+
+  if (title1 === title2) {
+    return tab1.get("time").get("created") -
+           tab2.get("time").get("created");
+
+  } else if (title1 < title2) {
+    return -1;
+  } else {
+    return 1;
+  }
+});*/
 
 
-let group_ids = Record();
-let tab_ids   = Record();
-let groups    = [];
+const sort_group = (x, y) =>
+  y.get("time") - x.get("time");
+
+const sort_tab = (x, y) =>
+  y.get("time").get("created") -
+  x.get("time").get("created");
 
 
-const open_tab = (db, tab) => {
-  const transients = db.get(["transient.tab-ids"]);
-
-  const id = tab.get("id");
-
-  const x = Record([
-    ["id", id],
-    ["time", tab.get("time")],
-    ["window", new Ref(tab.get("window"))],
-    ["url", new Ref(tab.get("url"))],
-    ["title", new Ref(tab.get("title") || tab.get("url") || "")],
-    ["favicon", new Ref(tab.get("favicon"))],
-    ["focused", new Ref(transients.has(id) && transients.get(id).get("focused"))],
-    ["selected", new Ref(false)],
-    ["unloaded", new Ref(!transients.has(id))],
-    ["ui", new Ref(null)]
-  ]);
-
-  tab_ids = tab_ids.insert(id, x);
-};
+const tab_ids    = new Record();
+const group_ids  = new Record();
+const group_list = new SortedList(sort_group);
 
 
 // TODO move this to another module
@@ -70,143 +70,152 @@ const diff_to_text = (diff) => {
   }
 };
 
-const get_groups = new Ref((tab) => {
-  const now = round_to_hour(current_time());
-  const id  = round_to_hour(tab.get("time").get("created"));
-  return [
-    Record([
-      ["id", "" + id],
-      ["name", diff_to_text(difference(now, id))],
-      ["sort", (group1, group2) => {
-        return group2.get("id") - group1.get("id");
-      }]
-    ])
-  ];
-});
+const get_group_name = (time) =>
+  diff_to_text(difference(round_to_hour(current_time()), time));
 
-/*const get_groups = new Ref((tab) => {
-  const title = tab.get("title").value;
-  return [title ? title[0] : ""];
-});*/
 
-/*const sort_tab = new Ref((tab1, tab2) => {
-  const title1 = tab1.get("title").value;
-  const title2 = tab2.get("title").value;
-
-  if (title1 === title2) {
-    return tab1.get("time").get("created") -
-           tab2.get("time").get("created");
-
-  } else if (title1 < title2) {
-    return -1;
-  } else {
-    return 1;
-  }
-});*/
-
-const sort_group = new Ref();
-
-const sort_tab = new Ref((tab1, tab2) => {
-  return tab2.get("time").get("created") -
-         tab1.get("time").get("created");
-});
-
-const add_group = (x, f) => {
-  const id = x.get("id");
+const get_groups = (tab) => {
+  const time = round_to_hour(tab.get("time").get("created"));
+  const id = "" + time;
 
   if (group_ids.has(id)) {
-    return group_ids.modify(id, f);
+    return [group_ids.get(id)];
 
   } else {
-    const x2 = x.insert("tabs", [])
-                .insert("selected", new Ref([]))
-                .insert("ui", new Ref(null));
+    const group = new Record({
+      "id": id,
+      "name": new Ref(get_group_name(time)),
+      "time": time,
+      "tabs": new SortedList(sort_tab),
+      "selected": new SortedList(sort_tab)
+    });
 
-    const ui = ui_group(x2, true);
+    group_ids.insert(id, group);
 
-    x2.get("ui").value = ui;
+    group_list.insert(group);
 
-    const { index, value } = get_sorted(groups, x2, x2.get("sort"));
-
-    assert(!value.has());
-
-    groups = insert(groups, index, x2);
-    group_list.insert(index, ui.get("top"));
-
-    return group_ids.insert(id, f(x2));
+    return [group];
   }
 };
 
-// TODO test this
-export const select_tab = (group, tab) => {
-  const group_selected = group.get("selected");
-  const selected = tab.get("selected");
+const add_tab = (info, focused, unloaded) => {
+  const tab = new Record({
+    "id": info.get("id"),
+    "time": info.get("time"),
+    "url": new Ref(info.get("url")),
+    "groups": new Set(),
+    "title": new Ref(info.get("title") || info.get("url") || ""),
+    "favicon": new Ref(info.get("favicon")),
+    "pinned": new Ref(info.get("pinned")),
+    "selected": new Ref(false),
+    "focused": new Ref(focused),
+    "unloaded": new Ref(unloaded)
+  });
 
-  if (selected.value) {
-    selected.value = false;
-    group_selected.value = remove_sorted(group_selected.value, tab, sort_tab.value);
+  tab_ids.insert(tab.get("id"), tab);
 
-  } else {
-    selected.value = true;
-    group_selected.value = insert_sorted(group_selected.value, tab, sort_tab.value);
-  }
-};
-
-/*export const deselect_tab = (group, tab) => {
-  const group_selected = group.get("selected");
-  const selected = tab.get("selected");
-
-  selected.value = false;
-  group_selected.value = remove_sorted(group_selected.value, tab, sort_tab.value);
-};*/
-
-const add_tab_to_group = (x, tab) => {
-  group_ids = add_group(x, (group) =>
-    group.modify("tabs", (tabs) => {
-      const ui = ui_tab(group, tab, true);
-
-      tab.get("ui").value = ui;
-
-      const { index, value } = get_sorted(tabs, tab, sort_tab.value);
-
-      assert(!value.has());
-
-      group.get("ui").value.get("tabs").insert(index, ui);
-
-      return insert(tabs, index, tab);
-    }));
-};
-
-const add_tab = (tab) => {
-  each(get_groups.value(tab), (x) => {
-    add_tab_to_group(x, tab);
+  each(get_groups(tab), (group) => {
+    tab.get("groups").insert(group);
+    group.get("tabs").insert(tab);
   });
 };
+
+// TODO remove remaining tabs as well ?
+// TODO what about "selected" ?
+const remove_group = (group) => {
+  group_ids.remove(group.get("id"));
+
+  group_list.remove(group);
+};
+
+const remove_tab = (tab) => {
+  tab_ids.remove(tab.get("id"));
+
+  const groups = tab.get("groups");
+
+  each(groups, (group) => {
+    const tabs = group.get("tabs");
+
+    tabs.remove(tab);
+
+    if (tabs.size === 0) {
+      remove_group(group);
+    }
+  });
+
+  groups.clear();
+};
+
+
+dom.main(ui_group_list(group_list));
+
 
 export const init = async(function* () {
-  const db = yield init_sync;
+  const { ports } = yield init_chrome;
 
-  each(db.get(["current.tab-ids"]), ([key, tab]) => {
-    open_tab(db, tab);
+  const port = ports.connect(uuid_port_tab);
+
+  const types = {
+    "init": (x) => {
+      const windows = x.get("current.windows");
+      const window_ids = x.get("current.window-ids");
+      const tab_ids = x.get("current.tab-ids");
+      const transient = x.get("transient.tab-ids");
+
+      each(tab_ids, ([key, info]) => {
+        const id = info.get("id");
+        add_tab(info, transient.has(id) &&
+                      transient.get(id).get("focused"),
+                      !transient.has(id));
+      });
+    },
+
+    "tab-open": (x) => {
+      const transient = x.get("transient");
+      const tab = x.get("tab");
+
+      add_tab(tab, transient.get("focused"), false);
+    },
+
+    // TODO update the timestamp as well
+    "tab-focus": (x) => {
+      tab_ids.get(x.get("tab-id")).get("focused").set(true);
+    },
+
+    "tab-unfocus": (x) => {
+      tab_ids.get(x.get("tab-id")).get("focused").set(false);
+    },
+
+    "tab-update": (x) => {
+      const tab = tab_ids.get(x.get("tab-id"));
+      const info = x.get("new-tab");
+
+      tab.get("url").set(info.get("url"));
+      tab.get("title").set(info.get("title"));
+      tab.get("favicon").set(info.get("favicon"));
+      tab.get("pinned").set(info.get("pinned"));
+    },
+
+    // TODO
+    "tab-move": (x) => {},
+
+    "tab-close": (x) => {
+      remove_tab(tab_ids.get(x.get("tab-id")));
+    },
+
+    // TODO
+    "window-open": (x) => {},
+
+    // TODO
+    "window-close": (x) => {}
+  };
+
+  port.on_receive((x) => {
+    const type = x.get("type");
+    if (types[type]) {
+      types[type](x);
+    } else {
+      fail();
+    }
   });
-
-  each(tab_ids, ([key, tab]) => {
-    add_tab(tab);
-  });
-
-  /*db.on_commit.each((transaction) => {
-    each(transaction, (x) => {
-      switch (x.get("type")) {
-      case "tab-open":
-        const tab = x.get("tab");
-
-
-
-        break;
-
-      default:
-        fail();
-      }
-    });
-  });*/
 });
