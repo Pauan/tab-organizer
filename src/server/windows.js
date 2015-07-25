@@ -232,6 +232,16 @@ export const init = async(function* () {
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
       db.push(["current.windows"], id);
+
+      // TODO inefficient
+      const index = db.get(["current.windows"]).index_of(id).get();
+
+      tab_events.send(Record([
+        ["type", "window-open"],
+        ["window-id", id],
+        ["window", db.get(["current.window-ids", id])],
+        ["index", index]
+      ]));
     });
   };
 
@@ -253,6 +263,7 @@ export const init = async(function* () {
 
       // Removes all the unloaded tabs
       // TODO test this
+      // TODO send events for these ?
       each(tabs, (tab_id) => {
         db.remove(["current.tab-ids", tab_id]);
         // TODO what if the tab isn't unloaded ?
@@ -265,6 +276,12 @@ export const init = async(function* () {
       const index = db.get(["current.windows"]).index_of(id).get();
 
       db.remove(["current.windows", index]);
+
+      tab_events.send(Record([
+        ["type", "window-close"],
+        ["window-id", id],
+        ["index", index]
+      ]));
     });
   };
 
@@ -280,6 +297,16 @@ export const init = async(function* () {
       const session_index = find_left_index(tabs, window, index);
 
       db.insert(["current.window-ids", window_id, "tabs", session_index], tab_id);
+
+      tab_events.send(Record([
+        ["type", "tab-open"],
+        ["window-id", window_id],
+        ["tab-id", tab_id],
+        ["tab-index", session_index],
+        // TODO a little hacky ?
+        ["transient", db.get(["transient.tab-ids", tab_id])],
+        ["tab", db.get(["current.tab-ids", tab_id])]
+      ]));
     });
   };
 
@@ -290,6 +317,11 @@ export const init = async(function* () {
 
         // TODO assert that it was true ?
         db.update(["transient.tab-ids", tab_id, "focused"], false);
+
+        tab_events.send(Record([
+          ["type", "tab-unfocus"],
+          ["tab-id", tab_id]
+        ]));
       }
 
       if (info.new !== null) {
@@ -298,6 +330,13 @@ export const init = async(function* () {
         db.assign(["current.tab-ids", tab_id, "time", "focused"], timestamp());
         // TODO assert that it was false ?
         db.update(["transient.tab-ids", tab_id, "focused"], true);
+
+        tab_events.send(Record([
+          ["type", "tab-focus"],
+          ["tab-id", tab_id],
+          // TODO hacky
+          ["tab", db.get(["transient.tab-ids", tab_id])]
+        ]));
       }
     });
   };
@@ -306,7 +345,23 @@ export const init = async(function* () {
     db.transaction((db) => {
       const tab_id = session.tab_id(tab.id);
 
+      // TODO a little hacky
+      const old_tab = db.get(["current.tab-ids", tab_id]);
+
       update_tab(db, tab_id, tab);
+
+      // TODO a little hacky
+      const new_tab = db.get(["current.tab-ids", tab_id]);
+
+      // TODO is there a better way ?
+      if (old_tab !== new_tab) {
+        tab_events.send(Record([
+          ["type", "tab-update"],
+          ["tab-id", tab_id],
+          ["old-tab", old_tab],
+          ["new-tab", new_tab]
+        ]));
+      }
     });
   };
 
@@ -358,6 +413,16 @@ export const init = async(function* () {
 
       db.insert(["current.window-ids", new_window_id, "tabs", session_new_index],
                 tab_id);
+
+
+      tab_events.send(Record([
+        ["type", "tab-move"],
+        ["tab-id", tab_id],
+        ["old-window-id", old_window_id],
+        ["new-window-id", new_window_id],
+        ["old-tab-index", session_old_index],
+        ["new-tab-index", session_new_index]
+      ]));
     });
   };
 
@@ -382,6 +447,13 @@ export const init = async(function* () {
       const index = tabs.index_of(tab_id).get();
 
       db.remove(["current.window-ids", window_id, "tabs", index]);
+
+      tab_events.send(Record([
+        ["type", "tab-close"],
+        ["window-id", window_id],
+        ["tab-id", tab_id],
+        ["tab-index", index]
+      ]));
     });
   };
 
