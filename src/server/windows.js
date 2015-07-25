@@ -238,9 +238,8 @@ export const init = async(function* () {
 
       tab_events.send(Record([
         ["type", "window-open"],
-        ["window-id", id],
-        ["window", db.get(["current.window-ids", id])],
-        ["index", index]
+        ["window-index", index],
+        ["window", db.get(["current.window-ids", id])]
       ]));
     });
   };
@@ -280,7 +279,7 @@ export const init = async(function* () {
       tab_events.send(Record([
         ["type", "window-close"],
         ["window-id", id],
-        ["index", index]
+        ["window-index", index]
       ]));
     });
   };
@@ -301,7 +300,6 @@ export const init = async(function* () {
       tab_events.send(Record([
         ["type", "tab-open"],
         ["window-id", window_id],
-        ["tab-id", tab_id],
         ["tab-index", session_index],
         // TODO a little hacky ?
         ["transient", db.get(["transient.tab-ids", tab_id])],
@@ -358,8 +356,7 @@ export const init = async(function* () {
         tab_events.send(Record([
           ["type", "tab-update"],
           ["tab-id", tab_id],
-          ["old-tab", old_tab],
-          ["new-tab", new_tab]
+          ["tab", new_tab]
         ]));
       }
     });
@@ -418,10 +415,10 @@ export const init = async(function* () {
       tab_events.send(Record([
         ["type", "tab-move"],
         ["tab-id", tab_id],
-        ["old-window-id", old_window_id],
-        ["new-window-id", new_window_id],
-        ["old-tab-index", session_old_index],
-        ["new-tab-index", session_new_index]
+        ["window-old-id", old_window_id],
+        ["window-new-id", new_window_id],
+        ["tab-old-index", session_old_index],
+        ["tab-new-index", session_new_index]
       ]));
     });
   };
