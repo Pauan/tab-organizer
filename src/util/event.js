@@ -31,10 +31,13 @@ export const Event = (info = {}) => {
 
   // TODO test this
   const close = () => {
+    const a = listeners;
+
     listeners = null;
 
-    // TODO what if it is already stopped ?
-    stop();
+    if (a.size > 0) {
+      stop();
+    }
   };
 
   const receive = (f) => {

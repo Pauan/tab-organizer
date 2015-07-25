@@ -32,11 +32,10 @@ class Latest extends Base {
 
   _listen(f) {
     const x = this._args["map"]((x) =>
-    /*(x) => {
-      // TODO hacky
-      f(x);
-    }*/
-      x._listen(f));
+      // This is needed in order to avoid errors with `Set#insert`
+      x._listen((x) => {
+        f(x);
+      }));
 
     return {
       stop: () => {
