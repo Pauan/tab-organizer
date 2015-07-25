@@ -322,6 +322,27 @@ class Element extends DOM {
     });
   }
 
+  scroll_to(ref) {
+    return ref.each((x) => {
+      // TODO it should scroll to the element immediately after being inserted
+      if (x && this._parent) {
+        const p = this._parent.get_position();
+        const c = this.get_position();
+
+        // TODO test this
+        this._parent._dom["scrollLeft"] +=
+          Math["round"]((c.left - p.left) -
+                        (p.width / 2) +
+                        (c.width / 2));
+
+        this._parent._dom["scrollTop"] +=
+          Math["round"]((c.top - p.top) -
+                        (p.height / 2) +
+                        (c.height / 2));
+      }
+    });
+  }
+
   get_position() {
     const box = this._dom["getBoundingClientRect"]();
     return {

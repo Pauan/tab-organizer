@@ -252,6 +252,8 @@ export const tab = (tab) =>
 
     e.style(style_unloaded, tab.get("unloaded")),
 
+    e.scroll_to(tab.get("focused")),
+
     e.children([
       favicon(tab),
 
