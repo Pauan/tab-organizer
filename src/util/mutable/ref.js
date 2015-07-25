@@ -4,7 +4,7 @@ import { each } from "../iterator";
 
 class Base {
   map(f) {
-    return new Latest([this], f);
+    return latest([this], f);
   }
 
   each(f) {
@@ -30,7 +30,11 @@ class Latest extends Base {
   }
 
   _listen(f) {
-    const x = this._args["map"]((x) => x._listen(f));
+    const x = this._args["map"]((x) =>
+      x._listen(() => {
+        // TODO hacky
+        f();
+      }));
 
     return {
       stop: () => {
@@ -66,7 +70,7 @@ export class Ref extends Base {
     return this._value;
   }
 
-  update(value) {
+  set(value) {
     if (this._value !== value) {
       this._value = value;
 
@@ -77,10 +81,33 @@ export class Ref extends Base {
   }
 
   modify(f) {
-    this.update(f(this.get()));
+    this.set(f(this.get()));
   }
 }
 
+
+class Constant extends Base {
+  constructor(value) {
+    super();
+
+    this._value = value;
+  }
+
+  // TODO is this correct ?
+  _listen(f) {
+    return {
+      stop: () => {}
+    };
+  }
+
+  get() {
+    return this._value;
+  }
+}
+
+
+export const always = (x) =>
+  new Constant(x);
 
 export const latest = (args, f) =>
   new Latest(args, f);

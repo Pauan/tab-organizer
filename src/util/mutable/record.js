@@ -5,9 +5,14 @@ import { assert } from "../assert";
 
 // TODO test this
 export class Record {
-  constructor(keys) {
-    // TODO make a copy ?
-    this._keys = keys;
+  constructor(keys = null) {
+    if (keys == null) {
+      this._keys = {};
+
+    } else {
+      // TODO make a copy ?
+      this._keys = keys;
+    }
   }
 
   has(key) {

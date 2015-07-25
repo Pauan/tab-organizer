@@ -1,5 +1,4 @@
 import { performance } from "../common/globals";
-import { Stream } from "./stream";
 
 
 let batching = false;
@@ -46,31 +45,31 @@ const unbatch = (f) => {
 };
 
 
-export const animate = (duration) =>
-  Stream((send, error, complete) => {
-    send(0);
+export const animate = (duration, send) => {
+  send(0);
 
-    const loop = (now) => {
-      // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
-      const diff = now - start;
+  const loop = (now) => {
+    // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
+    const diff = now - start;
 
-      if (diff >= duration) {
-        send(1);
-        complete();
+    if (diff >= duration) {
+      send(1);
 
-      } else {
-        batch(loop);
-        send(diff / duration);
-      }
-    };
+    } else {
+      batch(loop);
+      send(diff / duration);
+    }
+  };
 
-    const start = batch(loop);
+  const start = batch(loop);
 
-    // TODO test this
-    return () => {
+  // TODO test this
+  return {
+    stop: () => {
       unbatch(loop);
-    };
-  });
+    }
+  };
+};
 
 // TODO test this
 export const ease_in_out = (t) => {
