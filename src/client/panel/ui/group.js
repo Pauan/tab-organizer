@@ -1,6 +1,6 @@
 import { assert } from "../../../util/assert";
 import { always } from "../../../util/mutable/ref";
-import { placeholder, $dragging, tab as ui_tab } from "./tab";
+import { drag_info, tab as ui_tab } from "./tab";
 import * as dom from "../../dom";
 
 
@@ -30,24 +30,24 @@ const group_tabs = (group) =>
   dom.col((e) => [
     e.style(style_group_tabs, always(true)),
 
-/*
-    // TODO code duplication
-    e.on_mouse_hover().keep((x) => x && $dragging.value).map(() => {
+    e.on_mouse_hover((hover) => {
+      const info = drag_info.get();
+
       // TODO this isn't quite right, but it works most of the time
-      if ($dragging.value.group !== group) {
-        // TODO a little hacky
-        assert(placeholder.parent !== e);
+      if (hover && info && info.group !== group) {
+        // TODO is this guaranteed to be correct ?
+        assert(group.get("tabs").size > 0);
 
-        const index = e.children.size;
-
-        $dragging.value.index = index;
-        $dragging.value.group = group;
-
-        e.insert(index, placeholder);
+        drag_info.set({
+          group: group,
+          tab: group.get("tabs").get(-1),
+          height: info.height,
+          direction: "down"
+        });
       }
-    }),*/
+    }),
 
-    e.children(group.get("tabs").map(ui_tab))
+    e.children(group.get("tabs").map((x) => ui_tab(group, x)))
   ]);
 
 export const group = (group) =>

@@ -9,7 +9,7 @@ import { batch_read, batch_write } from "./dom/batch";
 import { make_style } from "./dom/style";
 import { assert, fail } from "../util/assert";
 import { async, async_callback } from "../util/async";
-import { animate, range, round_range } from "../util/animate";
+import { animate, range, round_range, ease_in_out } from "../util/animate";
 
 
 // TODO can this be made more efficient ?
@@ -237,7 +237,6 @@ class Element extends DOM {
   }
 
   draggable({ start, move, end, start_if }) {
-    let info = null;
     let start_x = null;
     let start_y = null;
     let dragging = false;
@@ -256,7 +255,7 @@ class Element extends DOM {
         if (start_if(start_x, start_y, o)) {
           dragging = true;
 
-          info = start(o);
+          start(o);
         }
       }
     };
@@ -265,12 +264,12 @@ class Element extends DOM {
       const o = mouse_event(e);
 
       if (dragging) {
-        info = move(info, o);
+        move(o);
 
       } else if (start_if(start_x, start_y, o)) {
         dragging = true;
 
-        info = start(o);
+        start(o);
       }
     };
 
@@ -284,13 +283,7 @@ class Element extends DOM {
       if (dragging) {
         dragging = false;
 
-        const o = mouse_event(e);
-
-        const old_info = info;
-
-        info = null;
-
-        end(old_info, o);
+        end(mouse_event(e));
       }
     };
 
@@ -356,7 +349,7 @@ class Element extends DOM {
   }
 
   // TODO test this
-  animate({ from, to, duration, easing = (x) => x }) {
+  animate({ from, to, duration, easing = ease_in_out }) {
     // TODO a bit inefficient ?
     each(from._keys, (key) => {
       assert(to._style[key]);
@@ -396,6 +389,15 @@ class Element extends DOM {
     });
   }
 
+  animate_when(ref, info) {
+    return ref.each((x) => {
+      if (x) {
+        // TODO this should be stopped when the `animate_when` is stopped
+        this.animate(info);
+      }
+    });
+  }
+
   visible(ref) {
     return ref.each((x) => {
       if (x) {
@@ -406,9 +408,11 @@ class Element extends DOM {
     });
   }
 
-  set_style(key, value) {
-    // TODO check that the style is valid
-    this._dom["style"][key] = value;
+  set_style(key, ref) {
+    return ref.each((x) => {
+      // TODO check that the style is valid
+      this._dom["style"][key] = x;
+    });
   }
 }
 

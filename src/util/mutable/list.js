@@ -1,4 +1,4 @@
-import { map, iterator, to_array } from "../iterator";
+import { map, iterator, to_array, indexed } from "../iterator";
 import { insert, remove, get_sorted } from "../immutable/array";
 import { Set } from "../immutable/set";
 import { Some, None } from "../immutable/maybe";
@@ -46,7 +46,8 @@ class Map extends Base {
         f({
           type: x.type,
           index: x.index,
-          value: this._fn(x.value)
+          // TODO should this pass in the index to the function ?
+          value: this._fn(x.value, x.index)
         });
         break;
 
@@ -64,7 +65,7 @@ class Map extends Base {
 
   [Symbol["iterator"]]() {
     // TODO is this correct ?
-    return iterator(map(this._parent, this._fn));
+    return iterator(map(indexed(this._parent), ([i, x]) => this._fn(x, i)));
   }
 }
 

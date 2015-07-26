@@ -1,11 +1,16 @@
 import * as dom from "../../dom";
+import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
-//import { select_tab } from "../logic";
+import { move_tabs } from "../logic";
 
 
-export const $dragging = new Ref(null);
+const $selected = new List();
+
+const $dragging = new Ref(null);
+
+export const drag_info = new Ref(null);
 
 // TODO move this into another module
 // TODO better implementation of this ?
@@ -15,11 +20,7 @@ const hypot = (x, y) =>
 
 const style_dragging = dom.style({
   "pointer-events": "none",
-  "opacity": "0.94"
-});
-
-const style_placeholder = dom.style({
-  "visibility": "hidden"
+  "opacity": "0.98"
 });
 
 const style_tab = dom.style({
@@ -35,12 +36,12 @@ const style_tab = dom.style({
 
   "transition-property": "background-color",
   "transition-timing-function": "ease-in-out",
+  "transition-duration": "100ms",
 
   //"transform-origin": "11px 50%",
   //"transform": "translate3d(0, 0, 0)", /* TODO this is a hack to make animation smoother, should replace with something else */
 
-  "text-shadow": "0px 1px 1px " + dom.hsl(211, 61, 50, 0.1),
-  "transition-duration": "100ms"
+  "text-shadow": "0px 1px 1px " + dom.hsl(211, 61, 50, 0.1)
 });
 
 const style_unloaded = dom.style({
@@ -212,32 +213,71 @@ const close = (tab, show) =>
     //  ])),
   ]);
 
+const ui_dragging_style = (e, index) => {
+  if (index === 0) {
+    // Do nothing
+
+  } else if (index < 5) {
+    return e.animate({ from: style_drag_normal,
+                       to: style_drag_stacked,
+                       duration: 500 });
+
+  } else {
+    return e.animate({ from: style_visible,
+                       to: style_hidden,
+                       duration: 500 });
+  }
+};
+
+const ui_dragging = (tab, index) =>
+  dom.row((e) => [
+    e.style(style_tab, always(true)),
+    e.style(style_visible, always(true)),
+    e.style(style_selected, always(true)),
+    e.style(style_hover, always(index === 0)),
+
+    e.set_style("z-index", always(-index + "")),
+
+    ui_dragging_style(e, index),
+
+    e.children([
+      favicon(tab),
+      text(tab)
+    ])
+  ]);
+
+const drag_style = (f) =>
+  $dragging.map((info) => {
+    if (info === null) {
+      return "";
+    } else {
+      return f(info) + "px";
+    }
+  });
 
 const dragging =
   dom.floating((e) => [
     e.style(style_dragging, always(true)),
-    e.visible($dragging)
+
+    e.visible($dragging),
+
+    e.children($selected.map((tab, index) =>
+      ui_dragging(tab, index))),
+
+    e.set_style("left", drag_style((info) => info.x)),
+    e.set_style("top", drag_style((info) => info.y)),
+    e.set_style("width", drag_style((info) => info.width))
   ]);
 
-export const placeholder =
-  dom.row((e) => [
-    e.style(style_placeholder, always(true)),
-    e.visible($dragging)
-  ]);
-
-export const tab = (tab) =>
+export const tab = (group, tab) =>
   dom.row((e) => [
     e.style(style_tab, always(true)),
 
     e.style(style_visible, always(true)),
 
-    e.style(style_hover, or([
-      $dragging.map((dragging) =>
-        dragging !== null && dragging.tab === tab),
-      and([
-        not($dragging),
-        e.hovering()
-      ])
+    e.style(style_hover, and([
+      not($dragging),
+      e.hovering()
     ])),
 
     e.style(style_hold, and([
@@ -251,6 +291,32 @@ export const tab = (tab) =>
     e.style(style_focused, tab.get("focused")),
 
     e.style(style_unloaded, tab.get("unloaded")),
+
+    e.visible(tab.get("visible")),
+
+    /*e.animate_when(not(tab.get("visible")), {
+      from: style_visible,
+      to: style_hidden,
+      duration: 500
+    }),*/
+
+    // TODO hacky
+    /*e.animate_when(tab.get("visible").map((x) => x &&
+                                                 $selected.has(0) &&
+                                                 $selected.get(0) !== tab), {
+      from: style_hidden,
+      to: style_visible,
+      duration: 500,
+      easing: (x) => x
+    }),*/
+
+    /*e.set_style("visibility", tab.get("visible").map((x) => {
+      if (x) {
+        return "";
+      } else {
+        return "hidden";
+      }
+    })),*/
 
     e.scroll_to(tab.get("focused")),
 
@@ -300,13 +366,53 @@ export const tab = (tab) =>
     }),*/
 
     e.on_left_click(({ shift, ctrl, alt }) => {
+      const selected_tab = group.get("first-selected-tab");
+
       if (!shift && !ctrl && !alt) {
+        if (!tab.get("selected").get()) {
+          group.update("first-selected-tab", null);
+
+          each(group.get("tabs"), (tab) => {
+            tab.get("selected").set(false);
+          });
+        }
+
 
       } else if (shift && !ctrl && !alt) {
+        if (selected_tab === null) {
+          group.update("first-selected-tab", tab);
+
+          tab.get("selected").set(true);
+
+        } else if (tab !== selected_tab) {
+          let seen = 0;
+
+          each(group.get("tabs"), (x) => {
+            if (x === tab || x === selected_tab) {
+              x.get("selected").set(true);
+              ++seen;
+
+            } else if (seen === 1) {
+              x.get("selected").set(true);
+
+            } else {
+              x.get("selected").set(false);
+            }
+          });
+        }
 
 
       } else if (!shift && ctrl && !alt) {
-        //select_tab(group.value, tab);
+        tab.get("selected").modify((selected) => {
+          if (selected) {
+            group.update("first-selected-tab", null);
+            return false;
+
+          } else {
+            group.update("first-selected-tab", tab);
+            return true;
+          }
+        });
       }
     }),
 
@@ -318,114 +424,177 @@ export const tab = (tab) =>
       console.log("right click", e);
     }),
 
-    /*e.on_mouse_hover((hover) => {
-      // TODO test this
-      if (hover && $dragging.get()) {
-        const parent = e.parent;
+    e.on_mouse_hover((hover) => {
+      if (hover && drag_info.get()) {
+        drag_info.modify((info) => {
+          if (info.tab === tab) {
+            return {
+              group: info.group,
+              tab: info.tab,
+              height: info.height,
+              direction: (info.direction === "up"
+                           ? "down"
+                           : "up")
+            };
 
-        // TODO a bit inefficient
-        const index = parent.index_of(e).get();
+          } else if (info.group === group) {
+            const tabs = group.get("tabs");
 
-        // TODO a bit hacky
-        //if (!(placeholder.parent === parent || index === 0)) {
-        //  ++index;
-        //}
+            // TODO inefficient
+            const old_index = tabs.index_of(info.tab).get();
+            const new_index = tabs.index_of(tab).get();
 
-        $dragging.value.index = index;
-        $dragging.value.group.value = group;
+            if (old_index < new_index) {
+              return {
+                group: group,
+                tab: tab,
+                height: info.height,
+                direction: "down"
+              };
 
-        parent.insert(index, placeholder);
+            } else {
+              return {
+                group: group,
+                tab: tab,
+                height: info.height,
+                direction: "up"
+              };
+            }
+
+          } else {
+            return {
+              group: group,
+              tab: tab,
+              height: info.height,
+              direction: "up"
+            };
+          }
+        });
       }
-    }),*/
+    }),
 
-    /*e.draggable({
+    e.set_style("transition", latest([
+      drag_info,
+    ], (dragging) => {
+      if (dragging) {
+        return "margin 100ms linear";
+      } else {
+        return "";
+      }
+    })),
+
+    e.set_style("margin", drag_info.map((info) => {
+      // TODO inefficient
+      if (info && info.tab === tab) {
+        return (info.direction === "up"
+                 ? info.height
+                 : "0") +
+               "px 0px " +
+               (info.direction === "down"
+                 ? info.height
+                 : "0") +
+               "px 0px";
+      } else {
+        return "";
+      }
+    })),
+
+    e.draggable({
       start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
         //false &&
         !alt && !ctrl && !shift &&
         hypot(start_x - x, start_y - y) > 5,
 
       start: ({ x, y }) => {
-        // TODO a bit inefficient
-        const index   = e.parent.index_of(e).get();
-        const tab_box = e.get_position();
-
-        let selected = group.value.get("selected").value;
-
-        // TODO hacky
-        if (selected["length"] === 0) {
-          selected = [tab];
-        }
-
-
-        e.parent.insert(index, placeholder);
-
-        const offset_x = (x - tab_box.left);
-
-        let height   = 0;
-        let offset_y = 0;
-
-        each(indexed(selected), ([i, tab]) => {
-          const e = tab.get("ui").value;
-
-          // TODO a little hacky
-          e.set_style("z-index", -i + "").run();
-
-          if (i === 0) {
-            // TODO a bit hacky
-            height += 20;
-            offset_y += 10;
-
-          } else {
-            if (i < 5) {
-              // TODO a bit hacky
-              height += 2 + 1;
-              offset_y += 1;
-
-              // TODO a little hacky
-              e.animate({ from: style_drag_normal,
-                          to: style_drag_stacked,
-                          duration: 200 }).run();
-
-            } else {
-              // TODO a little hacky
-              e.animate({ from: style_visible,
-                          to: style_hidden,
-                          duration: 200 }).run();
-            }
+        each(group.get("tabs"), (tab) => {
+          if (tab.get("selected").get()) {
+            $selected.push(tab);
           }
-
-          dragging.push(e);
         });
 
-        // TODO a little hacky
-        merge([
-          placeholder.set_style("height", height + "px"),
-          dragging.set_style("left", (x - offset_x) + "px"),
-          dragging.set_style("top", (y - offset_y) + "px"),
-          dragging.set_style("width", tab_box.width + "px"),
-        ]).run();
-
-        $dragging.value = {
-          // TODO a bit hacky
-          tab: selected[0],
-          index: index,
-          group: group
-        };
-
-        return { offset_x, offset_y, selected };
-      },
-
-      move: (info, { x, y }) => {
-        if (true) {
-          // TODO a little hacky
-          dragging.set_style("left", (x - info.offset_x) + "px").run();
+        if ($selected.size === 0) {
+          $selected.push(tab);
         }
-        dragging.set_style("top", (y - info.offset_y) + "px").run();
-        return info;
+
+        const tabs = group.get("tabs");
+
+        // TODO inefficient
+        const index = tabs.index_of(tab).get();
+
+        const tab_box = e.get_position();
+
+        const offset_x = (x - tab_box.left);
+        // TODO hacky
+        const offset_y = ((tab_box.height +
+                           (Math["min"]($selected.size, 4) * 2))
+                          / 2);
+
+        if (tabs.has(index + 1)) {
+          drag_info.set({
+            group: group,
+            tab: tabs.get(index + 1),
+            height: 30,
+            direction: "up"
+          });
+
+        } else if (tabs.has(index - 1)) {
+          drag_info.set({
+            group: group,
+            tab: tabs.get(index - 1),
+            height: 30,
+            direction: "down"
+          });
+
+        } else {
+          drag_info.set({
+            group: group,
+            tab: tab,
+            height: 30,
+            direction: "up"
+          });
+        }
+
+
+        $dragging.set({
+          offset_x: offset_x,
+          offset_y: offset_y,
+
+          x: (x - offset_x),
+          y: (y - offset_y),
+          width: tab_box.width
+        });
+
+        each($selected, (tab) => {
+          tab.get("visible").set(false);
+        });
       },
 
-      end: ({ selected }) => {
-        const $group = $dragging.value.group;
+      move: ({ x, y }) => {
+        $dragging.modify(({ offset_x, offset_y, width }) => {
+          // TODO hacky
+          return {
+            offset_x,
+            offset_y,
+            x: (x - offset_x),
+            y: (y - offset_y),
+            width
+          };
+        });
+      },
+
+      end: () => {
+        move_tabs($selected, drag_info.get());
+
+        each($selected, (tab) => {
+          tab.get("visible").set(true);
+        });
+
+        //$selected.clear();
+
+        drag_info.set(null);
+        $dragging.set(null);
+
+        /*const $group = $dragging.value.group;
         const $index = $dragging.value.index;
 
         const parent = placeholder.parent;
@@ -467,7 +636,7 @@ export const tab = (tab) =>
         });
 
         group.value = $group;
-        $dragging.value = null;
+        $dragging.value = null;*/
       }
-    })*/
+    })
   ]);

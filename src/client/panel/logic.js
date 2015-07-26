@@ -8,6 +8,8 @@ import { List, SortedList } from "../../util/mutable/list";
 import { each } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 
+import * as sort_by_window from "./logic/sort-by-window";
+
 import { current_time, round_to_hour, difference } from "../../util/time";
 import { group_list as ui_group_list } from "./ui/group-list";
 import * as dom from "../dom";
@@ -34,85 +36,26 @@ import * as dom from "../dom";
 });*/
 
 
-/*const sort_group = (x, y) =>
-  y.get("time") - x.get("time");
-
-const sort_tab = (x, y) =>
-  y.get("time").get("created") -
-  x.get("time").get("created");*/
-
-
-const windows    = new List();
-const window_ids = new Record();
-const tab_ids    = new Record();
-
-/*const group_ids  = new Record();
-const group_list = new SortedList(sort_group);*/
-
-/*
-// TODO move this to another module
-const pluralize = (x, s) => {
-  if (x === 1) {
-    return x + s;
-  } else {
-    return x + s + "s";
-  }
-};
-
-const diff_to_text = (diff) => {
-  if (diff.day === 0) {
-    if (diff.hour === 0) {
-      return "Less than an hour ago";
-    } else {
-      return pluralize(diff.hour, " hour") + " ago";
-    }
-  } else {
-    // TODO is this correct ?
-    const hours = diff.hour - (diff.day * 24);
-    return pluralize(diff.day, " day") + " " + pluralize(hours, " hour") + " ago";
-  }
-};
-
-const get_group_name = (time) =>
-  diff_to_text(difference(round_to_hour(current_time()), time));
-
-
-const get_groups = (tab) => {
-  const time = round_to_hour(tab.get("time").get("created"));
-  const id = "" + time;
-
-  if (group_ids.has(id)) {
-    return [group_ids.get(id)];
-
-  } else {
-    const group = new Record({
-      "id": id,
-      "name": new Ref(get_group_name(time)),
-      "time": time,
-      "tabs": new SortedList(sort_tab),
-      "selected": new SortedList(sort_tab)
-    });
-
-    group_ids.insert(id, group);
-
-    group_list.insert(group);
-
-    return [group];
-  }
-};*/
+export const windows    = new List();
+export const window_ids = new Record();
+export const tab_ids    = new Record();
 
 const make_window = (info) => {
   return new Record({
     "id": info.get("id"),
     "name": new Ref(info.get("name")),
-    "tabs": new List()
+    "tabs": new List(),
+    // TODO a little hacky
+    "first-selected-tab": null
   });
 };
 
-const make_tab = (info, focused, unloaded) => {
+const make_tab = (info, window, focused, unloaded) => {
   return new Record({
     "id": info.get("id"),
-    //"time": info.get("time"),
+    "window": window,
+    // TODO make this into a Record or Ref ?
+    "time": info.get("time"),
     //"groups": new Set(),
 
     "url": new Ref(info.get("url")),
@@ -122,7 +65,9 @@ const make_tab = (info, focused, unloaded) => {
 
     "selected": new Ref(false),
     "focused": new Ref(focused),
-    "unloaded": new Ref(unloaded)
+    "unloaded": new Ref(unloaded),
+    // TODO a little hacky ?
+    "visible": new Ref(true)
   });
 
   /*each(get_groups(tab), (group) => {
@@ -156,8 +101,29 @@ const remove_group = (group) => {
   groups.clear();
 };*/
 
+export const move_tabs = (selected, { group, tab, direction }) => {
+  each(selected, (tab) => {
+    const tabs = tab.get("window").get("tabs");
+    // TODO hacky
+    tab.update("window", group);
+    // TODO inefficient
+    tabs.remove(tabs.index_of(tab).get());
+  });
 
-dom.main(ui_group_list(windows));
+  const tabs = group.get("tabs");
+
+  const index = (direction === "down"
+                  // TODO inefficient
+                  ? tabs.index_of(tab).get() + 1
+                  : tabs.index_of(tab).get());
+
+  each(selected, (tab) => {
+    tabs.insert(index, tab);
+  });
+};
+
+
+dom.main(ui_group_list(sort_by_window.groups));
 
 
 export const init = async(function* () {
@@ -182,9 +148,10 @@ export const init = async(function* () {
         each(info.get("tabs"), (tab_id) => {
           const info = _tab_ids.get(tab_id);
 
-          const tab = make_tab(info, _transient.has(tab_id) &&
-                                     _transient.get(tab_id).get("focused"),
-                                     !_transient.has(tab_id));
+          const tab = make_tab(info, window,
+                               _transient.has(tab_id) &&
+                               _transient.get(tab_id).get("focused"),
+                               !_transient.has(tab_id));
 
           tab_ids.insert(tab.get("id"), tab);
 
@@ -195,6 +162,8 @@ export const init = async(function* () {
 
         windows.push(window);
       });
+
+      //sort_by_window.init(windows);
     },
 
     "tab-open": (x) => {
@@ -203,7 +172,7 @@ export const init = async(function* () {
       const window = window_ids.get(x.get("window-id"));
       const index = x.get("tab-index");
 
-      const tab = make_tab(info, transient.get("focused"), false);
+      const tab = make_tab(info, window, transient.get("focused"), false);
 
       tab_ids.insert(tab.get("id"), tab);
 
