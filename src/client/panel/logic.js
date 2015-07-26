@@ -5,7 +5,7 @@ import { Ref } from "../../util/mutable/ref";
 import { Set } from "../../util/mutable/set";
 import { Record } from "../../util/mutable/record";
 import { List, SortedList } from "../../util/mutable/list";
-import { each } from "../../util/iterator";
+import { each, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 
 import * as sort_by_window from "./logic/sort-by-window";
@@ -54,6 +54,8 @@ const make_tab = (info, window, focused, unloaded) => {
   return new Record({
     "id": info.get("id"),
     "window": window,
+    // TODO should this be a Ref instead ?
+    "index": null,
     // TODO make this into a Record or Ref ?
     "time": info.get("time"),
     //"groups": new Set(),
@@ -101,25 +103,41 @@ const remove_group = (group) => {
   groups.clear();
 };*/
 
+// TODO this can be more efficient if it is given the starting index
+const update_indexes = (a) => {
+  each(indexed(a), ([i, x]) => {
+    x.update("index", i);
+  });
+};
+
 export const move_tabs = (selected, { group, tab, direction }) => {
   each(selected, (tab) => {
     const tabs = tab.get("window").get("tabs");
+    const index = tab.get("index");
+
     // TODO hacky
     tab.update("window", group);
-    // TODO inefficient
-    tabs.remove(tabs.index_of(tab).get());
+
+    assert(tabs.get(index) === tab);
+
+    tabs.remove(index);
+
+    // TODO inefficient ?
+    update_indexes(tabs);
   });
 
   const tabs = group.get("tabs");
 
   const index = (direction === "down"
                   // TODO inefficient
-                  ? tabs.index_of(tab).get() + 1
-                  : tabs.index_of(tab).get());
+                  ? tab.get("index") + 1
+                  : tab.get("index"));
 
   each(selected, (tab) => {
     tabs.insert(index, tab);
   });
+
+  update_indexes(tabs);
 };
 
 
@@ -158,6 +176,9 @@ export const init = async(function* () {
           tabs.push(tab);
         });
 
+        // TODO because we're pushing, this can be made O(1) rather than O(n)
+        update_indexes(tabs);
+
         window_ids.insert(window.get("id"), window);
 
         windows.push(window);
@@ -171,12 +192,15 @@ export const init = async(function* () {
       const info = x.get("tab");
       const window = window_ids.get(x.get("window-id"));
       const index = x.get("tab-index");
+      const tabs = window.get("tabs");
 
       const tab = make_tab(info, window, transient.get("focused"), false);
 
       tab_ids.insert(tab.get("id"), tab);
 
-      window.get("tabs").insert(index, tab);
+      tabs.insert(index, tab);
+
+      update_indexes(tabs);
     },
 
     // TODO update the timestamp as well
@@ -204,24 +228,33 @@ export const init = async(function* () {
       const new_window = window_ids.get(x.get("window-new-id"));
       const old_index = x.get("tab-old-index");
       const new_index = x.get("tab-new-index");
+      const old_tabs = old_window.get("tabs");
+      const new_tabs = new_window.get("tabs");
       const tab = tab_ids.get(x.get("tab-id"));
 
-      assert(old_window.get("tabs").get(old_index) === tab);
+      assert(old_tabs.get(old_index) === tab);
 
-      old_window.get("tabs").remove(old_index);
-      new_window.get("tabs").insert(new_index, tab);
+      old_tabs.remove(old_index);
+      new_tabs.insert(new_index, tab);
+
+      // TODO this can be more efficient if `old_tabs === new_tabs`
+      update_indexes(old_tabs);
+      update_indexes(new_tabs);
     },
 
     "tab-close": (x) => {
       const window = window_ids.get(x.get("window-id"));
       const tab = tab_ids.get(x.get("tab-id"));
       const index = x.get("tab-index");
+      const tabs = window.get("tabs");
 
       tab_ids.remove(tab.get("id"));
 
-      assert(window.get("tabs").get(index) === tab);
+      assert(tabs.get(index) === tab);
 
-      window.get("tabs").remove(index);
+      tabs.remove(index);
+
+      update_indexes(tabs);
     },
 
     "window-open": (x) => {

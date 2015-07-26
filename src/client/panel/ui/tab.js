@@ -438,11 +438,9 @@ export const tab = (group, tab) =>
             };
 
           } else if (info.group === group) {
-            const tabs = group.get("tabs");
-
-            // TODO inefficient
-            const old_index = tabs.index_of(info.tab).get();
-            const new_index = tabs.index_of(tab).get();
+            // TODO is there a better way than using indexes ?
+            const old_index = info.tab.get("index");
+            const new_index = tab.get("index");
 
             if (old_index < new_index) {
               return {
@@ -518,8 +516,8 @@ export const tab = (group, tab) =>
 
         const tabs = group.get("tabs");
 
-        // TODO inefficient
-        const index = tabs.index_of(tab).get();
+        // TODO is there a better way than using indexes ?
+        const index = tab.get("index");
 
         const tab_box = e.get_position();
 
@@ -529,6 +527,7 @@ export const tab = (group, tab) =>
                            (Math["min"]($selected.size, 4) * 2))
                           / 2);
 
+        // TODO a bit hacky
         if (tabs.has(index + 1)) {
           drag_info.set({
             group: group,
@@ -537,6 +536,7 @@ export const tab = (group, tab) =>
             direction: "up"
           });
 
+        // TODO a bit hacky
         } else if (tabs.has(index - 1)) {
           drag_info.set({
             group: group,

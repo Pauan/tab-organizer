@@ -66,6 +66,7 @@ class DOM {
   }
 
   // TODO a bit inefficient
+  // TODO do we still need this ?
   _remove_self() {
     const parent = this._parent;
 
