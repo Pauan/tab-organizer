@@ -3,7 +3,7 @@ import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
-import { ease_in, ease_out } from "../../../util/animate";
+import { ease_in, ease_out, linear } from "../../../util/animate";
 import { move_tabs } from "../logic";
 
 
@@ -26,6 +26,8 @@ const style_dragging = dom.style({
 
 const style_tab = dom.style({
   "overflow": always("hidden"),
+
+  "width": always("100%"),
 
   "background-color": always("inherit"),
 
@@ -206,21 +208,20 @@ const favicon = (tab) =>
   ]);
 
 const text = (tab) =>
-  dom.stretch((e) => [
+  dom.text((e) => [
+    e.set_style(dom.stretch, always(true)),
     e.set_style(style_text, always(true)),
 
-    e.children([
-      dom.text(latest([
-        tab.get("title"),
-        tab.get("unloaded")
-      ], (title, unloaded) => {
-        if (unloaded) {
-          return "➔ " + title;
-        } else {
-          return title;
-        }
-      }))
-    ])
+    e.value(latest([
+      tab.get("title"),
+      tab.get("unloaded")
+    ], (title, unloaded) => {
+      if (unloaded) {
+        return "➔ " + title;
+      } else {
+        return title;
+      }
+    }))
   ]);
 
 const close = (tab, show) =>
@@ -475,7 +476,7 @@ export const tab = (group, tab) =>
       "transform": tab.get("top").map((x) =>
                      (x !== null
                        ? "translate3d(0, " + (x * 100) + "%, 0)"
-                       : null))
+                       : null)),
       "transition": drag_info.map((dragging) =>
                       (dragging
                         ? "transform 100ms linear"
@@ -486,7 +487,7 @@ export const tab = (group, tab) =>
       from: margin_top_hidden,
       to: margin_top_visible,
       duration: 100,
-      //easing: ease_in_out,
+      easing: linear,
       seek: tab.get("placing").map((x) => (x === "up" ? 1 : 0))
     }),
 
@@ -494,7 +495,7 @@ export const tab = (group, tab) =>
       from: margin_bottom_hidden,
       to: margin_bottom_visible,
       duration: 100,
-      //easing: ease_in_out,
+      easing: linear,
       seek: tab.get("placing").map((x) => (x === "down" ? 1 : 0))
     }),*/
 
@@ -556,7 +557,7 @@ export const tab = (group, tab) =>
           }
         });*/
 
-        //tab.get("placing").set(drag_info.get().direction);
+        //tab.get("placing").set(direction);
       }
     }),
 
@@ -693,12 +694,12 @@ export const tab = (group, tab) =>
           tab.get("visible").set(true);
 
           if (i !== 0) {
-            tab.get("animate").set({
+            /*tab.get("animate").set({
               from: style_hidden,
               to: style_visible,
               duration: 500,
               easing: ease_out
-            });
+            });*/
           }
         });
 

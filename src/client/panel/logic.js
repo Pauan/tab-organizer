@@ -70,9 +70,8 @@ const make_tab = (info, window, focused, unloaded) => {
     "unloaded": new Ref(unloaded),
 
     "visible": new Ref(true),
-    "animate": new Ref(null),
 
-    "placing": new Ref(null),
+    //"placing": new Ref(null),
     "top": new Ref(null)
   });
 

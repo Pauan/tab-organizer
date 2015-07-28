@@ -1,6 +1,6 @@
-import { each, entries } from "../util/iterator";
+import { each, entries, indexed } from "../util/iterator";
 import { Ref, always } from "../util/mutable/ref";
-import { List } from "../util/immutable/list";
+import { List } from "../util/mutable/list";
 import { uuid_list_insert,
          uuid_list_update,
          uuid_list_remove,
@@ -26,13 +26,13 @@ class Animation {
   seek(seek_to) {
     this.stop();
 
-    if (this._current_seek === null) {
+    const seek_from = this._current_seek;
+
+    if (seek_from === null) {
       this._current_seek = seek_to;
       this._on_seek(this._easing(this._current_seek));
 
-    } else if (this._current_seek !== seek_to) {
-      const seek_from = this._current_seek;
-
+    } else if (seek_from !== seek_to) {
       // TODO is there a better/faster way of doing this ?
       const duration2 = this._duration * Math["abs"](seek_to - seek_from);
 
@@ -173,42 +173,6 @@ const preventDefault = (e) => {
 };
 
 
-class DOM {
-  constructor(dom) {
-    this._dom = dom;
-    this._parent = null;
-    this._running = [];
-  }
-
-  _run(x) {
-    this._running["push"](x);
-  }
-
-  get parent() {
-    return this._parent;
-  }
-
-  // TODO a bit inefficient
-  // TODO do we still need this ?
-  _remove_self() {
-    const parent = this._parent;
-
-    if (parent !== null) {
-      const index = parent._children.index_of(this).get();
-      parent._children = parent._children.remove(index);
-      parent._dom["removeChild"](this._dom);
-      this._parent = null;
-    }
-  }
-
-/*
-  // TODO is this correct ?
-  copy() {
-    return new this.constructor(this._dom["cloneNode"](true));
-  }*/
-}
-
-
 const mouse_event = (e) => {
   return {
     x: e["clientX"],
@@ -219,7 +183,22 @@ const mouse_event = (e) => {
   };
 };
 
-class Element extends DOM {
+class Element {
+  constructor(dom) {
+    this._dom = dom;
+    this._running = [];
+  }
+
+  _run(x) {
+    this._running["push"](x);
+  }
+
+/*
+  // TODO is this correct ?
+  copy() {
+    return new this.constructor(this._dom["cloneNode"](true));
+  }*/
+
   on_mouse_hover(send) {
     // TODO code duplication
     const mouseover = (e) => {
@@ -439,8 +418,9 @@ class Element extends DOM {
     });
   }
 
+  // TODO
   scroll_to(ref) {
-    return ref.each((x) => {
+    /*return ref.each((x) => {
       // TODO it should scroll to the element immediately after being inserted
       if (x && this._parent) {
         const p = this._parent.get_position();
@@ -457,7 +437,7 @@ class Element extends DOM {
                         (p.height / 2) +
                         (c.height / 2));
       }
-    });
+    });*/
   }
 
   get_position() {
@@ -542,41 +522,40 @@ class Image extends Element {
 }
 
 
+class Text extends Element {
+  value(ref) {
+    return ref.each((x) => {
+      this._dom["textContent"] = x;
+    });
+  }
+}
+
+
 class Parent extends Element {
   constructor(dom) {
     super(dom);
 
-    this._children = List();
+    this._children = new List();
   }
 
   // TODO is this correct ? maybe it should use `_remove_self` ?
   _clear() {
-    this._children = List();
+    this._children.clear();
     this._dom["innerHTML"] = "";
   }
 
   _remove(index) {
     const child = this._children.get(index);
-
-    assert(child._parent === this);
-
-    this._children = this._children.remove(index);
+    this._children.remove(index);
     this._dom["removeChild"](child._dom);
-    child._parent = null;
   }
 
   _update(index, x) {
-    x._remove_self();
-
     this._dom["replaceChild"](x._dom, this._children.get(index)._dom);
-
-    this._children = this._children.update(index, x);
-    x._parent = this;
+    this._children.update(index, x);
   }
 
   _insert(index, x) {
-    x._remove_self();
-
     // TODO is this correct ?
     if (this._children.has(index)) {
       this._dom["insertBefore"](x._dom, this._children.get(index)._dom);
@@ -585,17 +564,12 @@ class Parent extends Element {
       this._dom["appendChild"](x._dom);
     }
 
-    this._children = this._children.insert(index, x);
-    x._parent = this;
+    this._children.insert(index, x);
   }
 
   _push(x) {
-    x._remove_self();
-
     this._dom["appendChild"](x._dom);
-
-    this._children = this._children.push(x);
-    x._parent = this;
+    this._children.push(x);
   }
 
   children(x) {
@@ -635,6 +609,66 @@ class Parent extends Element {
       });
     }
   }
+}
+
+class Row extends Parent {
+  /*_update_transform() {
+    // TODO this can be made more efficient
+    each(indexed(this._children), ([i, x]) => {
+      x._dom["style"]["position"] = "absolute";
+      x._dom["style"]["transform"] = "translate3d(" + (i * 100) + "%, 0px, 0px)";
+    });
+  }
+
+  _remove(index) {
+    super._remove(index);
+    this._update_transform();
+  }
+
+  _update(index, x) {
+    super._update(index, x);
+    this._update_transform();
+  }
+
+  _insert(index, x) {
+    super._insert(index, x);
+    this._update_transform();
+  }
+
+  _push(x) {
+    super._push(x);
+    this._update_transform();
+  }*/
+}
+
+class Col extends Parent {
+  /*_update_transform() {
+    // TODO this can be made more efficient
+    each(indexed(this._children), ([i, x]) => {
+      x._dom["style"]["position"] = "absolute";
+      x._dom["style"]["transform"] = "translate3d(0px, " + (i * 100) + "%, 0px)";
+    });
+  }
+
+  _remove(index) {
+    super._remove(index);
+    this._update_transform();
+  }
+
+  _update(index, x) {
+    super._update(index, x);
+    this._update_transform();
+  }
+
+  _insert(index, x) {
+    super._insert(index, x);
+    this._update_transform();
+  }
+
+  _push(x) {
+    super._push(x);
+    this._update_transform();
+  }*/
 }
 
 class Floating extends Parent {
@@ -705,7 +739,7 @@ const col_style = style({
   "flex-direction": always("column"),
 });
 
-const stretch_style = style({
+export const stretch = style({
   "flex-shrink": always("1"),
   "flex-grow": always("1"),
   "flex-basis": always("0%"),
@@ -721,23 +755,15 @@ const main_style = style({
 });
 
 export const row = (f) => {
-  const e = new Parent(document["createElement"]("div"));
+  const e = new Row(document["createElement"]("div"));
   e._add_style(row_style);
   // TODO test this
   e._running = e._running["concat"](f(e));
   return e;
 };
 
-export const stretch = (f) => {
-  const e = new Parent(document["createElement"]("div"));
-  e._add_style(stretch_style);
-  // TODO test this
-  e._running = e._running["concat"](f(e));
-  return e;
-};
-
 export const col = (f) => {
-  const e = new Parent(document["createElement"]("div"));
+  const e = new Col(document["createElement"]("div"));
   e._add_style(col_style);
   // TODO test this
   e._running = e._running["concat"](f(e));
@@ -757,15 +783,9 @@ export const floating = (f) => {
 };
 
 // TODO is this correct ?
-export const text = (x) => {
-  const s = document["createTextNode"]("");
-  const e = new DOM(s);
-
-  // TODO is this correct ?
-  e._run(x.each((x) => {
-    s["textContent"] = x;
-  }));
-
+export const text = (f) => {
+  const e = new Text(document["createElement"]("span"));
+  e._running = e._running["concat"](f(e));
   return e;
 };
 

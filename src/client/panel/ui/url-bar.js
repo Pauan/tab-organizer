@@ -176,15 +176,12 @@ const make = (style, f) => {
     }
   });
 
-  return dom.row((e) => [
-    e.children([
-      dom.text(x)
-    ]),
-
+  return dom.text((e) => [
     e.set_style(text_style, always(true)),
     e.set_style(style, always(true)),
 
-    e.visible(x)
+    e.visible(x),
+    e.value(x)
   ]);
 };
 

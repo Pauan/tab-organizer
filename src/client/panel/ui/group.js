@@ -21,8 +21,12 @@ const style_group_tabs = dom.style({
 
 const group_header = (group) =>
   dom.row((e) => [
+    //e.height("20px"),
+
     e.children([
-      dom.text(group.get("name"))
+      dom.text((e) => [
+        e.value(group.get("name"))
+      ])
     ])
   ]);
 
