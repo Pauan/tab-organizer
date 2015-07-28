@@ -1,6 +1,6 @@
-import { assert } from "../../../util/assert";
 import { always } from "../../../util/mutable/ref";
-import { drag_info, tab as ui_tab } from "./tab";
+import { tab as ui_tab } from "./tab";
+import { drag_onto_group } from "../logic";
 import * as dom from "../../dom";
 
 
@@ -35,19 +35,8 @@ const group_tabs = (group) =>
     e.set_style(style_group_tabs, always(true)),
 
     e.on_mouse_hover((hover) => {
-      const info = drag_info.get();
-
-      // TODO this isn't quite right, but it works most of the time
-      if (hover && info && info.group !== group) {
-        // TODO is this guaranteed to be correct ?
-        assert(group.get("tabs").size > 0);
-
-        drag_info.set({
-          group: group,
-          tab: group.get("tabs").get(-1),
-          height: info.height,
-          direction: "down"
-        });
+      if (hover) {
+        drag_onto_group(group);
       }
     }),
 

@@ -4,14 +4,12 @@ import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
 import { ease_in, ease_out, linear } from "../../../util/animate";
-import { move_tabs } from "../logic";
+import { drag_onto_tab, drag_start, drag_end } from "../logic";
 
 
 const $selected = new List();
 
 const $dragging = new Ref(null);
-
-export const drag_info = new Ref(null);
 
 // TODO move this into another module
 // TODO better implementation of this ?
@@ -27,6 +25,7 @@ const style_dragging = dom.style({
 const style_tab = dom.style({
   "overflow": always("hidden"),
 
+  "position": always("absolute"),
   "width": always("100%"),
 
   "background-color": always("inherit"),
@@ -168,33 +167,6 @@ const style_drag_stacked = dom.style({
 
 const style_drag_normal = dom.style({
   "margin-top": always("0px")
-});
-
-
-// TODO a bit hacky
-const margin_top_visible = dom.style({
-  "margin-top": drag_info.map((info) =>
-                  (info
-                    ? info.height + "px"
-                    : "0px"))
-});
-
-// TODO a bit hacky
-const margin_top_hidden = dom.style({
-  "margin-top": always("0px")
-});
-
-// TODO a bit hacky
-const margin_bottom_visible = dom.style({
-  "margin-bottom": drag_info.map((info) =>
-                     (info
-                       ? info.height + "px"
-                       : "0px"))
-});
-
-// TODO a bit hacky
-const margin_bottom_hidden = dom.style({
-  "margin-bottom": always("0px")
 });
 
 
@@ -471,16 +443,13 @@ export const tab = (group, tab) =>
     }),
 
     e.style({
-      "position": tab.get("top").map((x) =>
-                    (x !== null ? "absolute" : null)),
+      /*tab.get("top").map((x) =>
+                    (x !== null ? "absolute" : null)),*/
       "transform": tab.get("top").map((x) =>
                      (x !== null
-                       ? "translate3d(0, " + (x * 100) + "%, 0)"
+                       ? "translate3d(0, " + x + ", 0)"
                        : null)),
-      "transition": drag_info.map((dragging) =>
-                      (dragging
-                        ? "transform 100ms linear"
-                        : null))
+      "transition": always("transform 100ms linear")
     }),
 
     /*e.animate({
@@ -500,64 +469,8 @@ export const tab = (group, tab) =>
     }),*/
 
     e.on_mouse_hover((hover) => {
-      const info = drag_info.get();
-
-      if (hover && info) {
-        //info.tab.get("placing").set(null);
-
-        drag_info.set({
-          group: group,
-          tab: tab,
-          height: info.height,
-
-          // TODO a little hacky
-          direction: (() => {
-            if (info.tab === tab) {
-              return (info.direction === "up"
-                       ? "down"
-                       : "up");
-
-            } else if (info.group === group) {
-              // TODO is there a better way than using indexes ?
-              const old_index = info.tab.get("index");
-              const new_index = tab.get("index");
-
-              if (old_index < new_index) {
-                return "down";
-
-              } else {
-                return "up";
-              }
-
-            } else {
-              return "up";
-            }
-          })()
-        });
-
-        const direction = drag_info.get().direction;
-
-        tab.get("top").modify((i) => (direction === "up" ? i + 1 : i - 1));
-
-        /*let i = 0;
-
-        // TODO find a more efficient way to do this
-        each(group.get("tabs"), (x) => {
-          if (x === tab && direction === "up") {
-            ++i;
-          }
-
-          if (!x.get("selected").get()) {
-            x.get("top").set(i);
-            ++i;
-          }
-
-          if (x === tab && direction === "down") {
-            ++i;
-          }
-        });*/
-
-        //tab.get("placing").set(direction);
+      if (hover) {
+        drag_onto_tab(group, tab);
       }
     }),
 
@@ -598,19 +511,11 @@ export const tab = (group, tab) =>
       start: ({ x, y }) => {
         const tab_box = e.get_position();
 
-        let i = 0;
+        const tabs = group.get("tabs");
 
-        each(group.get("tabs"), (x) => {
-          if (x === tab) {
-            ++i;
-          }
-
+        each(tabs, (x) => {
           if (x.get("selected").get()) {
             $selected.push(x);
-
-          } else {
-            x.get("top").set(i);
-            ++i;
           }
         });
 
@@ -618,10 +523,9 @@ export const tab = (group, tab) =>
           $selected.push(tab);
         }
 
-        const tabs = group.get("tabs");
-
-        // TODO is there a better way than using indexes ?
-        const index = tab.get("index");
+        each($selected, (tab) => {
+          tab.get("visible").set(false);
+        });
 
         // TODO hacky
         const height = ($selected.size === 1
@@ -632,34 +536,6 @@ export const tab = (group, tab) =>
         const offset_x = (x - tab_box.left);
         const offset_y = (height / 2);
 
-        // TODO a bit hacky
-        if (tabs.has(index + 1)) {
-          drag_info.set({
-            group: group,
-            tab: tabs.get(index + 1),
-            height: height,
-            direction: "up"
-          });
-
-        // TODO a bit hacky
-        } else if (tabs.has(index - 1)) {
-          drag_info.set({
-            group: group,
-            tab: tabs.get(index - 1),
-            height: height,
-            direction: "down"
-          });
-
-        } else {
-          drag_info.set({
-            group: group,
-            tab: tab,
-            height: height,
-            direction: "up"
-          });
-        }
-
-
         $dragging.set({
           offset_x: offset_x,
           offset_y: offset_y,
@@ -669,9 +545,7 @@ export const tab = (group, tab) =>
           width: tab_box.width
         });
 
-        each($selected, (tab) => {
-          tab.get("visible").set(false);
-        });
+        drag_start({ group, tab, height });
       },
 
       move: ({ x, y }) => {
@@ -688,71 +562,24 @@ export const tab = (group, tab) =>
       },
 
       end: () => {
-        move_tabs($selected, drag_info.get());
-
         each(indexed($selected), ([i, tab]) => {
           tab.get("visible").set(true);
 
-          if (i !== 0) {
-            /*tab.get("animate").set({
+          /*if (i !== 0) {
+            tab.get("animate").set({
               from: style_hidden,
               to: style_visible,
               duration: 500,
               easing: ease_out
-            });*/
-          }
+            });
+          }*/
         });
 
         $selected.clear();
 
-        drag_info.set(null);
         $dragging.set(null);
 
-        /*const $group = $dragging.value.group;
-        const $index = $dragging.value.index;
-
-        const parent = placeholder.parent;
-
-        console.log($group.get("id"), $dragging.value.index);
-
-        // TODO assert that `parent[index] === placeholder`
-        parent.remove($index);
-
-        each(indexed(selected), ([i, tab]) => {
-          const e = tab.get("ui").value;
-
-          parent.insert($index + i, e);
-
-          // TODO a little hacky
-          e.style({
-            "z-index": null
-          }).run();
-
-          if (i !== 0) {
-            if (i < 5) {
-              // TODO a little hacky
-              merge([
-                // TODO is this guaranteed to take 0 time ?
-                // TODO is it guaranteed that separate animations synchronize together ?
-                e.animate({ from: style_drag_stacked,
-                            to: style_drag_normal,
-                            duration: 0 }),
-                e.animate({ from: style_hidden,
-                            to: style_visible,
-                            duration: 200 }),
-              ]).run();
-
-            } else {
-              // TODO a little hacky
-              e.animate({ from: style_hidden,
-                          to: style_visible,
-                          duration: 200 }).run();
-            }
-          }
-        });
-
-        group.value = $group;
-        $dragging.value = null;*/
+        drag_end();
       }
     })
   ]);

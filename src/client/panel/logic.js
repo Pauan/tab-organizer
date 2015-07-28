@@ -70,8 +70,6 @@ const make_tab = (info, window, focused, unloaded) => {
     "unloaded": new Ref(unloaded),
 
     "visible": new Ref(true),
-
-    //"placing": new Ref(null),
     "top": new Ref(null)
   });
 
@@ -106,10 +104,126 @@ const remove_group = (group) => {
   groups.clear();
 };*/
 
+
+const drag_info = new Ref(null);
+
+export const drag_onto_tab = (group, tab) => {
+  const info = drag_info.get();
+
+  if (info) {
+    drag_info.set({
+      group: group,
+      tab: tab,
+      height: info.height,
+
+      // TODO a little hacky
+      direction: (() => {
+        if (info.tab === tab) {
+          return (info.direction === "up"
+                   ? "down"
+                   : "up");
+
+        } else if (info.group === group) {
+          // TODO is there a better way than using indexes ?
+          const old_index = info.tab.get("index");
+          const new_index = tab.get("index");
+
+          if (old_index < new_index) {
+            return "down";
+
+          } else {
+            return "up";
+          }
+
+        } else {
+          return "up";
+        }
+      })()
+    });
+
+    if (info.group !== group) {
+      update_indexes(info.group.get("tabs"));
+    }
+
+    update_indexes(group.get("tabs"));
+  }
+};
+
+export const drag_onto_group = (group) => {
+  const info = drag_info.get();
+
+  // TODO this isn't quite right, but it works most of the time
+  if (info !== null && info.group !== group) {
+    // TODO is this guaranteed to be correct ?
+    assert(group.get("tabs").size > 0);
+
+    drag_info.set({
+      group: group,
+      tab: group.get("tabs").get(-1),
+      height: info.height,
+      direction: "down"
+    });
+
+    // TODO does this need to update `group.get("tabs")` ?
+    update_indexes(info.group.get("tabs"));
+  }
+};
+
+export const drag_start = ({ group, tab, height }) => {
+  drag_info.set({
+    group: group,
+    tab: tab,
+    height: height,
+    direction: "up"
+  });
+
+  update_indexes(group.get("tabs"));
+};
+
+export const drag_end = () => {
+  const info = drag_info.get();
+
+  drag_info.set(null);
+
+  update_indexes(info.group.get("tabs"));
+};
+
+
+const update_names = (a) => {
+  each(indexed(a), ([i, x]) => {
+    x.get("name").modify((name) => {
+      if (name === null) {
+        return "" + (i + 1);
+      } else {
+        return name;
+      }
+    });
+  });
+};
+
 // TODO this can be more efficient if it is given the starting index
 const update_indexes = (a) => {
+  const info = drag_info.get();
+
+  let top = 0;
+
   each(indexed(a), ([i, x]) => {
     x.update("index", i);
+
+    // TODO a bit hacky
+    if (info !== null && info.tab === x && info.direction === "up") {
+      top += info.height;
+    }
+
+    if (x.get("visible").get()) {
+      x.get("top").set(top + "px");
+      top += 20; // TODO gross
+    }
+
+    // TODO a bit hacky
+    if (info !== null && info.tab === x && info.direction === "down") {
+      top += info.height;
+    }
   });
 };
 
@@ -195,6 +309,8 @@ export const init = async(function* () {
         windows.push(window);
       });
 
+      update_names(windows);
+
       //sort_by_window.init(windows);
     },
 
@@ -278,6 +394,9 @@ export const init = async(function* () {
       window_ids.insert(window.get("id"), window);
 
       windows.insert(index, window);
+
+      // TODO this can be made more efficient
+      update_names(windows);
     },
 
     "window-close": (x) => {
@@ -291,6 +410,8 @@ export const init = async(function* () {
       assert(windows.get(index) === window);
 
       windows.remove(index);
+
+      update_names(windows);
     }
   };
 

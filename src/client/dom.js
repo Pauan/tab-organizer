@@ -784,7 +784,7 @@ export const floating = (f) => {
 
 // TODO is this correct ?
 export const text = (f) => {
-  const e = new Text(document["createElement"]("span"));
+  const e = new Text(document["createElement"]("div"));
   e._running = e._running["concat"](f(e));
   return e;
 };
