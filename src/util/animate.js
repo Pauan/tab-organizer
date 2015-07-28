@@ -46,29 +46,40 @@ const unbatch = (f) => {
 
 
 export const animate = (duration, send) => {
-  send(0);
+  if (duration === 0) {
+    send(1);
 
-  const loop = (now) => {
-    // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
-    const diff = now - start;
+    // TODO a little hacky
+    return {
+      stop: () => {}
+    };
 
-    if (diff >= duration) {
-      send(1);
 
-    } else {
-      batch(loop);
-      send(diff / duration);
-    }
-  };
+  } else {
+    send(0);
 
-  const start = batch(loop);
+    const loop = (now) => {
+      // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
+      const diff = now - start;
 
-  // TODO test this
-  return {
-    stop: () => {
-      unbatch(loop);
-    }
-  };
+      if (diff >= duration) {
+        send(1);
+
+      } else {
+        batch(loop);
+        send(diff / duration);
+      }
+    };
+
+    const start = batch(loop);
+
+    // TODO test this
+    return {
+      stop: () => {
+        unbatch(loop);
+      }
+    };
+  }
 };
 
 // TODO test this
@@ -81,6 +92,21 @@ export const ease_in_out = (t) => {
            ? r / 2
            : 1 - (r / 2));
 };
+
+// TODO test this
+export const ease_in = (t) => {
+  t *= t * t * t;
+  return t;
+};
+
+// TODO test this
+export const ease_out = (t) => {
+  let r = (1 - t);
+  r *= r * r * r;
+  return (1 - r);
+};
+
+export const linear = (t) => t;
 
 export const range = (t, from, to) =>
   (t * (to - from)) + from;

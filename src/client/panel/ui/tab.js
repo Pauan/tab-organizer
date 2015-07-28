@@ -3,6 +3,7 @@ import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
+import { ease_in, ease_out } from "../../../util/animate";
 import { move_tabs } from "../logic";
 
 
@@ -19,40 +20,40 @@ const hypot = (x, y) =>
 
 
 const style_dragging = dom.style({
-  "pointer-events": "none",
-  "opacity": "0.98"
+  "pointer-events": always("none"),
+  "opacity": always("0.98")
 });
 
 const style_tab = dom.style({
-  "overflow": "hidden",
+  "overflow": always("hidden"),
 
-  "background-color": "inherit",
+  "background-color": always("inherit"),
 
-  "border-left-width": "1px",
-  "border-right-width": "1px",
-  "padding-left": "1px",
-  "padding-right": "1px",
-  "border-radius": "5px",
+  "border-left-width": always("1px"),
+  "border-right-width": always("1px"),
+  "padding-left": always("1px"),
+  "padding-right": always("1px"),
+  "border-radius": always("5px"),
 
-  "transition-property": "background-color",
-  "transition-timing-function": "ease-in-out",
-  "transition-duration": "100ms",
+  "transition-property": always("background-color"),
+  "transition-timing-function": always("ease-in-out"),
+  "transition-duration": always("100ms"),
 
   //"transform-origin": "11px 50%",
   //"transform": "translate3d(0, 0, 0)", /* TODO this is a hack to make animation smoother, should replace with something else */
 
-  "text-shadow": "0px 1px 1px " + dom.hsl(211, 61, 50, 0.1)
+  "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
 });
 
 const style_unloaded = dom.style({
-  "color": dom.hsl(0, 0, 30),
-  "opacity": "0.75",
+  "color": always(dom.hsl(0, 0, 30)),
+  "opacity": always("0.75"),
 });
 
 const style_focused = dom.style({
-  "background-color": dom.hsl(30, 100, 94),
-  "border-color":     dom.hsl(30, 100, 40),
-  "transition-duration": "0ms",
+  "background-color": always(dom.hsl(30, 100, 94)),
+  "border-color":     always(dom.hsl(30, 100, 40)),
+  "transition-duration": always("0ms"),
 });
 
 const repeating = dom.repeating_gradient("-45deg",
@@ -62,77 +63,77 @@ const repeating = dom.repeating_gradient("-45deg",
                                          ["10px", dom.hsl(0, 0, 100, 0.05)]);
 
 const style_hover = dom.style({
-  "cursor": "pointer",
-  "font-weight": "bold",
+  "cursor": always("pointer"),
+  "font-weight": always("bold"),
 
-  "z-index": "1",
+  "z-index": always("1"),
 
-  "transition-duration": "0ms",
-  "background-image": dom.gradient("to bottom",
-                                   ["0%",   dom.hsl(0, 0, 100, 0.2)],
-                                   ["49%",  "transparent"          ],
-                                   ["50%",  dom.hsl(0, 0,   0, 0.1)],
-                                   ["80%",  dom.hsl(0, 0, 100, 0.1)],
-                                   ["100%", dom.hsl(0, 0, 100, 0.2)]) + "," +
-                      repeating,
-  "box-shadow":       "1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
-                "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
-                "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25),
-  "color": dom.hsl(211, 100, 99, 0.95),
-  "background-color": dom.hsl(211, 100, 65),
-  "border-color": dom.hsl(211, 38, 57),
-  "text-shadow": "1px 0px 1px " + dom.hsl(211, 61, 50) + "," +
-                 "0px 1px 1px " + dom.hsl(211, 61, 50)
+  "transition-duration": always("0ms"),
+  "background-image": always(dom.gradient("to bottom",
+                                          ["0%",   dom.hsl(0, 0, 100, 0.2)],
+                                          ["49%",  "transparent"          ],
+                                          ["50%",  dom.hsl(0, 0,   0, 0.1)],
+                                          ["80%",  dom.hsl(0, 0, 100, 0.1)],
+                                          ["100%", dom.hsl(0, 0, 100, 0.2)]) + "," +
+                             repeating),
+  "box-shadow": always("1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
+                 "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
+                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25)),
+  "color": always(dom.hsl(211, 100, 99, 0.95)),
+  "background-color": always(dom.hsl(211, 100, 65)),
+  "border-color": always(dom.hsl(211, 38, 57)),
+  "text-shadow": always("1px 0px 1px " + dom.hsl(211, 61, 50) + "," +
+                        "0px 1px 1px " + dom.hsl(211, 61, 50))
 });
 
 const style_hold = dom.style({
-  "padding-top": "2px",
-  "padding-bottom": "0px",
+  "padding-top": always("2px"),
+  "padding-bottom": always("0px"),
 
-  "background-position": "0px 1px",
-  "background-image": dom.gradient("to bottom",
-                                   ["0%",   dom.hsl(0, 0, 100, 0.2)  ],
-                                   ["49%",  "transparent"            ],
-                                   ["50%",  dom.hsl(0, 0,   0, 0.075)],
-                                   ["80%",  dom.hsl(0, 0, 100, 0.1)  ],
-                                   ["100%", dom.hsl(0, 0, 100, 0.2)  ]) + "," +
-                      repeating,
-  "box-shadow":       "1px 1px 1px "  + dom.hsl(0, 0,   0, 0.1) + "," +
-                "inset 0px 0px 3px "  + dom.hsl(0, 0, 100, 0.9) + "," +
-                "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.225),
+  "background-position": always("0px 1px"),
+  "background-image": always(dom.gradient("to bottom",
+                                          ["0%",   dom.hsl(0, 0, 100, 0.2)  ],
+                                          ["49%",  "transparent"            ],
+                                          ["50%",  dom.hsl(0, 0,   0, 0.075)],
+                                          ["80%",  dom.hsl(0, 0, 100, 0.1)  ],
+                                          ["100%", dom.hsl(0, 0, 100, 0.2)  ]) + "," +
+                             repeating),
+  "box-shadow": always("1px 1px 1px "  + dom.hsl(0, 0,   0, 0.1) + "," +
+                 "inset 0px 0px 3px "  + dom.hsl(0, 0, 100, 0.9) + "," +
+                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.225)),
 });
 
 const style_selected = dom.style({
-  "background-color": "green",
-  "border-color": "black",
+  "background-color": always("green"),
+  "border-color": always("black"),
 
   // TODO code duplication
-  "box-shadow":       "1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
-                "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
-                "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25),
+  "box-shadow": always("1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
+                 "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
+                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25)),
 });
 
 const style_icon = dom.style({
-  "height": "16px",
-  "border-radius": "4px",
-  "box-shadow": "0px 0px 15px " + dom.hsl(0, 0, 100, 0.9),
-  "background-color": dom.hsl(0, 0, 100, 0.35)
+  "height": always("16px"),
+  "border-radius": always("4px"),
+  "box-shadow": always("0px 0px 15px " + dom.hsl(0, 0, 100, 0.9)),
+  "background-color": always(dom.hsl(0, 0, 100, 0.35))
 });
 
 const style_favicon = dom.style({
-  "width": "16px"
+  "width": always("16px")
 });
 
 const style_text = dom.style({
-  "padding-left": "2px",
-  "padding-right": "2px"
+  "padding-left": always("2px"),
+  "padding-right": always("2px")
 });
 
 const style_close = dom.style({
-  "width": "18px",
-  "border-width": "1px",
-  "padding-left": "1px",
-  "padding-right": "1px"
+  "width": always("18px"),
+  "border-width": always("1px"),
+  "padding-left": always("1px"),
+  "padding-right": always("1px")
 });
 
 const style_hidden = dom.style({
@@ -142,43 +143,71 @@ const style_hidden = dom.style({
     //"rotationZ": "-1deg", // -1deg
   },*/
 
-  "border-top-width": "0px",
-  "border-bottom-width": "0px",
-  "padding-top": "0px",
-  "padding-bottom": "0px",
-  "height": "0px",
-  "opacity": "0"
+  "border-top-width": always("0px"),
+  "border-bottom-width": always("0px"),
+  "padding-top": always("0px"),
+  "padding-bottom": always("0px"),
+  "height": always("0px"),
+  "opacity": always("0")
 });
 
 const style_visible = dom.style({
-  "border-top-width": "1px",
-  "border-bottom-width": "1px",
-  "padding-top": "1px",
-  "padding-bottom": "1px",
-  "height": "20px",
-  "opacity": "1"
+  "border-top-width": always("1px"),
+  "border-bottom-width": always("1px"),
+  "padding-top": always("1px"),
+  "padding-bottom": always("1px"),
+  "height": always("20px"),
+  "opacity": always("1")
 });
 
 const style_drag_stacked = dom.style({
-  "margin-top": "-18px"
+  "margin-top": always("-18px")
 });
 
 const style_drag_normal = dom.style({
-  "margin-top": "0px"
+  "margin-top": always("0px")
 });
+
+
+// TODO a bit hacky
+const margin_top_visible = dom.style({
+  "margin-top": drag_info.map((info) =>
+                  (info
+                    ? info.height + "px"
+                    : "0px"))
+});
+
+// TODO a bit hacky
+const margin_top_hidden = dom.style({
+  "margin-top": always("0px")
+});
+
+// TODO a bit hacky
+const margin_bottom_visible = dom.style({
+  "margin-bottom": drag_info.map((info) =>
+                     (info
+                       ? info.height + "px"
+                       : "0px"))
+});
+
+// TODO a bit hacky
+const margin_bottom_hidden = dom.style({
+  "margin-bottom": always("0px")
+});
+
 
 const favicon = (tab) =>
   dom.image((e) => [
     // TODO use setTimeout to fix a bug with Chrome ?
     e.url(tab.get("favicon")),
 
-    e.style(style_icon, always(true)),
-    e.style(style_favicon, always(true))
+    e.set_style(style_icon, always(true)),
+    e.set_style(style_favicon, always(true))
   ]);
 
 const text = (tab) =>
   dom.stretch((e) => [
-    e.style(style_text, always(true)),
+    e.set_style(style_text, always(true)),
 
     e.children([
       dom.text(latest([
@@ -198,15 +227,15 @@ const close = (tab, show) =>
   dom.image((e) => [
     e.url(always("data/images/button-close.png")),
 
-    e.style(style_icon, always(true)),
-    e.style(style_close, always(true)),
+    e.set_style(style_icon, always(true)),
+    e.set_style(style_close, always(true)),
 
     e.visible(show)
 
-    //e.style(ui_tab_close_style_hover,
+    //e.set_style(ui_tab_close_style_hover,
     //  e.hovering()),
 
-    //e.style(ui_tab_close_style_hold,
+    //e.set_style(ui_tab_close_style_hold,
     //  and([
     //    e.hovering(),
     //    e.holding()
@@ -214,29 +243,38 @@ const close = (tab, show) =>
   ]);
 
 const ui_dragging_style = (e, index) => {
-  if (index === 0) {
+  /*if (index === 0) {
     // Do nothing
 
   } else if (index < 5) {
-    return e.animate({ from: style_drag_normal,
-                       to: style_drag_stacked,
-                       duration: 500 });
+    return e.animate({
+      from: style_drag_normal,
+      to: style_drag_stacked,
+      duration: 500,
+      seek: always(1)
+    });
 
   } else {
-    return e.animate({ from: style_visible,
-                       to: style_hidden,
-                       duration: 500 });
-  }
+    return e.animate({
+      from: style_visible,
+      to: style_hidden,
+      duration: 500,
+      seek: always(1)
+    });
+  }*/
 };
 
+// TODO the index probably isn't reliable (should use a Ref of List rather than a List)
 const ui_dragging = (tab, index) =>
   dom.row((e) => [
-    e.style(style_tab, always(true)),
-    e.style(style_visible, always(true)),
-    e.style(style_selected, always(true)),
-    e.style(style_hover, always(index === 0)),
+    e.set_style(style_tab, always(true)),
+    e.set_style(style_visible, always(true)),
+    e.set_style(style_selected, always(true)),
+    e.set_style(style_hover, always(index === 0)),
 
-    e.set_style("z-index", always(-index + "")),
+    e.style({
+      "z-index": always(-index + "")
+    }),
 
     ui_dragging_style(e, index),
 
@@ -249,7 +287,7 @@ const ui_dragging = (tab, index) =>
 const drag_style = (f) =>
   $dragging.map((info) => {
     if (info === null) {
-      return "";
+      return null;
     } else {
       return f(info) + "px";
     }
@@ -257,42 +295,47 @@ const drag_style = (f) =>
 
 const dragging =
   dom.floating((e) => [
-    e.style(style_dragging, always(true)),
+    e.set_style(style_dragging, always(true)),
 
     e.visible($dragging),
 
+    // TODO hacky
     e.children($selected.map((tab, index) =>
       ui_dragging(tab, index))),
 
-    e.set_style("left", drag_style((info) => info.x)),
-    e.set_style("top", drag_style((info) => info.y)),
-    e.set_style("width", drag_style((info) => info.width))
+    e.style({
+      "left":  drag_style((info) => info.x),
+      "top":   drag_style((info) => info.y),
+      "width": drag_style((info) => info.width)
+    }),
   ]);
 
 export const tab = (group, tab) =>
   dom.row((e) => [
-    e.style(style_tab, always(true)),
+    e.set_style(style_tab, always(true)),
 
-    e.style(style_visible, always(true)),
+    e.set_style(style_visible, always(true)),
 
-    e.style(style_hover, and([
+    e.set_style(style_hover, and([
       not($dragging),
       e.hovering()
     ])),
 
-    e.style(style_hold, and([
+    e.set_style(style_hold, and([
       not($dragging),
       e.hovering(),
       e.holding()
     ])),
 
-    e.style(style_selected, tab.get("selected")),
+    e.set_style(style_selected, tab.get("selected")),
 
-    e.style(style_focused, tab.get("focused")),
+    e.set_style(style_focused, tab.get("focused")),
 
-    e.style(style_unloaded, tab.get("unloaded")),
+    e.set_style(style_unloaded, tab.get("unloaded")),
 
     e.visible(tab.get("visible")),
+
+    //e.animate(tab.get("animate")),
 
     /*e.animate_when(not(tab.get("visible")), {
       from: style_visible,
@@ -310,13 +353,15 @@ export const tab = (group, tab) =>
       easing: (x) => x
     }),*/
 
-    /*e.set_style("visibility", tab.get("visible").map((x) => {
-      if (x) {
-        return "";
-      } else {
-        return "hidden";
-      }
-    })),*/
+    /*e.style({
+      "visibility": tab.get("visible").map((x) => {
+        if (x) {
+          return null;
+        } else {
+          return "hidden";
+        }
+      })
+    }),*/
 
     e.scroll_to(tab.get("focused")),
 
@@ -424,78 +469,124 @@ export const tab = (group, tab) =>
       console.log("right click", e);
     }),
 
+    e.style({
+      "position": tab.get("top").map((x) =>
+                    (x !== null ? "absolute" : null)),
+      "transform": tab.get("top").map((x) =>
+                     (x !== null
+                       ? "translate3d(0, " + (x * 100) + "%, 0)"
+                       : null))
+      "transition": drag_info.map((dragging) =>
+                      (dragging
+                        ? "transform 100ms linear"
+                        : null))
+    }),
+
+    /*e.animate({
+      from: margin_top_hidden,
+      to: margin_top_visible,
+      duration: 100,
+      //easing: ease_in_out,
+      seek: tab.get("placing").map((x) => (x === "up" ? 1 : 0))
+    }),
+
+    e.animate({
+      from: margin_bottom_hidden,
+      to: margin_bottom_visible,
+      duration: 100,
+      //easing: ease_in_out,
+      seek: tab.get("placing").map((x) => (x === "down" ? 1 : 0))
+    }),*/
+
     e.on_mouse_hover((hover) => {
-      if (hover && drag_info.get()) {
-        drag_info.modify((info) => {
-          if (info.tab === tab) {
-            return {
-              group: info.group,
-              tab: info.tab,
-              height: info.height,
-              direction: (info.direction === "up"
-                           ? "down"
-                           : "up")
-            };
+      const info = drag_info.get();
 
-          } else if (info.group === group) {
-            // TODO is there a better way than using indexes ?
-            const old_index = info.tab.get("index");
-            const new_index = tab.get("index");
+      if (hover && info) {
+        //info.tab.get("placing").set(null);
 
-            if (old_index < new_index) {
-              return {
-                group: group,
-                tab: tab,
-                height: info.height,
-                direction: "down"
-              };
+        drag_info.set({
+          group: group,
+          tab: tab,
+          height: info.height,
+
+          // TODO a little hacky
+          direction: (() => {
+            if (info.tab === tab) {
+              return (info.direction === "up"
+                       ? "down"
+                       : "up");
+
+            } else if (info.group === group) {
+              // TODO is there a better way than using indexes ?
+              const old_index = info.tab.get("index");
+              const new_index = tab.get("index");
+
+              if (old_index < new_index) {
+                return "down";
+
+              } else {
+                return "up";
+              }
 
             } else {
-              return {
-                group: group,
-                tab: tab,
-                height: info.height,
-                direction: "up"
-              };
+              return "up";
             }
-
-          } else {
-            return {
-              group: group,
-              tab: tab,
-              height: info.height,
-              direction: "up"
-            };
-          }
+          })()
         });
+
+        const direction = drag_info.get().direction;
+
+        tab.get("top").modify((i) => (direction === "up" ? i + 1 : i - 1));
+
+        /*let i = 0;
+
+        // TODO find a more efficient way to do this
+        each(group.get("tabs"), (x) => {
+          if (x === tab && direction === "up") {
+            ++i;
+          }
+
+          if (!x.get("selected").get()) {
+            x.get("top").set(i);
+            ++i;
+          }
+
+          if (x === tab && direction === "down") {
+            ++i;
+          }
+        });*/
+
+        //tab.get("placing").set(drag_info.get().direction);
       }
     }),
 
-    e.set_style("transition", latest([
-      drag_info,
-    ], (dragging) => {
-      if (dragging) {
-        return "margin 100ms linear";
-      } else {
-        return "";
-      }
-    })),
+    /*e.style({
+      "transition": latest([
+        drag_info,
+      ], (dragging) => {
+        if (dragging) {
+          return "margin 100ms linear";
+        } else {
+          return null;
+        }
+      }),
 
-    e.set_style("margin", drag_info.map((info) => {
-      // TODO inefficient
-      if (info && info.tab === tab) {
-        return (info.direction === "up"
-                 ? info.height
-                 : "0") +
-               "px 0px " +
-               (info.direction === "down"
-                 ? info.height
-                 : "0") +
-               "px 0px";
-      } else {
-        return "";
-      }
-    })),
+      "margin": drag_info.map((info) => {
+        // TODO inefficient
+        if (info && info.tab === tab) {
+          return (info.direction === "up"
+                   ? info.height
+                   : "0") +
+                 "px 0px " +
+                 (info.direction === "down"
+                   ? info.height
+                   : "0") +
+                 "px 0px";
+        } else {
+          return null;
+        }
+      })
+    }),*/
 
     e.draggable({
       start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
@@ -504,9 +595,21 @@ export const tab = (group, tab) =>
         hypot(start_x - x, start_y - y) > 5,
 
       start: ({ x, y }) => {
-        each(group.get("tabs"), (tab) => {
-          if (tab.get("selected").get()) {
-            $selected.push(tab);
+        const tab_box = e.get_position();
+
+        let i = 0;
+
+        each(group.get("tabs"), (x) => {
+          if (x === tab) {
+            ++i;
+          }
+
+          if (x.get("selected").get()) {
+            $selected.push(x);
+
+          } else {
+            x.get("top").set(i);
+            ++i;
           }
         });
 
@@ -519,20 +622,21 @@ export const tab = (group, tab) =>
         // TODO is there a better way than using indexes ?
         const index = tab.get("index");
 
-        const tab_box = e.get_position();
+        // TODO hacky
+        const height = ($selected.size === 1
+                         ? tab_box.height
+                         : (tab_box.height +
+                            (Math["min"]($selected.size, 4) * 3)));
 
         const offset_x = (x - tab_box.left);
-        // TODO hacky
-        const offset_y = ((tab_box.height +
-                           (Math["min"]($selected.size, 4) * 2))
-                          / 2);
+        const offset_y = (height / 2);
 
         // TODO a bit hacky
         if (tabs.has(index + 1)) {
           drag_info.set({
             group: group,
             tab: tabs.get(index + 1),
-            height: 30,
+            height: height,
             direction: "up"
           });
 
@@ -541,7 +645,7 @@ export const tab = (group, tab) =>
           drag_info.set({
             group: group,
             tab: tabs.get(index - 1),
-            height: 30,
+            height: height,
             direction: "down"
           });
 
@@ -549,7 +653,7 @@ export const tab = (group, tab) =>
           drag_info.set({
             group: group,
             tab: tab,
-            height: 30,
+            height: height,
             direction: "up"
           });
         }
@@ -585,11 +689,20 @@ export const tab = (group, tab) =>
       end: () => {
         move_tabs($selected, drag_info.get());
 
-        each($selected, (tab) => {
+        each(indexed($selected), ([i, tab]) => {
           tab.get("visible").set(true);
+
+          if (i !== 0) {
+            tab.get("animate").set({
+              from: style_hidden,
+              to: style_visible,
+              duration: 500,
+              easing: ease_out
+            });
+          }
         });
 
-        //$selected.clear();
+        $selected.clear();
 
         drag_info.set(null);
         $dragging.set(null);
@@ -610,7 +723,9 @@ export const tab = (group, tab) =>
           parent.insert($index + i, e);
 
           // TODO a little hacky
-          e.set_style("z-index", "").run();
+          e.style({
+            "z-index": null
+          }).run();
 
           if (i !== 0) {
             if (i < 5) {

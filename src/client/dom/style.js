@@ -1,7 +1,7 @@
 import { each, entries } from "../../util/iterator";
 
 
-const add_rules = (() => {
+export const set_style = (() => {
   const prefixes = {
     // TODO it's a bit hacky to use the prefix system for this purpose...
     //"width": ["width", "min-width", "max-width"],
@@ -9,33 +9,51 @@ const add_rules = (() => {
     "box-sizing": ["-moz-box-sizing", "box-sizing"] // TODO get rid of this later
   };
 
-  return (style, rules) => {
-    // TODO verify that `key` and `value` are strings
-    each(entries(rules), ([key, value]) => {
-      const keys = (prefixes[key]
-                     ? prefixes[key]
-                     : [key]);
+  return (style, key, value) => {
+    // TODO test this
+    if (typeof key !== "string") {
+      throw new Error("Key must be a string: " + key);
+    }
 
-      const old_values = keys["map"]((key) => style["getPropertyValue"](key));
+    // TODO test this
+    if (value !== null && typeof value !== "string") {
+      throw new Error("Value must be null or a string: " + value);
+    }
 
-      const new_values = keys["map"]((key) => {
+    if (value === "") {
+      throw new Error("Value cannot be \"\", use `null` instead");
+    }
+
+    const keys = (prefixes[key]
+                   ? prefixes[key]
+                   : [key]);
+
+    const old_values = keys["map"]((key) => style["getPropertyValue"](key));
+
+    const new_values = keys["map"]((key) => {
+      // TODO test this
+      if (value === null) {
+        style["removeProperty"](key);
+
+      } else {
         // The third argument must be ""
-        // http://dev.w3.org/csswg/cssom/#dom-cssstyledeclaration-setpropertyproperty-value-priority
+        // https://drafts.csswg.org/cssom/#dom-cssstyledeclaration-setproperty
         style["setProperty"](key, value, "");
-
-        return style["getPropertyValue"](key);
-      });
-
-      const every = new_values["every"]((new_value, i) => {
-        const old_value = old_values[i];
-        // TODO  && old_value !== value
-        return new_value === old_value;
-      });
-
-      if (every) {
-        throw new Error("Invalid key or value (\"" + key + "\": \"" + value + "\")");
       }
+
+      return style["getPropertyValue"](key);
     });
+
+    const every = new_values["every"]((new_value, i) => {
+      const old_value = old_values[i];
+      // TODO is this correct ?
+      return (new_value === old_value) &&
+             (old_value !== value);
+    });
+
+    if (every) {
+      throw new Error("Invalid key or value (\"" + key + "\": \"" + value + "\")");
+    }
   };
 })();
 
@@ -70,7 +88,11 @@ export const make_style = (() => {
 
       const style = cssRules[index]["style"];
 
-      add_rules(style, rules);
+      each(entries(rules), ([key, value]) => {
+        value.each((value) => {
+          set_style(style, key, value);
+        });
+      });
     //});
 
     return new Style(class_name, style, rules);

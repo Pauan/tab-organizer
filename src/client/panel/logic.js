@@ -68,8 +68,12 @@ const make_tab = (info, window, focused, unloaded) => {
     "selected": new Ref(false),
     "focused": new Ref(focused),
     "unloaded": new Ref(unloaded),
-    // TODO a little hacky ?
-    "visible": new Ref(true)
+
+    "visible": new Ref(true),
+    "animate": new Ref(null),
+
+    "placing": new Ref(null),
+    "top": new Ref(null)
   });
 
   /*each(get_groups(tab), (group) => {
@@ -110,10 +114,19 @@ const update_indexes = (a) => {
   });
 };
 
+// TODO this is still broken
 export const move_tabs = (selected, { group, tab, direction }) => {
+  let to_index = tab.get("index");
+
   each(selected, (tab) => {
-    const tabs = tab.get("window").get("tabs");
+    const window = tab.get("window");
+    const tabs = window.get("tabs");
     const index = tab.get("index");
+
+    // TODO hacky
+    if (window === group && index < to_index) {
+      --to_index;
+    }
 
     // TODO hacky
     tab.update("window", group);
@@ -129,12 +142,11 @@ export const move_tabs = (selected, { group, tab, direction }) => {
   const tabs = group.get("tabs");
 
   const index = (direction === "down"
-                  // TODO inefficient
-                  ? tab.get("index") + 1
-                  : tab.get("index"));
+                  ? to_index + 1
+                  : to_index);
 
-  each(selected, (tab) => {
-    tabs.insert(index, tab);
+  each(indexed(selected), ([i, tab]) => {
+    tabs.insert(to_index + i, tab);
   });
 
   update_indexes(tabs);

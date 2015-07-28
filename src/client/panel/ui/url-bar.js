@@ -5,59 +5,59 @@ import { Ref, always } from "../../../util/mutable/ref";
 export const url_bar = new Ref(null);
 
 const top_style = dom.style({
-  "left": "0px",
-  "bottom": "0px",
+  "left": always("0px"),
+  "bottom": always("0px"),
 
-  "white-space": "pre",
+  "white-space": always("pre"),
   // TODO maybe remove this
-  "max-width": dom.calc("100%", "+", "1px"),
+  "max-width": always(dom.calc("100%", "+", "1px")),
 
-  "border-top-width": "1px",
-  "border-right-width": "1px",
-  "border-top-color": "black",
-  "border-right-color": "black",
-  "border-top-right-radius": "5px",
+  "border-top-width": always("1px"),
+  "border-right-width": always("1px"),
+  "border-top-color": always("black"),
+  "border-right-color": always("black"),
+  "border-top-right-radius": always("5px"),
 
   //e.set("paddingTop", "0px")
-  "padding-right": "2px", // 2px + 3px = 5px
-  "padding-bottom": "1px",
+  "padding-right": always("2px"), // 2px + 3px = 5px
+  "padding-bottom": always("1px"),
   //e.set("padding-left", "2px")
 
-  "color": "black",
+  "color": always("black"),
 
-  "background-color": "white",
+  "background-color": always("white"),
 
-  "box-shadow": "0px 0px 3px dimgray",
+  "box-shadow": always("0px 0px 3px dimgray"),
 });
 
 const text_style = dom.style({
-  "margin-left": "3px",
-  "margin-right": "3px"
+  "margin-left": always("3px"),
+  "margin-right": always("3px")
 });
 
 const protocol_style = dom.style({
-  "font-weight": "bold",
-  "color": dom.hsl(120, 100, 25)
+  "font-weight": always("bold"),
+  "color": always(dom.hsl(120, 100, 25))
 });
 
 const domain_style = dom.style({
-  "font-weight": "bold"
+  "font-weight": always("bold")
 });
 
 const path_style = dom.style({});
 
 const file_style = dom.style({
-  "font-weight": "bold",
-  "color": "darkred" // TODO replace with hsl
+  "font-weight": always("bold"),
+  "color": always("darkred") // TODO replace with hsl
 });
 
 const query_style = dom.style({
-  "font-weight": "bold",
-  "color": "darkred" // TODO replace with hsl
+  "font-weight": always("bold"),
+  "color": always("darkred") // TODO replace with hsl
 });
 
 const hash_style = dom.style({
-  "color": "darkblue" // TODO replace with hsl
+  "color": always("darkblue") // TODO replace with hsl
 });
 
 
@@ -170,7 +170,7 @@ const parsed_url = url_bar.map((x) => {
 const make = (style, f) => {
   const x = parsed_url.map((x) => {
     if (x === null) {
-      return "";
+      return null;
     } else {
       return f(x);
     }
@@ -181,8 +181,8 @@ const make = (style, f) => {
       dom.text(x)
     ]),
 
-    e.style(text_style, always(true)),
-    e.style(style, always(true)),
+    e.set_style(text_style, always(true)),
+    e.set_style(style, always(true)),
 
     e.visible(x)
   ]);
@@ -203,7 +203,7 @@ dom.floating((e) => [
     ])
   ]),
 
-  e.style(top_style, always(true)),
+  e.set_style(top_style, always(true)),
 
   e.visible(url_bar)
 /*

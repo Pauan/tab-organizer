@@ -5,17 +5,17 @@ import * as dom from "../../dom";
 
 
 const style_group = dom.style({
-  "width": "300px",
-  "height": "100%",
+  "width": always("300px"),
+  "height": always("100%"),
 
-  "border": "5px solid black",
+  "border": always("5px solid black"),
   // TODO
-  "background-color": "white",
+  "background-color": always("white"),
 });
 
 const style_group_tabs = dom.style({
-  "overflow": "auto",
-  "flex": "1", // TODO is this correct ?
+  "overflow": always("auto"),
+  "flex": always("1"), // TODO is this correct ?
   //"height": "100%"
 });
 
@@ -28,7 +28,7 @@ const group_header = (group) =>
 
 const group_tabs = (group) =>
   dom.col((e) => [
-    e.style(style_group_tabs, always(true)),
+    e.set_style(style_group_tabs, always(true)),
 
     e.on_mouse_hover((hover) => {
       const info = drag_info.get();
@@ -52,7 +52,7 @@ const group_tabs = (group) =>
 
 export const group = (group) =>
   dom.col((e) => [
-    e.style(style_group, always(true)),
+    e.set_style(style_group, always(true)),
 
     e.children([
       group_header(group),

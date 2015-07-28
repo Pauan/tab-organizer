@@ -1,4 +1,4 @@
-import { each } from "../util/iterator";
+import { each, entries } from "../util/iterator";
 import { Ref, always } from "../util/mutable/ref";
 import { List } from "../util/immutable/list";
 import { uuid_list_insert,
@@ -6,11 +6,80 @@ import { uuid_list_insert,
          uuid_list_remove,
          uuid_list_clear } from "../util/mutable/list";
 import { batch_read, batch_write } from "./dom/batch";
-import { make_style } from "./dom/style";
+import { set_style, make_style } from "./dom/style";
 import { assert, fail } from "../util/assert";
 import { async, async_callback } from "../util/async";
 import { animate, range, round_range, ease_in_out } from "../util/animate";
 
+
+// TODO make this into a Ref ?
+class Animation {
+  constructor(duration, easing, on_seek) {
+    this._duration = duration;
+    this._easing = easing;
+    this._on_seek = on_seek;
+
+    this._current_seek = null;
+    this._running = null;
+  }
+
+  seek(seek_to) {
+    this.stop();
+
+    if (this._current_seek === null) {
+      this._current_seek = seek_to;
+      this._on_seek(this._easing(this._current_seek));
+
+    } else if (this._current_seek !== seek_to) {
+      const seek_from = this._current_seek;
+
+      // TODO is there a better/faster way of doing this ?
+      const duration2 = this._duration * Math["abs"](seek_to - seek_from);
+
+      // TODO it should stop the animation when `ref` is stopped
+      this._running = animate(duration2, (t) => {
+        // TODO is this correct ?
+        if (t === 1) {
+          this._running = null;
+        }
+
+        // TODO is this efficient ?
+        this._current_seek = seek_from + (t * (seek_to - seek_from));
+
+        /*if (t1 === 0) {
+          // TODO is this correct ?
+          this._add_style(from);
+          this._remove_style(to);
+
+          undo_styles();
+
+        } else if (t1 === 1) {
+          // TODO is this correct ?
+          this._add_style(to);
+          this._remove_style(from);
+
+          undo_styles();
+
+        } else {*/
+        this._on_seek(this._easing(this._current_seek));
+        //}
+      });
+    }
+  }
+
+  stop() {
+    if (this._running !== null) {
+      this._running.stop();
+    }
+  }
+
+  /*const undo_styles = () => {
+    for (let i = 0; i < transitions["length"]; ++i) {
+      const { key } = transitions[i];
+      this._dom["style"][key] = "";
+    }
+  };*/
+}
 
 // TODO can this be made more efficient ?
 const parse_css = (x) =>
@@ -20,8 +89,8 @@ const range_px = (t, from, to) =>
   round_range(t, from, to) + "px";
 
 const parse_range = (key, from, to) => {
-  const x = parse_css(from._style[key]);
-  const y = parse_css(to._style[key]);
+  const x = parse_css(from[key]);
+  const y = parse_css(to[key]);
 
   if (x[2] && y[2]) {
     return {
@@ -43,6 +112,60 @@ const parse_range = (key, from, to) => {
     fail();
   }
 };
+
+// TODO a little hacky
+const on_seek = function (t) {
+  // TODO can this be made more efficient ?
+  for (let i = 0; i < this._transitions["length"]; ++i) {
+    const { key, from, to, range } = this._transitions[i];
+    // TODO verify that the style is correct ? (but would that cause performance issues ?)
+    this._dom["style"][key] = range(t, from, to);
+  }
+};
+
+class DOM_Animation extends Animation {
+  constructor(dom, from, to, duration, easing) {
+    super(duration, easing, on_seek);
+
+    this._dom = dom;
+    this._from = from;
+    this._to = to;
+
+    this._transitions = null;
+  }
+
+  // TODO rather than re-parsing the styles when calling `seek`, maybe we should
+  //      re-parse the styles when the style object itself changes
+  seek(seek_to) {
+    const from = this._from;
+    const to = this._to;
+
+    // TODO make this a global function ?
+    // TODO should this use `map` ?
+    this._transitions = [];
+
+    // TODO make this a global function ?
+    // TODO a bit inefficient ?
+    each(from._keys, (key) => {
+      // TODO is this correct ?
+      assert(to._style[key]);
+      assert(key in to._rules);
+    });
+
+    to._keys["forEach"]((key) => {
+      // TODO is this correct ?
+      assert(from._style[key]);
+      assert(key in from._rules);
+
+      // TODO hacky
+      //if (to._style[key] && from._style[key]) {
+        this._transitions["push"](parse_range(key, from._style, to._style));
+      //}
+    });
+
+    super.seek(seek_to);
+  }
+}
 
 
 const preventDefault = (e) => {
@@ -306,7 +429,7 @@ class Element extends DOM {
     this._dom["classList"]["remove"](style._name);
   }
 
-  style(style, ref) {
+  set_style(style, ref) {
     return ref.each((x) => {
       if (x) {
         this._add_style(style);
@@ -350,54 +473,29 @@ class Element extends DOM {
   }
 
   // TODO test this
-  animate({ from, to, duration, easing = ease_in_out }) {
-    // TODO a bit inefficient ?
-    each(from._keys, (key) => {
-      assert(to._style[key]);
+  animate({ from, to, duration, seek, easing = ease_in_out }) {
+    const x = new DOM_Animation(this._dom, from, to, duration, easing);
+
+    const y = seek.each((seek_to) => {
+      x.seek(seek_to);
     });
 
-    // TODO should this use `map` ?
-    const transitions = to._keys["map"]((key) => {
-      assert(from._style[key]);
-
-      return parse_range(key, from, to);
-    });
-
-    return animate(duration, (t1) => {
-      const t2 = easing(t1);
-
-      // TODO what about bouncing ?
-      if (t2 === 1) {
-        this._add_style(to);
-
-        for (let i = 0; i < transitions["length"]; ++i) {
-          const { key } = transitions[i];
-          this._dom["style"][key] = "";
-        }
-
-      } else {
-        if (t2 === 0) {
-          // TODO remove `to` as well ?
-          this._remove_style(from);
-        }
-
-        // TODO can this be made more efficient ?
-        for (let i = 0; i < transitions["length"]; ++i) {
-          const { key, from, to, range } = transitions[i];
-          this._dom["style"][key] = range(t2, from, to);
-        }
+    return {
+      stop: () => {
+        x.stop();
+        y.stop();
       }
-    });
+    };
   }
 
-  animate_when(ref, info) {
+  /*animate_when(ref, info) {
     return ref.each((x) => {
       if (x) {
         // TODO this should be stopped when the `animate_when` is stopped
         this.animate(info);
       }
     });
-  }
+  }*/
 
   visible(ref) {
     return ref.each((x) => {
@@ -409,11 +507,28 @@ class Element extends DOM {
     });
   }
 
-  set_style(key, ref) {
-    return ref.each((x) => {
-      // TODO check that the style is valid
-      this._dom["style"][key] = x;
+  // TODO test this
+  style(o) {
+    // TODO replace with `Set` ?
+    const stops = [];
+
+    // TODO is this inefficient ?
+    each(entries(o), ([key, ref]) => {
+      // TODO a little hacky
+      stops["push"](ref.each((x) => {
+        // TODO test this
+        set_style(this._dom["style"], key, x);
+      }));
     });
+
+    return {
+      stop: () => {
+        // TODO a little hacky
+        stops["forEach"]((x) => {
+          x.stop();
+        });
+      }
+    };
   }
 }
 
@@ -575,34 +690,34 @@ export const hsl = (hue, sat, light, alpha = 1) => {
 };
 
 const floating_style = style({
-  "position": "fixed",
-  "z-index": "9001" // TODO highest z-index
+  "position": always("fixed"),
+  "z-index": always("9001") // TODO highest z-index
 });
 
 const row_style = style({
-  "display": "flex",
-  "flex-direction": "row",
-  "align-items": "center", // TODO get rid of this ?
+  "display": always("flex"),
+  "flex-direction": always("row"),
+  "align-items": always("center"), // TODO get rid of this ?
 });
 
 const col_style = style({
-  "display": "flex",
-  "flex-direction": "column",
+  "display": always("flex"),
+  "flex-direction": always("column"),
 });
 
 const stretch_style = style({
-  "flex-shrink": "1",
-  "flex-grow": "1",
-  "flex-basis": "0%",
+  "flex-shrink": always("1"),
+  "flex-grow": always("1"),
+  "flex-basis": always("0%"),
 
   // TODO is this correct ?
-  "overflow": "hidden",
-  "white-space": "nowrap"
+  "overflow": always("hidden"),
+  "white-space": always("nowrap")
 });
 
 const main_style = style({
-  "width": "100%",
-  "height": "100%"
+  "width": always("100%"),
+  "height": always("100%")
 });
 
 export const row = (f) => {
@@ -664,7 +779,7 @@ export const image = (f) => {
 const panels = document["createElement"]("div");
 
 const _main = col((e) =>
-  e.style(main_style, always(true)));
+  e.set_style(main_style, always(true)));
 
 export const main = (x) => {
   // TODO hacky
