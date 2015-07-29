@@ -3,7 +3,7 @@ import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
-import { drag_onto_tab, drag_start, drag_end } from "../logic";
+import { drag_onto_tab, drag_start, drag_end, focus_tab } from "../logic";
 
 
 const $selected = new Ref(empty);
@@ -415,6 +415,8 @@ export const tab = (group, tab) =>
             tab.get("selected").set(false);
           });
         }
+
+        focus_tab(tab);
 
 
       } else if (shift && !ctrl && !alt) {

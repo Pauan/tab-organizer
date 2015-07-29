@@ -181,6 +181,7 @@ export const drag_start = ({ group, tab, height }) => {
   update_indexes(group.get("tabs"));
 };
 
+// TODO what about "first-selected-tab" ?
 export const drag_end = (selected) => {
   const info = drag_info.get();
 
@@ -193,7 +194,7 @@ export const drag_end = (selected) => {
                    : index1);
 
 
-  const tabs = info.group.get("tabs");
+  /*const tabs = info.group.get("tabs");
 
   each(indexed(selected), ([i, x]) => {
     // TODO hacky
@@ -216,7 +217,7 @@ export const drag_end = (selected) => {
     update_indexes(old_tabs);
   });
 
-  update_indexes(tabs);
+  update_indexes(tabs);*/
 
 
   port.send({
@@ -225,6 +226,14 @@ export const drag_end = (selected) => {
     "window": info.group.get("id"),
     "tabs": to_array(map(selected, (tab) => tab.get("id"))),
     "index": index2
+  });
+};
+
+
+export const focus_tab = (tab) => {
+  port.send({
+    "type": "focus-tab",
+    "tab": tab.get("id")
   });
 };
 

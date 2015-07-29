@@ -62,6 +62,24 @@ export const init = async(function* () {
     return to_array(map(windows, serialize_window));
   };
 
+  const find_chrome_tab = (window_id, index) => {
+    const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+
+    const transients = db.get(["transient.tab-ids"]);
+
+    while (tabs.has(index)) {
+      const tab_id = tabs.get(index);
+
+      if (transients.has(tab_id)) {
+        return transients.get(tab_id);
+      }
+
+      ++index;
+    }
+
+    return null;
+  };
+
   const handle_event = {
     // TODO send out `tab_events` ?
     "move-tabs": ({ "window": window_id,
@@ -69,8 +87,19 @@ export const init = async(function* () {
                     "index": index }) => {
 
       db.transaction((db) => {
+        // TODO if the Chrome window doesn't exist, we should create a new one
+        const chrome_window = db.get(["transient.window-ids", window_id]);
+        const chrome_tab = find_chrome_tab(window_id, index);
+
+        if (chrome_tab !== null) {
+          assert(chrome_tab.window === chrome_window);
+        }
+
+
+        const move_tabs = [];
+
         each(indexed(tabs), ([i, tab_id]) => {
-          const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
+          /*const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
           const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
           const old_index = old_tabs.index_of(tab_id).get();
 
@@ -86,6 +115,32 @@ export const init = async(function* () {
           } else {
             db.insert(["current.window-ids", window_id, "tabs", index + i],
                       tab_id);
+          }
+
+          if (db.has(["transient.tab-ids", tab_id])) {*/
+            move_tabs["push"](db.get(["transient.tab-ids", tab_id]));
+          //}
+        });
+
+
+        each(indexed(move_tabs), ([i, tab]) => {
+          if (chrome_tab !== null && chrome_tab.pinned) {
+            tab.pin();
+          } else {
+            tab.unpin();
+          }
+
+
+          if (chrome_tab === null) {
+            tab.move(chrome_window, -1);
+
+          // TODO is this correct ?
+          } else if (tab.window === chrome_window &&
+                     tab.index < chrome_tab.index) {
+            tab.move(chrome_window, chrome_tab.index - 1);
+
+          } else {
+            tab.move(chrome_window, chrome_tab.index + i);
           }
         });
       });

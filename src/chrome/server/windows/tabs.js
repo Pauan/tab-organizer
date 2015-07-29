@@ -1,3 +1,4 @@
+import { chrome } from "../../../common/globals";
 import { Dict } from "../../../util/mutable/dict";
 import { Event } from "../../../util/event";
 import { assert } from "../../../util/assert";
@@ -91,6 +92,25 @@ class Tab {
     this.url     = info["url"] || null;
     this.title   = info["title"] || null;
     this.favicon = get_favicon(info);
+  }
+
+  pin() {
+    chrome["tabs"]["update"](this.id, {
+      "pinned": true
+    });
+  }
+
+  unpin() {
+    chrome["tabs"]["update"](this.id, {
+      "pinned": false
+    });
+  }
+
+  move(window, index) {
+    chrome["tabs"]["move"](this.id, {
+      "windowId": window.id,
+      "index": index
+    });
   }
 }
 
