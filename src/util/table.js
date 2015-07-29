@@ -69,6 +69,43 @@ class Base {
     this._keys = null;
   }
 
+  get_all() {
+    assert(!this._destroyed);
+    return this._keys;
+  }
+
+  has(keys) {
+    assert(!this._destroyed);
+    check_keys(keys);
+
+    return nested_lookup(this._keys, keys, (x, key) => x.has(key));
+  }
+
+  get(keys) {
+    assert(!this._destroyed);
+    check_keys(keys);
+
+    return nested_lookup(this._keys, keys, (x, key) => x.get(key));
+  }
+}
+
+
+class Transaction extends Base {
+  constructor(parent) {
+    super(parent._keys);
+
+    this._changes = List();
+  }
+
+  _push_change(x) {
+    this._changes = this._changes.push(x);
+  }
+
+  _destroy() {
+    super._destroy();
+
+    this._changes = null;
+  }
 
   _modify_key_value(type, keys, value, f) {
     assert(!this._destroyed);
@@ -86,20 +123,6 @@ class Base {
         ["value", value]
       ]));
     }
-  }
-
-  has(keys) {
-    assert(!this._destroyed);
-    check_keys(keys);
-
-    return nested_lookup(this._keys, keys, (x, key) => x.has(key));
-  }
-
-  get(keys) {
-    assert(!this._destroyed);
-    check_keys(keys);
-
-    return nested_lookup(this._keys, keys, (x, key) => x.get(key));
   }
 
   default(keys, value) {
@@ -175,24 +198,22 @@ class Base {
       assert(new_value.has());
     }
   }
-}
 
+  // TODO test this
+  set_all(new_db) {
+    assert(!this._destroyed);
 
-class Transaction extends Base {
-  constructor(parent) {
-    super(parent._keys);
+    const old_db = this._keys;
 
-    this._changes = List();
-  }
+    each(old_db, ([key, value]) => {
+      if (!new_db.has(key)) {
+        this.remove([key]);
+      }
+    });
 
-  _push_change(x) {
-    this._changes = this._changes.push(x);
-  }
-
-  _destroy() {
-    super._destroy();
-
-    this._changes = null;
+    each(new_db, ([key, value]) => {
+      this.assign([key], value);
+    });
   }
 }
 
@@ -203,10 +224,6 @@ export class Table extends Base {
 
     this._on_commit = Event();
     this.on_commit  = this._on_commit.receive;
-  }
-
-  _push_change(x) {
-    this._on_commit.send(List([x]));
   }
 
   _commit_changes(changes) {
@@ -242,64 +259,5 @@ export class Table extends Base {
     } else {
       assert(changes.size === 0);
     }
-  }
-
-  get_all() {
-    assert(!this._destroyed);
-    return this._keys;
-  }
-
-  // TODO test this
-  set_all(new_db) {
-    assert(!this._destroyed);
-
-    const old_db = this._keys;
-
-    this.transaction((db) => {
-      each(old_db, ([key, value]) => {
-        if (!new_db.has(key)) {
-          db.remove([key]);
-        }
-      });
-
-      each(new_db, ([key, value]) => {
-        db.assign([key], value);
-      });
-    });
-  }
-
-  // TODO test this
-  commit_transaction(transaction) {
-    this.transaction((db) => {
-      each(transaction, (x) => {
-        // TODO a bit hacky to use to_array
-        const keys = to_array(x.get("keys"));
-
-        switch (x.get("type")) {
-        case "update":
-          db.update(keys, x.get("value"));
-          break;
-
-        case "assign":
-          db.assign(keys, x.get("value"));
-          break;
-
-        case "insert":
-          db.insert(keys, x.get("value"));
-          break;
-
-        case "default":
-          db.default(keys, x.get("value"));
-          break;
-
-        case "remove":
-          db.remove(keys);
-          break;
-
-        default:
-          fail();
-        }
-      });
-    });
   }
 }
