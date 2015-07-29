@@ -18,10 +18,13 @@ export const init = async(function* () {
   const session = yield init_session;
 
 
-  db.default(["current.windows"], List());
-  db.default(["current.window-ids"], Record());
-  db.default(["current.tab-ids"], Record());
+  db.transaction((db) => {
+    db.default(["current.windows"], List());
+    db.default(["current.window-ids"], Record());
+    db.default(["current.tab-ids"], Record());
+  });
 
+  db.transient("transient.window-ids", Record());
   db.transient("transient.tab-ids", Record());
 
 
@@ -274,6 +277,8 @@ export const init = async(function* () {
   const window_init = (db, info) => {
     const id = session.window_id(info.id);
 
+    db.insert(["transient.window-ids", id], info);
+
     // TODO this is a little inefficient
     const window_ids = db.get(["current.window-ids"]);
 
@@ -296,6 +301,8 @@ export const init = async(function* () {
       const id = session.window_id(info.id);
 
       make_new_window(db, id, info);
+
+      db.insert(["transient.window-ids", id], info);
 
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
@@ -338,6 +345,7 @@ export const init = async(function* () {
       });
 
       db.remove(["current.window-ids", id]);
+      db.remove(["transient.window-ids", id]);
 
       // TODO can this be implemented more efficiently ?
       const index = db.get(["current.windows"]).index_of(id).get();

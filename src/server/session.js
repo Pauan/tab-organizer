@@ -17,7 +17,13 @@ export const init = async(function* () {
 
   const namespace = "session.windows";
 
-  db.default([namespace], List());
+  const delay = (ms) => {
+    db.delay(namespace, ms);
+  };
+
+  db.transaction((db) => {
+    db.default([namespace], List());
+  });
 
 
   const window_ids = new Dict();
@@ -78,50 +84,60 @@ export const init = async(function* () {
 
 
   const window_open = ({ window, index }) => {
-    assert(window.index === index);
+    db.transaction((db) => {
+      assert(window.index === index);
 
-    db.insert([namespace, index], make_new_window(window));
+      db.insert([namespace, index], make_new_window(window));
+    });
   };
 
   const window_close = ({ window, index }) => {
-    assert(window.tabs.size === 0);
+    db.transaction((db) => {
+      assert(window.tabs.size === 0);
 
-    check_window(db, index, window);
+      check_window(db, index, window);
 
-    db.remove([namespace, index]);
+      db.remove([namespace, index]);
 
-    window_ids.remove(window.id);
+      window_ids.remove(window.id);
+    });
   };
 
   const tab_open = ({ window, tab, index }) => {
-    assert(tab.index === index);
-    assert(tab.window === window);
+    db.transaction((db) => {
+      assert(tab.index === index);
+      assert(tab.window === window);
 
-    check_window(db, window.index, window);
+      check_window(db, window.index, window);
 
-    db.insert(lookup(window, index), make_new_tab(tab));
+      db.insert(lookup(window, index), make_new_tab(tab));
+    });
   };
 
   const tab_close = ({ window, tab, index, window_closing }) => {
-    // Delay by 10 seconds, so that when Chrome closes,
-    // it doesn't remove the tabs / windows
-    if (window_closing) {
-      db.delay(namespace, 10000);
-    }
+    db.transaction((db) => {
+      // Delay by 10 seconds, so that when Chrome closes,
+      // it doesn't remove the tabs / windows
+      if (window_closing) {
+        delay(10000);
+      }
 
-    check_tab(db, window, index, tab);
+      check_tab(db, window, index, tab);
 
-    db.remove(lookup(window, index));
+      db.remove(lookup(window, index));
 
-    tab_ids.remove(tab.id);
+      tab_ids.remove(tab.id);
+    });
   };
 
   const tab_update = ({ old, tab }) => {
-    if (old.url !== tab.url) {
-      check_tab(db, tab.window, tab.index, tab);
+    db.transaction((db) => {
+      if (old.url !== tab.url) {
+        check_tab(db, tab.window, tab.index, tab);
 
-      db.update(lookup(tab.window, tab.index, "url"), tab.url);
-    }
+        db.update(lookup(tab.window, tab.index, "url"), tab.url);
+      }
+    });
   };
 
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
@@ -234,14 +250,16 @@ export const init = async(function* () {
     }));
 
   const init = (new_windows) => {
-    const timer_merge = new Timer();
+    db.transaction((db) => {
+      const timer_merge = new Timer();
 
-    db.modify([namespace], (old_windows) => merge(old_windows, new_windows));
+      db.modify([namespace], (old_windows) => merge(old_windows, new_windows));
 
-    timer_merge.done();
-    console["debug"]("session: initialized (" +
-                     timer_merge.diff() +
-                     "ms)");
+      timer_merge.done();
+      console["debug"]("session: initialized (" +
+                       timer_merge.diff() +
+                       "ms)");
+    });
   };
 
 

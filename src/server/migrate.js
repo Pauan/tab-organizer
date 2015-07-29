@@ -81,7 +81,9 @@ export const init = async(function* () {
     console["debug"]("migrate: already at version " + version);
 
   } else {
-    db.set_all(new_db);
+    db.transaction((db) => {
+      db.set_all(new_db);
+    });
 
     console["debug"]("migrate: upgraded to version " +
                      version +

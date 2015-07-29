@@ -54,7 +54,11 @@ class DB extends Table {
 
   transient(key, value) {
     transients.insert(key);
-    this.insert([key], value);
+
+    // TODO hacky, this should be a part of Transaction or something
+    this.transaction((db) => {
+      db.insert([key], value);
+    });
   }
 }
 
@@ -64,9 +68,13 @@ export const init = async(function* () {
 
   const timer = new Timer();
 
-  db.set_all(from_json(yield async_chrome((callback) => {
+  const json = from_json(yield async_chrome((callback) => {
     chrome["storage"]["local"]["get"](null, callback);
-  })));
+  }));
+
+  db.transaction((db) => {
+    db.set_all(json);
+  });
 
   timer.done();
 
