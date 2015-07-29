@@ -2,7 +2,7 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, map, foldl } from "../util/iterator";
+import { each, map, to_array } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 import { Event } from "../util/event";
@@ -27,14 +27,43 @@ export const init = async(function* () {
 
   const tab_events = Event();
 
+  const serialize_tab = (id) => {
+    const tab = db.get(["current.tab-ids", id]);
+
+    const transients = db.get(["transient.tab-ids"]);
+
+    return {
+      "id": tab.get("id"),
+      "url": tab.get("url"),
+      "title": tab.get("title"),
+      "favicon": tab.get("favicon"),
+      "pinned": tab.get("pinned"),
+      "focused": transients.has(id) && transients.get(id).get("focused"),
+      "unloaded": !transients.has(id)
+    };
+  };
+
+  const serialize_window = (id) => {
+    const window = db.get(["current.window-ids", id]);
+
+    return {
+      "id": window.get("id"),
+      "name": window.get("name"),
+      "tabs": to_array(map(window.get("tabs"), serialize_tab))
+    };
+  };
+
+  const serialize_windows = () => {
+    const windows = db.get(["current.windows"]);
+
+    return to_array(map(windows, serialize_window));
+  };
+
   ports.on_connect(uuid_port_tab, (port) => {
-    port.send(Record([
-      ["type", "init"],
-      ["current.windows", db.get(["current.windows"])],
-      ["current.window-ids", db.get(["current.window-ids"])],
-      ["current.tab-ids", db.get(["current.tab-ids"])],
-      ["transient.tab-ids", db.get(["transient.tab-ids"])]
-    ]));
+    port.send({
+      "type": "init",
+      "windows": serialize_windows()
+    });
 
     const x = tab_events.receive((x) => {
       port.send(x);
@@ -236,11 +265,11 @@ export const init = async(function* () {
       // TODO inefficient
       const index = db.get(["current.windows"]).index_of(id).get();
 
-      tab_events.send(Record([
-        ["type", "window-open"],
-        ["window-index", index],
-        ["window", db.get(["current.window-ids", id])]
-      ]));
+      tab_events.send({
+        "type": "window-open",
+        "window-index": index,
+        "window": serialize_window(id)
+      });
     });
   };
 
@@ -276,11 +305,11 @@ export const init = async(function* () {
 
       db.remove(["current.windows", index]);
 
-      tab_events.send(Record([
-        ["type", "window-close"],
-        ["window-id", id],
-        ["window-index", index]
-      ]));
+      tab_events.send({
+        "type": "window-close",
+        "window-id": id,
+        "window-index": index
+      });
     });
   };
 
@@ -297,14 +326,12 @@ export const init = async(function* () {
 
       db.insert(["current.window-ids", window_id, "tabs", session_index], tab_id);
 
-      tab_events.send(Record([
-        ["type", "tab-open"],
-        ["window-id", window_id],
-        ["tab-index", session_index],
-        // TODO a little hacky ?
-        ["transient", db.get(["transient.tab-ids", tab_id])],
-        ["tab", db.get(["current.tab-ids", tab_id])]
-      ]));
+      tab_events.send({
+        "type": "tab-open",
+        "window-id": window_id,
+        "tab-index": session_index,
+        "tab": serialize_tab(tab_id)
+      });
     });
   };
 
@@ -316,25 +343,26 @@ export const init = async(function* () {
         // TODO assert that it was true ?
         db.update(["transient.tab-ids", tab_id, "focused"], false);
 
-        tab_events.send(Record([
-          ["type", "tab-unfocus"],
-          ["tab-id", tab_id]
-        ]));
+        tab_events.send({
+          "type": "tab-unfocus",
+          "tab-id": tab_id
+        });
       }
 
       if (info.new !== null) {
         const tab_id = session.tab_id(info.new.id);
 
-        db.assign(["current.tab-ids", tab_id, "time", "focused"], timestamp());
+        const new_timestamp = timestamp();
+
+        db.assign(["current.tab-ids", tab_id, "time", "focused"], new_timestamp);
         // TODO assert that it was false ?
         db.update(["transient.tab-ids", tab_id, "focused"], true);
 
-        tab_events.send(Record([
-          ["type", "tab-focus"],
-          ["tab-id", tab_id],
-          // TODO hacky
-          ["tab", db.get(["transient.tab-ids", tab_id])]
-        ]));
+        tab_events.send({
+          "type": "tab-focus",
+          "tab-id": tab_id,
+          "tab-time-focused": new_timestamp
+        });
       }
     });
   };
@@ -353,11 +381,11 @@ export const init = async(function* () {
 
       // TODO is there a better way ?
       if (old_tab !== new_tab) {
-        tab_events.send(Record([
-          ["type", "tab-update"],
-          ["tab-id", tab_id],
-          ["tab", new_tab]
-        ]));
+        tab_events.send({
+          "type": "tab-update",
+          "tab-id": tab_id,
+          "tab": serialize_tab(tab_id)
+        });
       }
     });
   };
@@ -412,14 +440,14 @@ export const init = async(function* () {
                 tab_id);
 
 
-      tab_events.send(Record([
-        ["type", "tab-move"],
-        ["tab-id", tab_id],
-        ["window-old-id", old_window_id],
-        ["window-new-id", new_window_id],
-        ["tab-old-index", session_old_index],
-        ["tab-new-index", session_new_index]
-      ]));
+      tab_events.send({
+        "type": "tab-move",
+        "tab-id": tab_id,
+        "window-old-id": old_window_id,
+        "window-new-id": new_window_id,
+        "tab-old-index": session_old_index,
+        "tab-new-index": session_new_index
+      });
     });
   };
 
@@ -445,12 +473,12 @@ export const init = async(function* () {
 
       db.remove(["current.window-ids", window_id, "tabs", index]);
 
-      tab_events.send(Record([
-        ["type", "tab-close"],
-        ["window-id", window_id],
-        ["tab-id", tab_id],
-        ["tab-index", index]
-      ]));
+      tab_events.send({
+        "type": "tab-close",
+        "window-id": window_id,
+        "tab-id": tab_id,
+        "tab-index": index
+      });
     });
   };
 

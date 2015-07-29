@@ -1,5 +1,4 @@
 import { Event } from "../../util/event";
-import { to_json, from_json } from "../../util/immutable/json";
 import { throw_error } from "./util";
 
 
@@ -10,8 +9,7 @@ export class Port {
         const onMessage = (x) => {
           throw_error();
 
-          // TODO is using `from_json` here correct ?
-          e.send(from_json(x));
+          e.send(x);
         };
 
         port["onMessage"]["addListener"](onMessage);
@@ -52,7 +50,6 @@ export class Port {
   }
 
   send(value) {
-    // TODO is using `to_json` here correct ?
-    this._port["postMessage"](to_json(value));
+    this._port["postMessage"](value);
   }
 }

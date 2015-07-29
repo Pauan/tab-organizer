@@ -1,11 +1,11 @@
 import { uuid_port_tab } from "../../common/uuid";
-import { init as init_chrome } from "../../chrome/client";
+import { ports } from "../../chrome/client";
 import { async } from "../../util/async";
 import { Ref } from "../../util/mutable/ref";
 import { Set } from "../../util/mutable/set";
 import { Record } from "../../util/mutable/record";
 import { List, SortedList } from "../../util/mutable/list";
-import { each, indexed } from "../../util/iterator";
+import { each, map, to_array, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 
 import * as sort_by_window from "./logic/sort-by-window";
@@ -40,30 +40,37 @@ export const windows    = new List();
 export const window_ids = new Record();
 export const tab_ids    = new Record();
 
-const make_window = (info) => {
-  return new Record({
-    "id": info.get("id"),
-    "name": new Ref(info.get("name")),
+const make_window = ({ "id": id,
+                       "name": name }) =>
+  new Record({
+    "id": id,
+    "name": new Ref(name),
     "tabs": new List(),
     // TODO a little hacky
     "first-selected-tab": null
   });
-};
 
-const make_tab = (info, window, focused, unloaded) => {
-  return new Record({
-    "id": info.get("id"),
+const make_tab = ({ "id": id,
+                    "url": url,
+                    "title": title,
+                    "favicon": favicon,
+                    "pinned": pinned,
+                    "focused": focused,
+                    "unloaded": unloaded },
+                  window) =>
+  new Record({
+    "id": id,
     "window": window,
     // TODO should this be a Ref instead ?
     "index": null,
     // TODO make this into a Record or Ref ?
-    "time": info.get("time"),
+    //"time": info.get("time"),
     //"groups": new Set(),
 
-    "url": new Ref(info.get("url")),
-    "title": new Ref(info.get("title") || info.get("url") || ""),
-    "favicon": new Ref(info.get("favicon")),
-    "pinned": new Ref(info.get("pinned")),
+    "url": new Ref(url),
+    "title": new Ref(title || url || ""),
+    "favicon": new Ref(favicon),
+    "pinned": new Ref(pinned),
 
     "selected": new Ref(false),
     "focused": new Ref(focused),
@@ -72,12 +79,6 @@ const make_tab = (info, window, focused, unloaded) => {
     "visible": new Ref(true),
     "top": new Ref(null)
   });
-
-  /*each(get_groups(tab), (group) => {
-    tab.get("groups").insert(group);
-    group.get("tabs").insert(tab);
-  });*/
-};
 
 /*
 // TODO remove remaining tabs as well ?
@@ -287,164 +288,169 @@ export const move_tabs = (selected, { group, tab, direction }) => {
   });
 
   update_indexes(tabs);
+
+  port.send({
+    "type": "move-tabs",
+    // TODO hacky
+    "window": group.get("id"),
+    "tabs": to_array(map(selected, (tab) => tab.get("id"))),
+    "index": index
+  });
 };
 
 
 dom.main(ui_group_list(sort_by_window.groups));
 
 
-export const init = async(function* () {
-  const { ports } = yield init_chrome;
+const port = ports.connect(uuid_port_tab);
 
-  const port = ports.connect(uuid_port_tab);
+const types = {
+  "init": ({ "windows": _windows }) => {
 
-  const types = {
-    "init": (x) => {
-      const _windows = x.get("current.windows");
-      const _window_ids = x.get("current.window-ids");
-      const _tab_ids = x.get("current.tab-ids");
-      const _transient = x.get("transient.tab-ids");
+    each(_windows, (info) => {
+      const window = make_window(info);
 
-      each(_windows, (window_id) => {
-        const info = _window_ids.get(window_id);
+      const tabs = window.get("tabs");
 
-        const window = make_window(info);
+      each(info["tabs"], (info) => {
+        const tab = make_tab(info, window);
 
-        const tabs = window.get("tabs");
+        tab_ids.insert(tab.get("id"), tab);
 
-        each(info.get("tabs"), (tab_id) => {
-          const info = _tab_ids.get(tab_id);
-
-          const tab = make_tab(info, window,
-                               _transient.has(tab_id) &&
-                               _transient.get(tab_id).get("focused"),
-                               !_transient.has(tab_id));
-
-          tab_ids.insert(tab.get("id"), tab);
-
-          tabs.push(tab);
-        });
-
-        // TODO because we're pushing, this can be made O(1) rather than O(n)
-        update_indexes(tabs);
-
-        window_ids.insert(window.get("id"), window);
-
-        windows.push(window);
+        tabs.push(tab);
       });
 
-      update_names(windows);
-
-      //sort_by_window.init(windows);
-    },
-
-    "tab-open": (x) => {
-      const transient = x.get("transient");
-      const info = x.get("tab");
-      const window = window_ids.get(x.get("window-id"));
-      const index = x.get("tab-index");
-      const tabs = window.get("tabs");
-
-      const tab = make_tab(info, window, transient.get("focused"), false);
-
-      tab_ids.insert(tab.get("id"), tab);
-
-      tabs.insert(index, tab);
-
+      // TODO because we're pushing, this can be made O(1) rather than O(n)
       update_indexes(tabs);
-    },
-
-    // TODO update the timestamp as well
-    "tab-focus": (x) => {
-      tab_ids.get(x.get("tab-id")).get("focused").set(true);
-    },
-
-    "tab-unfocus": (x) => {
-      tab_ids.get(x.get("tab-id")).get("focused").set(false);
-    },
-
-    "tab-update": (x) => {
-      const tab = tab_ids.get(x.get("tab-id"));
-      const info = x.get("tab");
-
-      tab.get("url").set(info.get("url"));
-      // TODO code duplication
-      tab.get("title").set(info.get("title") || info.get("url") || "");
-      tab.get("favicon").set(info.get("favicon"));
-      tab.get("pinned").set(info.get("pinned"));
-    },
-
-    "tab-move": (x) => {
-      const old_window = window_ids.get(x.get("window-old-id"));
-      const new_window = window_ids.get(x.get("window-new-id"));
-      const old_index = x.get("tab-old-index");
-      const new_index = x.get("tab-new-index");
-      const old_tabs = old_window.get("tabs");
-      const new_tabs = new_window.get("tabs");
-      const tab = tab_ids.get(x.get("tab-id"));
-
-      assert(old_tabs.get(old_index) === tab);
-
-      old_tabs.remove(old_index);
-      new_tabs.insert(new_index, tab);
-
-      // TODO this can be more efficient if `old_tabs === new_tabs`
-      update_indexes(old_tabs);
-      update_indexes(new_tabs);
-    },
-
-    "tab-close": (x) => {
-      const window = window_ids.get(x.get("window-id"));
-      const tab = tab_ids.get(x.get("tab-id"));
-      const index = x.get("tab-index");
-      const tabs = window.get("tabs");
-
-      tab_ids.remove(tab.get("id"));
-
-      assert(tabs.get(index) === tab);
-
-      tabs.remove(index);
-
-      update_indexes(tabs);
-    },
-
-    "window-open": (x) => {
-      const info = x.get("window");
-      const window = make_window(info);
-      const index = x.get("window-index");
-
-      assert(info.get("tabs").size === 0);
 
       window_ids.insert(window.get("id"), window);
 
-      windows.insert(index, window);
+      windows.push(window);
+    });
 
-      // TODO this can be made more efficient
-      update_names(windows);
-    },
+    update_names(windows);
 
-    "window-close": (x) => {
-      const window = window_ids.get(x.get("window-id"));
-      const index = x.get("window-index");
+    //sort_by_window.init(windows);
+  },
 
-      assert(window.get("tabs").size === 0);
+  "tab-open": ({ "tab": info,
+                 "window-id": window_id,
+                 "tab-index": index }) => {
 
-      window_ids.remove(window.get("id"));
+    const window = window_ids.get(window_id);
+    const tabs = window.get("tabs");
 
-      assert(windows.get(index) === window);
+    const tab = make_tab(info, window);
 
-      windows.remove(index);
+    tab_ids.insert(tab.get("id"), tab);
 
-      update_names(windows);
+    tabs.insert(index, tab);
+
+    update_indexes(tabs);
+  },
+
+  // TODO update the timestamp as well
+  "tab-focus": ({ "tab-id": id }) => {
+    tab_ids.get(id).get("focused").set(true);
+  },
+
+  "tab-unfocus": ({ "tab-id": id }) => {
+    tab_ids.get(id).get("focused").set(false);
+  },
+
+  "tab-update": ({ "tab-id": id,
+                   "tab": { "url": url,
+                            "title": title,
+                            "favicon": favicon,
+                            "pinned": pinned } }) => {
+
+    const tab = tab_ids.get(id);
+
+    tab.get("url").set(url);
+    // TODO code duplication
+    tab.get("title").set(title || url || "");
+    tab.get("favicon").set(favicon);
+    tab.get("pinned").set(pinned);
+  },
+
+  "tab-move": ({ "window-old-id": old_window_id,
+                 "window-new-id": new_window_id,
+                 "tab-old-index": old_index,
+                 "tab-new-index": new_index,
+                 "tab-id": tab_id }) => {
+
+    const old_window = window_ids.get(old_window_id);
+    const new_window = window_ids.get(new_window_id);
+    const old_tabs = old_window.get("tabs");
+    const new_tabs = new_window.get("tabs");
+    const tab = tab_ids.get(tab_id);
+
+    assert(old_tabs.get(old_index) === tab);
+
+    old_tabs.remove(old_index);
+    new_tabs.insert(new_index, tab);
+
+    if (old_tabs !== new_tabs) {
+      update_indexes(old_tabs);
     }
-  };
 
-  port.on_receive((x) => {
-    const type = x.get("type");
-    if (types[type]) {
-      types[type](x);
-    } else {
-      fail();
-    }
-  });
+    update_indexes(new_tabs);
+  },
+
+  "tab-close": ({ "window-id": window_id,
+                  "tab-id": tab_id,
+                  "tab-index": index }) => {
+
+    const window = window_ids.get(window_id);
+    const tab = tab_ids.get(tab_id);
+    const tabs = window.get("tabs");
+
+    tab_ids.remove(tab.get("id"));
+
+    assert(tabs.get(index) === tab);
+
+    tabs.remove(index);
+
+    update_indexes(tabs);
+  },
+
+  "window-open": ({ "window": info,
+                    "window-index": index }) => {
+
+    const window = make_window(info);
+
+    assert(info.get("tabs").size === 0);
+
+    window_ids.insert(window.get("id"), window);
+
+    windows.insert(index, window);
+
+    // TODO this can be made more efficient
+    update_names(windows);
+  },
+
+  "window-close": ({ "window-id": window_id,
+                     "window-index": index }) => {
+
+    const window = window_ids.get(window_id);
+
+    assert(window.get("tabs").size === 0);
+
+    window_ids.remove(window.get("id"));
+
+    assert(windows.get(index) === window);
+
+    windows.remove(index);
+
+    update_names(windows);
+  }
+};
+
+port.on_receive((x) => {
+  const type = x["type"];
+  if (types[type]) {
+    types[type](x);
+  } else {
+    fail();
+  }
 });
