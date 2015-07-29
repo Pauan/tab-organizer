@@ -2,7 +2,7 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, map, to_array } from "../util/iterator";
+import { each, map, to_array, indexed } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 import { Event } from "../util/event";
@@ -59,6 +59,36 @@ export const init = async(function* () {
     return to_array(map(windows, serialize_window));
   };
 
+  const handle_event = {
+    // TODO send out `tab_events` ?
+    "move-tabs": ({ "window": window_id,
+                    "tabs": tabs,
+                    "index": index }) => {
+
+      db.transaction((db) => {
+        each(indexed(tabs), ([i, tab_id]) => {
+          const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
+          const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
+          const old_index = old_tabs.index_of(tab_id).get();
+
+          db.update(["current.tab-ids", tab_id, "window"], window_id);
+
+          db.remove(["current.window-ids", old_window_id, "tabs", old_index]);
+
+          // TODO test this
+          if (old_window_id === window_id && old_index < index) {
+            db.insert(["current.window-ids", window_id, "tabs", index - 1],
+                      tab_id);
+
+          } else {
+            db.insert(["current.window-ids", window_id, "tabs", index + i],
+                      tab_id);
+          }
+        });
+      });
+    }
+  };
+
   ports.on_connect(uuid_port_tab, (port) => {
     port.send({
       "type": "init",
@@ -67,6 +97,15 @@ export const init = async(function* () {
 
     const x = tab_events.receive((x) => {
       port.send(x);
+    });
+
+    port.on_receive((x) => {
+      const type = x["type"];
+      if (handle_event[type]) {
+        handle_event[type](x);
+      } else {
+        fail();
+      }
     });
 
     // When the port closes, stop listening for `tab_events`

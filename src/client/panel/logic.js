@@ -186,31 +186,46 @@ export const drag_end = (selected) => {
 
   drag_info.set(null);
 
-  each(selected, (x) => {
-    // TODO hacky
-    const tabs = x.get("window").get("tabs");
 
-    tabs.remove(x.get("index"));
+  const index1 = info.tab.get("index");
+  const index2 = (info.direction === "down"
+                   ? index1 + 1
+                   : index1);
+
+
+  const tabs = info.group.get("tabs");
+
+  each(indexed(selected), ([i, x]) => {
+    // TODO hacky
+    const old_window = x.get("window");
+    const old_index = x.get("index");
+    const old_tabs = old_window.get("tabs");
 
     // TODO hacky
     x.update("window", info.group);
 
+    old_tabs.remove(old_index);
+
+    if (old_tabs === tabs && old_index < index2) {
+      tabs.insert(index2 - 1, x);
+    } else {
+      tabs.insert(index2 + i, x);
+    }
+
     // TODO inefficient
-    update_indexes(tabs);
-  });
-
-  const tabs = info.group.get("tabs");
-  const index1 = info.tab.get("index");
-  // TODO a bit hacky
-  const index2 = (info.direction === "down" && tabs.has(index1)
-                   ? index1 + 1
-                   : index1);
-
-  each(indexed(selected), ([i, x]) => {
-    tabs.insert(index2 + i, x);
+    update_indexes(old_tabs);
   });
 
   update_indexes(tabs);
+
+
+  port.send({
+    "type": "move-tabs",
+    // TODO hacky
+    "window": info.group.get("id"),
+    "tabs": to_array(map(selected, (tab) => tab.get("id"))),
+    "index": index2
+  });
 };
 
 
@@ -249,52 +264,6 @@ const update_indexes = (a) => {
     if (info !== null && info.tab === x && info.direction === "down") {
       top += info.height;
     }
-  });
-};
-
-// TODO this is still broken
-export const move_tabs = (selected, { group, tab, direction }) => {
-  let to_index = tab.get("index");
-
-  each(selected, (tab) => {
-    const window = tab.get("window");
-    const tabs = window.get("tabs");
-    const index = tab.get("index");
-
-    // TODO hacky
-    if (window === group && index < to_index) {
-      --to_index;
-    }
-
-    // TODO hacky
-    tab.update("window", group);
-
-    assert(tabs.get(index) === tab);
-
-    tabs.remove(index);
-
-    // TODO inefficient ?
-    update_indexes(tabs);
-  });
-
-  const tabs = group.get("tabs");
-
-  const index = (direction === "down"
-                  ? to_index + 1
-                  : to_index);
-
-  each(indexed(selected), ([i, tab]) => {
-    tabs.insert(to_index + i, tab);
-  });
-
-  update_indexes(tabs);
-
-  port.send({
-    "type": "move-tabs",
-    // TODO hacky
-    "window": group.get("id"),
-    "tabs": to_array(map(selected, (tab) => tab.get("id"))),
-    "index": index
   });
 };
 
