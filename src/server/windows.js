@@ -41,7 +41,7 @@ export const init = async(function* () {
       "title": tab.get("title"),
       "favicon": tab.get("favicon"),
       "pinned": tab.get("pinned"),
-      "focused": transients.has(id) && transients.get(id).get("focused"),
+      "focused": transients.has(id) && transients.get(id).focused,
       "unloaded": !transients.has(id)
     };
   };
@@ -199,14 +199,6 @@ export const init = async(function* () {
     ]);
 
     db.insert(["current.tab-ids", tab_id], tab);
-
-    make_new_tab_transient(db, tab_id, info);
-  };
-
-  const make_new_tab_transient = (db, tab_id, info) => {
-    db.insert(["transient.tab-ids", tab_id], Record([
-      ["focused", info.focused]
-    ]));
   };
 
   const update_window = (db, window_id, info) => {
@@ -215,10 +207,11 @@ export const init = async(function* () {
     each(info.tabs, (info) => {
       const tab_id = session.tab_id(info.id);
 
+      db.insert(["transient.tab-ids", tab_id], info);
+
       if (tab_ids.has(tab_id)) {
         // TODO assert that the index is correct ?
         update_tab(db, tab_id, info);
-        make_new_tab_transient(db, tab_id, info);
 
       } else {
         make_new_tab(db, window_id, tab_id, info);
@@ -236,7 +229,10 @@ export const init = async(function* () {
 
       ["tabs", List(map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
+
         make_new_tab(db, window_id, tab_id, tab);
+        db.insert(["transient.tab-ids", tab_id], tab);
+
         return tab_id;
       }))],
 
@@ -367,6 +363,8 @@ export const init = async(function* () {
 
       make_new_tab(db, window_id, tab_id, tab);
 
+      db.insert(["transient.tab-ids", tab_id], tab);
+
       const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 
       const session_index = find_left_index(tabs, window, index);
@@ -387,9 +385,6 @@ export const init = async(function* () {
       if (info.old !== null) {
         const tab_id = session.tab_id(info.old.id);
 
-        // TODO assert that it was true ?
-        db.update(["transient.tab-ids", tab_id, "focused"], false);
-
         tab_events.send({
           "type": "tab-unfocus",
           "tab-id": tab_id
@@ -402,8 +397,6 @@ export const init = async(function* () {
         const new_timestamp = timestamp();
 
         db.assign(["current.tab-ids", tab_id, "time", "focused"], new_timestamp);
-        // TODO assert that it was false ?
-        db.update(["transient.tab-ids", tab_id, "focused"], true);
 
         tab_events.send({
           "type": "tab-focus",
