@@ -1,4 +1,5 @@
 import { performance } from "../common/globals";
+import { always, Ref } from "./mutable/ref";
 
 
 let batching = false;
@@ -45,40 +46,44 @@ const unbatch = (f) => {
 };
 
 
-export const animate = (duration, send) => {
+const animate_raw = (duration, send) => {
+  const loop = (now) => {
+    // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
+    const diff = now - start;
+
+    if (diff >= duration) {
+      send(1);
+
+    } else {
+      batch(loop);
+      send(diff / duration);
+    }
+  };
+
+  const start = batch(loop);
+
+  // TODO test this
+  return {
+    stop: () => {
+      unbatch(loop);
+    }
+  };
+};
+
+export const animate = ({ duration, easing = linear }) => {
   if (duration === 0) {
-    send(1);
-
-    // TODO a little hacky
-    return {
-      stop: () => {}
-    };
-
+    return always(1);
 
   } else {
-    send(0);
+    // TODO use a Stream ?
+    const out = new Ref(0);
 
-    const loop = (now) => {
-      // TODO the first frame seems to fire too quickly (e.g. ~4ms after start time)
-      const diff = now - start;
+    // TODO what about stopping it ?
+    animate_raw(duration, (i) => {
+      out.set(easing(i));
+    });
 
-      if (diff >= duration) {
-        send(1);
-
-      } else {
-        batch(loop);
-        send(diff / duration);
-      }
-    };
-
-    const start = batch(loop);
-
-    // TODO test this
-    return {
-      stop: () => {
-        unbatch(loop);
-      }
-    };
+    return out;
   }
 };
 

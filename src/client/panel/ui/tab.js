@@ -2,13 +2,11 @@ import * as dom from "../../dom";
 import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
-import { each, indexed } from "../../../util/iterator";
-import { ease_in, ease_out, linear } from "../../../util/animate";
+import { each, map, indexed, empty } from "../../../util/iterator";
 import { drag_onto_tab, drag_start, drag_end } from "../logic";
 
 
-const $selected = new List();
-
+const $selected = new Ref(empty);
 const $dragging = new Ref(null);
 
 // TODO move this into another module
@@ -36,12 +34,12 @@ const style_tab = dom.style({
   "padding-right": always("1px"),
   "border-radius": always("5px"),
 
-  "transition-property": always("background-color"),
-  "transition-timing-function": always("ease-in-out"),
-  "transition-duration": always("100ms"),
+  "transition-property": always("background-color, transform"),
+  "transition-timing-function": always("ease-in-out, ease-out"),
+  "transition-duration": always("100ms, 100ms"),
 
   //"transform-origin": "11px 50%",
-  //"transform": "translate3d(0, 0, 0)", /* TODO this is a hack to make animation smoother, should replace with something else */
+  //"transform": always("translate3d(0px, 0px, 0px)"), /* TODO this is a hack to make animation smoother, should replace with something else */
 
   "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
 });
@@ -54,7 +52,7 @@ const style_unloaded = dom.style({
 const style_focused = dom.style({
   "background-color": always(dom.hsl(30, 100, 94)),
   "border-color":     always(dom.hsl(30, 100, 40)),
-  "transition-duration": always("0ms"),
+  "transition-duration": always("0ms, 100ms"),
 });
 
 const repeating = dom.repeating_gradient("-45deg",
@@ -69,7 +67,7 @@ const style_hover = dom.style({
 
   "z-index": always("1"),
 
-  "transition-duration": always("0ms"),
+  "transition-duration": always("0ms, 100ms"),
   "background-image": always(dom.gradient("to bottom",
                                           ["0%",   dom.hsl(0, 0, 100, 0.2)],
                                           ["49%",  "transparent"          ],
@@ -161,14 +159,6 @@ const style_visible = dom.style({
   "opacity": always("1")
 });
 
-const style_drag_stacked = dom.style({
-  "margin-top": always("-18px")
-});
-
-const style_drag_normal = dom.style({
-  "margin-top": always("0px")
-});
-
 
 const favicon = (tab) =>
   dom.image((e) => [
@@ -215,29 +205,6 @@ const close = (tab, show) =>
     //  ])),
   ]);
 
-const ui_dragging_style = (e, index) => {
-  /*if (index === 0) {
-    // Do nothing
-
-  } else if (index < 5) {
-    return e.animate({
-      from: style_drag_normal,
-      to: style_drag_stacked,
-      duration: 500,
-      seek: always(1)
-    });
-
-  } else {
-    return e.animate({
-      from: style_visible,
-      to: style_hidden,
-      duration: 500,
-      seek: always(1)
-    });
-  }*/
-};
-
-// TODO the index probably isn't reliable (should use a Ref of List rather than a List)
 const ui_dragging = (tab, index) =>
   dom.row((e) => [
     e.set_style(style_tab, always(true)),
@@ -246,10 +213,64 @@ const ui_dragging = (tab, index) =>
     e.set_style(style_hover, always(index === 0)),
 
     e.style({
-      "z-index": always(-index + "")
+      "z-index": always(-index + ""),
+
+      "transition-property": always([
+        "transform",
+        "height",
+        "border-width",
+        "padding-width"
+      // TODO hacky
+      ]["join"](",")),
+
+      "transition-timing-function": always("ease-in-out"),
+      "transition-duration": always("500ms"),
+
+      "transform": always("translate3d(0px, " + (index * 20) + "px, 0px)")
     }),
 
-    ui_dragging_style(e, index),
+    // TODO super hacky
+    setTimeout(() => {
+      if (index < 5) {
+        e.style({
+          "transform": always("translate3d(0px, " + (index * 2) + "px, 0px)")
+        });
+
+      } else {
+        e.style({
+          "padding-top": always("0px"),
+          "padding-bottom": always("0px"),
+          "height": always("0px"),
+          "border-top-width": always("0px"),
+          "border-bottom-width": always("0px"),
+          "transform": always("translate3d(0px, 8px, 0px)")
+        })
+      }
+    }),
+
+    // TODO why is this so janky when many tabs are selected ?
+    /*
+    // TODO hacky and verbose, but it does work
+    // TODO is this efficient ?
+    ((x) =>
+      (index < 5
+        ? e.style({
+            "transform": x.map((x) =>
+                           "translate3d(0px, " +
+                           range(x, (index * 20), (index * 2)) +
+                           "px, 0px)")
+          })
+        : e.style({
+            "padding-top": x.map((x) => round_range(x, 1, 0) + "px"),
+            "padding-bottom": x.map((x) => round_range(x, 1, 0) + "px"),
+            "height": x.map((x) => round_range(x, 20, 0) + "px"),
+            "border-top-width": x.map((x) => round_range(x, 1, 0) + "px"),
+            "border-bottom-width": x.map((x) => round_range(x, 1, 0) + "px"),
+            "transform": x.map((x) =>
+                           "translate3d(0px, " +
+                           range(x, (index * 20), (index * 20)) +
+                           "px, 0px)")
+          })))(animate({ duration: 500, easing: linear })),*/
 
     e.children([
       favicon(tab),
@@ -272,9 +293,9 @@ const dragging =
 
     e.visible($dragging),
 
-    // TODO hacky
-    e.children($selected.map((tab, index) =>
-      ui_dragging(tab, index))),
+    e.set_children($selected.map((selected) =>
+      map(indexed(selected), ([index, tab]) =>
+        ui_dragging(tab, index)))),
 
     e.style({
       "left":  drag_style((info) => info.x),
@@ -443,13 +464,10 @@ export const tab = (group, tab) =>
     }),
 
     e.style({
-      /*tab.get("top").map((x) =>
-                    (x !== null ? "absolute" : null)),*/
       "transform": tab.get("top").map((x) =>
                      (x !== null
-                       ? "translate3d(0, " + x + ", 0)"
-                       : null)),
-      "transition": always("transform 100ms linear")
+                       ? "translate3d(0px, " + x + ", 0px)"
+                       : null))
     }),
 
     /*e.animate({
@@ -513,28 +531,32 @@ export const tab = (group, tab) =>
 
         const tabs = group.get("tabs");
 
+        const selected = new List();
+
         each(tabs, (x) => {
           if (x.get("selected").get()) {
-            $selected.push(x);
+            selected.push(x);
           }
         });
 
-        if ($selected.size === 0) {
-          $selected.push(tab);
+        if (selected.size === 0) {
+          selected.push(tab);
         }
 
-        each($selected, (tab) => {
+        each(selected, (tab) => {
           tab.get("visible").set(false);
         });
 
         // TODO hacky
-        const height = ($selected.size === 1
+        const height = (selected.size === 1
                          ? tab_box.height
                          : (tab_box.height +
-                            (Math["min"]($selected.size, 4) * 3)));
+                            (Math["min"](selected.size, 4) * 3)));
 
         const offset_x = (x - tab_box.left);
         const offset_y = (height / 2);
+
+        $selected.set(selected);
 
         $dragging.set({
           offset_x: offset_x,
@@ -562,7 +584,9 @@ export const tab = (group, tab) =>
       },
 
       end: () => {
-        each(indexed($selected), ([i, tab]) => {
+        const selected = $selected.get();
+
+        each(selected, (tab) => {
           tab.get("visible").set(true);
 
           /*if (i !== 0) {
@@ -575,11 +599,10 @@ export const tab = (group, tab) =>
           }*/
         });
 
-        $selected.clear();
+        drag_end(selected);
 
+        $selected.set(empty);
         $dragging.set(null);
-
-        drag_end();
       }
     })
   ]);

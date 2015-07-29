@@ -494,6 +494,25 @@ class Element {
 
     // TODO is this inefficient ?
     each(entries(o), ([key, ref]) => {
+      /*
+      // TODO can this be made more efficient ?
+      if (key === "transform") {
+        const keys = [];
+        const refs = [];
+
+        each(entries(ref), ([key, ref]) => {
+          keys["push"](key);
+          refs["push"](ref);
+        });
+
+        // TODO a little hacky ?
+        ref = latest(refs, (...values) => {
+          // TODO use a consistent order for the keys ?
+          const value = keys["map"]((key, i) => key + "(" + values[i] + ")");
+          return value["join"](" ");
+        });
+      }*/
+
       // TODO a little hacky
       stops["push"](ref.each((x) => {
         // TODO test this
@@ -570,6 +589,17 @@ class Parent extends Element {
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
+  }
+
+  // TODO is this correct ?
+  set_children(x) {
+    return x.each((x) => {
+      this._clear();
+
+      each(x, (x) => {
+        this._push(x);
+      });
+    });
   }
 
   children(x) {

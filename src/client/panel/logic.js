@@ -180,12 +180,36 @@ export const drag_start = ({ group, tab, height }) => {
   update_indexes(group.get("tabs"));
 };
 
-export const drag_end = () => {
+export const drag_end = (selected) => {
   const info = drag_info.get();
 
   drag_info.set(null);
 
-  update_indexes(info.group.get("tabs"));
+  each(selected, (x) => {
+    // TODO hacky
+    const tabs = x.get("window").get("tabs");
+
+    tabs.remove(x.get("index"));
+
+    // TODO hacky
+    x.update("window", info.group);
+
+    // TODO inefficient
+    update_indexes(tabs);
+  });
+
+  const tabs = info.group.get("tabs");
+  const index1 = info.tab.get("index");
+  // TODO a bit hacky
+  const index2 = (info.direction === "down" && tabs.has(index1)
+                   ? index1 + 1
+                   : index1);
+
+  each(indexed(selected), ([i, x]) => {
+    tabs.insert(index2 + i, x);
+  });
+
+  update_indexes(tabs);
 };
 
 

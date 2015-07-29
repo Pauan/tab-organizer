@@ -11,9 +11,7 @@ class Base {
   each(f) {
     f(this.get());
 
-    return this._listen(() => {
-      f(this.get());
-    });
+    return this._listen(f);
   }
 }
 
@@ -33,8 +31,8 @@ class Latest extends Base {
   _listen(f) {
     const x = this._args["map"]((x) =>
       // This is needed in order to avoid errors with `Set#insert`
-      x._listen((x) => {
-        f(x);
+      x._listen(() => {
+        f(this.get());
       }));
 
     return {
@@ -67,7 +65,7 @@ export class Ref extends Base {
   set(value) {
     if (this._value !== value) {
       this._value = value;
-      this._event.send(undefined);
+      this._event.send(value);
     }
   }
 
