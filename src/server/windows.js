@@ -144,6 +144,14 @@ export const init = async(function* () {
           }
         });
       });
+    },
+
+
+    "focus-tab": ({ "tab": tab_id }) => {
+      // TODO it should re-open the tab if it's unloaded
+      const tab = db.get(["transient.tab-ids", tab_id]);
+
+      tab.focus();
     }
   };
 

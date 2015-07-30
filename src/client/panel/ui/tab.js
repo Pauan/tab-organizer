@@ -209,7 +209,7 @@ const ui_dragging = (tab, index) =>
   dom.row((e) => [
     e.set_style(style_tab, always(true)),
     e.set_style(style_visible, always(true)),
-    e.set_style(style_selected, always(true)),
+    e.set_style(style_selected, tab.get("selected")),
     e.set_style(style_hover, always(index === 0)),
 
     e.style({
@@ -223,8 +223,8 @@ const ui_dragging = (tab, index) =>
       // TODO hacky
       ]["join"](",")),
 
-      "transition-timing-function": always("ease-in-out"),
-      "transition-duration": always("500ms"),
+      "transition-timing-function": always("ease-out"),
+      "transition-duration": always("300ms"),
 
       "transform": always("translate3d(0px, " + (index * 20) + "px, 0px)")
     }),
@@ -466,9 +466,17 @@ export const tab = (group, tab) =>
     }),
 
     e.style({
+      // TODO hacky
+      "transition": latest([
+        tab.get("top"),
+        $dragging
+      ], (x, dragging) =>
+        (x !== null && !x.animate && dragging
+          ? "none"
+          : null)),
       "transform": tab.get("top").map((x) =>
                      (x !== null
-                       ? "translate3d(0px, " + x + ", 0px)"
+                       ? "translate3d(0px, " + x.px + ", 0px)"
                        : null))
     }),
 
@@ -573,12 +581,13 @@ export const tab = (group, tab) =>
       },
 
       move: ({ x, y }) => {
-        $dragging.modify(({ offset_x, offset_y, width }) => {
+        $dragging.modify(({ offset_x, offset_y, x, width }) => {
           // TODO hacky
           return {
             offset_x,
             offset_y,
-            x: (x - offset_x),
+            x,
+            //x: (x - offset_x),
             y: (y - offset_y),
             width
           };

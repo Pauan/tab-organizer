@@ -5,17 +5,16 @@ import * as dom from "../../dom";
 
 
 const style_group = dom.style({
-  "width": always("300px"),
-  "height": always("100%"),
-
-  "border": always("5px solid black"),
+  //"width": always("300px"),
+  //"height": always("100%"),
+  "margin-top": always("-1px"),
+  "border-top": always("1px solid black"),
   // TODO
   "background-color": always("white"),
 });
 
 const style_group_tabs = dom.style({
-  "overflow": always("auto"),
-  "flex": always("1"), // TODO is this correct ?
+  "overflow-y": always("auto"),
   //"height": "100%"
 });
 
@@ -32,13 +31,19 @@ const group_header = (group) =>
 
 const group_tabs = (group) =>
   dom.col((e) => [
+    e.set_style(dom.stretch, always(true)),
     e.set_style(style_group_tabs, always(true)),
 
-    e.on_mouse_hover((hover) => {
+    e.style({
+      "height": group.get("height")
+    }),
+
+    // TODO
+    /*e.on_mouse_hover((hover) => {
       if (hover) {
         drag_onto_group(group);
       }
-    }),
+    }),*/
 
     e.children(group.get("tabs").map((x) => ui_tab(group, x)))
   ]);

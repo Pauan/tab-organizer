@@ -112,6 +112,16 @@ class Tab {
       "index": index
     });
   }
+
+  focus() {
+    chrome["tabs"]["update"](this.id, {
+      "active": true
+    });
+
+    chrome["windows"]["update"](this.window.id, {
+      "focused": true
+    });
+  }
 }
 
 export const update_tab = (id, info) => {

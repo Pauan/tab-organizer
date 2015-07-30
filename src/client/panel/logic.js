@@ -7,12 +7,10 @@ import { Record } from "../../util/mutable/record";
 import { List, SortedList } from "../../util/mutable/list";
 import { each, map, to_array, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
+import { top as ui_top } from "./ui/top";
+import * as dom from "../dom";
 
 import * as sort_by_window from "./logic/sort-by-window";
-
-import { current_time, round_to_hour, difference } from "../../util/time";
-import { group_list as ui_group_list } from "./ui/group-list";
-import * as dom from "../dom";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -46,8 +44,11 @@ const make_window = ({ "id": id,
     "id": id,
     "name": new Ref(name),
     "tabs": new List(),
+
     // TODO a little hacky
-    "first-selected-tab": null
+    "first-selected-tab": null,
+
+    "height": new Ref(null)
   });
 
 const make_tab = ({ "id": id,
@@ -137,16 +138,18 @@ export const drag_onto_tab = (group, tab) => {
           }
 
         } else {
-          return "up";
+          return info.direction;
         }
       })()
     });
 
-    if (info.group !== group) {
-      update_indexes(info.group.get("tabs"));
-    }
+    if (info.group === group) {
+      update_tabs(group, true);
 
-    update_indexes(group.get("tabs"));
+    } else {
+      update_tabs(group, false);
+      update_tabs(info.group, false);
+    }
   }
 };
 
@@ -165,8 +168,13 @@ export const drag_onto_group = (group) => {
       direction: "down"
     });
 
-    // TODO does this need to update `group.get("tabs")` ?
-    update_indexes(info.group.get("tabs"));
+    if (info.group === group) {
+      update_tabs(group, true);
+
+    } else {
+      update_tabs(group, false);
+      update_tabs(info.group, false);
+    }
   }
 };
 
@@ -178,7 +186,7 @@ export const drag_start = ({ group, tab, height }) => {
     direction: "up"
   });
 
-  update_indexes(group.get("tabs"));
+  update_tabs(group, false);
 };
 
 // TODO what about "first-selected-tab" ?
@@ -193,6 +201,8 @@ export const drag_end = (selected) => {
                    ? index1 + 1
                    : index1);
 
+
+  update_tabs(info.group, true);
 
   /*const tabs = info.group.get("tabs");
 
@@ -214,10 +224,10 @@ export const drag_end = (selected) => {
     }
 
     // TODO inefficient
-    update_indexes(old_tabs);
+    update_tabs(old_tabs, false);
   });
 
-  update_indexes(tabs);*/
+  update_tabs(tabs, false);*/
 
 
   port.send({
@@ -238,7 +248,7 @@ export const focus_tab = (tab) => {
 };
 
 
-const update_names = (a) => {
+const update_groups = (a) => {
   each(indexed(a), ([i, x]) => {
     x.get("name").modify((name) => {
       if (name === null) {
@@ -251,7 +261,9 @@ const update_names = (a) => {
 };
 
 // TODO this can be more efficient if it is given the starting index
-const update_indexes = (a) => {
+const update_tabs = (group, animate) => {
+  const a = group.get("tabs");
+
   const info = drag_info.get();
 
   let top = 0;
@@ -265,7 +277,11 @@ const update_indexes = (a) => {
     }
 
     if (x.get("visible").get()) {
-      x.get("top").set(top + "px");
+      x.get("top").set({
+        animate: animate,
+        px: top + "px"
+      });
+
       top += 20; // TODO gross
     }
 
@@ -274,10 +290,12 @@ const update_indexes = (a) => {
       top += info.height;
     }
   });
+
+  group.get("height").set(top + "px");
 };
 
 
-dom.main(ui_group_list(sort_by_window.groups));
+dom.main(ui_top(sort_by_window.groups));
 
 
 const port = ports.connect(uuid_port_tab);
@@ -299,14 +317,14 @@ const types = {
       });
 
       // TODO because we're pushing, this can be made O(1) rather than O(n)
-      update_indexes(tabs);
+      update_tabs(window, false);
 
       window_ids.insert(window.get("id"), window);
 
       windows.push(window);
     });
 
-    update_names(windows);
+    update_groups(windows);
 
     //sort_by_window.init(windows);
   },
@@ -324,7 +342,7 @@ const types = {
 
     tabs.insert(index, tab);
 
-    update_indexes(tabs);
+    update_tabs(window, true);
   },
 
   // TODO update the timestamp as well
@@ -368,11 +386,14 @@ const types = {
     old_tabs.remove(old_index);
     new_tabs.insert(new_index, tab);
 
-    if (old_tabs !== new_tabs) {
-      update_indexes(old_tabs);
-    }
+    // TODO is this correct ?
+    if (old_window === new_window) {
+      update_tabs(old_window, true);
 
-    update_indexes(new_tabs);
+    } else {
+      update_tabs(old_window, true);
+      update_tabs(new_window, true);
+    }
   },
 
   "tab-close": ({ "window-id": window_id,
@@ -389,7 +410,7 @@ const types = {
 
     tabs.remove(index);
 
-    update_indexes(tabs);
+    update_tabs(window, true);
   },
 
   "window-open": ({ "window": info,
@@ -404,7 +425,7 @@ const types = {
     windows.insert(index, window);
 
     // TODO this can be made more efficient
-    update_names(windows);
+    update_groups(windows);
   },
 
   "window-close": ({ "window-id": window_id,
@@ -420,7 +441,7 @@ const types = {
 
     windows.remove(index);
 
-    update_names(windows);
+    update_groups(windows);
   }
 };
 
