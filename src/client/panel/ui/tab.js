@@ -34,14 +34,47 @@ const style_tab = dom.style({
   "padding-right": always("1px"),
   "border-radius": always("5px"),
 
-  "transition-property": always("background-color, transform"),
-  "transition-timing-function": always("ease-in-out, ease-out"),
-  "transition-duration": always("100ms, 100ms"),
+  "transition-property": always([
+    "background-color",
+    "transform",
+    "border-width",
+    "padding",
+    "height",
+    "opacity"
+  // TODO hacky
+  ]["join"](",")),
+
+  "transition-timing-function": always("ease-in-out, ease-out, ease-in-out"),
+  "transition-duration": always("100ms, 100ms, 1000ms"),
 
   //"transform-origin": "11px 50%",
   //"transform": always("translate3d(0px, 0px, 0px)"), /* TODO this is a hack to make animation smoother, should replace with something else */
 
   "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
+});
+
+const style_hidden = dom.style({
+  /*"transform": {
+    "rotationX": "-90deg", // 120deg
+    "rotationY": "5deg", // 20deg
+    //"rotationZ": "-1deg", // -1deg
+  },*/
+
+  "border-top-width": always("0px"),
+  "border-bottom-width": always("0px"),
+  "padding-top": always("0px"),
+  "padding-bottom": always("0px"),
+  "height": always("0px"),
+  "opacity": always("0")
+});
+
+const style_visible = dom.style({
+  "border-top-width": always("1px"),
+  "border-bottom-width": always("1px"),
+  "padding-top": always("1px"),
+  "padding-bottom": always("1px"),
+  "height": always("20px"),
+  "opacity": always("1")
 });
 
 const style_unloaded = dom.style({
@@ -52,7 +85,7 @@ const style_unloaded = dom.style({
 const style_focused = dom.style({
   "background-color": always(dom.hsl(30, 100, 94)),
   "border-color":     always(dom.hsl(30, 100, 40)),
-  "transition-duration": always("0ms, 100ms"),
+  "transition-duration": always("0ms, 100ms, 1000ms"),
 });
 
 const repeating = dom.repeating_gradient("-45deg",
@@ -67,7 +100,7 @@ const style_hover = dom.style({
 
   "z-index": always("1"),
 
-  "transition-duration": always("0ms, 100ms"),
+  "transition-duration": always("0ms, 100ms, 1000ms"),
   "background-image": always(dom.gradient("to bottom",
                                           ["0%",   dom.hsl(0, 0, 100, 0.2)],
                                           ["49%",  "transparent"          ],
@@ -133,30 +166,6 @@ const style_close = dom.style({
   "border-width": always("1px"),
   "padding-left": always("1px"),
   "padding-right": always("1px")
-});
-
-const style_hidden = dom.style({
-  /*"transform": {
-    "rotationX": "-90deg", // 120deg
-    "rotationY": "5deg", // 20deg
-    //"rotationZ": "-1deg", // -1deg
-  },*/
-
-  "border-top-width": always("0px"),
-  "border-bottom-width": always("0px"),
-  "padding-top": always("0px"),
-  "padding-bottom": always("0px"),
-  "height": always("0px"),
-  "opacity": always("0")
-});
-
-const style_visible = dom.style({
-  "border-top-width": always("1px"),
-  "border-bottom-width": always("1px"),
-  "padding-top": always("1px"),
-  "padding-bottom": always("1px"),
-  "height": always("20px"),
-  "opacity": always("1")
 });
 
 
@@ -466,17 +475,10 @@ export const tab = (group, tab) =>
     }),
 
     e.style({
-      // TODO hacky
-      "transition": latest([
-        tab.get("top"),
-        $dragging
-      ], (x, dragging) =>
-        (x !== null && !x.animate && dragging
-          ? "none"
-          : null)),
+      "transition": tab.get("animate").map((x) => (x ? null : "none")),
       "transform": tab.get("top").map((x) =>
                      (x !== null
-                       ? "translate3d(0px, " + x.px + ", 0px)"
+                       ? "translate3d(0px, " + x + ", 0px)"
                        : null))
     }),
 

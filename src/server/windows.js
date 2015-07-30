@@ -30,7 +30,7 @@ export const init = async(function* () {
 
   const tab_events = Event();
 
-  const serialize_tab = (id) => {
+  const serialize_tab = (db, id) => {
     const tab = db.get(["current.tab-ids", id]);
 
     const transients = db.get(["transient.tab-ids"]);
@@ -46,20 +46,20 @@ export const init = async(function* () {
     };
   };
 
-  const serialize_window = (id) => {
+  const serialize_window = (db, id) => {
     const window = db.get(["current.window-ids", id]);
 
     return {
       "id": window.get("id"),
       "name": window.get("name"),
-      "tabs": to_array(map(window.get("tabs"), serialize_tab))
+      "tabs": to_array(map(window.get("tabs"), (id) => serialize_tab(db, id)))
     };
   };
 
-  const serialize_windows = () => {
+  const serialize_windows = (db) => {
     const windows = db.get(["current.windows"]);
 
-    return to_array(map(windows, serialize_window));
+    return to_array(map(windows, (id) => serialize_window(db, id)));
   };
 
   const find_chrome_tab = (window_id, index) => {
@@ -158,7 +158,7 @@ export const init = async(function* () {
   ports.on_connect(uuid_port_tab, (port) => {
     port.send({
       "type": "init",
-      "windows": serialize_windows()
+      "windows": serialize_windows(db)
     });
 
     const x = tab_events.receive((x) => {
@@ -373,7 +373,7 @@ export const init = async(function* () {
       tab_events.send({
         "type": "window-open",
         "window-index": index,
-        "window": serialize_window(id)
+        "window": serialize_window(db, id)
       });
     });
   };
@@ -438,7 +438,7 @@ export const init = async(function* () {
         "type": "tab-open",
         "window-id": window_id,
         "tab-index": session_index,
-        "tab": serialize_tab(tab_id)
+        "tab": serialize_tab(db, tab_id)
       });
     });
   };
@@ -487,7 +487,7 @@ export const init = async(function* () {
         tab_events.send({
           "type": "tab-update",
           "tab-id": tab_id,
-          "tab": serialize_tab(tab_id)
+          "tab": serialize_tab(db, tab_id)
         });
       }
     });

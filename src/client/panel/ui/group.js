@@ -9,6 +9,7 @@ const style_group = dom.style({
   //"height": always("100%"),
   "margin-top": always("-1px"),
   "border-top": always("1px solid black"),
+  "padding-bottom": always("1px"),
   // TODO
   "background-color": always("white"),
 });

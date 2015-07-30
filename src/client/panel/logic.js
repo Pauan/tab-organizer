@@ -78,6 +78,7 @@ const make_tab = ({ "id": id,
     "unloaded": new Ref(unloaded),
 
     "visible": new Ref(true),
+    "animate": new Ref(true),
     "top": new Ref(null)
   });
 
@@ -114,6 +115,7 @@ export const drag_onto_tab = (group, tab) => {
 
   if (info) {
     drag_info.set({
+      animate: info.group === group,
       group: group,
       tab: tab,
       height: info.height,
@@ -144,11 +146,11 @@ export const drag_onto_tab = (group, tab) => {
     });
 
     if (info.group === group) {
-      update_tabs(group, true);
+      update_tabs(group);
 
     } else {
-      update_tabs(group, false);
-      update_tabs(info.group, false);
+      update_tabs(group);
+      update_tabs(info.group);
     }
   }
 };
@@ -162,6 +164,7 @@ export const drag_onto_group = (group) => {
     assert(group.get("tabs").size > 0);
 
     drag_info.set({
+      animate: info.group === group,
       group: group,
       tab: group.get("tabs").get(-1),
       height: info.height,
@@ -169,24 +172,25 @@ export const drag_onto_group = (group) => {
     });
 
     if (info.group === group) {
-      update_tabs(group, true);
+      update_tabs(group);
 
     } else {
-      update_tabs(group, false);
-      update_tabs(info.group, false);
+      update_tabs(group);
+      update_tabs(info.group);
     }
   }
 };
 
 export const drag_start = ({ group, tab, height }) => {
   drag_info.set({
+    animate: false,
     group: group,
     tab: tab,
     height: height,
     direction: "up"
   });
 
-  update_tabs(group, false);
+  update_tabs(group);
 };
 
 // TODO what about "first-selected-tab" ?
@@ -202,7 +206,7 @@ export const drag_end = (selected) => {
                    : index1);
 
 
-  update_tabs(info.group, true);
+  update_tabs(info.group);
 
   /*const tabs = info.group.get("tabs");
 
@@ -261,7 +265,7 @@ const update_groups = (a) => {
 };
 
 // TODO this can be more efficient if it is given the starting index
-const update_tabs = (group, animate) => {
+const update_tabs = (group) => {
   const a = group.get("tabs");
 
   const info = drag_info.get();
@@ -277,10 +281,8 @@ const update_tabs = (group, animate) => {
     }
 
     if (x.get("visible").get()) {
-      x.get("top").set({
-        animate: animate,
-        px: top + "px"
-      });
+      x.get("animate").set(info === null || info.animate);
+      x.get("top").set(top + "px");
 
       top += 20; // TODO gross
     }
@@ -317,7 +319,7 @@ const types = {
       });
 
       // TODO because we're pushing, this can be made O(1) rather than O(n)
-      update_tabs(window, false);
+      update_tabs(window);
 
       window_ids.insert(window.get("id"), window);
 
@@ -342,7 +344,7 @@ const types = {
 
     tabs.insert(index, tab);
 
-    update_tabs(window, true);
+    update_tabs(window);
   },
 
   // TODO update the timestamp as well
@@ -388,11 +390,11 @@ const types = {
 
     // TODO is this correct ?
     if (old_window === new_window) {
-      update_tabs(old_window, true);
+      update_tabs(old_window);
 
     } else {
-      update_tabs(old_window, true);
-      update_tabs(new_window, true);
+      update_tabs(old_window);
+      update_tabs(new_window);
     }
   },
 
@@ -410,7 +412,7 @@ const types = {
 
     tabs.remove(index);
 
-    update_tabs(window, true);
+    update_tabs(window);
   },
 
   "window-open": ({ "window": info,
