@@ -48,6 +48,7 @@ const make_window = ({ "id": id,
     // TODO a little hacky
     "first-selected-tab": null,
 
+    "matches": new Ref(false),
     "height": new Ref(null)
   });
 
@@ -77,6 +78,7 @@ const make_tab = ({ "id": id,
     "focused": new Ref(focused),
     "unloaded": new Ref(unloaded),
 
+    "matches": new Ref(false),
     "visible": new Ref(true),
     "animate": new Ref(false),
     "top": new Ref(null)
@@ -106,6 +108,47 @@ const remove_group = (group) => {
 
   groups.clear();
 };*/
+
+
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+// http://www.regular-expressions.info/characters.html
+const escape_regexp = (s) =>
+  s["replace"](/[\\\^\$\*\+\?\.\|\(\)\{\}\[\]]/g, "\\$&");
+
+const parse_search = (value) => {
+  const re = new RegExp(escape_regexp(value), "i");
+
+  return (tab) => {
+    return re["test"](tab.get("title").get()) ||
+           re["test"](tab.get("url").get());
+  };
+};
+
+
+let search_value = "";
+
+export const search = (value) => {
+  search_value = value;
+
+  // TODO it should save the parsed value somehow
+  const parsed = parse_search(search_value);
+
+  each(windows, (window) => {
+    let seen = false;
+
+    each(window.get("tabs"), (tab) => {
+      if (parsed(tab)) {
+        tab.get("matches").set(true);
+        seen = true;
+
+      } else {
+        tab.get("matches").set(false);
+      }
+    });
+
+    window.get("matches").set(seen);
+  });
+};
 
 
 export const deselect_tab = (group, tab) => {
@@ -386,6 +429,9 @@ const types = {
     update_groups(windows);
 
     //sort_by_window.init(windows);
+
+    // TODO can this be made more efficient ?
+    search(search_value);
   },
 
   "tab-open": ({ "tab": info,
@@ -402,15 +448,24 @@ const types = {
     tabs.insert(index, tab);
 
     update_tabs(window);
+
+    // TODO can this be made more efficient ?
+    search(search_value);
   },
 
   // TODO update the timestamp as well
   "tab-focus": ({ "tab-id": id }) => {
     tab_ids.get(id).get("focused").set(true);
+
+    // TODO can this be made more efficient ?
+    search(search_value);
   },
 
   "tab-unfocus": ({ "tab-id": id }) => {
     tab_ids.get(id).get("focused").set(false);
+
+    // TODO can this be made more efficient ?
+    search(search_value);
   },
 
   "tab-update": ({ "tab-id": id,
@@ -440,6 +495,9 @@ const types = {
     tab.get("title").set(title || url || "");
     tab.get("favicon").set(favicon);
     tab.get("pinned").set(pinned);
+
+    // TODO can this be made more efficient ?
+    search(search_value);
   },
 
   "tab-move": ({ "window-old-id": old_window_id,

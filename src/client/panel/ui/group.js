@@ -57,6 +57,8 @@ export const group = (group) =>
   dom.col((e) => [
     e.set_style(style_group, always(true)),
 
+    e.visible(group.get("matches")),
+
     e.children([
       group_header(group),
       group_tabs(group)

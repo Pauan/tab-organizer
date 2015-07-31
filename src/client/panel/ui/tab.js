@@ -406,7 +406,10 @@ export const tab = (group, tab) =>
 
     e.set_style(style_unloaded, tab.get("unloaded")),
 
-    e.visible(tab.get("visible")),
+    e.visible(and([
+      tab.get("matches"),
+      tab.get("visible")
+    ])),
 
     //e.scroll_to(tab.get("focused")),
 

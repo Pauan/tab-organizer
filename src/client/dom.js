@@ -495,6 +495,23 @@ class Text extends Element {
 }
 
 
+class Search extends Element {
+  on_change(send) {
+    const search = () => {
+      send(this._dom["value"]);
+    };
+
+    this._dom["addEventListener"]("search", search, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("search", search, true);
+      }
+    };
+  }
+}
+
+
 class Parent extends Element {
   constructor(dom) {
     super(dom);
@@ -824,6 +841,27 @@ export const text = (f) => {
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const search = (f) => {
+  const x = document["createElement"]("input");
+  // TODO a bit hacky, this should probably be configurable
+  x["autofocus"] = true;
+
+  // TODO test these
+  x["type"] = "search";
+  x["incremental"] = true;
+  x["autocomplete"] = "off";
+  x["placeholder"] = "Search";
+  x["setAttribute"]("results", "");
+
+  const e = new Search(x);
 
   each(f(e), (x) => {
     e._run(x);
