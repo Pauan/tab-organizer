@@ -78,7 +78,7 @@ const make_tab = ({ "id": id,
     "unloaded": new Ref(unloaded),
 
     "visible": new Ref(true),
-    "animate": new Ref(true),
+    "animate": new Ref(false),
     "top": new Ref(null)
   });
 
@@ -106,6 +106,63 @@ const remove_group = (group) => {
 
   groups.clear();
 };*/
+
+
+export const deselect_tab = (group, tab) => {
+  if (!tab.get("selected").get()) {
+    group.update("first-selected-tab", null);
+
+    each(group.get("tabs"), (tab) => {
+      tab.get("selected").set(false);
+    });
+  }
+};
+
+export const ctrl_select_tab = (group, tab) => {
+  tab.get("selected").modify((selected) => {
+    if (selected) {
+      group.update("first-selected-tab", null);
+      return false;
+
+    } else {
+      group.update("first-selected-tab", tab);
+      return true;
+    }
+  });
+};
+
+export const shift_select_tab = (group, tab) => {
+  const selected_tab = group.get("first-selected-tab");
+
+  if (selected_tab === null) {
+    group.update("first-selected-tab", tab);
+
+    tab.get("selected").set(true);
+
+
+  } else if (tab === selected_tab) {
+    each(group.get("tabs"), (x) => {
+      x.get("selected").set(x === tab);
+    });
+
+
+  } else {
+    let seen = 0;
+
+    each(group.get("tabs"), (x) => {
+      if (x === tab || x === selected_tab) {
+        x.get("selected").set(true);
+        ++seen;
+
+      } else if (seen === 1) {
+        x.get("selected").set(true);
+
+      } else {
+        x.get("selected").set(false);
+      }
+    });
+  }
+};
 
 
 const drag_info = new Ref(null);
@@ -199,14 +256,13 @@ export const drag_end = (selected) => {
 
   drag_info.set(null);
 
+  update_tabs(info.group);
+
 
   const index1 = info.tab.get("index");
   const index2 = (info.direction === "down"
                    ? index1 + 1
                    : index1);
-
-
-  update_tabs(info.group);
 
   /*const tabs = info.group.get("tabs");
 
@@ -280,9 +336,10 @@ const update_tabs = (group) => {
       top += info.height;
     }
 
+    // TODO a little bit hacky
     if (x.get("visible").get()) {
-      x.get("animate").set(info === null || info.animate);
-      x.get("top").set(top + "px");
+      x.get("animate").set(info !== null && info.animate);
+      x.get("top").set(info !== null ? top + "px" : null);
 
       top += 20; // TODO gross
     }
@@ -293,7 +350,7 @@ const update_tabs = (group) => {
     }
   });
 
-  group.get("height").set(top + "px");
+  group.get("height").set(info !== null ? top + "px" : null);
 };
 
 

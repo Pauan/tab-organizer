@@ -68,33 +68,74 @@ class Style {
   }
 }
 
-export const make_style = (() => {
-  let style_id = 0;
+class Animation {
+  constructor(name, duration, easing) {
+    this._name = name;
+    this._duration = duration;
+    this._easing = easing;
+  }
+}
 
-  // TODO use batch_write ?
-  var e = document["createElement"]("style");
-  e["type"] = "text/css";
-  document["head"]["appendChild"](e);
 
-  const sheet = e["sheet"];
-  const cssRules = sheet["cssRules"];
+let style_id = 0;
 
-  return (rules) => {
-    const class_name = "__style_" + (++style_id) + "__";
+// TODO use batch_write ?
+const e = document["createElement"]("style");
+e["type"] = "text/css";
+document["head"]["appendChild"](e);
 
-    //batch_write(() => {
-      // TODO this may not work in all browsers
-      const index = sheet["insertRule"]("." + class_name + "{}", cssRules["length"]); // TODO sheet.addRule(s)
+const sheet = e["sheet"];
+const cssRules = sheet["cssRules"];
 
-      const style = cssRules[index]["style"];
 
-      each(entries(rules), ([key, value]) => {
-        value.each((value) => {
-          set_style(style, key, value);
-        });
-      });
-    //});
+export const make_style = (rules) => {
+  const class_name = "__style_" + (++style_id) + "__";
 
-    return new Style(class_name, style, rules);
-  };
-})();
+  // TODO this may not work in all browsers
+  const index = sheet["insertRule"]("." + class_name + " {}",
+                                    cssRules["length"]); // TODO sheet.addRule(s)
+
+  const style = cssRules[index]["style"];
+
+  each(entries(rules), ([key, value]) => {
+    value.each((value) => {
+      set_style(style, key, value);
+    });
+  });
+
+  return new Style(class_name, style, rules);
+};
+
+
+export const make_animation = ({ from, to, duration, easing = "linear" }) => {
+  const class_name = "__animation_" + (++style_id) + "__";
+
+  // TODO this may not work in all browsers
+  // TODO remove vendor prefix
+  const index = sheet["insertRule"]("@-webkit-keyframes " + class_name + " {}",
+                                    cssRules["length"]);
+
+  const keyframe = cssRules[index];
+
+  keyframe["appendRule"]("0% {}");
+  keyframe["appendRule"]("100% {}");
+
+  const from_style = keyframe["cssRules"][0]["style"];
+  const to_style   = keyframe["cssRules"][1]["style"];
+
+  each(entries(from), ([key, value]) => {
+    value.each((value) => {
+      // TODO does this throw an error on un-animatable values ?
+      set_style(from_style, key, value);
+    });
+  });
+
+  each(entries(to), ([key, value]) => {
+    value.each((value) => {
+      // TODO does this throw an error on un-animatable values ?
+      set_style(to_style, key, value);
+    });
+  });
+
+  return new Animation(class_name, duration, easing);
+};

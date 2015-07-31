@@ -1,4 +1,4 @@
-import { each, entries, indexed } from "../util/iterator";
+import { each, entries } from "../util/iterator";
 import { Ref, always } from "../util/mutable/ref";
 import { List } from "../util/mutable/list";
 import { uuid_list_insert,
@@ -6,166 +6,8 @@ import { uuid_list_insert,
          uuid_list_remove,
          uuid_list_clear } from "../util/mutable/list";
 import { batch_read, batch_write } from "./dom/batch";
-import { set_style, make_style } from "./dom/style";
+import { set_style, make_style, make_animation } from "./dom/style";
 import { assert, fail } from "../util/assert";
-import { async, async_callback } from "../util/async";
-import { animate, range, round_range, ease_in_out } from "../util/animate";
-
-
-// TODO make this into a Ref ?
-class Animation {
-  constructor(duration, easing, on_seek) {
-    this._duration = duration;
-    this._easing = easing;
-    this._on_seek = on_seek;
-
-    this._current_seek = null;
-    this._running = null;
-  }
-
-  seek(seek_to) {
-    this.stop();
-
-    const seek_from = this._current_seek;
-
-    if (seek_from === null) {
-      this._current_seek = seek_to;
-      this._on_seek(this._easing(this._current_seek));
-
-    } else if (seek_from !== seek_to) {
-      // TODO is there a better/faster way of doing this ?
-      const duration2 = this._duration * Math["abs"](seek_to - seek_from);
-
-      // TODO it should stop the animation when `ref` is stopped
-      this._running = animate(duration2, (t) => {
-        // TODO is this correct ?
-        if (t === 1) {
-          this._running = null;
-        }
-
-        // TODO is this efficient ?
-        this._current_seek = seek_from + (t * (seek_to - seek_from));
-
-        /*if (t1 === 0) {
-          // TODO is this correct ?
-          this._add_style(from);
-          this._remove_style(to);
-
-          undo_styles();
-
-        } else if (t1 === 1) {
-          // TODO is this correct ?
-          this._add_style(to);
-          this._remove_style(from);
-
-          undo_styles();
-
-        } else {*/
-        this._on_seek(this._easing(this._current_seek));
-        //}
-      });
-    }
-  }
-
-  stop() {
-    if (this._running !== null) {
-      this._running.stop();
-    }
-  }
-
-  /*const undo_styles = () => {
-    for (let i = 0; i < transitions["length"]; ++i) {
-      const { key } = transitions[i];
-      this._dom["style"][key] = "";
-    }
-  };*/
-}
-
-// TODO can this be made more efficient ?
-const parse_css = (x) =>
-  /^(\-?(?:[0-9]+\.)?[0-9]+)(px)?$/["exec"](x);
-
-const range_px = (t, from, to) =>
-  round_range(t, from, to) + "px";
-
-const parse_range = (key, from, to) => {
-  const x = parse_css(from[key]);
-  const y = parse_css(to[key]);
-
-  if (x[2] && y[2]) {
-    return {
-      key: key,
-      from: +x[1],
-      to: +y[1],
-      range: range_px
-    };
-
-  } else if (!x[2] && !y[2]) {
-    return {
-      key: key,
-      from: +x[1],
-      to: +y[1],
-      range: range
-    };
-
-  } else {
-    fail();
-  }
-};
-
-// TODO a little hacky
-const on_seek = function (t) {
-  // TODO can this be made more efficient ?
-  for (let i = 0; i < this._transitions["length"]; ++i) {
-    const { key, from, to, range } = this._transitions[i];
-    // TODO verify that the style is correct ? (but would that cause performance issues ?)
-    this._dom["style"][key] = range(t, from, to);
-  }
-};
-
-class DOM_Animation extends Animation {
-  constructor(dom, from, to, duration, easing) {
-    super(duration, easing, on_seek);
-
-    this._dom = dom;
-    this._from = from;
-    this._to = to;
-
-    this._transitions = null;
-  }
-
-  // TODO rather than re-parsing the styles when calling `seek`, maybe we should
-  //      re-parse the styles when the style object itself changes
-  seek(seek_to) {
-    const from = this._from;
-    const to = this._to;
-
-    // TODO make this a global function ?
-    // TODO should this use `map` ?
-    this._transitions = [];
-
-    // TODO make this a global function ?
-    // TODO a bit inefficient ?
-    each(from._keys, (key) => {
-      // TODO is this correct ?
-      assert(to._style[key]);
-      assert(key in to._rules);
-    });
-
-    to._keys["forEach"]((key) => {
-      // TODO is this correct ?
-      assert(from._style[key]);
-      assert(key in from._rules);
-
-      // TODO hacky
-      //if (to._style[key] && from._style[key]) {
-        this._transitions["push"](parse_range(key, from._style, to._style));
-      //}
-    });
-
-    super.seek(seek_to);
-  }
-}
 
 
 const preventDefault = (e) => {
@@ -187,6 +29,8 @@ class Element {
   constructor(dom) {
     this._dom = dom;
     this._running = [];
+
+    this._animations = [];
   }
 
   _run(x) {
@@ -452,20 +296,96 @@ class Element {
     };
   }
 
-  // TODO test this
-  animate({ from, to, duration, seek, easing = ease_in_out }) {
-    const x = new DOM_Animation(this._dom, from, to, duration, easing);
+  animate(animation, info) {
+    this._animations["push"]({
+      animation: animation,
+      info: info
+    });
+  }
 
-    const y = seek.each((seek_to) => {
-      x.seek(seek_to);
+  _trigger_relayout() {
+    // TODO is there a "faster" way to trigger relayout ?
+    getComputedStyle(this._dom)["left"];
+  }
+
+  // TODO test this
+  _wait_animation(a, f) {
+    if (a["length"]) {
+      let pending = 0;
+
+      const start = (e) => {
+        ++pending;
+      };
+
+      const end = (e) => {
+        --pending;
+
+        if (pending === 0) {
+          // TODO remove vendor prefix
+          this._dom["removeEventListener"]("webkitAnimationStart", start, true);
+          this._dom["removeEventListener"]("webkitAnimationEnd", end, true);
+          f();
+        }
+      };
+
+      // TODO remove vendor prefix
+      this._dom["addEventListener"]("webkitAnimationStart", start, true);
+      this._dom["addEventListener"]("webkitAnimationEnd", end, true);
+
+    } else {
+      f();
+    }
+  }
+
+  // TODO test this
+  _get_animations(f) {
+    const out = [];
+
+    each(this._animations, ({ animation, info }) => {
+      const type = f(info);
+
+      // TODO a tiny bit hacky
+      if (type) {
+        if (type === "play-to") {
+          out["push"](animation._name + " " +
+                      animation._duration + " " +
+                      animation._easing +
+                      " 0ms 1 normal both running");
+
+        } else if (type === "play-from") {
+          out["push"](animation._name + " " +
+                      animation._duration + " " +
+                      animation._easing +
+                      " 0ms 1 reverse both running");
+
+        } else if (type === "set-to") {
+          out["push"](animation._name + " 0ms linear 0ms 1 normal both paused");
+
+        } else if (type === "set-from") {
+          out["push"](animation._name + " 0ms linear 0ms 1 reverse both paused");
+
+        } else {
+          fail();
+        }
+      }
     });
 
-    return {
-      stop: () => {
-        x.stop();
-        y.stop();
-      }
-    };
+    return out;
+  }
+
+  // TODO test this
+  _animate(a) {
+    // TODO remove vendor prefix
+    set_style(this._dom["style"], "-webkit-animation", null);
+
+    if (a["length"]) {
+      // TODO hacky, but I don't know of any other way to make it work
+      this._trigger_relayout();
+
+      // TODO remove vendor prefix
+      // TODO code duplication
+      set_style(this._dom["style"], "-webkit-animation", a["join"](","));
+    }
   }
 
   /*animate_when(ref, info) {
@@ -557,7 +477,7 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  // TODO is this correct ? maybe it should use `_remove_self` ?
+  // TODO is this correct ? it probably needs to trigger various things on the child elements
   _clear() {
     this._children.clear();
     this._dom["innerHTML"] = "";
@@ -566,7 +486,14 @@ class Parent extends Element {
   _remove(index) {
     const child = this._children.get(index);
     this._children.remove(index);
-    this._dom["removeChild"](child._dom);
+
+    const a = child._get_animations((x) => x.remove);
+
+    child._wait_animation(a, () => {
+      this._dom["removeChild"](child._dom);
+    });
+
+    child._animate(a);
   }
 
   _update(index, x) {
@@ -584,11 +511,19 @@ class Parent extends Element {
     }
 
     this._children.insert(index, x);
+
+    const a = x._get_animations((x) => x.insert);
+
+    x._animate(a);
   }
 
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
+
+    const a = x._get_animations((x) => x.initial);
+
+    x._animate(a);
   }
 
   // TODO is this correct ?
@@ -720,6 +655,8 @@ class Floating extends Parent {
 
 export const style = (o) => make_style(o);
 
+export const animation = (o) => make_animation(o);
+
 export const calc = (...args) =>
   "calc(" + args["join"](" ") + ")";
 
@@ -751,6 +688,16 @@ export const hsl = (hue, sat, light, alpha = 1) => {
   } else {
     return "hsla(" + hue + ", " + sat + "%, " + light + "%, " + alpha + ")"
   }
+};
+
+export const transition = (o) => {
+  const out = [];
+
+  each(entries(o), ([key, { duration, easing = "linear" }]) => {
+    out["push"](key + " " + duration + " " + easing);
+  });
+
+  return out["join"](", ");
 };
 
 const floating_style = style({

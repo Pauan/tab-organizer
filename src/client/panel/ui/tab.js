@@ -3,7 +3,8 @@ import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
-import { drag_onto_tab, drag_start, drag_end, focus_tab } from "../logic";
+import { drag_onto_tab, drag_start, drag_end, focus_tab,
+         deselect_tab, shift_select_tab, ctrl_select_tab } from "../logic";
 
 
 const $selected = new Ref(empty);
@@ -21,12 +22,13 @@ const style_dragging = dom.style({
 });
 
 const style_tab = dom.style({
+  // TODO is this correct ?
   "overflow": always("hidden"),
 
-  "position": always("absolute"),
+  //"position": always("absolute"),
   "width": always("100%"),
 
-  "background-color": always("inherit"),
+  //"background-color": always("inherit"),
 
   "border-left-width": always("1px"),
   "border-right-width": always("1px"),
@@ -34,47 +36,72 @@ const style_tab = dom.style({
   "padding-right": always("1px"),
   "border-radius": always("5px"),
 
-  "transition-property": always([
-    "background-color",
-    "transform",
-    "border-width",
-    "padding",
-    "height",
-    "opacity"
-  // TODO hacky
-  ]["join"](",")),
+  "transition": always("background-color 100ms ease-in-out"),
 
-  "transition-timing-function": always("ease-in-out, ease-out, ease-in-out"),
-  "transition-duration": always("100ms, 100ms, 1000ms"),
+  // Magical incantation to make it much smoother
+  "transform": always("translate3d(0px, 0px, 0px)"),
 
   //"transform-origin": "11px 50%",
-  //"transform": always("translate3d(0px, 0px, 0px)"), /* TODO this is a hack to make animation smoother, should replace with something else */
 
   "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
 });
 
-const style_hidden = dom.style({
-  /*"transform": {
-    "rotationX": "-90deg", // 120deg
-    "rotationY": "5deg", // 20deg
-    //"rotationZ": "-1deg", // -1deg
-  },*/
-
-  "border-top-width": always("0px"),
-  "border-bottom-width": always("0px"),
-  "padding-top": always("0px"),
-  "padding-bottom": always("0px"),
-  "height": always("0px"),
-  "opacity": always("0")
+const animation_dragging = dom.animation({
+  easing: "ease-out",
+  duration: "300ms",
+  from: {
+    "margin-top": always("0px")
+  },
+  to: {
+    "margin-top": always("-18px")
+  }
 });
 
-const style_visible = dom.style({
-  "border-top-width": always("1px"),
-  "border-bottom-width": always("1px"),
-  "padding-top": always("1px"),
-  "padding-bottom": always("1px"),
-  "height": always("20px"),
-  "opacity": always("1")
+// TODO code duplication
+const animation_dragging_hidden = dom.animation({
+  easing: "ease-out",
+  duration: "300ms",
+  from: {
+    "border-top-width": always("1px"),
+    "border-bottom-width": always("1px"),
+    "padding-top": always("1px"),
+    "padding-bottom": always("1px"),
+    "height": always("20px"),
+  },
+  to: {
+    "border-top-width": always("0px"),
+    "border-bottom-width": always("0px"),
+    "padding-top": always("0px"),
+    "padding-bottom": always("0px"),
+    "height": always("0px"),
+  }
+});
+
+const animation_tab = dom.animation({
+  easing: "ease-in-out",
+  duration: "1000ms",
+  from: {
+    /*"transform": {
+      "rotationX": "-90deg", // 120deg
+      "rotationY": "5deg", // 20deg
+      //"rotationZ": "-1deg", // -1deg
+    },*/
+
+    "border-top-width": always("0px"),
+    "border-bottom-width": always("0px"),
+    "padding-top": always("0px"),
+    "padding-bottom": always("0px"),
+    "height": always("0px"),
+    "opacity": always("0")
+  },
+  to: {
+    "border-top-width": always("1px"),
+    "border-bottom-width": always("1px"),
+    "padding-top": always("1px"),
+    "padding-bottom": always("1px"),
+    "height": always("20px"),
+    "opacity": always("1")
+  }
 });
 
 const style_unloaded = dom.style({
@@ -85,7 +112,8 @@ const style_unloaded = dom.style({
 const style_focused = dom.style({
   "background-color": always(dom.hsl(30, 100, 94)),
   "border-color":     always(dom.hsl(30, 100, 40)),
-  "transition-duration": always("0ms, 100ms, 1000ms"),
+  // TODO a bit hacky
+  "transition-duration": always("0ms"),
 });
 
 const repeating = dom.repeating_gradient("-45deg",
@@ -100,7 +128,9 @@ const style_hover = dom.style({
 
   "z-index": always("1"),
 
-  "transition-duration": always("0ms, 100ms, 1000ms"),
+  // TODO a bit hacky
+  "transition-duration": always("0ms"),
+
   "background-image": always(dom.gradient("to bottom",
                                           ["0%",   dom.hsl(0, 0, 100, 0.2)],
                                           ["49%",  "transparent"          ],
@@ -217,44 +247,23 @@ const close = (tab, show) =>
 const ui_dragging = (tab, index) =>
   dom.row((e) => [
     e.set_style(style_tab, always(true)),
-    e.set_style(style_visible, always(true)),
     e.set_style(style_selected, tab.get("selected")),
     e.set_style(style_hover, always(index === 0)),
 
-    e.style({
-      "z-index": always(-index + ""),
-
-      "transition-property": always([
-        "transform",
-        "height",
-        "border-width",
-        "padding-width"
-      // TODO hacky
-      ]["join"](",")),
-
-      "transition-timing-function": always("ease-out"),
-      "transition-duration": always("300ms"),
-
-      "transform": always("translate3d(0px, " + (index * 20) + "px, 0px)")
+    e.animate(animation_tab, {
+      initial: "set-to"
     }),
 
-    // TODO super hacky
-    setTimeout(() => {
-      if (index < 5) {
-        e.style({
-          "transform": always("translate3d(0px, " + (index * 2) + "px, 0px)")
-        });
+    // TODO hacky
+    (index > 0 &&
+      e.animate((index < 5
+                  ? animation_dragging
+                  : animation_dragging_hidden), {
+        initial: "play-to"
+      })),
 
-      } else {
-        e.style({
-          "padding-top": always("0px"),
-          "padding-bottom": always("0px"),
-          "height": always("0px"),
-          "border-top-width": always("0px"),
-          "border-bottom-width": always("0px"),
-          "transform": always("translate3d(0px, 8px, 0px)")
-        })
-      }
+    e.style({
+      "z-index": always(-index + "")
     }),
 
     // TODO why is this so janky when many tabs are selected ?
@@ -317,7 +326,11 @@ export const tab = (group, tab) =>
   dom.row((e) => [
     e.set_style(style_tab, always(true)),
 
-    e.set_style(style_visible, always(true)),
+    e.animate(animation_tab, {
+      initial: "set-to",
+      insert: "play-to",
+      remove: "play-from",
+    }),
 
     e.set_style(style_hover, and([
       not($dragging),
@@ -337,8 +350,6 @@ export const tab = (group, tab) =>
     e.set_style(style_unloaded, tab.get("unloaded")),
 
     e.visible(tab.get("visible")),
-
-    //e.animate(tab.get("animate")),
 
     /*e.animate_when(not(tab.get("visible")), {
       from: style_visible,
@@ -366,7 +377,7 @@ export const tab = (group, tab) =>
       })
     }),*/
 
-    e.scroll_to(tab.get("focused")),
+    //e.scroll_to(tab.get("focused")),
 
     e.children([
       favicon(tab),
@@ -414,55 +425,15 @@ export const tab = (group, tab) =>
     }),*/
 
     e.on_left_click(({ shift, ctrl, alt }) => {
-      const selected_tab = group.get("first-selected-tab");
-
       if (!shift && !ctrl && !alt) {
-        if (!tab.get("selected").get()) {
-          group.update("first-selected-tab", null);
-
-          each(group.get("tabs"), (tab) => {
-            tab.get("selected").set(false);
-          });
-        }
-
+        deselect_tab(group, tab);
         focus_tab(tab);
 
-
       } else if (shift && !ctrl && !alt) {
-        if (selected_tab === null) {
-          group.update("first-selected-tab", tab);
-
-          tab.get("selected").set(true);
-
-        } else if (tab !== selected_tab) {
-          let seen = 0;
-
-          each(group.get("tabs"), (x) => {
-            if (x === tab || x === selected_tab) {
-              x.get("selected").set(true);
-              ++seen;
-
-            } else if (seen === 1) {
-              x.get("selected").set(true);
-
-            } else {
-              x.get("selected").set(false);
-            }
-          });
-        }
-
+        shift_select_tab(group, tab);
 
       } else if (!shift && ctrl && !alt) {
-        tab.get("selected").modify((selected) => {
-          if (selected) {
-            group.update("first-selected-tab", null);
-            return false;
-
-          } else {
-            group.update("first-selected-tab", tab);
-            return true;
-          }
-        });
+        ctrl_select_tab(group, tab);
       }
     }),
 
@@ -475,7 +446,12 @@ export const tab = (group, tab) =>
     }),
 
     e.style({
-      "transition": tab.get("animate").map((x) => (x ? null : "none")),
+      "transition": tab.get("animate").map((x) =>
+                      (x ? "transform 100ms ease-out" : null)),
+
+      "position": tab.get("top").map((x) =>
+                    (x !== null ? "absolute" : null)),
+
       "transform": tab.get("top").map((x) =>
                      (x !== null
                        ? "translate3d(0px, " + x + ", 0px)"

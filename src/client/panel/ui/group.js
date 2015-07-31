@@ -15,6 +15,10 @@ const style_group = dom.style({
 });
 
 const style_group_tabs = dom.style({
+  // Magical incantation to make it much smoother
+  //"transform": always("translate3d(0px, 0px, 0px"),
+
+  //"transition": always("height 1000ms ease-in-out"),
   "overflow-y": always("auto"),
   //"height": "100%"
 });
