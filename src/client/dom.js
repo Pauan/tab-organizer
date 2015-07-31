@@ -736,7 +736,7 @@ export const hsl = (hue, sat, light, alpha = 1) => {
 export const transition = (o) => {
   const out = [];
 
-  each(entries(o), ([key, { duration, easing = "linear" }]) => {
+  each(entries(o), ([key, { duration, easing }]) => {
     out["push"](key + " " + duration + " " + easing);
   });
 

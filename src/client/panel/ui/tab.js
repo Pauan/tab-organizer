@@ -1,10 +1,9 @@
+import * as logic from "../logic";
 import * as dom from "../../dom";
 import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
-import { drag_onto_tab, drag_start, drag_end, focus_tab,
-         deselect_tab, shift_select_tab, ctrl_select_tab } from "../logic";
 
 
 const $selected = new Ref(empty);
@@ -25,10 +24,7 @@ const style_tab = dom.style({
   // TODO is this correct ?
   "overflow": always("hidden"),
 
-  //"position": always("absolute"),
   "width": always("100%"),
-
-  //"background-color": always("inherit"),
 
   "border-left-width": always("1px"),
   "border-right-width": always("1px"),
@@ -41,7 +37,8 @@ const style_tab = dom.style({
   // Magical incantation to make it much smoother
   "transform": always("translate3d(0px, 0px, 0px)"),
 
-  //"transform-origin": "11px 50%",
+  // TODO test this
+  "transform-origin": always("11px 50%"),
 
   "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
 });
@@ -79,8 +76,9 @@ const animation_dragging_hidden = dom.animation({
 
 const animation_tab = dom.animation({
   easing: "ease-in-out",
-  duration: "1000ms",
+  duration: "500ms",
   from: {
+    "transform": always("rotateX(-90deg)"),
     /*"transform": {
       "rotationX": "-90deg", // 120deg
       "rotationY": "5deg", // 20deg
@@ -95,6 +93,7 @@ const animation_tab = dom.animation({
     "opacity": always("0")
   },
   to: {
+    "transform": always("rotateX(0deg)"),
     "border-top-width": always("1px"),
     "border-bottom-width": always("1px"),
     "padding-top": always("1px"),
@@ -267,30 +266,6 @@ const ui_dragging = (tab, index) =>
       "z-index": always(-index + "")
     }),
 
-    // TODO why is this so janky when many tabs are selected ?
-    /*
-    // TODO hacky and verbose, but it does work
-    // TODO is this efficient ?
-    ((x) =>
-      (index < 5
-        ? e.style({
-            "transform": x.map((x) =>
-                           "translate3d(0px, " +
-                           range(x, (index * 20), (index * 2)) +
-                           "px, 0px)")
-          })
-        : e.style({
-            "padding-top": x.map((x) => round_range(x, 1, 0) + "px"),
-            "padding-bottom": x.map((x) => round_range(x, 1, 0) + "px"),
-            "height": x.map((x) => round_range(x, 20, 0) + "px"),
-            "border-top-width": x.map((x) => round_range(x, 1, 0) + "px"),
-            "border-bottom-width": x.map((x) => round_range(x, 1, 0) + "px"),
-            "transform": x.map((x) =>
-                           "translate3d(0px, " +
-                           range(x, (index * 20), (index * 20)) +
-                           "px, 0px)")
-          })))(animate({ duration: 500, easing: linear })),*/
-
     e.children([
       favicon(tab),
       text(tab)
@@ -320,6 +295,90 @@ const dragging =
     }),
   ]);
 
+const drag_start_if = (start_x, start_y, { x, y, alt, ctrl, shift }) =>
+  !alt && !ctrl && !shift &&
+  hypot(start_x - x, start_y - y) > 5;
+
+const drag_start = ({ group, tab, e, x, y }) => {
+  const tab_box = e.get_position();
+
+  const tabs = group.get("tabs");
+
+  const selected = new List();
+
+  each(tabs, (x) => {
+    if (x.get("selected").get()) {
+      selected.push(x);
+    }
+  });
+
+  if (selected.size === 0) {
+    selected.push(tab);
+  }
+
+  each(selected, (tab) => {
+    tab.get("visible").set(false);
+  });
+
+  // TODO hacky
+  const height = (selected.size === 1
+                   ? tab_box.height
+                   : (tab_box.height +
+                      (Math["min"](selected.size, 4) * 3)));
+
+  const offset_x = (x - tab_box.left);
+  const offset_y = (height / 2);
+
+  $selected.set(selected);
+
+  $dragging.set({
+    offset_x: offset_x,
+    offset_y: offset_y,
+
+    x: (x - offset_x),
+    y: (y - offset_y),
+    width: tab_box.width
+  });
+
+  logic.drag_start({ group, tab, height });
+};
+
+const drag_move = ({ x, y }) => {
+  $dragging.modify(({ offset_x, offset_y, x, width }) => {
+    // TODO hacky
+    return {
+      offset_x,
+      offset_y,
+      x,
+      //x: (x - offset_x),
+      y: (y - offset_y),
+      width
+    };
+  });
+};
+
+const drag_end = () => {
+  const selected = $selected.get();
+
+  each(selected, (tab) => {
+    tab.get("visible").set(true);
+
+    /*if (i !== 0) {
+      tab.get("animate").set({
+        from: style_hidden,
+        to: style_visible,
+        duration: 500,
+        easing: ease_out
+      });
+    }*/
+  });
+
+  logic.drag_end(selected);
+
+  $selected.set(empty);
+  $dragging.set(null);
+};
+
 export const tab = (group, tab) =>
   dom.row((e) => [
     e.set_style(style_tab, always(true)),
@@ -348,32 +407,6 @@ export const tab = (group, tab) =>
     e.set_style(style_unloaded, tab.get("unloaded")),
 
     e.visible(tab.get("visible")),
-
-    /*e.animate_when(not(tab.get("visible")), {
-      from: style_visible,
-      to: style_hidden,
-      duration: 500
-    }),*/
-
-    // TODO hacky
-    /*e.animate_when(tab.get("visible").map((x) => x &&
-                                                 $selected.has(0) &&
-                                                 $selected.get(0) !== tab), {
-      from: style_hidden,
-      to: style_visible,
-      duration: 500,
-      easing: (x) => x
-    }),*/
-
-    /*e.style({
-      "visibility": tab.get("visible").map((x) => {
-        if (x) {
-          return null;
-        } else {
-          return "hidden";
-        }
-      })
-    }),*/
 
     //e.scroll_to(tab.get("focused")),
 
@@ -408,30 +441,16 @@ export const tab = (group, tab) =>
       url_bar.set(x);
     }),
 
-    /*e.animate_on({
-      insert: {
-        from: style_hidden,
-        to: style_visible,
-        duration: 1000
-      },
-
-      remove: {
-        from: style_visible,
-        to: style_hidden,
-        duration: 1000
-      }
-    }),*/
-
     e.on_left_click(({ shift, ctrl, alt }) => {
       if (!shift && !ctrl && !alt) {
-        deselect_tab(group, tab);
-        focus_tab(tab);
+        logic.deselect_tab(group, tab);
+        logic.focus_tab(tab);
 
       } else if (shift && !ctrl && !alt) {
-        shift_select_tab(group, tab);
+        logic.shift_select_tab(group, tab);
 
       } else if (!shift && ctrl && !alt) {
-        ctrl_select_tab(group, tab);
+        logic.ctrl_select_tab(group, tab);
       }
     }),
 
@@ -456,140 +475,18 @@ export const tab = (group, tab) =>
                        : null))
     }),
 
-    /*e.animate({
-      from: margin_top_hidden,
-      to: margin_top_visible,
-      duration: 100,
-      easing: linear,
-      seek: tab.get("placing").map((x) => (x === "up" ? 1 : 0))
-    }),
-
-    e.animate({
-      from: margin_bottom_hidden,
-      to: margin_bottom_visible,
-      duration: 100,
-      easing: linear,
-      seek: tab.get("placing").map((x) => (x === "down" ? 1 : 0))
-    }),*/
-
     e.on_mouse_hover((hover) => {
       if (hover) {
-        drag_onto_tab(group, tab);
+        logic.drag_onto_tab(group, tab);
       }
     }),
 
-    /*e.style({
-      "transition": latest([
-        drag_info,
-      ], (dragging) => {
-        if (dragging) {
-          return "margin 100ms linear";
-        } else {
-          return null;
-        }
-      }),
-
-      "margin": drag_info.map((info) => {
-        // TODO inefficient
-        if (info && info.tab === tab) {
-          return (info.direction === "up"
-                   ? info.height
-                   : "0") +
-                 "px 0px " +
-                 (info.direction === "down"
-                   ? info.height
-                   : "0") +
-                 "px 0px";
-        } else {
-          return null;
-        }
-      })
-    }),*/
-
     e.draggable({
-      start_if: (start_x, start_y, { x, y, alt, ctrl, shift }) =>
-        //false &&
-        !alt && !ctrl && !shift &&
-        hypot(start_x - x, start_y - y) > 5,
-
+      start_if: drag_start_if,
       start: ({ x, y }) => {
-        const tab_box = e.get_position();
-
-        const tabs = group.get("tabs");
-
-        const selected = new List();
-
-        each(tabs, (x) => {
-          if (x.get("selected").get()) {
-            selected.push(x);
-          }
-        });
-
-        if (selected.size === 0) {
-          selected.push(tab);
-        }
-
-        each(selected, (tab) => {
-          tab.get("visible").set(false);
-        });
-
-        // TODO hacky
-        const height = (selected.size === 1
-                         ? tab_box.height
-                         : (tab_box.height +
-                            (Math["min"](selected.size, 4) * 3)));
-
-        const offset_x = (x - tab_box.left);
-        const offset_y = (height / 2);
-
-        $selected.set(selected);
-
-        $dragging.set({
-          offset_x: offset_x,
-          offset_y: offset_y,
-
-          x: (x - offset_x),
-          y: (y - offset_y),
-          width: tab_box.width
-        });
-
-        drag_start({ group, tab, height });
+        drag_start({ group, tab, e, x, y });
       },
-
-      move: ({ x, y }) => {
-        $dragging.modify(({ offset_x, offset_y, x, width }) => {
-          // TODO hacky
-          return {
-            offset_x,
-            offset_y,
-            x,
-            //x: (x - offset_x),
-            y: (y - offset_y),
-            width
-          };
-        });
-      },
-
-      end: () => {
-        const selected = $selected.get();
-
-        each(selected, (tab) => {
-          tab.get("visible").set(true);
-
-          /*if (i !== 0) {
-            tab.get("animate").set({
-              from: style_hidden,
-              to: style_visible,
-              duration: 500,
-              easing: ease_out
-            });
-          }*/
-        });
-
-        drag_end(selected);
-
-        $selected.set(empty);
-        $dragging.set(null);
-      }
+      move: drag_move,
+      end: drag_end
     })
   ]);

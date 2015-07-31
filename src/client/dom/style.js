@@ -107,7 +107,7 @@ export const make_style = (rules) => {
 };
 
 
-export const make_animation = ({ from, to, duration, easing = "linear" }) => {
+export const make_animation = ({ from, to, duration, easing }) => {
   const class_name = "__animation_" + (++style_id) + "__";
 
   // TODO this may not work in all browsers
