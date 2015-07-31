@@ -1,4 +1,5 @@
 import { each, entries } from "../util/iterator";
+import { Set } from "../util/mutable/set";
 import { Ref, always } from "../util/mutable/ref";
 import { List } from "../util/mutable/list";
 import { uuid_list_insert,
@@ -28,13 +29,26 @@ const mouse_event = (e) => {
 class Element {
   constructor(dom) {
     this._dom = dom;
-    this._running = [];
+    this._running = new Set();
+    this._animations = new Set();
+  }
 
-    this._animations = [];
+  // TODO test this
+  _cleanup() {
+    each(this._running, (x) => {
+      x.stop();
+    });
   }
 
   _run(x) {
-    this._running["push"](x);
+    this._running.insert(x);
+  }
+
+  // TODO a tiny bit hacky
+  noop() {
+    return {
+      stop: () => {}
+    };
   }
 
 /*
@@ -100,6 +114,7 @@ class Element {
   hovering() {
     const x = new Ref(null);
 
+    // TODO a little hacky
     this._run(this.on_mouse_hover((hover) => {
       x.set(hover);
     }));
@@ -110,6 +125,7 @@ class Element {
   holding() {
     const x = new Ref(null);
 
+    // TODO a little hacky
     this._run(this.on_mouse_hold((hold) => {
       x.set(hold);
     }));
@@ -297,10 +313,19 @@ class Element {
   }
 
   animate(animation, info) {
-    this._animations["push"]({
+    const x = {
       animation: animation,
       info: info
-    });
+    };
+
+    this._animations.insert(x);
+
+    // TODO test this
+    return {
+      stop: () => {
+        this._animations.remove(x);
+      }
+    };
   }
 
   _trigger_relayout() {
@@ -477,8 +502,20 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  // TODO is this correct ? it probably needs to trigger various things on the child elements
+  _cleanup() {
+    super._cleanup();
+
+    each(this._children, (x) => {
+      x._cleanup();
+    });
+  }
+
   _clear() {
+    // TODO code duplication
+    each(this._children, (x) => {
+      x._cleanup();
+    });
+
     this._children.clear();
     this._dom["innerHTML"] = "";
   }
@@ -494,11 +531,17 @@ class Parent extends Element {
     });
 
     child._animate(a);
+
+    child._cleanup();
   }
 
   _update(index, x) {
-    this._dom["replaceChild"](x._dom, this._children.get(index)._dom);
+    const child = this._children.get(index);
     this._children.update(index, x);
+
+    this._dom["replaceChild"](x._dom, child._dom);
+
+    child._cleanup();
   }
 
   _insert(index, x) {
@@ -734,16 +777,22 @@ const main_style = style({
 export const row = (f) => {
   const e = new Row(document["createElement"]("div"));
   e._add_style(row_style);
-  // TODO test this
-  e._running = e._running["concat"](f(e));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
   return e;
 };
 
 export const col = (f) => {
   const e = new Col(document["createElement"]("div"));
   e._add_style(col_style);
-  // TODO test this
-  e._running = e._running["concat"](f(e));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
   return e;
 };
 
@@ -752,8 +801,11 @@ export const floating = (f) => {
   const e = new Floating(document["createElement"]("div"));
   e._add_style(floating_style);
   e._add_style(col_style); // TODO is this correct ?
-  // TODO test this
-  e._running = e._running["concat"](f(e));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
   // TODO is this correct ?
   panels["appendChild"](e._dom);
   return e;
@@ -762,21 +814,29 @@ export const floating = (f) => {
 // TODO is this correct ?
 export const text = (f) => {
   const e = new Text(document["createElement"]("div"));
-  e._running = e._running["concat"](f(e));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
   return e;
 };
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
-  // TODO test this
-  e._running = e._running["concat"](f(e));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
   return e;
 };
 
 const panels = document["createElement"]("div");
 
-const _main = col((e) =>
-  e.set_style(main_style, always(true)));
+const _main = col((e) => [
+  e.set_style(main_style, always(true))
+]);
 
 export const main = (x) => {
   // TODO hacky

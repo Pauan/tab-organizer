@@ -421,7 +421,21 @@ const types = {
 
     const tab = tab_ids.get(id);
 
-    tab.get("url").set(url);
+    tab.get("url").modify((old_url) => {
+      // This is just to trigger a tab animation when the tab's URL changes
+      if (old_url !== url) {
+        const tabs = tab.get("window").get("tabs");
+        const index = tab.get("index");
+
+        assert(tabs.get(index) === tab);
+
+        tabs.remove(index);
+        tabs.insert(index, tab);
+      }
+
+      return url;
+    });
+
     // TODO code duplication
     tab.get("title").set(title || url || "");
     tab.get("favicon").set(favicon);

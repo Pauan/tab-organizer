@@ -254,13 +254,14 @@ const ui_dragging = (tab, index) =>
       initial: "set-to"
     }),
 
-    // TODO hacky
-    (index > 0 &&
-      e.animate((index < 5
-                  ? animation_dragging
-                  : animation_dragging_hidden), {
-        initial: "play-to"
-      })),
+    // TODO a tiny bit hacky
+    (index === 0
+      ? e.noop()
+      : e.animate((index < 5
+                    ? animation_dragging
+                    : animation_dragging_hidden), {
+          initial: "play-to"
+        })),
 
     e.style({
       "z-index": always(-index + "")
@@ -297,13 +298,10 @@ const ui_dragging = (tab, index) =>
   ]);
 
 const drag_style = (f) =>
-  $dragging.map((info) => {
-    if (info === null) {
-      return null;
-    } else {
-      return f(info) + "px";
-    }
-  });
+  $dragging.map((info) =>
+    (info === null
+      ? null
+      : f(info) + "px"));
 
 const dragging =
   dom.floating((e) => [
