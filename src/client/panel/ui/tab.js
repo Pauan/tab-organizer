@@ -9,7 +9,7 @@ import { init as init_options } from "../../options";
 
 
 export const init = async(function* () {
-  const { opt } = yield init_options;
+  const { get: opt } = yield init_options;
 
 
   const $selected = new Ref(empty);

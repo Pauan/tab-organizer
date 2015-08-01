@@ -1,73 +1,45 @@
 import { uuid_port_options } from "../common/uuid";
-import { init as init_chrome } from "../chrome/server";
-import { init as init_db } from "./migrate";
-import { each, entries } from "../util/iterator";
-import { Event } from "../util/event";
-import { Record } from "../util/mutable/record";
-import { Ref } from "../util/mutable/ref";
-import { async } from "../util/async";
+import { make_options } from "./options-helper";
 
 
-const default_options = {
-  "theme.animation": true
-};
+export const init = make_options(uuid_port_options, {
+  "counter.enabled"           : true,
+  "counter.type"              : "in-chrome",
 
+  "size.sidebar"              : 300,
+  "size.sidebar.position"     : "left",
 
-export const init = async(function* () {
-  const db = yield init_db;
-  const { ports } = yield init_chrome;
+  "size.popup.left"           : 0.5,
+  "size.popup.top"            : 0.5,
+  "size.popup.width"          : 920,
+  "size.popup.height"         : 496,
 
+  "size.bubble.width"         : 300,
+  "size.bubble.height"        : 600,
 
-  const events = Event();
+  "popup.type"                : "bubble",
 
+  "popup.hotkey.ctrl"         : true,
+  "popup.hotkey.shift"        : true,
+  "popup.hotkey.alt"          : false,
+  "popup.hotkey.letter"       : "E",
 
-  const current_options = {};
-  const options = new Record();
+  "popup.close.escape"        : false,
+  "popup.switch.action"       : "minimize",
+  "popup.close.when"          : "switch-tab", // "manual",
 
-  each(entries(default_options), ([key, value]) => {
-    const x = new Ref(value);
+  "group.sort.type"           : "group",
+  "groups.layout"             : "vertical",
+  "groups.layout.grid.column" : 3,
+  "groups.layout.grid.row"    : 2,
 
-    options.insert(key, x);
+  "tabs.close.location"       : "right",
+  "tabs.close.display"        : "hover",
+  "tabs.close.duplicates"     : false,
+  "tabs.click.type"           : "focus",
 
-    // TODO handle stop somehow ?
-    x.each((value) => {
-      if (value === default_options[key]) {
-        delete current_options[key];
+  "theme.animation"           : true,
+  "theme.color"               : "blue",
 
-      } else {
-        current_options[key] = value;
-      }
-
-      events.send({
-        "type": "set",
-        "key": key,
-        "value": value
-      });
-    });
-  });
-
-
-  const opt = (s) =>
-    options.get(s);
-
-
-  ports.on_connect(uuid_port_options, (port) => {
-    port.send({
-      "type": "init",
-      "default": default_options,
-      "current": current_options
-    });
-
-    const x = events.receive((x) => {
-      port.send(x);
-    });
-
-    // When the port closes, stop listening for `tab_events`
-    port.on_disconnect(() => {
-      x.stop();
-    });
-  });
-
-
-  return { opt };
+  "usage-tracking"            : true
 });

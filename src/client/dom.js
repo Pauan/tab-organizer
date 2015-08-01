@@ -26,8 +26,12 @@ const mouse_event = (e) => {
   };
 };
 
+
+let element_id = 0;
+
 class Element {
   constructor(dom) {
+    this._id = ++element_id;
     this._dom = dom;
     this._running = new Set();
     this._animations = new Set();
@@ -43,6 +47,7 @@ class Element {
 
     assert(this._animations.size === 0);
 
+    this._id = null;
     this._dom = null;
     this._running = null;
     this._animations = null;

@@ -10,7 +10,7 @@ import { async, async_callback } from "../util/async";
 export const init = async(function* () {
   const options = new Record();
 
-  const opt = (s) =>
+  const get = (s) =>
     options.get(s);
 
 
@@ -28,12 +28,13 @@ export const init = async(function* () {
         });
 
         each(entries(_current), ([key, value]) => {
-          opt(key).set(value);
+          get(key).set(value);
         });
 
         success(undefined);
       },
 
+      // TODO
       /*"set": () => {
       }*/
     };
@@ -49,5 +50,5 @@ export const init = async(function* () {
     });
   });
 
-  return { opt };
+  return { get };
 });
