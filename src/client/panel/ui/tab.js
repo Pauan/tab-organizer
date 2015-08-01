@@ -286,10 +286,16 @@ export const init = async(function* () {
       const is_hovering = always(index === 0);
 
       // "selected" has precedence over "focused"
+      // TODO code duplication
       const is_focused = and([
         tab.get("focused"),
+        // TODO is this correct ?
+        opt("group.sort.type").map((x) => x === "window"),
         not(tab.get("selected"))
       ]);
+
+      const ui_favicon = favicon(tab);
+      const ui_text    = text(tab);
 
       // TODO code duplication with `tab`
       return [
@@ -344,10 +350,15 @@ export const init = async(function* () {
           "z-index": always(-index + "")
         }),
 
-        e.children([
-          favicon(tab),
-          text(tab)
-        ])
+        // TODO minor code duplication
+        e.set_children(opt("tabs.close.location").map((x) => {
+          if (x === "left") {
+            return [ui_text, ui_favicon];
+
+          } else if (x === "right") {
+            return [ui_favicon, ui_text];
+          }
+        })),
       ];
     });
 
@@ -477,13 +488,23 @@ export const init = async(function* () {
       ]);
 
       // "selected" has precedence over "focused"
+      // TODO code duplication
       const is_focused = and([
         tab.get("focused"),
+        // TODO is this correct ?
+        opt("group.sort.type").map((x) => x === "window"),
         not(tab.get("selected"))
       ]);
 
       return [
-        e.children([ui_favicon, ui_text, ui_close]),
+        e.set_children(opt("tabs.close.location").map((x) => {
+          if (x === "left") {
+            return [ui_close, ui_text, ui_favicon];
+
+          } else if (x === "right") {
+            return [ui_favicon, ui_text, ui_close];
+          }
+        })),
 
 
         e.set_style(style_tab, always(true)),
