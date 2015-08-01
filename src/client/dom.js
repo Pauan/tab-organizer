@@ -394,19 +394,13 @@ class Element {
           out["push"](animation._name + " " +
                       animation._duration + " " +
                       animation._easing +
-                      " 0ms 1 normal both running");
+                      " 0ms 1 normal none running");
 
         } else if (type === "play-from") {
           out["push"](animation._name + " " +
                       animation._duration + " " +
                       animation._easing +
-                      " 0ms 1 reverse both running");
-
-        } else if (type === "set-to") {
-          out["push"](animation._name + " 0ms linear 0ms 1 normal both paused");
-
-        } else if (type === "set-from") {
-          out["push"](animation._name + " 0ms linear 0ms 1 reverse both paused");
+                      " 0ms 1 reverse none running");
 
         } else {
           fail();

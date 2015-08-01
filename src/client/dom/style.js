@@ -123,19 +123,25 @@ export const make_animation = ({ from, to, duration, easing }) => {
   const from_style = keyframe["cssRules"][0]["style"];
   const to_style   = keyframe["cssRules"][1]["style"];
 
-  each(entries(from), ([key, value]) => {
-    value.each((value) => {
-      // TODO does this throw an error on un-animatable values ?
-      set_style(from_style, key, value);
+  // TODO is this less efficient than specifying the values ?
+  if (from) {
+    each(entries(from), ([key, value]) => {
+      value.each((value) => {
+        // TODO does this throw an error on un-animatable values ?
+        set_style(from_style, key, value);
+      });
     });
-  });
+  }
 
-  each(entries(to), ([key, value]) => {
-    value.each((value) => {
-      // TODO does this throw an error on un-animatable values ?
-      set_style(to_style, key, value);
+  // TODO is this less efficient than specifying the values ?
+  if (to) {
+    each(entries(to), ([key, value]) => {
+      value.each((value) => {
+        // TODO does this throw an error on un-animatable values ?
+        set_style(to_style, key, value);
+      });
     });
-  });
+  }
 
   return new Animation(class_name, duration, easing);
 };

@@ -15,59 +15,7 @@ const hypot = (x, y) =>
   Math["sqrt"](x * x + y * y);
 
 
-const animation_dragging = dom.animation({
-  easing: "ease-out",
-  duration: "300ms",
-  from: {
-    "margin-top": always("0px")
-  },
-  to: {
-    "margin-top": always("-18px")
-  }
-});
-
-// TODO code duplication
-const animation_dragging_hidden = dom.animation({
-  easing: "ease-out",
-  duration: "300ms",
-  from: {
-    "border-top-width": always("1px"),
-    "border-bottom-width": always("1px"),
-    "padding-top": always("1px"),
-    "padding-bottom": always("1px"),
-    "height": always("20px"),
-  },
-  to: {
-    "border-top-width": always("0px"),
-    "border-bottom-width": always("0px"),
-    "padding-top": always("0px"),
-    "padding-bottom": always("0px"),
-    "height": always("0px"),
-  }
-});
-
 const animation_tab = dom.animation({
-  easing: "ease-in-out",
-  duration: "500ms",
-  from: {
-    "border-top-width": always("0px"),
-    "border-bottom-width": always("0px"),
-    "padding-top": always("0px"),
-    "padding-bottom": always("0px"),
-    "height": always("0px"),
-    "opacity": always("0")
-  },
-  to: {
-    "border-top-width": always("1px"),
-    "border-bottom-width": always("1px"),
-    "padding-top": always("1px"),
-    "padding-bottom": always("1px"),
-    "height": always("20px"),
-    "opacity": always("1")
-  }
-});
-
-const animation_tab_flip = dom.animation({
   easing: "ease-in-out",
   duration: "500ms",
   from: {
@@ -77,11 +25,16 @@ const animation_tab_flip = dom.animation({
       "rotationY": "5deg", // 20deg
       //"rotationZ": "-1deg", // -1deg
     },*/
-  },
-  to: {
-    "transform": always("rotateX(0deg)")
+
+    "border-top-width": always("0px"),
+    "border-bottom-width": always("0px"),
+    "padding-top": always("0px"),
+    "padding-bottom": always("0px"),
+    "height": always("0px"),
+    "opacity": always("0")
   }
 });
+
 
 const style_dragging = dom.style({
   "pointer-events": always("none"),
@@ -146,13 +99,11 @@ const style_menu_item_hold = dom.style({
 
 
 const style_tab = dom.style({
-  // TODO is this correct ?
-  //"overflow": always("hidden"),
+  "overflow": always("hidden"),
 
   "width": always("100%"),
-
-  "padding-left": always("1px"),
-  "padding-right": always("1px"),
+  "height": always("20px"),
+  "padding": always("1px"),
   "border-radius": always("5px"),
 
   // Magical incantation to make it much smoother
@@ -245,6 +196,40 @@ const style_close_hold = dom.style({
 });
 
 
+const animation_dragging = dom.animation({
+  easing: "ease-out",
+  duration: "300ms",
+  from: {
+    "margin-top": always("0px")
+  },
+  to: {
+    "margin-top": always("-18px")
+  }
+});
+
+const animation_dragging_hidden = dom.animation({
+  easing: "ease-out",
+  duration: "300ms",
+  from: {
+    "margin-top": always("0px"),
+    "opacity": always("1")
+  },
+  to: {
+    "margin-top": always("-20px"),
+    "opacity": always("0")
+  }
+});
+
+const style_tab_dragging = dom.style({
+  "margin-top": always("-18px")
+});
+
+const style_tab_dragging_hidden = dom.style({
+  "margin-top": always("-20px"),
+  "opacity": always("0")
+});
+
+
 const favicon = (tab) =>
   dom.image((e) => [
     // TODO use setTimeout to fix a bug with Chrome ?
@@ -294,9 +279,16 @@ const ui_dragging = (tab, index) =>
   dom.row((e) => {
     const is_hovering = always(index === 0);
 
+    // "selected" has precedence over "focused"
+    const is_focused = and([
+      tab.get("focused"),
+      not(tab.get("selected"))
+    ]);
+
     // TODO code duplication with `tab`
     return [
       e.set_style(style_tab, always(true)),
+      e.set_style(style_menu_item, always(true)),
       e.set_style(style_menu_item_shadow, always(true)),
 
 
@@ -307,11 +299,10 @@ const ui_dragging = (tab, index) =>
       e.set_style(style_tab_selected, tab.get("selected")),
 
 
-      // TODO test these
-      e.set_style(style_tab_focused, tab.get("focused")),
+      e.set_style(style_tab_focused, is_focused),
 
       e.set_style(style_tab_focused_hover, and([
-        tab.get("focused"),
+        is_focused,
         is_hovering
       ])),
 
@@ -325,9 +316,13 @@ const ui_dragging = (tab, index) =>
       ])),
 
 
-      e.animate(animation_tab, {
-        initial: "set-to"
-      }),
+      // TODO a tiny bit hacky
+      (index === 0
+        ? e.noop()
+        : e.set_style((index < 5
+                        ? style_tab_dragging
+                        : style_tab_dragging_hidden), always(true))),
+
 
       // TODO a tiny bit hacky
       (index === 0
@@ -338,6 +333,7 @@ const ui_dragging = (tab, index) =>
             initial: "play-to"
           })),
 
+      // TODO a bit hacky
       e.style({
         "z-index": always(-index + "")
       }),
@@ -468,9 +464,16 @@ export const tab = (group, tab) =>
     const ui_close   = close(tab, is_hovering);
 
     const is_holding = and([
+      is_hovering,
       e.holding(),
       // TODO a little bit hacky
       not(ui_close.hovering())
+    ]);
+
+    // "selected" has precedence over "focused"
+    const is_focused = and([
+      tab.get("focused"),
+      not(tab.get("selected"))
     ]);
 
     return [
@@ -478,6 +481,7 @@ export const tab = (group, tab) =>
 
 
       e.set_style(style_tab, always(true)),
+      e.set_style(style_menu_item, always(true)),
 
 
       e.set_style(style_tab_hover, is_hovering),
@@ -485,24 +489,17 @@ export const tab = (group, tab) =>
       e.set_style(style_menu_item_shadow, is_hovering),
 
 
-      e.set_style(style_tab_hold, and([
-        is_hovering,
-        is_holding
-      ])),
-
-      e.set_style(style_menu_item_hold, and([
-        is_hovering,
-        is_holding
-      ])),
+      e.set_style(style_tab_hold, is_holding),
+      e.set_style(style_menu_item_hold, is_holding),
 
 
       e.set_style(style_tab_selected, tab.get("selected")),
 
 
-      e.set_style(style_tab_focused, tab.get("focused")),
+      e.set_style(style_tab_focused, is_focused),
 
       e.set_style(style_tab_focused_hover, and([
-        tab.get("focused"),
+        is_focused,
         is_hovering
       ])),
 
@@ -516,15 +513,6 @@ export const tab = (group, tab) =>
 
 
       e.animate(animation_tab, {
-        initial: "set-to",
-        insert: "play-to",
-        remove: "play-from",
-      }),
-
-      // This needs to be separate from `animation_tab`, because otherwise
-      // drag-and-drop doesn't work correctly (animation "transform" has higher
-      // priority than drag-and-drop "transform")
-      e.animate(animation_tab_flip, {
         insert: "play-to",
         remove: "play-from",
       }),

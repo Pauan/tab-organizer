@@ -134,13 +134,13 @@ export const init = async(function* () {
 
                 timer.done();
 
-                console["debug"]("db.set: \"" +
+                /*console["debug"]("db.set: \"" +
                                  key +
                                  "\" (serialize " +
                                  timer_serialize.diff() +
                                  "ms) (commit " +
                                  timer.diff() +
-                                 "ms)");
+                                 "ms)");*/
               });
             });
           }
