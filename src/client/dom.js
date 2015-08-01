@@ -817,11 +817,6 @@ export const stretch = style({
   "white-space": always("nowrap")
 });
 
-const main_style = style({
-  "width": always("100%"),
-  "height": always("100%")
-});
-
 export const row = (f) => {
   const e = new Row(document["createElement"]("div"));
   e._add_style(row_style);
@@ -855,7 +850,8 @@ export const floating = (f) => {
   });
 
   // TODO is this correct ?
-  panels["appendChild"](e._dom);
+  main(e);
+
   return e;
 };
 
@@ -901,18 +897,7 @@ export const search = (f) => {
   return e;
 };
 
-const panels = document["createElement"]("div");
-
-const _main = col((e) => [
-  e.set_style(main_style, always(true))
-]);
-
 export const main = (x) => {
-  // TODO hacky
-  _main._dom["appendChild"](x._dom);
+  // TODO a bit hacky
+  document["body"]["appendChild"](x._dom);
 };
-
-// TODO use batch_write ?
-// TODO a little hacky
-document["body"]["appendChild"](_main._dom);
-document["body"]["appendChild"](panels);
