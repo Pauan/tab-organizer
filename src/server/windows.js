@@ -147,11 +147,27 @@ export const init = async(function* () {
     },
 
 
-    "focus-tab": ({ "tab": tab_id }) => {
+    "focus-tab": ({ "tab-id": tab_id }) => {
       // TODO it should re-open the tab if it's unloaded
       const tab = db.get(["transient.tab-ids", tab_id]);
 
       tab.focus();
+    },
+
+
+    "close-tabs": ({ "tabs": tabs }) => {
+      each(tabs, (tab_id) => {
+        // TODO it should work even if the tab is unloaded
+        const chrome_tab = db.get(["transient.tab-ids", tab_id]);
+
+        //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
+        //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+
+
+
+        //const tab = db.get(["current.tab-ids", tab_id]);
+        chrome_tab.close();
+      });
     }
   };
 

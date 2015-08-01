@@ -284,6 +284,12 @@ export const init = async(function* () {
         e.hovering(),
         e.holding()
       ])),
+
+      e.on_left_click(({ shift, ctrl, alt }) => {
+        if (!shift && !ctrl && !alt) {
+          logic.close_tabs([tab]);
+        }
+      }),
     ]);
 
   const ui_dragging = (tab, index) =>
@@ -609,8 +615,10 @@ export const init = async(function* () {
           }
         }),
 
-        e.on_middle_click((e) => {
-          console.log("middle click", e);
+        e.on_middle_click(({ shift, ctrl, alt }) => {
+          if (!shift && !ctrl && !alt) {
+            logic.close_tabs([tab]);
+          }
         }),
 
         e.on_right_click((e) => {

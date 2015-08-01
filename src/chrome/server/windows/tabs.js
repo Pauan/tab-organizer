@@ -122,6 +122,10 @@ class Tab {
       "focused": true
     });
   }
+
+  close() {
+    chrome["tabs"]["remove"](this.id);
+  }
 }
 
 export const update_tab = (id, info) => {

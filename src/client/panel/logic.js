@@ -346,7 +346,14 @@ export const drag_end = (selected) => {
 export const focus_tab = (tab) => {
   port.send({
     "type": "focus-tab",
-    "tab": tab.get("id")
+    "tab-id": tab.get("id")
+  });
+};
+
+export const close_tabs = (a) => {
+  port.send({
+    "type": "close-tabs",
+    "tabs": to_array(map(a, (tab) => tab.get("id")))
   });
 };
 
