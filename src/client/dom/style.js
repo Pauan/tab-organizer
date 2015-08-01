@@ -6,7 +6,8 @@ export const set_style = (() => {
     // TODO it's a bit hacky to use the prefix system for this purpose...
     //"width": ["width", "min-width", "max-width"],
     //"height": ["height", "min-height", "max-height"],
-    "box-sizing": ["-moz-box-sizing", "box-sizing"] // TODO get rid of this later
+    "box-sizing": ["-moz-box-sizing", "box-sizing"], // TODO get rid of this later
+    "filter": ["-webkit-filter", "filter"]
   };
 
   return (style, key, value, important = false) => {

@@ -88,40 +88,6 @@ const style_dragging = dom.style({
   "opacity": always("0.98")
 });
 
-const style_tab = dom.style({
-  // TODO is this correct ?
-  //"overflow": always("hidden"),
-
-  "width": always("100%"),
-
-  "border-left-width": always("1px"),
-  "border-right-width": always("1px"),
-  "padding-left": always("1px"),
-  "padding-right": always("1px"),
-  "border-radius": always("5px"),
-
-  "transition": always("background-color 100ms ease-in-out"),
-
-  // Magical incantation to make it much smoother
-  "transform": always("translate3d(0px, 0px, 0px)"),
-
-  // TODO test this
-  "transform-origin": always("11px 50%"),
-
-  "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
-});
-
-const style_unloaded = dom.style({
-  "color": always(dom.hsl(0, 0, 30)),
-  "opacity": always("0.75"),
-});
-
-const style_focused = dom.style({
-  "background-color": always(dom.hsl(30, 100, 94)),
-  "border-color":     always(dom.hsl(30, 100, 40)),
-  // TODO a bit hacky
-  "transition-duration": always("0ms"),
-});
 
 const repeating = dom.repeating_gradient("-45deg",
                                          ["0px",  "transparent"],
@@ -129,12 +95,24 @@ const repeating = dom.repeating_gradient("-45deg",
                                          ["6px",  dom.hsl(0, 0, 100, 0.05)],
                                          ["10px", dom.hsl(0, 0, 100, 0.05)]);
 
-const style_hover = dom.style({
+const style_menu_item = dom.style({
   "cursor": always("pointer"),
-  "font-weight": always("bold"),
+  "border-width": always("1px"),
+  "cursor": always("pointer"),
 
-  "z-index": always("1"),
+  /*"transition": opt("theme.animation").map((animation) =>
+                  (animation ? "background-color 100ms ease-in-out" : null)),*/
 
+  "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
+});
+
+const style_menu_item_shadow = dom.style({
+  "box-shadow": always("1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
+                 "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
+                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25)),
+});
+
+const style_menu_item_hover = dom.style({
   // TODO a bit hacky
   "transition-duration": always("0ms"),
 
@@ -145,20 +123,14 @@ const style_hover = dom.style({
                                           ["80%",  dom.hsl(0, 0, 100, 0.1)],
                                           ["100%", dom.hsl(0, 0, 100, 0.2)]) + "," +
                              repeating),
-  "box-shadow": always("1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
-                 "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
-                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25)),
   "color": always(dom.hsl(211, 100, 99, 0.95)),
   "background-color": always(dom.hsl(211, 100, 65)),
   "border-color": always(dom.hsl(211, 38, 57)),
   "text-shadow": always("1px 0px 1px " + dom.hsl(211, 61, 50) + "," +
-                        "0px 1px 1px " + dom.hsl(211, 61, 50))
+                        "0px 1px 1px " + dom.hsl(211, 61, 50)) // TODO why is it duplicated like this ?
 });
 
-const style_hold = dom.style({
-  "padding-top": always("2px"),
-  "padding-bottom": always("0px"),
-
+const style_menu_item_hold = dom.style({
   "background-position": always("0px 1px"),
   "background-image": always(dom.gradient("to bottom",
                                           ["0%",   dom.hsl(0, 0, 100, 0.2)  ],
@@ -172,14 +144,63 @@ const style_hold = dom.style({
                  "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.225)),
 });
 
-const style_selected = dom.style({
+
+const style_tab = dom.style({
+  // TODO is this correct ?
+  //"overflow": always("hidden"),
+
+  "width": always("100%"),
+
+  "padding-left": always("1px"),
+  "padding-right": always("1px"),
+  "border-radius": always("5px"),
+
+  // Magical incantation to make it much smoother
+  "transform": always("translate3d(0px, 0px, 0px)"),
+
+  // TODO test this
+  "transform-origin": always("11px 50%"),
+});
+
+const style_tab_hover = dom.style({
+  "font-weight": always("bold"),
+});
+
+const style_tab_hold = dom.style({
+  "padding-top": always("2px"),
+  "padding-bottom": always("0px"),
+});
+
+const style_tab_unloaded = dom.style({
+  "color": always(dom.hsl(0, 0, 30)),
+  "opacity": always("0.75"),
+});
+
+const style_tab_unloaded_hover = dom.style({
+  "background-color": always(dom.hsl(0, 0, 0, 0.4)),
+  "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.4) + "," +
+                        "0px 1px 1px " + dom.hsl(0, 0, 0, 0.4)), // TODO why is it duplicated like this ?
+  "border-color": always(dom.hsl(0, 0, 0, 0.2)),
+  "color": always(dom.hsl(0, 0, 99, 0.95)), // TODO minor code duplication with `style_menu_item_hover`
+});
+
+const style_tab_focused = dom.style({
+  "background-color": always(dom.hsl(30, 100, 94)),
+  "border-color":     always(dom.hsl(30, 100, 40)),
+  // TODO a bit hacky
+  "transition-duration": always("0ms"),
+});
+
+const style_tab_focused_hover = dom.style({
+  "background-color": always(dom.hsl(30, 85, 57)),
+  // TODO code duplication with `style_menu_item_hover`
+  "text-shadow": always("1px 0px 1px " + dom.hsl(30, 61, 50) + "," +
+                        "0px 1px 1px " + dom.hsl(30, 61, 50)) // TODO why is it duplicated like this ?
+});
+
+const style_tab_selected = dom.style({
   "background-color": always("green"),
   "border-color": always("black"),
-
-  // TODO code duplication
-  "box-shadow": always("1px 1px  1px " + dom.hsl(0, 0,   0, 0.25) + "," +
-                 "inset 0px 0px  3px " + dom.hsl(0, 0, 100, 1   ) + "," +
-                 "inset 0px 0px 10px " + dom.hsl(0, 0, 100, 0.25)),
 });
 
 const style_icon = dom.style({
@@ -191,6 +212,10 @@ const style_icon = dom.style({
 
 const style_favicon = dom.style({
   "width": always("16px")
+});
+
+const style_favicon_unloaded = dom.style({
+  "filter": always("grayscale(100%)")
 });
 
 const style_text = dom.style({
@@ -205,6 +230,20 @@ const style_close = dom.style({
   "padding-right": always("1px")
 });
 
+const style_close_hover = dom.style({
+  "background-color": always(dom.hsl(0, 0, 100, 0.75)),
+  "border-color": always(dom.hsl(0, 0, 90, 0.75))
+});
+
+const style_close_hold = dom.style({
+  "padding-top": always("1px"),
+  "background-color": always(dom.hsl(0, 0,  98, 0.75)),
+  "border-color": always(dom.hsl(0, 0,  70, 0.75) + " " +
+                         dom.hsl(0, 0, 100, 0.75) + " " +
+                         dom.hsl(0, 0, 100, 0.80) + " " +
+                         dom.hsl(0, 0,  80, 0.75))
+});
+
 
 const favicon = (tab) =>
   dom.image((e) => [
@@ -212,7 +251,8 @@ const favicon = (tab) =>
     e.url(tab.get("favicon")),
 
     e.set_style(style_icon, always(true)),
-    e.set_style(style_favicon, always(true))
+    e.set_style(style_favicon, always(true)),
+    e.set_style(style_favicon_unloaded, tab.get("unloaded")),
   ]);
 
 const text = (tab) =>
@@ -239,46 +279,75 @@ const close = (tab, show) =>
     e.set_style(style_icon, always(true)),
     e.set_style(style_close, always(true)),
 
-    e.visible(show)
+    e.visible(show),
 
-    //e.set_style(ui_tab_close_style_hover,
-    //  e.hovering()),
+    e.set_style(style_close_hover,
+      e.hovering()),
 
-    //e.set_style(ui_tab_close_style_hold,
-    //  and([
-    //    e.hovering(),
-    //    e.holding()
-    //  ])),
+    e.set_style(style_close_hold, and([
+      e.hovering(),
+      e.holding()
+    ])),
   ]);
 
 const ui_dragging = (tab, index) =>
-  dom.row((e) => [
-    e.set_style(style_tab, always(true)),
-    e.set_style(style_selected, tab.get("selected")),
-    e.set_style(style_hover, always(index === 0)),
+  dom.row((e) => {
+    const is_hovering = always(index === 0);
 
-    e.animate(animation_tab, {
-      initial: "set-to"
-    }),
+    // TODO code duplication with `tab`
+    return [
+      e.set_style(style_tab, always(true)),
+      e.set_style(style_menu_item_shadow, always(true)),
 
-    // TODO a tiny bit hacky
-    (index === 0
-      ? e.noop()
-      : e.animate((index < 5
-                    ? animation_dragging
-                    : animation_dragging_hidden), {
-          initial: "play-to"
-        })),
 
-    e.style({
-      "z-index": always(-index + "")
-    }),
+      e.set_style(style_tab_hover, is_hovering),
+      e.set_style(style_menu_item_hover, is_hovering),
 
-    e.children([
-      favicon(tab),
-      text(tab)
-    ])
-  ]);
+
+      e.set_style(style_tab_selected, tab.get("selected")),
+
+
+      // TODO test these
+      e.set_style(style_tab_focused, tab.get("focused")),
+
+      e.set_style(style_tab_focused_hover, and([
+        tab.get("focused"),
+        is_hovering
+      ])),
+
+
+      // TODO test these
+      e.set_style(style_tab_unloaded, tab.get("unloaded")),
+
+      e.set_style(style_tab_unloaded_hover, and([
+        tab.get("unloaded"),
+        is_hovering
+      ])),
+
+
+      e.animate(animation_tab, {
+        initial: "set-to"
+      }),
+
+      // TODO a tiny bit hacky
+      (index === 0
+        ? e.noop()
+        : e.animate((index < 5
+                      ? animation_dragging
+                      : animation_dragging_hidden), {
+            initial: "play-to"
+          })),
+
+      e.style({
+        "z-index": always(-index + "")
+      }),
+
+      e.children([
+        favicon(tab),
+        text(tab)
+      ])
+    ];
+  });
 
 const drag_style = (f) =>
   $dragging.map((info) =>
@@ -388,124 +457,155 @@ const drag_end = () => {
 };
 
 export const tab = (group, tab) =>
-  dom.row((e) => [
-    e.set_style(style_tab, always(true)),
-
-    e.animate(animation_tab, {
-      initial: "set-to",
-      insert: "play-to",
-      remove: "play-from",
-    }),
-
-    // This needs to be separate from `animation_tab`, because otherwise
-    // drag-and-drop doesn't work correctly (animation "transform" has higher
-    // priority than drag-and-drop "transform")
-    e.animate(animation_tab_flip, {
-      insert: "play-to",
-      remove: "play-from",
-    }),
-
-    e.set_style(style_hover, and([
+  dom.row((e) => {
+    const is_hovering = and([
       not($dragging),
       e.hovering()
-    ])),
+    ]);
 
-    e.set_style(style_hold, and([
-      not($dragging),
-      e.hovering(),
-      e.holding()
-    ])),
+    const ui_favicon = favicon(tab);
+    const ui_text    = text(tab);
+    const ui_close   = close(tab, is_hovering);
 
-    e.set_style(style_selected, tab.get("selected")),
+    const is_holding = and([
+      e.holding(),
+      // TODO a little bit hacky
+      not(ui_close.hovering())
+    ]);
 
-    e.set_style(style_focused, tab.get("focused")),
+    return [
+      e.children([ui_favicon, ui_text, ui_close]),
 
-    e.set_style(style_unloaded, tab.get("unloaded")),
 
-    e.visible(and([
-      tab.get("matches"),
-      tab.get("visible")
-    ])),
+      e.set_style(style_tab, always(true)),
 
-    //e.scroll_to(tab.get("focused")),
 
-    e.children([
-      favicon(tab),
+      e.set_style(style_tab_hover, is_hovering),
+      e.set_style(style_menu_item_hover, is_hovering),
+      e.set_style(style_menu_item_shadow, is_hovering),
 
-      text(tab),
 
-      close(tab,
-        and([
-          not($dragging),
-          e.hovering()
-        ]))
-    ]),
+      e.set_style(style_tab_hold, and([
+        is_hovering,
+        is_holding
+      ])),
 
-    latest([
-      e.hovering(),
-      $dragging,
-      tab.get("url")
-    ], (hover, dragging, url) => {
-      if (hover && !dragging && url) {
-        return {
-          x: hover.x,
-          y: hover.y,
-          url: url
-        };
+      e.set_style(style_menu_item_hold, and([
+        is_hovering,
+        is_holding
+      ])),
 
-      } else {
-        return null;
-      }
-    }).each((x) => {
-      url_bar.set(x);
-    }),
 
-    e.on_left_click(({ shift, ctrl, alt }) => {
-      if (!shift && !ctrl && !alt) {
-        logic.deselect_tab(group, tab);
-        logic.focus_tab(tab);
+      e.set_style(style_tab_selected, tab.get("selected")),
 
-      } else if (shift && !ctrl && !alt) {
-        logic.shift_select_tab(group, tab);
 
-      } else if (!shift && ctrl && !alt) {
-        logic.ctrl_select_tab(group, tab);
-      }
-    }),
+      e.set_style(style_tab_focused, tab.get("focused")),
 
-    e.on_middle_click((e) => {
-      console.log("middle click", e);
-    }),
+      e.set_style(style_tab_focused_hover, and([
+        tab.get("focused"),
+        is_hovering
+      ])),
 
-    e.on_right_click((e) => {
-      console.log("right click", e);
-    }),
 
-    e.style({
-      "transition": tab.get("animate").map((x) =>
-                      (x ? "transform 100ms ease-out" : null)),
+      e.set_style(style_tab_unloaded, tab.get("unloaded")),
 
-      "position": tab.get("top").map((x) =>
-                    (x !== null ? "absolute" : null)),
+      e.set_style(style_tab_unloaded_hover, and([
+        tab.get("unloaded"),
+        is_hovering
+      ])),
 
-      "transform": tab.get("top").map((x) =>
-                     (x !== null
-                       ? "translate3d(0px, " + x + ", 0px)"
-                       : null))
-    }),
 
-    e.on_mouse_hover((hover) => {
-      if (hover) {
-        logic.drag_onto_tab(group, tab);
-      }
-    }),
+      e.animate(animation_tab, {
+        initial: "set-to",
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
-    e.draggable({
-      start_if: drag_start_if,
-      start: ({ x, y }) => {
-        drag_start({ group, tab, e, x, y });
-      },
-      move: drag_move,
-      end: drag_end
-    })
-  ]);
+      // This needs to be separate from `animation_tab`, because otherwise
+      // drag-and-drop doesn't work correctly (animation "transform" has higher
+      // priority than drag-and-drop "transform")
+      e.animate(animation_tab_flip, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
+
+
+      e.visible(and([
+        tab.get("matches"),
+        tab.get("visible")
+      ])),
+
+      //e.scroll_to(tab.get("focused")),
+
+      latest([
+        e.hovering(),
+        $dragging,
+        tab.get("url")
+      ], (hover, dragging, url) => {
+        if (hover && !dragging && url) {
+          return {
+            x: hover.x,
+            y: hover.y,
+            url: url
+          };
+
+        } else {
+          return null;
+        }
+      }).each((x) => {
+        url_bar.set(x);
+      }),
+
+      e.on_left_click(({ shift, ctrl, alt }) => {
+        // TODO a little hacky
+        if (!ui_close.hovering().get()) {
+          if (!shift && !ctrl && !alt) {
+            logic.deselect_tab(group, tab);
+            logic.focus_tab(tab);
+
+          } else if (shift && !ctrl && !alt) {
+            logic.shift_select_tab(group, tab);
+
+          } else if (!shift && ctrl && !alt) {
+            logic.ctrl_select_tab(group, tab);
+          }
+        }
+      }),
+
+      e.on_middle_click((e) => {
+        console.log("middle click", e);
+      }),
+
+      e.on_right_click((e) => {
+        console.log("right click", e);
+      }),
+
+      e.style({
+        "transition": tab.get("animate").map((x) =>
+                        (x ? "transform 100ms ease-out" : null)),
+
+        "position": tab.get("top").map((x) =>
+                      (x !== null ? "absolute" : null)),
+
+        "transform": tab.get("top").map((x) =>
+                       (x !== null
+                         ? "translate3d(0px, " + x + ", 0px)"
+                         : null))
+      }),
+
+      e.on_mouse_hover((hover) => {
+        if (hover) {
+          logic.drag_onto_tab(group, tab);
+        }
+      }),
+
+      e.draggable({
+        start_if: drag_start_if,
+        start: ({ x, y }) => {
+          drag_start({ group, tab, e, x, y });
+        },
+        move: drag_move,
+        end: drag_end
+      })
+    ];
+  });

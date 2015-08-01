@@ -804,7 +804,7 @@ export const stretch = style({
   "flex-basis": always("0%"),
 
   // TODO is this correct ?
-  //"overflow": always("hidden"),
+  "overflow": always("hidden"),
   "white-space": always("nowrap")
 });
 
