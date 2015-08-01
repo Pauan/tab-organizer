@@ -3,20 +3,30 @@ import * as logic from "../logic";
 import { async } from "../../../util/async";
 import { always } from "../../../util/mutable/ref";
 import { init as init_tab } from "./tab";
+import { init as init_options } from "../../sync/options";
 
 
 export const init = async(function* () {
   const { tab: ui_tab } = yield init_tab;
+  const { get: opt } = yield init_options;
 
 
   const style_group = dom.style({
     //"width": always("300px"),
     //"height": always("100%"),
-    "margin-top": always("-1px"),
-    "border-top": always("1px solid black"),
-    "padding-bottom": always("1px"),
-    // TODO
-    "background-color": always("white"),
+    "border-color": always(dom.hsl(211, 50, 75)),
+
+    "top": always("-1px"),
+    "border-top-width": always("1px"),
+  });
+
+  const style_group_header = dom.style({
+    "padding-top": always("1px"), // TODO this needs to be animated
+    "padding-left": always("4px")
+  });
+
+  const style_group_text = dom.style({
+    "font-size": always("11px")
   });
 
   const style_group_tabs = dom.style({
@@ -24,16 +34,21 @@ export const init = async(function* () {
     //"transform": always("translate3d(0px, 0px, 0px"),
 
     //"transition": always("height 1000ms ease-in-out"),
-    "overflow-y": always("auto"),
+    //"overflow-y": always("auto"),
     //"height": "100%"
+    "padding-bottom": always("2px"),
   });
 
   const group_header = (group) =>
     dom.row((e) => [
+      e.set_style(style_group_header, always(true)),
       //e.height("20px"),
 
       e.children([
         dom.text((e) => [
+          e.set_style(dom.stretch, always(true)),
+          e.set_style(style_group_text, always(true)),
+
           e.value(group.get("name"))
         ])
       ])
