@@ -7,7 +7,7 @@ import { Record } from "../../util/mutable/record";
 import { List, SortedList } from "../../util/mutable/list";
 import { each, map, to_array, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
-import { top as ui_top } from "./ui/top";
+import { init as init_top } from "./ui/top";
 import * as dom from "../dom";
 
 import * as sort_by_window from "./logic/sort-by-window";
@@ -397,190 +397,196 @@ const update_tabs = (group) => {
 };
 
 
-dom.main(ui_top(sort_by_window.groups));
-
-
 const port = ports.connect(uuid_port_tab);
 
-const types = {
-  "init": ({ "windows": _windows }) => {
 
-    each(_windows, (info) => {
-      const window = make_window(info);
+export const init = async(function* () {
+  const { top: ui_top } = yield init_top;
 
-      const tabs = window.get("tabs");
 
-      each(info["tabs"], (info) => {
-        const tab = make_tab(info, window);
+  dom.main(ui_top(sort_by_window.groups));
 
-        tab_ids.insert(tab.get("id"), tab);
 
-        tabs.push(tab);
+  const types = {
+    "init": ({ "windows": _windows }) => {
+
+      each(_windows, (info) => {
+        const window = make_window(info);
+
+        const tabs = window.get("tabs");
+
+        each(info["tabs"], (info) => {
+          const tab = make_tab(info, window);
+
+          tab_ids.insert(tab.get("id"), tab);
+
+          tabs.push(tab);
+        });
+
+        // TODO because we're pushing, this can be made O(1) rather than O(n)
+        update_tabs(window);
+
+        window_ids.insert(window.get("id"), window);
+
+        windows.push(window);
       });
 
-      // TODO because we're pushing, this can be made O(1) rather than O(n)
+      update_groups(windows);
+
+      //sort_by_window.init(windows);
+
+      // TODO can this be made more efficient ?
+      search(search_value);
+    },
+
+    "tab-open": ({ "tab": info,
+                   "window-id": window_id,
+                   "tab-index": index }) => {
+
+      const window = window_ids.get(window_id);
+      const tabs = window.get("tabs");
+
+      const tab = make_tab(info, window);
+
+      tab_ids.insert(tab.get("id"), tab);
+
+      tabs.insert(index, tab);
+
       update_tabs(window);
+
+      // TODO can this be made more efficient ?
+      search(search_value);
+    },
+
+    // TODO update the timestamp as well
+    "tab-focus": ({ "tab-id": id }) => {
+      tab_ids.get(id).get("focused").set(true);
+
+      // TODO can this be made more efficient ?
+      search(search_value);
+    },
+
+    "tab-unfocus": ({ "tab-id": id }) => {
+      tab_ids.get(id).get("focused").set(false);
+
+      // TODO can this be made more efficient ?
+      search(search_value);
+    },
+
+    "tab-update": ({ "tab-id": id,
+                     "tab": { "url": url,
+                              "title": title,
+                              "favicon": favicon,
+                              "pinned": pinned } }) => {
+
+      const tab = tab_ids.get(id);
+
+      tab.get("url").modify((old_url) => {
+        // This is just to trigger a tab animation when the tab's URL changes
+        if (old_url !== url) {
+          const tabs = tab.get("window").get("tabs");
+          const index = tab.get("index");
+
+          assert(tabs.get(index) === tab);
+
+          tabs.remove(index);
+          tabs.insert(index, tab);
+        }
+
+        return url;
+      });
+
+      // TODO code duplication
+      tab.get("title").set(title || url || "");
+      tab.get("favicon").set(favicon);
+      tab.get("pinned").set(pinned);
+
+      // TODO can this be made more efficient ?
+      search(search_value);
+    },
+
+    "tab-move": ({ "window-old-id": old_window_id,
+                   "window-new-id": new_window_id,
+                   "tab-old-index": old_index,
+                   "tab-new-index": new_index,
+                   "tab-id": tab_id }) => {
+
+      const old_window = window_ids.get(old_window_id);
+      const new_window = window_ids.get(new_window_id);
+      const old_tabs = old_window.get("tabs");
+      const new_tabs = new_window.get("tabs");
+      const tab = tab_ids.get(tab_id);
+
+      assert(old_tabs.get(old_index) === tab);
+
+      old_tabs.remove(old_index);
+      new_tabs.insert(new_index, tab);
+
+      // TODO is this correct ?
+      if (old_window === new_window) {
+        update_tabs(old_window);
+
+      } else {
+        update_tabs(old_window);
+        update_tabs(new_window);
+      }
+    },
+
+    "tab-close": ({ "window-id": window_id,
+                    "tab-id": tab_id,
+                    "tab-index": index }) => {
+
+      const window = window_ids.get(window_id);
+      const tab = tab_ids.get(tab_id);
+      const tabs = window.get("tabs");
+
+      tab_ids.remove(tab.get("id"));
+
+      assert(tabs.get(index) === tab);
+
+      tabs.remove(index);
+
+      update_tabs(window);
+    },
+
+    "window-open": ({ "window": info,
+                      "window-index": index }) => {
+
+      const window = make_window(info);
+
+      assert(info.get("tabs").size === 0);
 
       window_ids.insert(window.get("id"), window);
 
-      windows.push(window);
-    });
+      windows.insert(index, window);
 
-    update_groups(windows);
+      // TODO this can be made more efficient
+      update_groups(windows);
+    },
 
-    //sort_by_window.init(windows);
+    "window-close": ({ "window-id": window_id,
+                       "window-index": index }) => {
 
-    // TODO can this be made more efficient ?
-    search(search_value);
-  },
+      const window = window_ids.get(window_id);
 
-  "tab-open": ({ "tab": info,
-                 "window-id": window_id,
-                 "tab-index": index }) => {
+      assert(window.get("tabs").size === 0);
 
-    const window = window_ids.get(window_id);
-    const tabs = window.get("tabs");
+      window_ids.remove(window.get("id"));
 
-    const tab = make_tab(info, window);
+      assert(windows.get(index) === window);
 
-    tab_ids.insert(tab.get("id"), tab);
+      windows.remove(index);
 
-    tabs.insert(index, tab);
-
-    update_tabs(window);
-
-    // TODO can this be made more efficient ?
-    search(search_value);
-  },
-
-  // TODO update the timestamp as well
-  "tab-focus": ({ "tab-id": id }) => {
-    tab_ids.get(id).get("focused").set(true);
-
-    // TODO can this be made more efficient ?
-    search(search_value);
-  },
-
-  "tab-unfocus": ({ "tab-id": id }) => {
-    tab_ids.get(id).get("focused").set(false);
-
-    // TODO can this be made more efficient ?
-    search(search_value);
-  },
-
-  "tab-update": ({ "tab-id": id,
-                   "tab": { "url": url,
-                            "title": title,
-                            "favicon": favicon,
-                            "pinned": pinned } }) => {
-
-    const tab = tab_ids.get(id);
-
-    tab.get("url").modify((old_url) => {
-      // This is just to trigger a tab animation when the tab's URL changes
-      if (old_url !== url) {
-        const tabs = tab.get("window").get("tabs");
-        const index = tab.get("index");
-
-        assert(tabs.get(index) === tab);
-
-        tabs.remove(index);
-        tabs.insert(index, tab);
-      }
-
-      return url;
-    });
-
-    // TODO code duplication
-    tab.get("title").set(title || url || "");
-    tab.get("favicon").set(favicon);
-    tab.get("pinned").set(pinned);
-
-    // TODO can this be made more efficient ?
-    search(search_value);
-  },
-
-  "tab-move": ({ "window-old-id": old_window_id,
-                 "window-new-id": new_window_id,
-                 "tab-old-index": old_index,
-                 "tab-new-index": new_index,
-                 "tab-id": tab_id }) => {
-
-    const old_window = window_ids.get(old_window_id);
-    const new_window = window_ids.get(new_window_id);
-    const old_tabs = old_window.get("tabs");
-    const new_tabs = new_window.get("tabs");
-    const tab = tab_ids.get(tab_id);
-
-    assert(old_tabs.get(old_index) === tab);
-
-    old_tabs.remove(old_index);
-    new_tabs.insert(new_index, tab);
-
-    // TODO is this correct ?
-    if (old_window === new_window) {
-      update_tabs(old_window);
-
-    } else {
-      update_tabs(old_window);
-      update_tabs(new_window);
+      update_groups(windows);
     }
-  },
+  };
 
-  "tab-close": ({ "window-id": window_id,
-                  "tab-id": tab_id,
-                  "tab-index": index }) => {
-
-    const window = window_ids.get(window_id);
-    const tab = tab_ids.get(tab_id);
-    const tabs = window.get("tabs");
-
-    tab_ids.remove(tab.get("id"));
-
-    assert(tabs.get(index) === tab);
-
-    tabs.remove(index);
-
-    update_tabs(window);
-  },
-
-  "window-open": ({ "window": info,
-                    "window-index": index }) => {
-
-    const window = make_window(info);
-
-    assert(info.get("tabs").size === 0);
-
-    window_ids.insert(window.get("id"), window);
-
-    windows.insert(index, window);
-
-    // TODO this can be made more efficient
-    update_groups(windows);
-  },
-
-  "window-close": ({ "window-id": window_id,
-                     "window-index": index }) => {
-
-    const window = window_ids.get(window_id);
-
-    assert(window.get("tabs").size === 0);
-
-    window_ids.remove(window.get("id"));
-
-    assert(windows.get(index) === window);
-
-    windows.remove(index);
-
-    update_groups(windows);
-  }
-};
-
-port.on_receive((x) => {
-  const type = x["type"];
-  if (types[type]) {
-    types[type](x);
-  } else {
-    fail();
-  }
+  port.on_receive((x) => {
+    const type = x["type"];
+    if (types[type]) {
+      types[type](x);
+    } else {
+      fail();
+    }
+  });
 });

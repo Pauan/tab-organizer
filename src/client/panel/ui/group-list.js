@@ -1,20 +1,29 @@
-import { always } from "../../../util/mutable/ref";
-import { group as ui_group } from "./group";
 import * as dom from "../../dom";
+import { async } from "../../../util/async";
+import { always } from "../../../util/mutable/ref";
+import { init as init_group } from "./group";
 
 
-const style_group_list = dom.style({
-  "overflow": always("auto"),
-  //"height": always("100%"),
-  /*"align-items": always("stretch"), // TODO hacky
-  "height": always("100%")*/
+export const init = async(function* () {
+  const { group: ui_group } = yield init_group;
+
+
+  const style_group_list = dom.style({
+    "overflow": always("auto"),
+    //"height": always("100%"),
+    /*"align-items": always("stretch"), // TODO hacky
+    "height": always("100%")*/
+  });
+
+
+  const group_list = (groups) =>
+    dom.col((e) => [
+      e.set_style(dom.stretch, always(true)),
+      e.set_style(style_group_list, always(true)),
+
+      e.children(groups.map(ui_group))
+    ]);
+
+
+  return { group_list };
 });
-
-
-export const group_list = (groups) =>
-  dom.col((e) => [
-    e.set_style(dom.stretch, always(true)),
-    e.set_style(style_group_list, always(true)),
-
-    e.children(groups.map(ui_group))
-  ]);
