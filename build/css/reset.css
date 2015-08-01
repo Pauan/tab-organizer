@@ -1,6 +1,8 @@
 @charset "UTF-8";
 
 * {
+  /* TODO is this correct ? */
+  overflow: hidden;
   text-overflow: ellipsis;
 
   vertical-align: middle; /* TODO I can probably get rid of this */

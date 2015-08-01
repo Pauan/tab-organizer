@@ -352,6 +352,8 @@ class Element {
   // TODO test this
   _wait_animation(a, f) {
     if (a["length"]) {
+      const dom = this._dom;
+
       let pending = 0;
 
       const start = (e) => {
@@ -363,16 +365,16 @@ class Element {
 
         if (pending === 0) {
           // TODO remove vendor prefix
-          this._dom["removeEventListener"]("webkitAnimationStart", start, true);
-          this._dom["removeEventListener"]("webkitAnimationEnd", end, true);
+          dom["removeEventListener"]("webkitAnimationStart", start, true);
+          dom["removeEventListener"]("webkitAnimationEnd", end, true);
           f();
         }
       };
 
       // TODO is it possible for these to leak ?
       // TODO remove vendor prefix
-      this._dom["addEventListener"]("webkitAnimationStart", start, true);
-      this._dom["addEventListener"]("webkitAnimationEnd", end, true);
+      dom["addEventListener"]("webkitAnimationStart", start, true);
+      dom["addEventListener"]("webkitAnimationEnd", end, true);
 
     } else {
       f();
@@ -561,8 +563,10 @@ class Parent extends Element {
 
     const a = child._get_animations((x) => x.remove);
 
+    const dom = child._dom;
+
     child._wait_animation(a, () => {
-      this._dom["removeChild"](child._dom);
+      this._dom["removeChild"](dom);
     });
 
     child._animate(a);
@@ -800,7 +804,7 @@ export const stretch = style({
   "flex-basis": always("0%"),
 
   // TODO is this correct ?
-  "overflow": always("hidden"),
+  //"overflow": always("hidden"),
   "white-space": always("nowrap")
 });
 

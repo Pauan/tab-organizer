@@ -9,7 +9,7 @@ export const set_style = (() => {
     "box-sizing": ["-moz-box-sizing", "box-sizing"] // TODO get rid of this later
   };
 
-  return (style, key, value) => {
+  return (style, key, value, important = false) => {
     // TODO test this
     if (typeof key !== "string") {
       throw new Error("Key must be a string: " + key);
@@ -36,9 +36,8 @@ export const set_style = (() => {
         style["removeProperty"](key);
 
       } else {
-        // The third argument must be ""
         // https://drafts.csswg.org/cssom/#dom-cssstyledeclaration-setproperty
-        style["setProperty"](key, value, "");
+        style["setProperty"](key, value, (important ? "important" : ""));
       }
 
       return style["getPropertyValue"](key);

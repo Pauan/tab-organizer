@@ -15,34 +15,6 @@ const hypot = (x, y) =>
   Math["sqrt"](x * x + y * y);
 
 
-const style_dragging = dom.style({
-  "pointer-events": always("none"),
-  "opacity": always("0.98")
-});
-
-const style_tab = dom.style({
-  // TODO is this correct ?
-  "overflow": always("hidden"),
-
-  "width": always("100%"),
-
-  "border-left-width": always("1px"),
-  "border-right-width": always("1px"),
-  "padding-left": always("1px"),
-  "padding-right": always("1px"),
-  "border-radius": always("5px"),
-
-  "transition": always("background-color 100ms ease-in-out"),
-
-  // Magical incantation to make it much smoother
-  "transform": always("translate3d(0px, 0px, 0px)"),
-
-  // TODO test this
-  "transform-origin": always("11px 50%"),
-
-  "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
-});
-
 const animation_dragging = dom.animation({
   easing: "ease-out",
   duration: "300ms",
@@ -78,13 +50,6 @@ const animation_tab = dom.animation({
   easing: "ease-in-out",
   duration: "500ms",
   from: {
-    "transform": always("rotateX(-90deg)"),
-    /*"transform": {
-      "rotationX": "-90deg", // 120deg
-      "rotationY": "5deg", // 20deg
-      //"rotationZ": "-1deg", // -1deg
-    },*/
-
     "border-top-width": always("0px"),
     "border-bottom-width": always("0px"),
     "padding-top": always("0px"),
@@ -93,7 +58,6 @@ const animation_tab = dom.animation({
     "opacity": always("0")
   },
   to: {
-    "transform": always("rotateX(0deg)"),
     "border-top-width": always("1px"),
     "border-bottom-width": always("1px"),
     "padding-top": always("1px"),
@@ -101,6 +65,50 @@ const animation_tab = dom.animation({
     "height": always("20px"),
     "opacity": always("1")
   }
+});
+
+const animation_tab_flip = dom.animation({
+  easing: "ease-in-out",
+  duration: "500ms",
+  from: {
+    "transform": always("rotateX(-90deg)"),
+    /*"transform": {
+      "rotationX": "-90deg", // 120deg
+      "rotationY": "5deg", // 20deg
+      //"rotationZ": "-1deg", // -1deg
+    },*/
+  },
+  to: {
+    "transform": always("rotateX(0deg)")
+  }
+});
+
+const style_dragging = dom.style({
+  "pointer-events": always("none"),
+  "opacity": always("0.98")
+});
+
+const style_tab = dom.style({
+  // TODO is this correct ?
+  //"overflow": always("hidden"),
+
+  "width": always("100%"),
+
+  "border-left-width": always("1px"),
+  "border-right-width": always("1px"),
+  "padding-left": always("1px"),
+  "padding-right": always("1px"),
+  "border-radius": always("5px"),
+
+  "transition": always("background-color 100ms ease-in-out"),
+
+  // Magical incantation to make it much smoother
+  "transform": always("translate3d(0px, 0px, 0px)"),
+
+  // TODO test this
+  "transform-origin": always("11px 50%"),
+
+  "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
 });
 
 const style_unloaded = dom.style({
@@ -385,6 +393,14 @@ export const tab = (group, tab) =>
 
     e.animate(animation_tab, {
       initial: "set-to",
+      insert: "play-to",
+      remove: "play-from",
+    }),
+
+    // This needs to be separate from `animation_tab`, because otherwise
+    // drag-and-drop doesn't work correctly (animation "transform" has higher
+    // priority than drag-and-drop "transform")
+    e.animate(animation_tab_flip, {
       insert: "play-to",
       remove: "play-from",
     }),
