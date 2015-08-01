@@ -138,7 +138,9 @@ export const init = async(function* () {
     "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.4) + "," +
                           "0px 1px 1px " + dom.hsl(0, 0, 0, 0.4)), // TODO why is it duplicated like this ?
     "border-color": always(dom.hsl(0, 0, 0, 0.2)),
+
     "color": always(dom.hsl(0, 0, 99, 0.95)), // TODO minor code duplication with `style_menu_item_hover`
+    "opacity": always("1")
   });
 
   const style_tab_focused = dom.style({
@@ -250,6 +252,9 @@ export const init = async(function* () {
     dom.text((e) => [
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_text, always(true)),
+
+      // TODO what about dragging ?
+      e.tooltip(tab.get("title")),
 
       e.value(latest([
         tab.get("title"),
@@ -385,7 +390,12 @@ export const init = async(function* () {
       }),
     ]);
 
+
+  const group_type = opt("group.sort.type");
+
   const drag_start_if = (start_x, start_y, { x, y, alt, ctrl, shift }) =>
+    // TODO should also support dragging when the type is "tag"
+    group_type.get() === "window" &&
     !alt && !ctrl && !shift &&
     hypot(start_x - x, start_y - y) > 5;
 
@@ -477,8 +487,14 @@ export const init = async(function* () {
       ]);
 
       const ui_favicon = favicon(tab);
-      const ui_text    = text(tab);
-      const ui_close   = close(tab, is_hovering);
+
+      const ui_text = text(tab);
+
+      const ui_close = close(tab, latest([
+        opt("tabs.close.display"),
+        is_hovering
+      ], (display, hover) => (display === "every") ||
+                             (display === "hover" && hover)));
 
       const is_holding = and([
         is_hovering,

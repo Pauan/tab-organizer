@@ -451,6 +451,16 @@ class Element {
     });
   }
 
+  tooltip(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        this._dom["title"] = "";
+      } else {
+        this._dom["title"] = x;
+      }
+    });
+  }
+
   // TODO test this
   style(o) {
     // TODO replace with `Set` ?

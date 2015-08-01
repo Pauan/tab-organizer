@@ -8,7 +8,7 @@ export const init = async(function* () {
   button.set_tooltip(manifest.get("name"));
 
   button.on_click(() => {
-    panels.open({ url: "panel.html" });
+    panels.open({ url: "panel.html", width: 300, height: 600 });
   });
   //button.set_bubble_url("panel.html");
 });
