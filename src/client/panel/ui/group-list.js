@@ -9,6 +9,9 @@ export const init = async(function* () {
 
 
   const style_group_list = dom.style({
+    // TODO is this needed ?
+    "white-space": always("pre"),
+
     "overflow": always("auto"),
     //"height": always("100%"),
     /*"align-items": always("stretch"), // TODO hacky
