@@ -5,7 +5,7 @@ import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
-import { init as init_options } from "../../options";
+import { init as init_options } from "../../sync/options";
 
 
 export const init = async(function* () {
