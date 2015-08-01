@@ -31,6 +31,8 @@ class Element {
     this._dom = dom;
     this._running = new Set();
     this._animations = new Set();
+    this._hovering = null;
+    this._holding = null;
   }
 
   // TODO test this
@@ -38,6 +40,14 @@ class Element {
     each(this._running, (x) => {
       x.stop();
     });
+
+    assert(this._animations.size === 0);
+
+    this._dom = null;
+    this._running = null;
+    this._animations = null;
+    this._hovering = null;
+    this._holding = null;
   }
 
   _run(x) {
@@ -112,25 +122,29 @@ class Element {
   }
 
   hovering() {
-    const x = new Ref(null);
+    if (this._hovering === null) {
+      this._hovering = new Ref(null);
 
-    // TODO a little hacky
-    this._run(this.on_mouse_hover((hover) => {
-      x.set(hover);
-    }));
+      // TODO a little hacky
+      this._run(this.on_mouse_hover((hover) => {
+        this._hovering.set(hover);
+      }));
+    }
 
-    return x;
+    return this._hovering;
   }
 
   holding() {
-    const x = new Ref(null);
+    if (this._holding === null) {
+      this._holding = new Ref(null);
 
-    // TODO a little hacky
-    this._run(this.on_mouse_hold((hold) => {
-      x.set(hold);
-    }));
+      // TODO a little hacky
+      this._run(this.on_mouse_hold((hold) => {
+        this._holding.set(hold);
+      }));
+    }
 
-    return x;
+    return this._holding;
   }
 
   // TODO code duplication
@@ -185,7 +199,7 @@ class Element {
     };
   }
 
-  on_mouse_move(send) {
+  /*on_mouse_move(send) {
     const mousemove = (e) => {
       send(mouse_event(e));
     };
@@ -197,7 +211,7 @@ class Element {
         this._dom["removeEventListener"]("mousemove", mousemove, true);
       }
     };
-  }
+  }*/
 
   draggable({ start, move, end, start_if }) {
     let start_x = null;
@@ -253,9 +267,11 @@ class Element {
     this._dom["addEventListener"]("mousedown", mousedown, true);
 
     return {
-      // TODO what about `mousemove` and `mouseup` ?
+      // TODO is this correct ?
       stop: () => {
         this._dom["removeEventListener"]("mousedown", mousedown, true);
+        removeEventListener("mousemove", mousemove, true);
+        removeEventListener("mouseup", mouseup, true);
       }
     };
   }
@@ -353,6 +369,7 @@ class Element {
         }
       };
 
+      // TODO is it possible for these to leak ?
       // TODO remove vendor prefix
       this._dom["addEventListener"]("webkitAnimationStart", start, true);
       this._dom["addEventListener"]("webkitAnimationEnd", end, true);
@@ -400,6 +417,7 @@ class Element {
 
   // TODO test this
   _animate(a) {
+    // TODO is this correct ?
     // TODO remove vendor prefix
     set_style(this._dom["style"], "-webkit-animation", null);
 

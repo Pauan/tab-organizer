@@ -5,9 +5,9 @@ import * as dom from "../../dom";
 
 export const toolbar = () =>
   dom.row((e) => [
-    e.style({
+    /*e.style({
       "height": always("20px")
-    }),
+    }),*/
 
     e.children([
       ui_search()
