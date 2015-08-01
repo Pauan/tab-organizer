@@ -299,8 +299,14 @@ export const init = async(function* () {
         not(tab.get("selected"))
       ]);
 
+
       const ui_favicon = favicon(tab);
-      const ui_text    = text(tab);
+
+      const ui_text = text(tab);
+
+      const ui_close = close(tab, opt("tabs.close.display").map((display) =>
+                                    (display === "every")));
+
 
       // TODO code duplication with `tab`
       return [
@@ -355,13 +361,13 @@ export const init = async(function* () {
           "z-index": always(-index + "")
         }),
 
-        // TODO minor code duplication
+        // TODO code duplication
         e.set_children(opt("tabs.close.location").map((x) => {
           if (x === "left") {
-            return [ui_text, ui_favicon];
+            return [ui_close, ui_text, ui_favicon];
 
           } else if (x === "right") {
-            return [ui_favicon, ui_text];
+            return [ui_favicon, ui_text, ui_close];
           }
         })),
       ];
