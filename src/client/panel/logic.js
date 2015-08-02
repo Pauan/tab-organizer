@@ -12,7 +12,7 @@ import { init as init_top } from "./ui/top";
 import { init as init_options } from "../sync/options";
 
 import { make as make_sort_by_window } from "./logic/sort-by-window";
-//import { make as make_sort_by_created } from "./logic/sort-by-created";
+import { make as make_sort_by_created } from "./logic/sort-by-created";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -50,6 +50,7 @@ const make_window = ({ "id": id,
 
 const make_tab = ({ "id": id,
                     "url": url,
+                    "time": time,
                     "title": title,
                     "favicon": favicon,
                     "pinned": pinned,
@@ -61,8 +62,7 @@ const make_tab = ({ "id": id,
     "window": window,
     // TODO should this be a Ref instead ?
     "index": null,
-    // TODO make this into a Record or Ref ?
-    //"time": info.get("time"),
+    "time": new Record(time),
     //"groups": new Set(),
 
     "url": new Ref(url),
@@ -344,25 +344,6 @@ const port = ports.connect(uuid_port_tab);
 
 
 export const init = async(function* () {
-  const { get: opt } = yield init_options;
-
-
-  // TODO a little bit hacky
-  let group_type = null;
-
-  opt("group.sort.type").each((type) => {
-    if (type === "window") {
-      group_type = make_sort_by_window();
-
-    } else if (type === "created") {
-      //group_type = make_sort_by_created();
-
-    } else {
-      fail();
-    }
-  });
-
-
   yield async_callback((success, error) => {
     const types = {
       "init": ({ "windows": _windows }) => {
@@ -389,8 +370,6 @@ export const init = async(function* () {
         });
 
         update_windows(windows);
-
-        group_type.init(windows);
 
         success(undefined);
       },
@@ -557,7 +536,27 @@ export const init = async(function* () {
   });
 
 
+  const { get: opt } = yield init_options;
   const { top: ui_top } = yield init_top;
+
+
+  // TODO a little bit hacky
+  let group_type = null;
+
+  opt("group.sort.type").each((type) => {
+    if (type === "window") {
+      group_type = make_sort_by_window();
+
+    } else if (type === "created") {
+      group_type = make_sort_by_created();
+
+    } else {
+      fail();
+    }
+  });
+
+
+  group_type.init(windows);
 
   dom.main(ui_top(group_type.groups));
 });
