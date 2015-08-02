@@ -1,5 +1,5 @@
 import { always } from "../../../util/mutable/ref";
-import * as logic from "../logic";
+import { change_search } from "../search/search";
 import * as dom from "../../dom";
 
 
@@ -14,6 +14,6 @@ export const search = () =>
     e.set_style(style_search, always(true)),
 
     e.on_change((value) => {
-      logic.search(value);
+      change_search(value);
     })
   ]);

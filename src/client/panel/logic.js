@@ -1,16 +1,18 @@
+import * as dom from "../dom";
 import { uuid_port_tab } from "../../common/uuid";
 import { ports } from "../../chrome/client";
 import { async, async_callback } from "../../util/async";
 import { Ref } from "../../util/mutable/ref";
 import { Set } from "../../util/mutable/set";
 import { Record } from "../../util/mutable/record";
-import { List, SortedList } from "../../util/mutable/list";
+import { List } from "../../util/mutable/list";
 import { each, map, to_array, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 import { init as init_top } from "./ui/top";
-import * as dom from "../dom";
+import { init as init_options } from "../sync/options";
 
-import * as sort_by_window from "./logic/sort-by-window";
+import { make as make_sort_by_window } from "./logic/sort-by-window";
+//import { make as make_sort_by_created } from "./logic/sort-by-created";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -44,12 +46,6 @@ const make_window = ({ "id": id,
     "id": id,
     "name": new Ref(name),
     "tabs": new List(),
-
-    // TODO a little hacky
-    "first-selected-tab": null,
-
-    "matches": new Ref(false),
-    "height": new Ref(null)
   });
 
 const make_tab = ({ "id": id,
@@ -78,77 +74,12 @@ const make_tab = ({ "id": id,
     "focused": new Ref(focused),
     "unloaded": new Ref(unloaded),
 
+    // TODO this shouldn't be in here
     "matches": new Ref(false),
     "visible": new Ref(true),
     "animate": new Ref(false),
     "top": new Ref(null)
   });
-
-/*
-// TODO remove remaining tabs as well ?
-// TODO what about "selected" ?
-const remove_group = (group) => {
-  group_ids.remove(group.get("id"));
-
-  group_list.remove(group);
-};*/
-
-/*const remove_tab = (tab) => {
-  const groups = tab.get("groups");
-
-  each(groups, (group) => {
-    const tabs = group.get("tabs");
-
-    tabs.remove(tab);
-
-    if (tabs.size === 0) {
-      remove_group(group);
-    }
-  });
-
-  groups.clear();
-};*/
-
-
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
-// http://www.regular-expressions.info/characters.html
-const escape_regexp = (s) =>
-  s["replace"](/[\\\^\$\*\+\?\.\|\(\)\{\}\[\]]/g, "\\$&");
-
-const parse_search = (value) => {
-  const re = new RegExp(escape_regexp(value), "i");
-
-  return (tab) => {
-    return re["test"](tab.get("title").get()) ||
-           re["test"](tab.get("url").get());
-  };
-};
-
-
-let search_value = "";
-
-export const search = (value) => {
-  search_value = value;
-
-  // TODO it should save the parsed value somehow
-  const parsed = parse_search(search_value);
-
-  each(windows, (window) => {
-    let seen = false;
-
-    each(window.get("tabs"), (tab) => {
-      if (parsed(tab)) {
-        tab.get("matches").set(true);
-        seen = true;
-
-      } else {
-        tab.get("matches").set(false);
-      }
-    });
-
-    window.get("matches").set(seen);
-  });
-};
 
 
 export const deselect_tab = (group, tab) => {
@@ -210,6 +141,60 @@ export const shift_select_tab = (group, tab) => {
 
 const drag_info = new Ref(null);
 
+const get_direction = (info, group, tab) => {
+  if (info.tab === tab) {
+    return (info.direction === "up"
+             ? "down"
+             : "up");
+
+  } else if (info.group === group) {
+    // TODO is there a better way than using indexes ?
+    const old_index = info.tab.get("index");
+    const new_index = tab.get("index");
+
+    if (old_index < new_index) {
+      return "down";
+
+    } else {
+      return "up";
+    }
+
+  } else {
+    return info.direction;
+  }
+};
+
+// TODO test this
+const update_dragging = (group) => {
+  const a = group.get("tabs");
+
+  const info = drag_info.get();
+
+  let top = 0;
+
+  each(a, (x) => {
+    // TODO a bit hacky
+    if (info !== null && info.tab === x && info.direction === "up") {
+      top += info.height;
+    }
+
+    // TODO a little bit hacky
+    if (x.get("visible").get()) {
+      x.get("animate").set(info !== null && info.animate);
+      x.get("top").set(info !== null ? top + "px" : null);
+
+      top += 20; // TODO gross
+    }
+
+    // TODO a bit hacky
+    if (info !== null && info.tab === x && info.direction === "down") {
+      top += info.height;
+    }
+  });
+
+  group.get("height").set(info !== null ? top + "px" : null);
+};
+
 export const drag_onto_tab = (group, tab) => {
   const info = drag_info.get();
 
@@ -219,38 +204,15 @@ export const drag_onto_tab = (group, tab) => {
       group: group,
       tab: tab,
       height: info.height,
-
-      // TODO a little hacky
-      direction: (() => {
-        if (info.tab === tab) {
-          return (info.direction === "up"
-                   ? "down"
-                   : "up");
-
-        } else if (info.group === group) {
-          // TODO is there a better way than using indexes ?
-          const old_index = info.tab.get("index");
-          const new_index = tab.get("index");
-
-          if (old_index < new_index) {
-            return "down";
-
-          } else {
-            return "up";
-          }
-
-        } else {
-          return info.direction;
-        }
-      })()
+      direction: get_direction(info, group, tab)
     });
 
     if (info.group === group) {
-      update_tabs(group);
+      update_dragging(group);
 
     } else {
-      update_tabs(group);
-      update_tabs(info.group);
+      update_dragging(group);
+      update_dragging(info.group);
     }
   }
 };
@@ -272,11 +234,11 @@ export const drag_onto_group = (group) => {
     });
 
     if (info.group === group) {
-      update_tabs(group);
+      update_dragging(group);
 
     } else {
-      update_tabs(group);
-      update_tabs(info.group);
+      update_dragging(group);
+      update_dragging(info.group);
     }
   }
 };
@@ -290,7 +252,7 @@ export const drag_start = ({ group, tab, height }) => {
     direction: "up"
   });
 
-  update_tabs(group);
+  update_dragging(group);
 };
 
 // TODO what about "first-selected-tab" ?
@@ -299,7 +261,7 @@ export const drag_end = (selected) => {
 
   drag_info.set(null);
 
-  update_tabs(info.group);
+  update_dragging(info.group);
 
 
   const index1 = info.tab.get("index");
@@ -358,7 +320,7 @@ export const close_tabs = (a) => {
 };
 
 
-const update_groups = (a) => {
+const update_windows = (a) => {
   each(indexed(a), ([i, x]) => {
     x.get("name").modify((name) => {
       if (name === null) {
@@ -371,36 +333,10 @@ const update_groups = (a) => {
 };
 
 // TODO this can be more efficient if it is given the starting index
-const update_tabs = (group) => {
-  const a = group.get("tabs");
-
-  const info = drag_info.get();
-
-  let top = 0;
-
-  each(indexed(a), ([i, x]) => {
+const update_tabs = (window) => {
+  each(indexed(window.get("tabs")), ([i, x]) => {
     x.update("index", i);
-
-    // TODO a bit hacky
-    if (info !== null && info.tab === x && info.direction === "up") {
-      top += info.height;
-    }
-
-    // TODO a little bit hacky
-    if (x.get("visible").get()) {
-      x.get("animate").set(info !== null && info.animate);
-      x.get("top").set(info !== null ? top + "px" : null);
-
-      top += 20; // TODO gross
-    }
-
-    // TODO a bit hacky
-    if (info !== null && info.tab === x && info.direction === "down") {
-      top += info.height;
-    }
   });
-
-  group.get("height").set(info !== null ? top + "px" : null);
 };
 
 
@@ -408,7 +344,23 @@ const port = ports.connect(uuid_port_tab);
 
 
 export const init = async(function* () {
-  const { top: ui_top } = yield init_top;
+  const { get: opt } = yield init_options;
+
+
+  // TODO a little bit hacky
+  let group_type = null;
+
+  opt("group.sort.type").each((type) => {
+    if (type === "window") {
+      group_type = make_sort_by_window();
+
+    } else if (type === "created") {
+      //group_type = make_sort_by_created();
+
+    } else {
+      fail();
+    }
+  });
 
 
   yield async_callback((success, error) => {
@@ -436,12 +388,9 @@ export const init = async(function* () {
           windows.push(window);
         });
 
-        update_groups(windows);
+        update_windows(windows);
 
-        //sort_by_window.init(windows);
-
-        // TODO can this be made more efficient ?
-        search(search_value);
+        group_type.init(windows);
 
         success(undefined);
       },
@@ -461,23 +410,24 @@ export const init = async(function* () {
 
         update_tabs(window);
 
-        // TODO can this be made more efficient ?
-        search(search_value);
+        group_type.tab_open(tab, window, index);
       },
 
       // TODO update the timestamp as well
       "tab-focus": ({ "tab-id": id }) => {
-        tab_ids.get(id).get("focused").set(true);
+        const tab = tab_ids.get(id);
 
-        // TODO can this be made more efficient ?
-        search(search_value);
+        tab.get("focused").set(true);
+
+        group_type.tab_focus(tab);
       },
 
       "tab-unfocus": ({ "tab-id": id }) => {
-        tab_ids.get(id).get("focused").set(false);
+        const tab = tab_ids.get(id);
 
-        // TODO can this be made more efficient ?
-        search(search_value);
+        tab.get("focused").set(false);
+
+        group_type.tab_unfocus(tab);
       },
 
       "tab-update": ({ "tab-id": id,
@@ -508,8 +458,7 @@ export const init = async(function* () {
         tab.get("favicon").set(favicon);
         tab.get("pinned").set(pinned);
 
-        // TODO can this be made more efficient ?
-        search(search_value);
+        group_type.tab_update(tab);
       },
 
       "tab-move": ({ "window-old-id": old_window_id,
@@ -537,6 +486,9 @@ export const init = async(function* () {
           update_tabs(old_window);
           update_tabs(new_window);
         }
+
+        // TODO need to pass in the index, etc.
+        group_type.tab_move(tab);
       },
 
       "tab-close": ({ "window-id": window_id,
@@ -554,6 +506,8 @@ export const init = async(function* () {
         tabs.remove(index);
 
         update_tabs(window);
+
+        group_type.tab_close(tab, window, index);
       },
 
       "window-open": ({ "window": info,
@@ -561,14 +515,16 @@ export const init = async(function* () {
 
         const window = make_window(info);
 
-        assert(info.get("tabs").size === 0);
+        assert(info["tabs"]["length"] === 0);
 
         window_ids.insert(window.get("id"), window);
 
         windows.insert(index, window);
 
         // TODO this can be made more efficient
-        update_groups(windows);
+        update_windows(windows);
+
+        group_type.window_open(window, index);
       },
 
       "window-close": ({ "window-id": window_id,
@@ -584,7 +540,9 @@ export const init = async(function* () {
 
         windows.remove(index);
 
-        update_groups(windows);
+        update_windows(windows);
+
+        group_type.window_close(window, index);
       }
     };
 
@@ -599,5 +557,7 @@ export const init = async(function* () {
   });
 
 
-  dom.main(ui_top(sort_by_window.groups));
+  const { top: ui_top } = yield init_top;
+
+  dom.main(ui_top(group_type.groups));
 });

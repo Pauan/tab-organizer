@@ -1,14 +1,15 @@
+import { SortedList } from "../../../util/mutable/list";
+import { Record } from "../../../util/mutable/record";
+import { Ref } from "../../../util/mutable/ref";
+import { difference, round_to_hour, current_time } from "../../../util/time";
+
+
 const sort_group = (x, y) =>
   y.get("time") - x.get("time");
 
 const sort_tab = (x, y) =>
   y.get("time").get("created") -
   x.get("time").get("created");
-
-const group_ids = new Record();
-
-export const groups = new SortedList(sort_group);
-
 
 // TODO move this to another module
 const pluralize = (x, s) => {
@@ -36,26 +37,41 @@ const diff_to_text = (diff) => {
 const get_group_name = (time) =>
   diff_to_text(difference(round_to_hour(current_time()), time));
 
-const get_groups = (tab) => {
-  const time = round_to_hour(tab.get("time").get("created"));
-  const id = "" + time;
 
-  if (group_ids.has(id)) {
-    return [group_ids.get(id)];
+export const make = () => {
+  const group_ids = new Record();
 
-  } else {
-    const group = new Record({
-      "id": id,
-      "name": new Ref(get_group_name(time)),
-      "time": time,
-      "tabs": new SortedList(sort_tab),
-      "selected": new SortedList(sort_tab)
-    });
+  const groups = new SortedList(sort_group);
 
-    group_ids.insert(id, group);
+  const get_groups = (tab) => {
+    const time = round_to_hour(tab.get("time").get("created"));
+    const id = "" + time;
 
-    group_list.insert(group);
+    if (group_ids.has(id)) {
+      return [group_ids.get(id)];
 
-    return [group];
-  }
+    } else {
+      // TODO code duplication
+      const group = new Record({
+        "id": id,
+        "name": new Ref(get_group_name(time)),
+        "time": time,
+        "tabs": new SortedList(sort_tab),
+
+        // TODO a little hacky
+        "first-selected-tab": null,
+
+        "matches": new Ref(false),
+        "height": new Ref(null)
+      });
+
+      group_ids.insert(id, group);
+
+      group_list.insert(group);
+
+      return [group];
+    }
+  };
+
+  return {};
 };
