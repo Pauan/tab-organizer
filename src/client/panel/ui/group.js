@@ -26,8 +26,7 @@ export const init = async(function* () {
 
     "top": always("-1px"),
     "border-top-width": always("1px"),
-    "padding-top": always("1px"),
-    "padding-bottom": always("1px")
+    "padding": always("1px")
   });
 
   const style_group_header = dom.style({
