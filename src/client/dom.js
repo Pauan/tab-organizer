@@ -763,6 +763,17 @@ export const gradient = (x, ...args) => {
 };
 
 // TODO code duplication
+export const radial_gradient = (x, ...args) => {
+  const r = [x];
+
+  each(args, ([x, y]) => {
+    r["push"](y + " " + x);
+  });
+
+  return "radial-gradient(" + r["join"](",") + ")"
+};
+
+// TODO code duplication
 export const repeating_gradient = (x, ...args) => {
   const r = [x];
 

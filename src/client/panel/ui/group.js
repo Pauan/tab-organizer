@@ -14,17 +14,26 @@ export const init = async(function* () {
   const style_group = dom.style({
     //"width": always("300px"),
     //"height": always("100%"),
-    "border-color": always(dom.hsl(211, 50, 75)),
+
+    "border-image-source": always(dom.gradient("to right",
+                                               ["0%", "transparent"],
+                                               ["5%", dom.hsl(211, 50, 75)],
+                                               ["95%", dom.hsl(211, 50, 75)],
+                                               ["100%", "transparent"])),
+    "border-image-slice": always("100% 0%"),
+
+    //"border-color": always(dom.hsl(211, 50, 75)),
 
     "top": always("-1px"),
     "border-top-width": always("1px"),
+    "padding": always("1px")
   });
 
   const style_group_header = dom.style({
     // TODO is this correct ?
-    "height": always("16px"),
-    "padding-top": always("1px"), // TODO this needs to be animated
-    "padding-left": always("4px")
+    "height": always("18px"),
+    //"padding-top": always("1px"), // TODO this needs to be animated
+    "padding-left": always("5px")
   });
 
   const style_group_text = dom.style({
