@@ -170,7 +170,9 @@ export const init = async(function* () {
   });
 
   const style_favicon = dom.style({
-    "width": always("16px")
+    "width": always("16px"),
+    "margin-left": always("2px"),
+    "margin-right": always("1px")
   });
 
   const style_favicon_unloaded = dom.style({
@@ -178,8 +180,8 @@ export const init = async(function* () {
   });
 
   const style_text = dom.style({
-    "padding-left": always("2px"),
-    "padding-right": always("2px")
+    "padding-left": always("3px"),
+    "padding-right": always("1px")
   });
 
   const style_close = dom.style({
