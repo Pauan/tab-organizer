@@ -26,39 +26,6 @@ export const init = async(function* () {
   });
 
 
-  // TODO a bit hacky
-  // TODO test this
-  latest([
-    opt("popup.type"),
-    opt("size.bubble.width")
-  ], (type, width) => {
-    // TODO seems unreliable
-    if (type === "bubble"/* && window["outerWidth"] < (width / 2)*/) {
-      return width + "px";
-    } else {
-      return null;
-    }
-  }).each((x) => {
-    document["body"]["style"]["width"] = x;
-  });
-
-  // TODO a bit hacky
-  // TODO test this
-  latest([
-    opt("popup.type"),
-    opt("size.bubble.height")
-  ], (type, height) => {
-    // TODO seems unreliable
-    if (type === "bubble"/* && window["outerHeight"] < (height / 2)*/) {
-      return height + "px";
-    } else {
-      return null;
-    }
-  }).each((x) => {
-    document["body"]["style"]["height"] = x;
-  });
-
-
   const top = (group_list) =>
     dom.col((e) => [
       e.set_style(style_top, always(true)),
@@ -66,7 +33,40 @@ export const init = async(function* () {
       e.children([
         ui_toolbar(),
         ui_group_list(group_list)
-      ])
+      ]),
+
+
+      // TODO a bit hacky
+      // TODO test this
+      latest([
+        opt("popup.type"),
+        opt("size.bubble.width")
+      ], (type, width) => {
+        // TODO seems unreliable
+        if (type === "bubble"/* && window["outerWidth"] < (width / 2)*/) {
+          return width + "px";
+        } else {
+          return null;
+        }
+      }).each((x) => {
+        document["body"]["style"]["width"] = x;
+      }),
+
+      // TODO a bit hacky
+      // TODO test this
+      latest([
+        opt("popup.type"),
+        opt("size.bubble.height")
+      ], (type, height) => {
+        // TODO seems unreliable
+        if (type === "bubble"/* && window["outerHeight"] < (height / 2)*/) {
+          return height + "px";
+        } else {
+          return null;
+        }
+      }).each((x) => {
+        document["body"]["style"]["height"] = x;
+      })
     ]);
 
 

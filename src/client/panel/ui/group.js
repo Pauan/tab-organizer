@@ -21,6 +21,8 @@ export const init = async(function* () {
   });
 
   const style_group_header = dom.style({
+    // TODO is this correct ?
+    "height": always("16px"),
     "padding-top": always("1px"), // TODO this needs to be animated
     "padding-left": always("4px")
   });
