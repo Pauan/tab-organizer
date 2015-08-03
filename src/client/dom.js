@@ -591,6 +591,10 @@ class Parent extends Element {
 
     super._animate(fill, f, done2);
 
+    // TODO this is a bit broken;
+    //      e.g. try setting the "tab remove" animation to 5000ms,
+    //      then remove tabs 1 by 1 until the group is removed,
+    //      then look in console and wait 10 seconds
     each(this._children, (x) => {
       x._animate(fill, f, done2);
     });

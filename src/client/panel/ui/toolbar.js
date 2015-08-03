@@ -11,7 +11,7 @@ const style_toolbar = dom.style({
   "margin-right": always("1px"),
 
   // TODO is this correct ?
-  "height": always("28px"),
+  "height": always("24px"),
   "background-color": always(dom.hsl(0, 0, 100, 1)),
   // TODO is this correct ?
   "z-index": always("3"),
@@ -65,13 +65,15 @@ const style_toolbar = dom.style({
                        "inset 0px 0px 0px 2px " + dom.hsl(211, 100, 45, 0.05)),
 });
 
-const style_menu_text = dom.style({
-  "padding-left": always("8px"),
-  "padding-right": always("8px"),
-});
-
 const style_menu = dom.style({
   "height": always("100%"),
+  "padding-left": always("10px"),
+  "padding-right": always("10px"),
+  "cursor": always("pointer"),
+});
+
+const style_menu_hold = dom.style({
+  "padding-top": always("1px")
 });
 
 
@@ -96,16 +98,17 @@ export const toolbar = () =>
     e.children([
       ui_search(),
 
+      separator(dom.hsl(211, 100, 45)),
+      separator(dom.hsl(211, 100, 45, 0.1)),
+      separator(dom.hsl(211, 100, 45)),
+
       dom.row((e) => [
         e.set_style(style_menu, always(true)),
+        e.set_style(style_menu_hold, e.holding()),
 
+        // TODO a little hacky
         e.children([
-          separator(dom.hsl(211, 100, 45)),
-          separator(dom.hsl(211, 100, 45, 0.1)),
-          separator(dom.hsl(211, 100, 45)),
-
           dom.text((e) => [
-            e.set_style(style_menu_text, always(true)),
             e.value(always("Menu"))
           ])
         ])

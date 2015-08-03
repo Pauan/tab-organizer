@@ -4,6 +4,8 @@ import * as dom from "../../dom";
 
 
 const style_search = dom.style({
+  "cursor": always("auto"),
+
   "padding-top": always("1px"),
   "padding-bottom": always("2px"),
   "padding-left": always("2px"),
