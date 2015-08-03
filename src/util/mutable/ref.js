@@ -92,15 +92,15 @@ class Constant extends Base {
     this._value = value;
   }
 
+  _get() {
+    return this._value;
+  }
+
   // TODO is this correct ?
   _listen(f) {
     return {
       stop: () => {}
     };
-  }
-
-  get() {
-    return this._value;
   }
 }
 

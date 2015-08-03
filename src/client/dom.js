@@ -586,7 +586,12 @@ class Element {
 class Image extends Element {
   url(ref) {
     return ref.each((x) => {
-      this._dom["src"] = x;
+      if (x === null) {
+        this._dom["src"] = "";
+
+      } else {
+        this._dom["src"] = x;
+      }
     });
   }
 }
@@ -595,7 +600,12 @@ class Image extends Element {
 class Text extends Element {
   value(ref) {
     return ref.each((x) => {
-      this._dom["textContent"] = x;
+      if (x === null) {
+        this._dom["textContent"] = "";
+
+      } else {
+        this._dom["textContent"] = x;
+      }
     });
   }
 }
@@ -604,7 +614,12 @@ class Text extends Element {
 class Search extends Element {
   value(ref) {
     return ref.each((x) => {
-      this._dom["value"] = x;
+      if (x === null) {
+        this._dom["value"] = "";
+
+      } else {
+        this._dom["value"] = x;
+      }
     });
   }
 
