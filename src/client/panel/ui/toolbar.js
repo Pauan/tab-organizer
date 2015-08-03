@@ -21,7 +21,10 @@ const style_toolbar = dom.style({
   "border-width": always("1px"),
 
   //"border-bottom-width": always("1px"),
-  "border-color": always(dom.hsl(211, 100, 45)),
+  "border-top-color": always(dom.hsl(211, 100, 55)),
+  "border-left-color": always(dom.hsl(211, 100, 55)),
+  "border-bottom-color": always(dom.hsl(211, 100, 45)),
+  "border-right-color": always(dom.hsl(211, 100, 45)),
 
   /*"background-image": always(dom.gradient("to bottom",
                                           ["0%", "transparent"],
@@ -56,11 +59,34 @@ const style_toolbar = dom.style({
 
   //"box-shadow": always("0px -10px 30px 0px " + color),
   "box-shadow": always("0px 2px 0px -1px " + dom.hsl(211, 100, 45, 0.5) + "," +
-                       "0px 4px 1px -2px " + dom.hsl(211, 100, 45, 0.4) + "," +
-                       "0px 7px 1px -4px " + dom.hsl(211, 100, 45, 0.3) + "," +
-                       "inset 0px 0px 5px 0px " + dom.hsl(211, 100, 45, 0.2) + "," +
-                       "inset 0px -1px 1px 0px " + dom.hsl(211, 100, 45, 0.1)),
+                       "0px 5px 0px -3px " + dom.hsl(211, 100, 45, 0.25) + "," +
+                       "0px 5px 10px -3px " + dom.hsl(211, 100, 45, 0.32) + "," +
+                       "inset 0px 0px 0px 1px " + dom.hsl(211, 100, 45, 0.2) + "," +
+                       "inset 0px 0px 0px 2px " + dom.hsl(211, 100, 45, 0.05)),
 });
+
+const style_menu_text = dom.style({
+  "padding-left": always("8px"),
+  "padding-right": always("8px"),
+});
+
+const style_menu = dom.style({
+  "height": always("100%"),
+});
+
+
+const separator = (color) =>
+  dom.box((e) => [
+    e.style({
+      "background-color": always(color),
+      "width": always("1px"),
+      "height": always("100%"),
+      //"background-color": always(dom.hsl(211, 100, 45))
+
+      //"padding-right": always("8px"),
+      //"margin-bottom": always("1px")
+    })
+  ]);
 
 
 export const toolbar = () =>
@@ -68,6 +94,21 @@ export const toolbar = () =>
     e.set_style(style_toolbar, always(true)),
 
     e.children([
-      ui_search()
+      ui_search(),
+
+      dom.row((e) => [
+        e.set_style(style_menu, always(true)),
+
+        e.children([
+          separator(dom.hsl(211, 100, 45)),
+          separator(dom.hsl(211, 100, 45, 0.1)),
+          separator(dom.hsl(211, 100, 45)),
+
+          dom.text((e) => [
+            e.set_style(style_menu_text, always(true)),
+            e.value(always("Menu"))
+          ])
+        ])
+      ])
     ])
   ]);

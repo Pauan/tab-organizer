@@ -857,6 +857,16 @@ export const stretch = style({
   "white-space": always("nowrap")
 });
 
+export const box = (f) => {
+  const e = new Element(document["createElement"]("div"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
 export const row = (f) => {
   const e = new Row(document["createElement"]("div"));
   e._add_style(row_style);

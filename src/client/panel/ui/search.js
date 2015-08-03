@@ -4,7 +4,12 @@ import * as dom from "../../dom";
 
 
 const style_search = dom.style({
-  "padding": always("1px 2px")
+  "padding-top": always("1px"),
+  "padding-bottom": always("2px"),
+  "padding-left": always("2px"),
+  "padding-right": always("2px"),
+
+  "height": always("100%"),
 });
 
 
