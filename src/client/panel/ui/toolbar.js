@@ -6,6 +6,10 @@ import * as dom from "../../dom";
 const color = dom.hsl(211, 100, 45, 0.2); // 211, 100, 45, 0.75
 
 const style_toolbar = dom.style({
+  "margin-top": always("1px"),
+  "margin-left": always("1px"),
+  "margin-right": always("1px"),
+
   // TODO is this correct ?
   "height": always("28px"),
   "background-color": always(dom.hsl(0, 0, 100, 1)),

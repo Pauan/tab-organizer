@@ -16,6 +16,8 @@ export const init = async(function* () {
     //"height": always("100%"),
     /*"align-items": always("stretch"), // TODO hacky
     "height": always("100%")*/
+
+    "padding-top": always("3px")
   });
 
 
@@ -24,7 +26,12 @@ export const init = async(function* () {
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
 
-      e.children(groups.map(ui_group))
+      // TODO a little bit hacky
+      e.children([
+        dom.col((e) => [
+          e.children(groups.map(ui_group))
+        ])
+      ])
     ]);
 
 

@@ -46,7 +46,8 @@ export const init = async(function* () {
 
   const style_dragging = dom.style({
     "pointer-events": always("none"),
-    "opacity": always("0.98")
+    "opacity": always("0.98"),
+    "overflow": always("visible"),
   });
 
 

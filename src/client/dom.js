@@ -833,8 +833,6 @@ export const transition = (o) => {
 };
 
 const floating_style = style({
-  // TODO is this correct ?
-  "overflow": always("visible"),
   "position": always("fixed"),
   "z-index": always("9001") // TODO highest z-index
 });
