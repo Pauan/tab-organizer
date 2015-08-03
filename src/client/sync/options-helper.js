@@ -21,22 +21,34 @@ export const make_options = (uuid) =>
         "init": ({ "default": _default,
                    "current": _current }) => {
 
-          each(entries(_default), ([key, value]) => {
-            const x = new Ref(value);
+          const make_ref = ([key, value]) => {
+            // TODO use `options.default` somehow ?
+            if (!options.has(key)) {
+              const x = new Ref(value);
 
-            options.insert(key, x);
-          });
+              options.insert(key, x);
 
-          each(entries(_current), ([key, value]) => {
-            get(key).set(value);
-          });
+              x.on_change((value) => {
+                port.send({
+                  "type": "set",
+                  "key": key,
+                  "value": value
+                });
+              });
+            }
+          };
+
+          each(entries(_current), make_ref);
+          each(entries(_default), make_ref);
 
           success(undefined);
         },
 
-        // TODO
-        /*"set": () => {
-        }*/
+        "set": ({ "key":   key,
+                  "value": value }) => {
+          // TODO this shouldn't send out a message
+          get(key).set(value);
+        }
       };
 
       // TODO code duplication

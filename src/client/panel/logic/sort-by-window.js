@@ -2,7 +2,7 @@ import { List } from "../../../util/mutable/list";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
-import { search, on_change } from "../search/search";
+import { search, value } from "../search/search";
 
 
 export const make = () => {
@@ -22,7 +22,7 @@ export const make = () => {
     });
 
   // TODO handle stop
-  on_change(() => {
+  value.on_change(() => {
     search(groups);
   });
 

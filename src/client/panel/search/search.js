@@ -1,5 +1,5 @@
 import { each } from "../../../util/iterator";
-import { Event } from "../../../util/event";
+import { Ref } from "../../../util/mutable/ref";
 
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
@@ -17,11 +17,16 @@ const parse_search = (value) => {
 };
 
 
-let search_value = "";
-let search_parsed = parse_search(search_value);
+export const value = new Ref(localStorage["search.last"] || "");
 
-const _on_change = Event();
-export const on_change = _on_change.receive;
+
+let search_parsed = null;
+
+value.each((value) => {
+  localStorage["search.last"] = value;
+  search_parsed = parse_search(value);
+});
+
 
 export const search = (a) => {
   each(a, (group) => {
@@ -39,12 +44,4 @@ export const search = (a) => {
 
     group.get("matches").set(seen);
   });
-};
-
-export const change_search = (value) => {
-  if (search_value !== value) {
-    search_value = value;
-    search_parsed = parse_search(search_value);
-    _on_change.send(undefined);
-  }
 };

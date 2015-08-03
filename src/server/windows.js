@@ -193,6 +193,7 @@ export const init = async(function* () {
     });
 
     // When the port closes, stop listening for `tab_events`
+    // TODO test this
     port.on_disconnect(() => {
       x.stop();
     });

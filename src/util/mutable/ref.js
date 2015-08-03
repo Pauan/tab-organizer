@@ -9,8 +9,12 @@ class Base {
   }
 
   each(f) {
-    f(this.get());
+    f(this._get());
 
+    return this._listen(f);
+  }
+
+  on_change(f) {
     return this._listen(f);
   }
 }
@@ -24,19 +28,21 @@ class Latest extends Base {
     this._fn = f;
   }
 
-  get() {
-    return this._fn(...this._args["map"]((x) => x.get()));
+  // TODO this isn't quite right, but the correct solution leaks memory...
+  _get() {
+    return this._fn(...this._args["map"]((x) => x._get()));
   }
 
   _listen(f) {
     const x = this._args["map"]((x) =>
       // This is needed in order to avoid errors with `Set#insert`
       x._listen(() => {
-        f(this.get());
+        f(this._get());
       }));
 
     return {
       stop: () => {
+        // TODO test this
         x["forEach"]((x) => {
           x.stop();
         });
@@ -54,12 +60,16 @@ export class Ref extends Base {
     this._event = Event();
   }
 
+  _get() {
+    return this._value;
+  }
+
   _listen(f) {
     return this._event.receive(f);
   }
 
   get() {
-    return this._value;
+    return this._get();
   }
 
   set(value) {

@@ -21,10 +21,26 @@ export const init = async(function* () {
   });
 
 
+  const scroll_x = +(localStorage["popup.scroll.x"] || 0);
+  const scroll_y = +(localStorage["popup.scroll.y"] || 0);
+
+
   const group_list = (groups) =>
     dom.col((e) => [
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
+
+      e.set_scroll({
+        // TODO a little hacky
+        x: always(scroll_x),
+        // TODO a little hacky
+        y: always(scroll_y)
+      }),
+
+      e.on_scroll(({ x, y }) => {
+        localStorage["popup.scroll.x"] = "" + x;
+        localStorage["popup.scroll.y"] = "" + y;
+      }),
 
       // TODO a little bit hacky
       e.children([

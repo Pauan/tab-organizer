@@ -1,5 +1,5 @@
 import { always } from "../../../util/mutable/ref";
-import { change_search } from "../search/search";
+import { value } from "../search/search";
 import * as dom from "../../dom";
 
 
@@ -20,7 +20,10 @@ export const search = () =>
     e.set_style(dom.stretch, always(true)),
     e.set_style(style_search, always(true)),
 
-    e.on_change((value) => {
-      change_search(value);
+    // TODO a little hacky
+    e.value(always(value.get())),
+
+    e.on_change((x) => {
+      value.set(x);
     })
   ]);

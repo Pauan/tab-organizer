@@ -37,10 +37,12 @@ class Element {
     this._animations = new Set();
     this._hovering = null;
     this._holding = null;
+    this._scroll_left = null;
+    this._scroll_top = null;
   }
 
   // TODO test this
-  _cleanup() {
+  _on_remove() {
     each(this._running, (x) => {
       x.stop();
     });
@@ -53,6 +55,17 @@ class Element {
     this._animations = null;
     this._hovering = null;
     this._holding = null;
+    this._scroll_left = null;
+    this._scroll_top = null;
+  }
+
+  _on_insert() {
+    if (this._scroll_left !== null) {
+      this._dom["scrollLeft"] = this._scroll_left;
+    }
+    if (this._scroll_top !== null) {
+      this._dom["scrollTop"] = this._scroll_top;
+    }
   }
 
   _run(x) {
@@ -150,6 +163,25 @@ class Element {
     }
 
     return this._holding;
+  }
+
+  on_scroll(send) {
+    const scroll = (e) => {
+      if (e["target"] === this._dom) {
+        send({
+          x: this._dom["scrollLeft"],
+          y: this._dom["scrollTop"]
+        });
+      }
+    };
+
+    this._dom["addEventListener"]("scroll", scroll, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("scroll", scroll, true);
+      }
+    };
   }
 
   // TODO code duplication
@@ -297,6 +329,31 @@ class Element {
         this._remove_style(style);
       }
     });
+  }
+
+  // TODO test this
+  set_scroll({ x, y }) {
+    const r1 = x.each((x) => {
+      this._scroll_left = x;
+
+      // TODO is this needed ?
+      //this._dom["scrollLeft"] = x;
+    });
+
+    const r2 = y.each((y) => {
+      this._scroll_top = y;
+
+      // TODO is this needed ?
+      //this._dom["scrollTop"] = y;
+    });
+
+    return {
+      // TODO test this
+      stop: () => {
+        r1.stop();
+        r2.stop();
+      }
+    };
   }
 
   // TODO
@@ -516,6 +573,7 @@ class Element {
     return {
       stop: () => {
         // TODO a little hacky
+        // TODO test this
         stops["forEach"]((x) => {
           x.stop();
         });
@@ -544,6 +602,12 @@ class Text extends Element {
 
 
 class Search extends Element {
+  value(ref) {
+    return ref.each((x) => {
+      this._dom["value"] = x;
+    });
+  }
+
   on_change(send) {
     const search = () => {
       send(this._dom["value"]);
@@ -567,11 +631,21 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  _cleanup() {
-    super._cleanup();
+  _on_remove() {
+    super._on_remove();
 
     each(this._children, (x) => {
-      x._cleanup();
+      x._on_remove();
+    });
+  }
+
+  // TODO test this
+  _on_insert() {
+    super._on_insert();
+
+    // TODO is this correct ?
+    each(this._children, (x) => {
+      x._on_insert();
     });
   }
 
@@ -621,7 +695,7 @@ class Parent extends Element {
       parent_dom["removeChild"](child_dom);
     });
 
-    child._cleanup();
+    child._on_remove();
   }
 
   // TODO test this
@@ -641,12 +715,16 @@ class Parent extends Element {
 
     this._children.insert(index, x);
 
+    x._on_insert();
+
     x._animate("none", (x) => x.insert);
   }
 
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
+
+    x._on_insert();
 
     x._animate("none", (x) => x.initial);
   }
@@ -954,4 +1032,6 @@ export const search = (f) => {
 export const main = (x) => {
   // TODO a bit hacky
   document["body"]["appendChild"](x._dom);
+  // TODO is this correct ?
+  x._on_insert();
 };

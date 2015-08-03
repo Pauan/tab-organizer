@@ -3,7 +3,7 @@ import { Set } from "../../../util/mutable/set";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
-import { search, on_change } from "../search/search";
+import { search, value } from "../search/search";
 import { difference, round_to_hour, current_time } from "../../../util/time";
 
 
@@ -93,7 +93,7 @@ export const make = () => {
   };
 
   // TODO handle stop
-  on_change(() => {
+  value.on_change(() => {
     search(groups);
   });
 
