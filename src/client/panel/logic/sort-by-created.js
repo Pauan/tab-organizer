@@ -3,7 +3,7 @@ import { Set } from "../../../util/mutable/set";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
-import { search } from "../search/search";
+import { search, on_change } from "../search/search";
 import { difference, round_to_hour, current_time } from "../../../util/time";
 
 
@@ -23,17 +23,31 @@ const pluralize = (x, s) => {
   }
 };
 
-const diff_to_text = (diff) => {
-  if (diff.day === 0) {
-    if (diff.hour === 0) {
-      return "Less than an hour ago";
-    } else {
-      return pluralize(diff.hour, " hour") + " ago";
-    }
+// TODO test this
+const diff_to_text = ({ year, week, day, hour }) => {
+  if (year === 0 && week === 0 && day === 0 && hour === 0) {
+    return "Less than an hour ago";
+
   } else {
-    // TODO is this correct ?
-    const hours = diff.hour - (diff.day * 24);
-    return pluralize(diff.day, " day") + " " + pluralize(hours, " hour") + " ago";
+    const out = [];
+
+    if (year > 0) {
+      out["push"](pluralize(year, " year"));
+    }
+
+    if (week > 0) {
+      out["push"](pluralize(week, " week"));
+    }
+
+    if (day > 0) {
+      out["push"](pluralize(day, " day"));
+    }
+
+    if (hour > 0) {
+      out["push"](pluralize(hour, " hour"));
+    }
+
+    return out["join"](" ") + " ago";
   }
 };
 
@@ -78,12 +92,23 @@ export const make = () => {
     }
   };
 
+  // TODO handle stop
+  on_change(() => {
+    search(groups);
+  });
+
   const init = (windows) => {
     each(windows, (window) => {
       each(window.get("tabs"), (tab) => {
         get_group(tab).get("tabs").insert(tab);
       });
     });
+
+    /*setTimeout(() => {
+      each(groups, (group) => {
+        groups.remove(group);
+      });
+    }, 5000);*/
 
     search(groups);
   };

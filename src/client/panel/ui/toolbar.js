@@ -7,29 +7,36 @@ const color = dom.hsl(211, 100, 45, 0.2); // 211, 100, 45, 0.75
 
 const style_toolbar = dom.style({
   // TODO is this correct ?
-  "height": always("30px"),
+  "height": always("28px"),
   "background-color": always(dom.hsl(0, 0, 100, 1)),
   // TODO is this correct ?
   "z-index": always("3"),
   //"padding-bottom": always("1px"),
 
-  //"border-bottom-left-radius": always("2px"),
-  //"border-bottom-right-radius": always("2px"),
+  "border-radius": always("3px"),
+  "border-width": always("1px"),
 
-  "border-bottom-width": always("1px"),
-  //"border-color": always(dom.hsl(211, 100, 45, 0.75)),
+  //"border-bottom-width": always("1px"),
+  "border-color": always(dom.hsl(211, 100, 45)),
 
   /*"background-image": always(dom.gradient("to bottom",
                                           ["0%", "transparent"],
                                           ["90%", "transparent"],
                                           ["100%", color])),*/
 
-  "border-image-source": always(dom.gradient("to right",
+  /*"background-image": always(dom.gradient("to right",
+                                          ["0%", color],
+                                          ["1%", dom.hsl(211, 100, 45, 0.75)],
+                                          ["99%", dom.hsl(211, 100, 45, 0.75)],
+                                          ["100%", color])),*/
+  /*"border-image-source": always(dom.gradient("to right",
                                              ["0%", color],
-                                             ["1%", dom.hsl(211, 100, 45, 0.75)],
-                                             ["99%", dom.hsl(211, 100, 45, 0.75)],
+                                             ["1%", dom.hsl(211, 100, 45, 0.3)],
+                                             ["99%", dom.hsl(211, 100, 45, 0.3)],
                                              ["100%", color])),
-  "border-image-slice": always("100% 0%"),
+  "border-image-slice": always("100% 0%"),*/
+  /*"background-position": always("0px calc(100% - 1px), 0px 100%"),
+  "background-size": always("100% 1px, 100% 1px"),*/
 
   /*"background-image": always(dom.gradient("to right",
                                           ["0%", "transparent"],
@@ -44,7 +51,11 @@ const style_toolbar = dom.style({
   //"background-position": always("0px 100%"),
 
   //"box-shadow": always("0px -10px 30px 0px " + color),
-  "box-shadow": always("0px 0px 10px 3px " + color),
+  "box-shadow": always("0px 2px 0px -1px " + dom.hsl(211, 100, 45, 0.5) + "," +
+                       "0px 4px 1px -2px " + dom.hsl(211, 100, 45, 0.4) + "," +
+                       "0px 7px 1px -4px " + dom.hsl(211, 100, 45, 0.3) + "," +
+                       "inset 0px 0px 5px 0px " + dom.hsl(211, 100, 45, 0.2) + "," +
+                       "inset 0px -1px 1px 0px " + dom.hsl(211, 100, 45, 0.1)),
 });
 
 

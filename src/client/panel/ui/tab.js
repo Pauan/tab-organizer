@@ -37,7 +37,9 @@ export const init = async(function* () {
       "padding-top": always("0px"),
       "padding-bottom": always("0px"),
       "height": always("0px"),
-      "opacity": always("0")
+      "opacity": always("0"),
+
+      "margin-left": always("20px")
     }
   });
 
@@ -105,8 +107,6 @@ export const init = async(function* () {
 
 
   const style_tab = dom.style({
-    "overflow": always("hidden"),
-
     "width": always("100%"),
     "height": always("20px"),
     "padding": always("1px"),
@@ -114,9 +114,6 @@ export const init = async(function* () {
 
     // Magical incantation to make it much smoother
     "transform": always("translate3d(0px, 0px, 0px)"),
-
-    // TODO test this
-    "transform-origin": always("11px 50%"),
   });
 
   const style_tab_hover = dom.style({

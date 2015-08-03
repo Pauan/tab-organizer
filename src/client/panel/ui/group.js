@@ -11,21 +11,55 @@ export const init = async(function* () {
   const { get: opt } = yield init_options;
 
 
+  // TODO code duplication
+  const animation_group = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      //"top": always("0px"),
+      "border-top-width": always("0px"),
+      "padding-top": always("0px"),
+      "padding-bottom": always("0px"),
+      "opacity": always("0"),
+    }
+  });
+
+  const animation_group_header = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "height": always("0px"),
+      "margin-left": always("20px"),
+    }
+  });
+
+  const animation_group_tabs = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "padding-bottom": always("0px"),
+      //"height": always("0px")
+    }
+  });
+
+
   const style_group = dom.style({
     //"width": always("300px"),
     //"height": always("100%"),
 
-    "border-image-source": always(dom.gradient("to right",
+    "border-top-width": always("1px"),
+    "border-color": always(dom.hsl(211, 50, 75)),
+
+    /*"border-image-source": always(dom.gradient("to right",
                                                ["0%", "transparent"],
                                                ["5%", dom.hsl(211, 50, 75)],
                                                ["95%", dom.hsl(211, 50, 75)],
                                                ["100%", "transparent"])),
-    "border-image-slice": always("100% 0%"),
+    "border-image-slice": always("100% 0%"),*/
 
     //"border-color": always(dom.hsl(211, 50, 75)),
 
     "top": always("-1px"),
-    "border-top-width": always("1px"),
     "padding": always("1px")
   });
 
@@ -33,7 +67,7 @@ export const init = async(function* () {
     // TODO is this correct ?
     "height": always("18px"),
     //"padding-top": always("1px"), // TODO this needs to be animated
-    "padding-left": always("5px")
+    "padding-left": always("6px")
   });
 
   const style_group_text = dom.style({
@@ -53,7 +87,11 @@ export const init = async(function* () {
   const group_header = (group) =>
     dom.row((e) => [
       e.set_style(style_group_header, always(true)),
-      //e.height("20px"),
+
+      e.animate(animation_group_header, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       e.children([
         dom.text((e) => [
@@ -69,6 +107,11 @@ export const init = async(function* () {
     dom.col((e) => [
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_tabs, always(true)),
+
+      e.animate(animation_group_tabs, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       e.style({
         "height": group.get("height")
@@ -89,6 +132,11 @@ export const init = async(function* () {
       e.set_style(style_group, always(true)),
 
       e.visible(group.get("matches")),
+
+      e.animate(animation_group, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       e.children([
         group_header(group),

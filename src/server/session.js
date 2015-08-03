@@ -181,8 +181,21 @@ export const init = async(function* () {
       // Check that all the old tabs match with the new tabs
       // TODO test this
       return all(zip(old_tabs, indexed(new_tabs)), ([old_tab, [index, new_tab]]) => {
-        return tab_matches(old_tab, new_tab) ||
-               is_new_tab(new_tabs, index, new_tab);
+        if (tab_matches(old_tab, new_tab) ||
+            is_new_tab(new_tabs, index, new_tab)) {
+          return true;
+
+        } else {
+          const old_url = old_tab.get("url");
+          const new_url = new_tab.url;
+
+          console["debug"]("session: old URL \"" +
+                           old_url +
+                           "\" does not match with new URL \"" +
+                           new_url
+                           + "\"");
+          return false;
+        }
       });
 
     } else {

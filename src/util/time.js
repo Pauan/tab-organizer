@@ -35,10 +35,12 @@ export const timestamp = () => {
 
 
 export const millisecond = 1;
-export const second      = 1000 * millisecond;
-export const minute      = 60   * second;
-export const hour        = 60   * minute;
-export const day         = 24   * hour;
+export const second      = 1000   * millisecond;
+export const minute      = 60     * second;
+export const hour        = 60     * minute;
+export const day         = 24     * hour;
+export const week        = 7      * day;
+export const year        = 365.25 * day;
 
 
 export const current_time = () =>
@@ -99,13 +101,35 @@ export const round_to_year = (x) => {
   return +t;
 };
 
+// TODO test this
 export const difference = (x, y) => {
-  const diff = Math["abs"](y - x);
+  let diff = Math["abs"](y - x);
+
+  const years = Math["floor"](diff / year);
+  diff -= (years * year);
+
+  const weeks = Math["floor"](diff / week);
+  diff -= (weeks * week);
+
+  const days = Math["floor"](diff / day);
+  diff -= (days * day);
+
+  const hours = Math["floor"](diff / hour);
+  diff -= (hours * hour);
+
+  const minutes = Math["floor"](diff / minute);
+  diff -= (minutes * minute);
+
+  const seconds = Math["floor"](diff / second);
+  diff -= (seconds * second);
+
   return {
     millisecond: diff,
-    second: Math["floor"](diff / second),
-    minute: Math["floor"](diff / minute),
-    hour:   Math["floor"](diff / hour),
-    day:    Math["floor"](diff / day)
+    second: seconds,
+    minute: minutes,
+    hour: hours,
+    day: days,
+    week: weeks,
+    year: years
   }
 };

@@ -349,45 +349,76 @@ class Element {
     };
   }
 
-  _trigger_relayout() {
+  _trigger_relayout(s) {
     // TODO is there a "faster" way to trigger relayout ?
-    getComputedStyle(this._dom)["left"];
+    getComputedStyle(this._dom)[s];
   }
 
-  // TODO test this
-  _wait_animation(a, f) {
-    if (a["length"]) {
-      const dom = this._dom;
+  // TODO this isn't quite correct, but it will do for now
+  _wait_for_animation(a, done) {
+    const dom = this._dom;
 
-      let pending = 0;
+    let pending = a["length"];
 
-      const start = (e) => {
-        ++pending;
-      };
+    const cleanup = () => {
+      clearTimeout(timer);
+      // TODO remove vendor prefix
+      dom["removeEventListener"]("webkitAnimationEnd", end, true);
+    };
 
-      const end = (e) => {
+    const end = (e) => {
+      if (e["target"] === dom) {
         --pending;
 
         if (pending === 0) {
-          // TODO remove vendor prefix
-          dom["removeEventListener"]("webkitAnimationStart", start, true);
-          dom["removeEventListener"]("webkitAnimationEnd", end, true);
-          f();
+          cleanup();
+          done();
         }
-      };
+      }
+    };
 
-      // TODO is it possible for these to leak ?
-      // TODO remove vendor prefix
-      dom["addEventListener"]("webkitAnimationStart", start, true);
-      dom["addEventListener"]("webkitAnimationEnd", end, true);
+    const error = () => {
+      cleanup();
+      throw new Error("Animation took too long!");
+    };
 
-    } else {
-      f();
+    // TODO is it possible for these to leak ?
+    // TODO remove vendor prefix
+    dom["addEventListener"]("webkitAnimationEnd", end, true);
+
+    const timer = setTimeout(error, 10000);
+  }
+
+  // TODO test this
+  _animate(fill, f, done = null) {
+    const a = this._get_animations(fill, f);
+
+    if (a["length"]) {
+      if (done != null) {
+        this._wait_for_animation(a, done);
+      }
+
+      each(a, (style) => {
+        // TODO is this correct ?
+        // TODO remove vendor prefix
+        set_style(this._dom["style"], "-webkit-animation", null);
+
+        // TODO hacky, but I don't know of any other way to make it work
+        this._trigger_relayout("-webkit-animation");
+
+        // TODO remove vendor prefix
+        // TODO code duplication
+        set_style(this._dom["style"], "-webkit-animation", style);
+      });
+
+    // TODO should this set "-webkit-animation" to `null` ?
+    } else if (done != null) {
+      done();
     }
   }
 
   // TODO test this
-  _get_animations(f) {
+  _get_animations(fill, f) {
     const out = [];
 
     each(this._animations, ({ animation, info }) => {
@@ -399,13 +430,17 @@ class Element {
           out["push"](animation._name + " " +
                       animation._duration + " " +
                       animation._easing +
-                      " 0ms 1 normal none running");
+                      " 0ms 1 normal " +
+                      fill +
+                      " running");
 
         } else if (type === "play-from") {
           out["push"](animation._name + " " +
                       animation._duration + " " +
                       animation._easing +
-                      " 0ms 1 reverse none running");
+                      " 0ms 1 reverse " +
+                      fill +
+                      " running");
 
         } else {
           fail();
@@ -414,22 +449,6 @@ class Element {
     });
 
     return out;
-  }
-
-  // TODO test this
-  _animate(a) {
-    // TODO is this correct ?
-    // TODO remove vendor prefix
-    set_style(this._dom["style"], "-webkit-animation", null);
-
-    if (a["length"]) {
-      // TODO hacky, but I don't know of any other way to make it work
-      this._trigger_relayout();
-
-      // TODO remove vendor prefix
-      // TODO code duplication
-      set_style(this._dom["style"], "-webkit-animation", a["join"](","));
-    }
   }
 
   /*animate_when(ref, info) {
@@ -556,40 +575,55 @@ class Parent extends Element {
     });
   }
 
-  _clear() {
-    // TODO code duplication
-    each(this._children, (x) => {
-      x._cleanup();
-    });
+  // TODO test this
+  _animate(fill, f, done = null) {
+    let pending = this._children.size + 1;
 
-    this._children.clear();
-    this._dom["innerHTML"] = "";
+    const done2 = (done == null
+                    ? null
+                    : () => {
+                        --pending;
+
+                        if (pending === 0) {
+                          done();
+                        }
+                      });
+
+    super._animate(fill, f, done2);
+
+    each(this._children, (x) => {
+      x._animate(fill, f, done2);
+    });
+  }
+
+  // TODO test this
+  _clear() {
+    // TODO this can be implemented more efficient
+    while (this._children.size) {
+      this._remove(0);
+    }
+
+    assert(this._children.size === 0);
   }
 
   _remove(index) {
     const child = this._children.get(index);
     this._children.remove(index);
 
-    const a = child._get_animations((x) => x.remove);
+    const parent_dom = this._dom;
+    const child_dom  = child._dom;
 
-    const dom = child._dom;
-
-    child._wait_animation(a, () => {
-      this._dom["removeChild"](dom);
+    child._animate("both", (x) => x.remove, () => {
+      parent_dom["removeChild"](child_dom);
     });
-
-    child._animate(a);
 
     child._cleanup();
   }
 
+  // TODO test this
   _update(index, x) {
-    const child = this._children.get(index);
-    this._children.update(index, x);
-
-    this._dom["replaceChild"](x._dom, child._dom);
-
-    child._cleanup();
+    this._remove(index);
+    this._insert(index, x);
   }
 
   _insert(index, x) {
@@ -603,18 +637,14 @@ class Parent extends Element {
 
     this._children.insert(index, x);
 
-    const a = x._get_animations((x) => x.insert);
-
-    x._animate(a);
+    x._animate("none", (x) => x.insert);
   }
 
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
 
-    const a = x._get_animations((x) => x.initial);
-
-    x._animate(a);
+    x._animate("none", (x) => x.initial);
   }
 
   // TODO is this correct ?
@@ -803,6 +833,8 @@ export const transition = (o) => {
 };
 
 const floating_style = style({
+  // TODO is this correct ?
+  "overflow": always("visible"),
   "position": always("fixed"),
   "z-index": always("9001") // TODO highest z-index
 });
@@ -824,7 +856,6 @@ export const stretch = style({
   "flex-basis": always("0%"),
 
   // TODO is this correct ?
-  "overflow": always("hidden"),
   "white-space": always("nowrap")
 });
 

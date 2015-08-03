@@ -2,7 +2,7 @@ import { List } from "../../../util/mutable/list";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
-import { search } from "../search/search";
+import { search, on_change } from "../search/search";
 
 
 export const make = () => {
@@ -20,6 +20,11 @@ export const make = () => {
       "matches": new Ref(false),
       "height": new Ref(null)
     });
+
+  // TODO handle stop
+  on_change(() => {
+    search(groups);
+  });
 
   const init = (windows) => {
     each(windows, (window) => {
