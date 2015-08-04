@@ -89,7 +89,7 @@ export const init = async(function* () {
 
 
   const separator = (color) =>
-    dom.box((e) => [
+    dom.child((e) => [
       e.style({
         "background-color": always(color),
         "width": always("1px"),
@@ -103,7 +103,8 @@ export const init = async(function* () {
 
 
   const toolbar = () =>
-    dom.row((e) => [
+    dom.parent((e) => [
+      e.set_style(dom.row, always(true)),
       e.set_style(style_toolbar, always(true)),
 
       e.children([
@@ -113,7 +114,8 @@ export const init = async(function* () {
         separator(dom.hsl(211, 100, 45, 0.1)),
         separator(dom.hsl(211, 100, 45)),
 
-        dom.row((e) => [
+        dom.parent((e) => [
+          e.set_style(dom.row, always(true)),
           e.set_style(style_menu, always(true)),
           e.set_style(style_menu_hold, e.holding()),
 

@@ -146,7 +146,8 @@ export const init = async(function* () {
   });
 
   const group_header = (group) =>
-    dom.row((e) => [
+    dom.parent((e) => [
+      e.set_style(dom.row, always(true)),
       e.set_style(style_group_header, always(true)),
 
       e.animate(animation_group_header, {
@@ -165,7 +166,8 @@ export const init = async(function* () {
     ]);
 
   const group_tabs = (group) =>
-    dom.col((e) => [
+    dom.parent((e) => [
+      e.set_style(dom.col, always(true)),
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_tabs, always(true)),
 
@@ -189,13 +191,17 @@ export const init = async(function* () {
     ]);
 
   const group = (group) =>
-    dom.col((e) => [
+    dom.parent((e) => [
+      // TODO is this needed ?
+      e.set_style(dom.col, always(true)),
       e.set_style(style_group_wrapper, always(true)),
 
       e.visible(group.get("matches")),
 
       e.children([
-        dom.col((e) => [
+        dom.parent((e) => [
+          e.set_style(dom.col, always(true)),
+          // TODO is this needed ?
           e.set_style(dom.stretch, always(true)),
           e.set_style(style_group, always(true)),
 

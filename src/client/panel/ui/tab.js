@@ -293,7 +293,7 @@ export const init = async(function* () {
     ]);
 
   const ui_dragging = (tab, index) =>
-    dom.row((e) => {
+    dom.parent((e) => {
       const is_hovering = always(index === 0);
 
       // "selected" has precedence over "focused"
@@ -316,6 +316,7 @@ export const init = async(function* () {
 
       // TODO code duplication with `tab`
       return [
+        e.set_style(dom.row, always(true)),
         e.set_style(style_tab, always(true)),
         e.set_style(style_menu_item, always(true)),
         e.set_style(style_menu_item_shadow, always(true)),
@@ -386,7 +387,9 @@ export const init = async(function* () {
         : f(info) + "px"));
 
   const dragging =
-    dom.floating((e) => [
+    dom.parent((e) => [
+      e.set_style(dom.col, always(true)),
+      e.set_style(dom.floating, always(true)),
       e.set_style(style_dragging, always(true)),
 
       e.visible($dragging),
@@ -402,6 +405,8 @@ export const init = async(function* () {
       }),
     ]);
 
+  // TODO hacky
+  dom.main(dragging);
 
   const group_type = opt("group.sort.type");
 
@@ -492,7 +497,7 @@ export const init = async(function* () {
   };
 
   const tab = (group, tab) =>
-    dom.row((e) => {
+    dom.parent((e) => {
       const is_hovering = and([
         not($dragging),
         e.hovering()
@@ -540,6 +545,7 @@ export const init = async(function* () {
         })),
 
 
+        e.set_style(dom.row, always(true)),
         e.set_style(style_tab, always(true)),
         e.set_style(style_menu_item, always(true)),
 

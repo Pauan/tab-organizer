@@ -865,66 +865,6 @@ class Parent extends Element {
   }
 }
 
-class Row extends Parent {
-  /*_update_transform() {
-    // TODO this can be made more efficient
-    each(indexed(this._children), ([i, x]) => {
-      x._dom["style"]["position"] = "absolute";
-      x._dom["style"]["transform"] = "translate3d(" + (i * 100) + "%, 0px, 0px)";
-    });
-  }
-
-  _remove(index) {
-    super._remove(index);
-    this._update_transform();
-  }
-
-  _update(index, x) {
-    super._update(index, x);
-    this._update_transform();
-  }
-
-  _insert(index, x) {
-    super._insert(index, x);
-    this._update_transform();
-  }
-
-  _push(x) {
-    super._push(x);
-    this._update_transform();
-  }*/
-}
-
-class Col extends Parent {
-  /*_update_transform() {
-    // TODO this can be made more efficient
-    each(indexed(this._children), ([i, x]) => {
-      x._dom["style"]["position"] = "absolute";
-      x._dom["style"]["transform"] = "translate3d(0px, " + (i * 100) + "%, 0px)";
-    });
-  }
-
-  _remove(index) {
-    super._remove(index);
-    this._update_transform();
-  }
-
-  _update(index, x) {
-    super._update(index, x);
-    this._update_transform();
-  }
-
-  _insert(index, x) {
-    super._insert(index, x);
-    this._update_transform();
-  }
-
-  _push(x) {
-    super._push(x);
-    this._update_transform();
-  }*/
-}
-
 class Floating extends Parent {
   // TODO change these to accept a Stream as input ?
   /*set left(x) {
@@ -1000,18 +940,18 @@ export const transition = (o) => {
   return out["join"](", ");
 };
 
-const floating_style = style({
+export const floating = style({
   "position": always("fixed"),
-  "z-index": always("9001") // TODO highest z-index
+  "z-index": always("2147483647") // 32-bit signed int
 });
 
-const row_style = style({
+export const row = style({
   "display": always("flex"),
   "flex-direction": always("row"),
   "align-items": always("center"), // TODO get rid of this ?
 });
 
-const col_style = style({
+export const col = style({
   "display": always("flex"),
   "flex-direction": always("column"),
 });
@@ -1020,12 +960,9 @@ export const stretch = style({
   "flex-shrink": always("1"),
   "flex-grow": always("1"),
   "flex-basis": always("0%"),
-
-  // TODO is this correct ?
-  "white-space": always("nowrap")
 });
 
-export const box = (f) => {
+export const child = (f) => {
   const e = new Element(document["createElement"]("div"));
 
   each(f(e), (x) => {
@@ -1035,40 +972,12 @@ export const box = (f) => {
   return e;
 };
 
-export const row = (f) => {
-  const e = new Row(document["createElement"]("div"));
-  e._add_style(row_style);
+export const parent = (f) => {
+  const e = new Parent(document["createElement"]("div"));
 
   each(f(e), (x) => {
     e._run(x);
   });
-
-  return e;
-};
-
-export const col = (f) => {
-  const e = new Col(document["createElement"]("div"));
-  e._add_style(col_style);
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-// TODO not quite right...
-export const floating = (f) => {
-  const e = new Floating(document["createElement"]("div"));
-  e._add_style(floating_style);
-  e._add_style(col_style); // TODO is this correct ?
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  // TODO is this correct ?
-  main(e);
 
   return e;
 };
@@ -1096,6 +1005,7 @@ export const image = (f) => {
 
 export const search = (f) => {
   const x = document["createElement"]("input");
+
   // TODO a bit hacky, this should probably be configurable
   x["autofocus"] = true;
 

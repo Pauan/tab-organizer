@@ -8,6 +8,7 @@ const top_style = dom.style({
   "left": always("0px"),
   "bottom": always("0px"),
 
+  // TODO is this correct ? maybe move this elsewhere ?
   "white-space": always("pre"),
   // TODO maybe remove this
   "max-width": always(dom.calc("100%", "+", "1px")),
@@ -185,22 +186,21 @@ const make = (style, f) => {
   ]);
 };
 
-dom.floating((e) => [
-  e.children([
-    dom.row((e) => [
-      // TODO check if any of these need "flex-shrink": 1
-      e.children([
-        make(protocol_style, (x) => x.protocol),
-        make(domain_style, (x) => x.domain),
-        make(path_style, (x) => x.path),
-        make(file_style, (x) => x.file),
-        make(query_style, (x) => x.query),
-        make(hash_style, (x) => x.hash)
-      ])
-    ])
-  ]),
-
+// TODO hacky
+dom.main(dom.parent((e) => [
+  e.set_style(dom.row, always(true)),
+  e.set_style(dom.floating, always(true)),
   e.set_style(top_style, always(true)),
+
+  // TODO check if any of these need "flex-shrink": 1
+  e.children([
+    make(protocol_style, (x) => x.protocol),
+    make(domain_style, (x) => x.domain),
+    make(path_style, (x) => x.path),
+    make(file_style, (x) => x.file),
+    make(query_style, (x) => x.query),
+    make(hash_style, (x) => x.hash)
+  ]),
 
   e.visible(url_bar)
 /*
@@ -212,4 +212,4 @@ dom.floating((e) => [
     const box = e.get_position();
     return o.x > box.right || o.y < box.top;
   }))*/
-]);
+]));

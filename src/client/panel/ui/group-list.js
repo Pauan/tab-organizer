@@ -36,7 +36,8 @@ export const init = async(function* () {
 
 
   const group_list = (groups) =>
-    dom.row((e) => [
+    dom.parent((e) => [
+      e.set_style(dom.row, always(true)),
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
 
