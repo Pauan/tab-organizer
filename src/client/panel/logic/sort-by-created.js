@@ -1,3 +1,5 @@
+import { init as init_tabs } from "../../sync/tabs";
+import { async } from "../../../util/async";
 import { SortedList } from "../../../util/mutable/list";
 import { Set } from "../../../util/mutable/set";
 import { Record } from "../../../util/mutable/record";
@@ -54,114 +56,167 @@ const diff_to_text = ({ year, week, day, hour }) => {
 const get_group_name = (time) =>
   diff_to_text(difference(round_to_hour(current_time()), time));
 
+// TODO code duplication
+const make_group = (id, time) =>
+  new Record({
+    "id": id,
+    "time": time,
 
-export const make = () => {
-  const group_ids = new Record();
-
-  const groups = new SortedList(sort_group);
-
-  const get_group = (tab) => {
-    const time = round_to_hour(tab.get("time").get("created"));
-    const id = "" + time;
-
-    if (group_ids.has(id)) {
-      return group_ids.get(id);
-
-    } else {
-      // TODO code duplication
-      const group = new Record({
-        "id": id,
-        // TODO update the name periodically
-        "name": new Ref(get_group_name(time)),
-        "time": time,
-        "tabs": new SortedList(sort_tab),
-
-        // TODO code duplication
-        // TODO a little hacky
-        "first-selected-tab": null,
-
-        "matches": new Ref(false),
-        "height": new Ref(null)
-      });
-
-      group_ids.insert(id, group);
-
-      groups.insert(group);
-
-      return group;
-    }
-  };
-
-  // TODO handle stop
-  value.on_change(() => {
-    search(groups);
+    // Standard properties
+    "tabs": new SortedList(sort_tab),
+    "header-name": new Ref(get_group_name(time)),
+    "focused": new Ref(false),
+    // TODO a little hacky
+    "first-selected-tab": null,
+    "matches": new Ref(false), // TODO is this correct ?
+    "height": new Ref(null)
   });
 
-  const init = (windows) => {
-    each(windows, (window) => {
-      each(window.get("tabs"), (tab) => {
-        get_group(tab).get("tabs").insert(tab);
-      });
-    });
+// TODO code duplication
+const make_tab = (group, tab) =>
+  new Record({
+    "id": tab.get("id"),
+    "group": group,
+    "time": tab.get("time"),
 
-    /*setTimeout(() => {
-      each(groups, (group) => {
-        groups.remove(group);
-      });
-    }, 5000);*/
+    // Standard properties
+    "url": new Ref(tab.get("url")),
+    "title": new Ref(tab.get("title")),
+    "favicon": new Ref(tab.get("favicon")),
 
-    search(groups);
-  };
+    "focused": new Ref(tab.get("focused")),
+    "unloaded": new Ref(tab.get("unloaded")),
 
-  const tab_open = (tab) => {
-    get_group(tab).get("tabs").insert(tab);
+    "matches": new Ref(false), // TODO use `matches(tab)` ?
+    "selected": new Ref(false),
+    "visible": new Ref(true),
+    "animate": new Ref(false),
+    "top": new Ref(null)
+  });
 
-    // TODO can this be made more efficient ?
-    search(groups);
-  };
 
-  const tab_focus = () => {};
+export const init = async(function* () {
+  const { windows, on_change } = yield init_tabs;
 
-  const tab_unfocus = () => {};
+  const make = () => {
+    const groups = new SortedList(sort_group);
+    const group_ids = new Record();
+    const tab_ids = new Record();
 
-  const tab_update = () => {
-    // TODO can this be made more efficient ?
-    search(groups);
-  };
 
-  // TODO does this need to call `search` ?
-  const tab_move = () => {};
+    const get_group = (tab) => {
+      const time = round_to_hour(tab.get("time").get("created"));
+      const id = "" + time;
 
-  const tab_close = (tab) => {
-    // TODO is this necessary ?
-    const removed = new Set();
+      if (group_ids.has(id)) {
+        return group_ids.get(id);
 
-    // TODO this can be made more efficient
-    each(groups, (group) => {
-      const tabs = group.get("tabs");
+      } else {
+        const group = make_group(id, time);
 
-      if (tabs.has(tab)) {
-        tabs.remove(tab);
+        group_ids.insert(id, group);
+
+        groups.insert(group);
+
+        return group;
+      }
+    };
+
+
+    const new_tab = (group, tab) => {
+      const x = make_tab(group, tab);
+
+      tab_ids.insert(x.get("id"), x);
+
+      return x;
+    };
+
+
+    const types = {
+      "tab-open": ({ tab }) => {
+        const group = get_group(tab);
+        const x = new_tab(group, tab);
+
+        group.get("tabs").insert(x);
+
+        search(groups);
+      },
+
+
+      "tab-focus": () => {},
+      "tab-unfocus": () => {},
+
+
+      // TODO code duplication
+      "tab-update": ({ tab }) => {
+        const x = tab_ids.get(tab.get("id"));
+
+        x.get("url").set(tab.get("url"));
+        x.get("title").set(tab.get("title"));
+        x.get("favicon").set(tab.get("favicon"));
+
+        search(groups);
+      },
+
+
+      "tab-move": () => {},
+
+
+      "tab-close": ({ tab }) => {
+        const x = tab_ids.get(tab.get("id"));
+        const group = x.get("group");
+        const tabs = group.get("tabs");
+
+        x.update("group", null);
+        tab_ids.remove(x.get("id"));
+        tabs.remove(x);
 
         if (tabs.size === 0) {
-          removed.insert(group);
+          group_ids.remove(group.get("id"));
+          groups.remove(group);
         }
-      }
+
+        // TODO is this needed ?
+        search(groups);
+      },
+
+
+      "window-open": () => {},
+      "window-close": () => {}
+    };
+
+
+    const stop1 = on_change((x) => {
+      types[x.type](x);
     });
 
-    each(removed, (group) => {
-      group_ids.remove(group.get("id"));
-      groups.remove(group);
+    const stop2 = value.on_change(() => {
+      search(groups);
     });
 
-    // TODO is this necessary ?
+
+    each(windows, (window) => {
+      // TODO code duplication with "tab-open"
+      each(window.get("tabs"), (tab) => {
+        const group = get_group(tab);
+        const x = new_tab(group, tab);
+
+        group.get("tabs").insert(x);
+      });
+    });
+
     search(groups);
+
+
+    // TODO test this
+    const stop = () => {
+      stop1.stop();
+      stop2.stop();
+    };
+
+    return { groups, stop };
   };
 
-  const window_open = () => {};
 
-  const window_close = () => {};
-
-  return { groups, init, tab_open, tab_focus, tab_unfocus, tab_update,
-           tab_move, tab_close, window_open, window_close };
-};
+  return { make };
+});

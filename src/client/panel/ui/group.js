@@ -15,8 +15,25 @@ export const init = async(function* () {
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      "width": always("0px"),
-      "height": always("0px"),
+      "width": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "horizontal":
+        case "grid":
+          return "0px";
+        default:
+          return null;
+        }
+      }),
+
+      "height": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "grid":
+          return "0px";
+        default:
+          return null;
+        }
+      }),
+
       "opacity": always("0")
     }
   });
@@ -25,9 +42,36 @@ export const init = async(function* () {
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      "border-width": always("0px"),
-      "padding": always("0px"),
-      "width": always("0px"),
+      // TODO what about "grid" ?
+      "border-width": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "horizontal":
+          // TODO a little hacky
+          return "1px 0px 1px 0px";
+        default:
+          return null;
+        }
+      }),
+
+      // TODO what about "grid" ?
+      "padding": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "horizontal":
+          // TODO a little hacky
+          return "1px 0px 0px 0px";
+        default:
+          return null;
+        }
+      }),
+
+      "width": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "horizontal":
+          return "0px";
+        default:
+          return null;
+        }
+      }),
     }
   });
 
@@ -35,7 +79,15 @@ export const init = async(function* () {
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      "height": always("0px"),
+      "height": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "vertical":
+          return "0px";
+        default:
+          return null;
+        }
+      }),
+
       "margin-left": always("20px"),
     }
   });
@@ -44,8 +96,15 @@ export const init = async(function* () {
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      "padding-bottom": always("0px"),
-      //"height": always("0px")
+      // TODO what about "grid" ?
+      "padding-bottom": opt("groups.layout").map((x) => {
+        switch (x) {
+        case "vertical":
+          return "0px";
+        default:
+          return null;
+        }
+      }),
     }
   });
 
@@ -119,11 +178,19 @@ export const init = async(function* () {
     "border-width": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-        return "1px";
       case "grid":
-        return "0px 1px 1px 0px";
+        return "1px";
       case "vertical":
         return "1px 0px 0px 0px";
+      default:
+        return null;
+      }
+    }),
+
+    "margin": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "grid":
+        return "-1px 0px 0px -1px";
       default:
         return null;
       }

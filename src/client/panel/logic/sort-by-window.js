@@ -13,6 +13,7 @@ const make_group = (window) =>
     "id": window.get("id"),
     "name": window.get("name"),
 
+    // Standard properties
     "tabs": new List(),
     "header-name": new Ref(window.get("name")),
     "focused": new Ref(false),
@@ -26,6 +27,7 @@ const make_tab = (tab) =>
   new Record({
     "id": tab.get("id"),
 
+    // Standard properties
     "url": new Ref(tab.get("url")),
     "title": new Ref(tab.get("title")),
     "favicon": new Ref(tab.get("favicon")),

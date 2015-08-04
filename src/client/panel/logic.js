@@ -6,7 +6,7 @@ import { assert, fail } from "../../util/assert";
 import { init as init_top } from "./ui/top";
 import { init as init_options } from "../sync/options";
 import { init as init_sort_by_window } from "./logic/sort-by-window";
-//import { init as init_sort_by_created } from "./logic/sort-by-created";
+import { init as init_sort_by_created } from "./logic/sort-by-created";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -272,7 +272,7 @@ export const init = async(function* () {
   const { get: opt } = yield init_options;
   const { top: ui_top } = yield init_top;
   const { make: make_sort_by_window } = yield init_sort_by_window;
-  //const { make: make_sort_by_created } = yield init_sort_by_created;
+  const { make: make_sort_by_created } = yield init_sort_by_created;
 
 
   // TODO a little bit hacky
@@ -286,8 +286,8 @@ export const init = async(function* () {
     if (type === "window") {
       group_type = make_sort_by_window();
 
-    /*} else if (type === "created") {
-      group_type = make_sort_by_created();*/
+    } else if (type === "created") {
+      group_type = make_sort_by_created();
 
     } else {
       fail();
