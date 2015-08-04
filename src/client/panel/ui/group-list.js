@@ -36,6 +36,9 @@ export const init = async(function* () {
     "justify-content": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
+        // TODO the animation when inserting a new group is slightly janky
+        //      (it's smooth when using "center", but janky when using
+        //      "space-between")
         return "space-between";
       default:
         return null;

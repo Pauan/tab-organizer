@@ -11,15 +11,23 @@ export const init = async(function* () {
   const { get: opt } = yield init_options;
 
 
-  // TODO code duplication
+  const animation_group_wrapper = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "width": always("0px"),
+      "height": always("0px"),
+      "opacity": always("0")
+    }
+  });
+
   const animation_group = dom.animation({
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      //"top": always("0px"),
-      "border-top-width": always("0px"),
-      "padding-top": always("0px"),
-      "opacity": always("0"),
+      "border-width": always("0px"),
+      "padding": always("0px"),
+      "width": always("0px"),
     }
   });
 
@@ -237,6 +245,11 @@ export const init = async(function* () {
       e.set_style(style_group_wrapper, always(true)),
 
       e.visible(group.get("matches")),
+
+      e.animate(animation_group_wrapper, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       e.children([
         dom.parent((e) => [
