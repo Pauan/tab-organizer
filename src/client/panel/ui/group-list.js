@@ -2,22 +2,32 @@ import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { always } from "../../../util/mutable/ref";
 import { init as init_group } from "./group";
+import { init as init_options } from "../../sync/options";
 
 
 export const init = async(function* () {
   const { group: ui_group } = yield init_group;
+  const { get: opt } = yield init_options;
 
 
   const style_group_list = dom.style({
-    // TODO is this needed ?
-    "white-space": always("pre"),
+    "padding": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "8px calc(190px + 8px + 1px) 8px 8px"
+      default:
+        return "3px 0px 0px 0px";
+      }
+    }),
 
     "overflow": always("auto"),
-    //"height": always("100%"),
-    "align-items": always("stretch"), // TODO hacky
-    //"height": always("100%")
 
-    "padding-top": always("3px")
+    "align-items": always("stretch"), // TODO hacky
+
+    "justify-content": always("space-between"),
+
+    // TODO hacky
+    "background": always("inherit"),
   });
 
 
@@ -42,17 +52,7 @@ export const init = async(function* () {
         localStorage["popup.scroll.y"] = "" + y;
       }),
 
-      // TODO a little bit hacky
-      e.children([
-        dom.row((e) => [
-          e.style({
-            // TODO a little hacky
-            "align-items": always("stretch")
-          }),
-
-          e.children(groups.map(ui_group))
-        ])
-      ])
+      e.children(groups.map(ui_group))
     ]);
 
 

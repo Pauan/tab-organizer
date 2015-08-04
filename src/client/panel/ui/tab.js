@@ -581,7 +581,12 @@ export const init = async(function* () {
         e.visible(is_visible),
 
         e.scroll_to({
-          initial: tab.get("focused")
+          // TODO maybe add `is_visible` to the definition of `is_focused` ?
+          initial: and([
+            is_focused,
+            is_visible
+          ]),
+          insert: is_visible
         }),
 
         latest([

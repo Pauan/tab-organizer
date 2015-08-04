@@ -3,17 +3,21 @@ import { async } from "../../../util/async";
 import { always, latest } from "../../../util/mutable/ref";
 import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";
-import { toolbar as ui_toolbar } from "./toolbar";
+import { init as init_toolbar } from "./toolbar";
 
 
 export const init = async(function* () {
   const { group_list: ui_group_list } = yield init_group_list;
   const { get: opt } = yield init_options;
+  const { toolbar: ui_toolbar } = yield init_toolbar;
 
 
   const style_top = dom.style({
     "font-family": always("sans-serif"),
     "font-size": always("13px"),
+
+    // TODO is this needed ?
+    "white-space": always("pre"),
 
     "background-color": always("white"),
     "background-image": always(dom.repeating_gradient("0deg",

@@ -278,6 +278,32 @@ class Element {
     };
   }
 
+  on_focus(send) {
+    this._dom["tabIndex"] = 0;
+
+    const focus = (e) => {
+      if (e["target"] === this._dom) {
+        send(true);
+      }
+    };
+
+    const blur = (e) => {
+      if (e["target"] === this._dom) {
+        send(false);
+      }
+    };
+
+    this._dom["addEventListener"]("focus", focus, true);
+    this._dom["addEventListener"]("blur", blur, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("focus", focus, true);
+        this._dom["removeEventListener"]("blur", blur, true);
+      }
+    };
+  }
+
   /*on_mouse_move(send) {
     const mousemove = (e) => {
       send(mouse_event(e));

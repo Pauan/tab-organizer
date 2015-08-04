@@ -1,7 +1,7 @@
 import * as dom from "../../dom";
 import * as logic from "../logic";
 import { async } from "../../../util/async";
-import { always } from "../../../util/mutable/ref";
+import { always, and } from "../../../util/mutable/ref";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
 
@@ -42,16 +42,44 @@ export const init = async(function* () {
   });
 
 
+  const style_group_wrapper = dom.style({
+    "overflow": always("visible"),
+    "width": always("110px"),
+
+    // TODO hacky
+    "background": always("inherit"),
+  });
+
   const style_group = dom.style({
-    "width": opt("groups.layout").map((x) =>
-               (x === "horizontal" ? "300px" : null)),
-    //"height": always("100%"),
+    "width": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "300px";
+      default:
+        return null;
+      }
+    }),
 
-    "border-top-width": opt("groups.layout").map((x) =>
-                          (x === "vertical" ? "1px" : null)),
+    "box-shadow": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "-2px 0px 5px -2px " + dom.hsl(0, 0, 50, 0.7) + "," +
+               "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
+      default:
+        return null;
+      }
+    }),
 
-    "border-left-width": opt("groups.layout").map((x) =>
-                           (x === "horizontal" ? "1px" : null)),
+    "border-width": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "1px";
+      case "vertical":
+        return "1px 0px 0px 0px";
+      default:
+        return null;
+      }
+    }),
 
     "border-color": always(dom.hsl(211, 50, 75)),
 
@@ -64,15 +92,27 @@ export const init = async(function* () {
 
     //"border-color": always(dom.hsl(211, 50, 75)),
 
-    "left": opt("groups.layout").map((x) =>
-              (x === "horizontal" ? "-1px" : null)),
+    // TODO hacky
+    "background": always("inherit"),
 
-    "top": opt("groups.layout").map((x) =>
-             (x === "vertical" ? "-1px" : null)),
+    "top": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "vertical":
+        return "-1px";
+      default:
+        return null;
+      }
+    }),
 
     "padding-top": always("1px"),
     "padding-left": always("1px"),
     "padding-right": always("1px"),
+  });
+
+  const style_group_focused = dom.style({
+    "z-index": always("2"),
+
+    "box-shadow": always("0px 0px 1px 3px " + dom.hsl(211, 80, 50)),
   });
 
   const style_group_header = dom.style({
@@ -91,7 +131,16 @@ export const init = async(function* () {
     //"transform": always("translate3d(0px, 0px, 0px"),
 
     //"transition": always("height 1000ms ease-in-out"),
-    "overflow-y": always("auto"),
+    "overflow-y": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return "auto";
+      default:
+        return null;
+      }
+    }),
+
     //"height": "100%"
     "padding-bottom": always("3px"),
   });
@@ -141,18 +190,35 @@ export const init = async(function* () {
 
   const group = (group) =>
     dom.col((e) => [
-      e.set_style(style_group, always(true)),
+      e.set_style(style_group_wrapper, always(true)),
 
       e.visible(group.get("matches")),
 
-      e.animate(animation_group, {
-        insert: "play-to",
-        remove: "play-from",
-      }),
-
       e.children([
-        group_header(group),
-        group_tabs(group)
+        dom.col((e) => [
+          e.set_style(dom.stretch, always(true)),
+          e.set_style(style_group, always(true)),
+
+          e.set_style(style_group_focused, and([
+            group.get("focused"),
+            opt("groups.layout").map((x) => x === "horizontal")
+          ])),
+
+          e.on_focus((focused) => {
+            // TODO a little hacky, should be a part of logic
+            group.get("focused").set(focused);
+          }),
+
+          e.animate(animation_group, {
+            insert: "play-to",
+            remove: "play-from",
+          }),
+
+          e.children([
+            group_header(group),
+            group_tabs(group)
+          ])
+        ])
       ])
     ]);
 

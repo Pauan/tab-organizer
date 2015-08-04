@@ -15,6 +15,7 @@ const make_group = (window) =>
 
     "tabs": new List(),
     "header-name": new Ref(window.get("name")),
+    "focused": new Ref(false),
     // TODO a little hacky
     "first-selected-tab": null,
     "matches": new Ref(false),
