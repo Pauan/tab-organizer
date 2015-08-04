@@ -15,7 +15,7 @@ export const init = async(function* () {
     "margin": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-        return "5px 5px 0px 5px";
+        return "6px 5px 0px 5px";
       default:
         return "1px 1px 0px 1px";
       }

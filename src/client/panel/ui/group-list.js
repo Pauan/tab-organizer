@@ -14,11 +14,13 @@ export const init = async(function* () {
     "padding": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-        return "8px calc(190px + 8px + 1px) 8px 8px"
+        return "6px calc(190px + 8px + 1px) 8px 8px"
       default:
-        return "3px 0px 0px 0px";
+        return null;
       }
     }),
+
+    "margin": always("2px 0px 0px 0px"),
 
     "overflow": always("auto"),
 
@@ -35,9 +37,14 @@ export const init = async(function* () {
   const scroll_y = +(localStorage["popup.scroll.y"] || 0);
 
 
+  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal");
+  const is_vertical   = opt("groups.layout").map((x) => x === "vertical");
+
+
   const group_list = (groups) =>
     dom.parent((e) => [
-      e.set_style(dom.row, always(true)),
+      e.set_style(dom.row, is_horizontal),
+      e.set_style(dom.col, is_vertical),
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
 

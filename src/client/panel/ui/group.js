@@ -44,7 +44,15 @@ export const init = async(function* () {
 
   const style_group_wrapper = dom.style({
     "overflow": always("visible"),
-    "width": always("110px"),
+
+    "width": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "110px";
+      default:
+        return null;
+      }
+    }),
 
     // TODO hacky
     "background": always("inherit"),

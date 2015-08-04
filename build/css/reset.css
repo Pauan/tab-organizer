@@ -34,6 +34,11 @@
   flex-basis: auto; /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
 }
 
+/* Can't set this for all elements, or it will break badly */
+body > * {
+  white-space: pre;
+}
+
 html, body {
   -webkit-user-select: none; /* TODO this is hacky, use JS instead ? */
   cursor: default;

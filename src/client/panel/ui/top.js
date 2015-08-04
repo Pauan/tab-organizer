@@ -16,9 +16,6 @@ export const init = async(function* () {
     "font-family": always("sans-serif"),
     "font-size": always("13px"),
 
-    // TODO is this needed ?
-    "white-space": always("pre"),
-
     "background-color": always("white"),
     "background-image": always(dom.repeating_gradient("0deg",
                                  ["0px", "transparent"],

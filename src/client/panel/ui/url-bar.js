@@ -8,8 +8,6 @@ const top_style = dom.style({
   "left": always("0px"),
   "bottom": always("0px"),
 
-  // TODO is this correct ? maybe move this elsewhere ?
-  "white-space": always("pre"),
   // TODO maybe remove this
   "max-width": always(dom.calc("100%", "+", "1px")),
 
