@@ -18,7 +18,7 @@ const make_group = (window) =>
     "focused": new Ref(false),
     // TODO a little hacky
     "first-selected-tab": null,
-    "matches": new Ref(false),
+    "matches": new Ref(false), // TODO is this correct ?
     "height": new Ref(null)
   });
 
@@ -33,7 +33,7 @@ const make_tab = (tab) =>
     "focused": new Ref(tab.get("focused")),
     "unloaded": new Ref(tab.get("unloaded")),
 
-    "matches": new Ref(true),
+    "matches": new Ref(false), // TODO use `matches(tab)` ?
     "selected": new Ref(false),
     "visible": new Ref(true),
     "animate": new Ref(false),
@@ -89,6 +89,8 @@ export const init = async(function* () {
 
         const x = new_tab(tab);
         group.get("tabs").insert(index, x);
+
+        search(groups);
       },
 
 
@@ -112,6 +114,8 @@ export const init = async(function* () {
         x.get("url").set(tab.get("url"));
         x.get("title").set(tab.get("title"));
         x.get("favicon").set(tab.get("favicon"));
+
+        search(groups);
       },
 
 
@@ -126,6 +130,9 @@ export const init = async(function* () {
 
         old_tabs.remove(old_index);
         new_tabs.insert(new_index, x);
+
+        // TODO is this needed ?
+        search(groups);
       },
 
 
@@ -138,6 +145,9 @@ export const init = async(function* () {
 
         assert(tabs.get(index) === x);
         tabs.remove(index);
+
+        // TODO is this needed ?
+        search(groups);
       },
 
 
@@ -146,6 +156,8 @@ export const init = async(function* () {
 
         groups.insert(index, group);
         update_groups(groups);
+
+        search(groups);
       },
 
 

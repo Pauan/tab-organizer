@@ -20,16 +20,42 @@ export const init = async(function* () {
       }
     }),
 
-    "margin": always("2px 0px 0px 0px"),
+    "margin": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "grid":
+        return "2px -1px -1px 0px";
+      default:
+        return "2px 0px 0px 0px";
+      }
+    }),
 
     "overflow": always("auto"),
 
     "align-items": always("stretch"), // TODO hacky
 
-    "justify-content": always("space-between"),
+    "justify-content": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "space-between";
+      default:
+        return null;
+      }
+    }),
+
+    // TODO really hacky
+    "height": always("calc(100% - 27px)"),
 
     // TODO hacky
     "background": always("inherit"),
+
+    "flex-wrap": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "grid":
+        return "wrap";
+      default:
+        return null;
+      }
+    }),
   });
 
 
@@ -37,7 +63,9 @@ export const init = async(function* () {
   const scroll_y = +(localStorage["popup.scroll.y"] || 0);
 
 
-  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal");
+  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal" ||
+                                                        x === "grid");
+
   const is_vertical   = opt("groups.layout").map((x) => x === "vertical");
 
 

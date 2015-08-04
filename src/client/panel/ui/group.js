@@ -1,7 +1,7 @@
 import * as dom from "../../dom";
 import * as logic from "../logic";
 import { async } from "../../../util/async";
-import { always, and } from "../../../util/mutable/ref";
+import { always, and, latest } from "../../../util/mutable/ref";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
 
@@ -45,10 +45,31 @@ export const init = async(function* () {
   const style_group_wrapper = dom.style({
     "overflow": always("visible"),
 
-    "width": opt("groups.layout").map((x) => {
-      switch (x) {
+    "width": latest([
+      opt("groups.layout"),
+      opt("groups.layout.grid.column")
+    ], (layout, col) => {
+      switch (layout) {
       case "horizontal":
+        // This is the minimum width for the group
         return "110px";
+
+      case "grid":
+        return ((1 / col) * 100) + "%";
+
+      default:
+        return null;
+      }
+    }),
+
+    "height": latest([
+      opt("groups.layout"),
+      opt("groups.layout.grid.row")
+    ], (layout, row) => {
+      switch (layout) {
+      case "grid":
+        return ((1 / row) * 100) + "%";
+
       default:
         return null;
       }
@@ -82,6 +103,8 @@ export const init = async(function* () {
       switch (x) {
       case "horizontal":
         return "1px";
+      case "grid":
+        return "0px 1px 1px 0px";
       case "vertical":
         return "1px 0px 0px 0px";
       default:
