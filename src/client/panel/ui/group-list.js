@@ -31,7 +31,7 @@ export const init = async(function* () {
 
     "overflow": always("auto"),
 
-    "align-items": always("stretch"), // TODO hacky
+    "align-items": always("stretch"), // TODO hacky ?
 
     "justify-content": opt("groups.layout").map((x) => {
       switch (x) {
@@ -47,15 +47,6 @@ export const init = async(function* () {
 
     // TODO hacky
     "background": always("inherit"),
-
-    "flex-wrap": opt("groups.layout").map((x) => {
-      switch (x) {
-      case "grid":
-        return "wrap";
-      default:
-        return null;
-      }
-    }),
   });
 
 
@@ -63,8 +54,9 @@ export const init = async(function* () {
   const scroll_y = +(localStorage["popup.scroll.y"] || 0);
 
 
-  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal" ||
-                                                        x === "grid");
+  // "grid" layout is neither horizontal nor vertical,
+  // because it uses "float: left"
+  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal");
 
   const is_vertical   = opt("groups.layout").map((x) => x === "vertical");
 

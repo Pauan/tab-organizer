@@ -45,6 +45,15 @@ export const init = async(function* () {
   const style_group_wrapper = dom.style({
     "overflow": always("visible"),
 
+    "float": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "grid":
+        return "left";
+      default:
+        return null;
+      }
+    }),
+
     "width": latest([
       opt("groups.layout"),
       opt("groups.layout.grid.column")
