@@ -524,6 +524,11 @@ export const init = async(function* () {
         not(tab.get("selected"))
       ]);
 
+      const is_visible = and([
+        tab.get("matches"),
+        tab.get("visible")
+      ]);
+
       return [
         e.set_children(opt("tabs.close.location").map((x) => {
           if (x === "left") {
@@ -573,12 +578,11 @@ export const init = async(function* () {
         }),
 
 
-        e.visible(and([
-          tab.get("matches"),
-          tab.get("visible")
-        ])),
+        e.visible(is_visible),
 
-        //e.scroll_to(tab.get("focused")),
+        e.scroll_to({
+          initial: tab.get("focused")
+        }),
 
         latest([
           e.hovering(),

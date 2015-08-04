@@ -45,3 +45,6 @@ export const search = (a) => {
     group.get("matches").set(seen);
   });
 };
+
+export const matches = (tab) =>
+  search_parsed(tab);

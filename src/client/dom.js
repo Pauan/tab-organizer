@@ -39,10 +39,12 @@ class Element {
     this._holding = null;
     this._scroll_left = null;
     this._scroll_top = null;
+    this._scroll_to_initial = false;
+    this._scroll_to_insert = false;
   }
 
   // TODO test this
-  _on_remove() {
+  _on_remove(parent) {
     each(this._running, (x) => {
       x.stop();
     });
@@ -57,15 +59,55 @@ class Element {
     this._holding = null;
     this._scroll_left = null;
     this._scroll_top = null;
+    this._scroll_to_initial = null;
+    this._scroll_to_insert = null;
   }
 
-  _on_insert() {
+  _on_insert(parent, type) {
     if (this._scroll_left !== null) {
       this._dom["scrollLeft"] = this._scroll_left;
     }
+
     if (this._scroll_top !== null) {
       this._dom["scrollTop"] = this._scroll_top;
     }
+
+
+    if (type === "initial") {
+      if (this._scroll_to_initial) {
+        parent._scroll_to(this);
+      }
+
+      this._animate("none", (x) => x.initial);
+
+
+    } else if (type === "insert") {
+      if (this._scroll_to_insert) {
+        parent._scroll_to(this);
+      }
+
+      this._animate("none", (x) => x.insert);
+
+
+    } else {
+      fail();
+    }
+  }
+
+  _scroll_to(child) {
+    const p = this.get_position();
+    const c = child.get_position();
+
+    // TODO test this
+    this._dom["scrollLeft"] +=
+      Math["round"]((c.left - p.left) -
+                    (p.width / 2) +
+                    (c.width / 2));
+
+    this._dom["scrollTop"] +=
+      Math["round"]((c.top - p.top) -
+                    (p.height / 2) +
+                    (c.height / 2));
   }
 
   _run(x) {
@@ -356,26 +398,29 @@ class Element {
     };
   }
 
-  // TODO
-  scroll_to(ref) {
-    /*return ref.each((x) => {
-      // TODO it should scroll to the element immediately after being inserted
-      if (x && this._parent) {
-        const p = this._parent.get_position();
-        const c = this.get_position();
+  scroll_to(info) {
+    const running = new Set();
 
-        // TODO test this
-        this._parent._dom["scrollLeft"] +=
-          Math["round"]((c.left - p.left) -
-                        (p.width / 2) +
-                        (c.width / 2));
+    if (info.initial) {
+      running.insert(info.initial.each((x) => {
+        this._scroll_to_initial = x;
+      }));
+    }
 
-        this._parent._dom["scrollTop"] +=
-          Math["round"]((c.top - p.top) -
-                        (p.height / 2) +
-                        (c.height / 2));
+    if (info.insert) {
+      running.insert(info.insert.each((x) => {
+        this._scroll_to_insert = x;
+      }));
+    }
+
+    return {
+      // TODO test this
+      stop: () => {
+        each(running, (x) => {
+          x.stop();
+        });
       }
-    });*/
+    };
   }
 
   get_position() {
@@ -646,24 +691,27 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  _on_remove() {
-    super._on_remove();
-
+  _on_remove(parent) {
     each(this._children, (x) => {
-      x._on_remove();
+      x._on_remove(this);
     });
+
+    // TODO is this in the right order ?
+    super._on_remove(parent);
   }
 
   // TODO test this
-  _on_insert() {
-    super._on_insert();
+  _on_insert(parent, type) {
+    // TODO is this in the right order ?
+    super._on_insert(parent, type);
 
     // TODO is this correct ?
     each(this._children, (x) => {
-      x._on_insert();
+      x._on_insert(this, type);
     });
   }
 
+/*
   // TODO test this
   _animate(fill, f, done = null) {
     let pending = this._children.size + 1;
@@ -687,7 +735,7 @@ class Parent extends Element {
     each(this._children, (x) => {
       x._animate(fill, f, done2);
     });
-  }
+  }*/
 
   // TODO test this
   _clear() {
@@ -706,11 +754,12 @@ class Parent extends Element {
     const parent_dom = this._dom;
     const child_dom  = child._dom;
 
+    // TODO test this
     child._animate("both", (x) => x.remove, () => {
       parent_dom["removeChild"](child_dom);
     });
 
-    child._on_remove();
+    child._on_remove(this);
   }
 
   // TODO test this
@@ -730,18 +779,14 @@ class Parent extends Element {
 
     this._children.insert(index, x);
 
-    x._on_insert();
-
-    x._animate("none", (x) => x.insert);
+    x._on_insert(this, "insert");
   }
 
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
 
-    x._on_insert();
-
-    x._animate("none", (x) => x.initial);
+    x._on_insert(this, "initial");
   }
 
   // TODO is this correct ?
@@ -1044,9 +1089,10 @@ export const search = (f) => {
   return e;
 };
 
+
+const body = new Parent(document["body"]);
+
 export const main = (x) => {
-  // TODO a bit hacky
-  document["body"]["appendChild"](x._dom);
-  // TODO is this correct ?
-  x._on_insert();
+  // TODO test this
+  body._push(x);
 };

@@ -19,7 +19,6 @@ export const init = async(function* () {
       //"top": always("0px"),
       "border-top-width": always("0px"),
       "padding-top": always("0px"),
-      "padding-bottom": always("0px"),
       "opacity": always("0"),
     }
   });
@@ -44,10 +43,16 @@ export const init = async(function* () {
 
 
   const style_group = dom.style({
-    //"width": always("300px"),
+    "width": opt("groups.layout").map((x) =>
+               (x === "horizontal" ? "300px" : null)),
     //"height": always("100%"),
 
-    "border-top-width": always("1px"),
+    "border-top-width": opt("groups.layout").map((x) =>
+                          (x === "vertical" ? "1px" : null)),
+
+    "border-left-width": opt("groups.layout").map((x) =>
+                           (x === "horizontal" ? "1px" : null)),
+
     "border-color": always(dom.hsl(211, 50, 75)),
 
     /*"border-image-source": always(dom.gradient("to right",
@@ -59,8 +64,15 @@ export const init = async(function* () {
 
     //"border-color": always(dom.hsl(211, 50, 75)),
 
-    "top": always("-1px"),
-    "padding": always("1px"),
+    "left": opt("groups.layout").map((x) =>
+              (x === "horizontal" ? "-1px" : null)),
+
+    "top": opt("groups.layout").map((x) =>
+             (x === "vertical" ? "-1px" : null)),
+
+    "padding-top": always("1px"),
+    "padding-left": always("1px"),
+    "padding-right": always("1px"),
   });
 
   const style_group_header = dom.style({
@@ -79,9 +91,9 @@ export const init = async(function* () {
     //"transform": always("translate3d(0px, 0px, 0px"),
 
     //"transition": always("height 1000ms ease-in-out"),
-    //"overflow-y": always("auto"),
+    "overflow-y": always("auto"),
     //"height": "100%"
-    "padding-bottom": always("2px"),
+    "padding-bottom": always("3px"),
   });
 
   const group_header = (group) =>
@@ -98,7 +110,7 @@ export const init = async(function* () {
           e.set_style(dom.stretch, always(true)),
           e.set_style(style_group_text, always(true)),
 
-          e.value(group.get("name"))
+          e.value(group.get("header-name"))
         ])
       ])
     ]);

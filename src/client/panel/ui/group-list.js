@@ -14,8 +14,8 @@ export const init = async(function* () {
 
     "overflow": always("auto"),
     //"height": always("100%"),
-    /*"align-items": always("stretch"), // TODO hacky
-    "height": always("100%")*/
+    "align-items": always("stretch"), // TODO hacky
+    //"height": always("100%")
 
     "padding-top": always("3px")
   });
@@ -26,7 +26,7 @@ export const init = async(function* () {
 
 
   const group_list = (groups) =>
-    dom.col((e) => [
+    dom.row((e) => [
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
 
@@ -44,7 +44,12 @@ export const init = async(function* () {
 
       // TODO a little bit hacky
       e.children([
-        dom.col((e) => [
+        dom.row((e) => [
+          e.style({
+            // TODO a little hacky
+            "align-items": always("stretch")
+          }),
+
           e.children(groups.map(ui_group))
         ])
       ])

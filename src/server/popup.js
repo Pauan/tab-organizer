@@ -11,7 +11,11 @@ export const init = async(function* () {
   button.set_tooltip(always(manifest.get("name")));
 
   button.on_click(() => {
-    panels.open({ url: "panel.html", width: 300, height: 600 });
+    panels.open({
+      url: "panel.html",
+      width: opt("size.popup.width").get(),
+      height: opt("size.popup.height").get()
+    });
   });
 
   button.set_bubble_url(opt("popup.type").map((type) =>
