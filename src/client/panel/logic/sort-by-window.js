@@ -146,6 +146,15 @@ export const init = async(function* () {
         assert(tabs.get(index) === x);
         tabs.remove(index);
 
+        // This is needed in order for animations to
+        // properly play when removing a group
+        if (tabs.size === 0) {
+          group_ids.remove(group.get("id"));
+          // TODO can this be made more efficient ?
+          groups.remove(groups.index_of(group).get());
+          update_groups(groups);
+        }
+
         // TODO is this needed ?
         search(groups);
       },
@@ -162,14 +171,18 @@ export const init = async(function* () {
 
 
       "window-close": ({ window, index }) => {
-        const group = group_ids.get(window.get("id"));
+        const id = window.get("id");
 
-        group_ids.remove(group.get("id"));
+        if (group_ids.has(id)) {
+          const group = group_ids.get(id);
 
-        assert(groups.get(index) === group);
-        groups.remove(index);
+          group_ids.remove(group.get("id"));
 
-        update_groups(groups);
+          assert(groups.get(index) === group);
+          groups.remove(index);
+
+          update_groups(groups);
+        }
       }
     };
 

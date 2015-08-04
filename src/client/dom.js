@@ -78,15 +78,11 @@ class Element {
         parent._scroll_to(this);
       }
 
-      this._animate("none", (x) => x.initial);
-
 
     } else if (type === "insert") {
       if (this._scroll_to_insert) {
         parent._scroll_to(this);
       }
-
-      this._animate("none", (x) => x.insert);
 
 
     } else {
@@ -522,22 +518,20 @@ class Element {
     const a = this._get_animations(fill, f);
 
     if (a["length"]) {
+      // TODO is this correct ?
+      // TODO remove vendor prefix
+      set_style(this._dom["style"], "-webkit-animation", null);
+
+      // TODO hacky, but I don't know of any other way to make it work
+      this._trigger_relayout("-webkit-animation");
+
       if (done != null) {
         this._wait_for_animation(a, done);
       }
 
-      each(a, (style) => {
-        // TODO is this correct ?
-        // TODO remove vendor prefix
-        set_style(this._dom["style"], "-webkit-animation", null);
-
-        // TODO hacky, but I don't know of any other way to make it work
-        this._trigger_relayout("-webkit-animation");
-
-        // TODO remove vendor prefix
-        // TODO code duplication
-        set_style(this._dom["style"], "-webkit-animation", style);
-      });
+      // TODO remove vendor prefix
+      // TODO code duplication
+      set_style(this._dom["style"], "-webkit-animation", a["join"](","));
 
     // TODO should this set "-webkit-animation" to `null` ?
     } else if (done != null) {
@@ -737,7 +731,6 @@ class Parent extends Element {
     });
   }
 
-/*
   // TODO test this
   _animate(fill, f, done = null) {
     let pending = this._children.size + 1;
@@ -761,7 +754,7 @@ class Parent extends Element {
     each(this._children, (x) => {
       x._animate(fill, f, done2);
     });
-  }*/
+  }
 
   // TODO test this
   _clear() {
@@ -806,6 +799,8 @@ class Parent extends Element {
     this._children.insert(index, x);
 
     x._on_insert(this, "insert");
+
+    x._animate("none", (x) => x.insert);
   }
 
   _push(x) {
@@ -813,6 +808,8 @@ class Parent extends Element {
     this._children.push(x);
 
     x._on_insert(this, "initial");
+
+    x._animate("none", (x) => x.initial);
   }
 
   // TODO is this correct ?
