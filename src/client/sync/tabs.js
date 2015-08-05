@@ -6,7 +6,10 @@ import { Record } from "../../util/mutable/record";
 import { List } from "../../util/mutable/list";
 import { each, indexed } from "../../util/iterator";
 import { assert } from "../../util/assert";
+import { Timer } from "../../util/time";
 
+
+const timer = new Timer();
 
 export const init = async(function* () {
   const port       = ports.connect(uuid_port_tab);
@@ -248,6 +251,9 @@ export const init = async(function* () {
     });
   });
 
+
+  timer.done();
+  console["debug"]("tabs: initialized (" + timer.diff() + "ms)");
 
   return { windows, on_change: events.receive };
 });

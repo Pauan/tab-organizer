@@ -1,9 +1,7 @@
-import * as dom from "../dom";
 import { async } from "../../util/async";
 import { Ref } from "../../util/mutable/ref";
 import { each, map, to_array, indexed } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
-import { init as init_top } from "./ui/top";
 import { init as init_options } from "../sync/options";
 import { init as init_sort_by_window } from "./logic/sort-by-window";
 import { init as init_sort_by_created } from "./logic/sort-by-created";
@@ -273,7 +271,6 @@ export const close_tabs = (a) => {
 
 export const init = async(function* () {
   const { get: opt } = yield init_options;
-  const { top: ui_top } = yield init_top;
   const { make: make_sort_by_window } = yield init_sort_by_window;
   const { make: make_sort_by_created } = yield init_sort_by_created;
   const { make: make_sort_by_focused } = yield init_sort_by_focused;
@@ -282,27 +279,31 @@ export const init = async(function* () {
 
 
   // TODO a little bit hacky
-  let group_type = null;
+  const group_type = new Ref(null);
 
+  // TODO handle stop somehow ?
   opt("group.sort.type").each((type) => {
-    if (group_type !== null) {
-      group_type.stop();
+    const x = group_type.get();
+
+    // TODO test this
+    if (x !== null) {
+      x.stop();
     }
 
     if (type === "window") {
-      group_type = make_sort_by_window();
+      group_type.set(make_sort_by_window());
 
     } else if (type === "created") {
-      group_type = make_sort_by_created();
+      group_type.set(make_sort_by_created());
 
     } else if (type === "focused") {
-      group_type = make_sort_by_focused();
+      group_type.set(make_sort_by_focused());
 
     } else if (type === "title") {
-      group_type = make_sort_by_title();
+      group_type.set(make_sort_by_title());
 
     } else if (type === "url") {
-      group_type = make_sort_by_url();
+      group_type.set(make_sort_by_url());
 
     } else {
       fail();
@@ -310,5 +311,5 @@ export const init = async(function* () {
   });
 
 
-  dom.main(ui_top(group_type.groups));
+  return { group_type };
 });
