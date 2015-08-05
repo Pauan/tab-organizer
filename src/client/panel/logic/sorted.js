@@ -90,18 +90,23 @@ export const make = ({ get_group_data,
         }
       };
 
-      const update_tab = (x, tab) => {
+      const update_tab = (x, tab, f) => {
         const old_group = x.get("group");
         const new_group = get_group(tab);
 
         if (old_group === new_group) {
+          f();
+
           // TODO can this be made more efficient ?
           old_group.get("tabs").change_sort(sort_tabs);
+
 
         } else {
           x.update("group", new_group);
 
           remove_tab(old_group, x);
+
+          f();
 
           new_group.get("tabs").insert(x);
         }
@@ -132,7 +137,10 @@ export const make = ({ get_group_data,
           const x = tab_ids.get(tab.get("id"));
 
           // TODO this is only needed for "focused"
-          update_tab(x, tab);
+          // TODO a little bit hacky
+          // TODO update the timestamp for the tab ?
+          // TODO update "focused" for the tab ?
+          update_tab(x, tab, () => {});
 
           // TODO is this needed ?
           // TODO can this be made more efficient ?
@@ -148,12 +156,13 @@ export const make = ({ get_group_data,
           const x = tab_ids.get(tab.get("id"));
 
           // TODO this is only needed for "title" and "url"
-          update_tab(x, tab);
-
-          // TODO remove + insert the tab if the URL is different ?
-          x.get("url").set(tab.get("url"));
-          x.get("title").set(tab.get("title"));
-          x.get("favicon").set(tab.get("favicon"));
+          // TODO a little bit hacky
+          update_tab(x, tab, () => {
+            // TODO remove + insert the tab if the URL is different ?
+            x.get("url").set(tab.get("url"));
+            x.get("title").set(tab.get("title"));
+            x.get("favicon").set(tab.get("favicon"));
+          });
 
           // TODO is this needed ?
           // TODO can this be made more efficient ?
