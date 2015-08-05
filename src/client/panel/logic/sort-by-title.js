@@ -1,4 +1,5 @@
 import { make } from "./sorted";
+import { uppercase } from "../../../util/string";
 
 
 // TODO code duplication
@@ -13,16 +14,8 @@ const sort = (x, y) => {
   }
 };
 
-// TODO move into another module
-const uppercase = (s) =>
-  s["toLocaleUpperCase"]();
-
-// TODO move into another module
-const lowercase = (s) =>
-  s["toLocaleLowerCase"]();
-
 const get_title = (tab) =>
-  lowercase(tab.get("title").get());
+  uppercase(tab.get("title").get());
 
 const get_time = (tab) =>
   tab.get("time").get("created");
