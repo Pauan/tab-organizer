@@ -13,16 +13,14 @@ export const parse = (x) => {
   if (a) {
     return {
       protocol:  lowercase(a[1]),
-      separator: a[2] || null,
-      authority: a[3] || null,
-      domain:    a[4] || null,
-      port:      (a[5]
-                   ? +a[5]
-                   : null),
-      path:      a[6] || null,
-      file:      a[7] || null,
-      query:     a[8] || null,
-      hash:      a[9] || null
+      separator: a[2] || "",
+      authority: a[3] || "",
+      domain:    a[4] || "",
+      port:      a[5] || "",
+      path:      a[6] || "",
+      file:      a[7] || "",
+      query:     a[8] || "",
+      hash:      a[9] || ""
     };
   } else {
     throw new Error("Invalid URI: " + x);
@@ -46,12 +44,12 @@ export const simplify = (x) => {
                             x.protocol === "https:");
 
   return {
-    protocol:  (should_protocol ? x.protocol  : null),
-    separator: (should_protocol ? x.separator : null),
+    protocol:  (should_protocol ? x.protocol  : ""),
+    separator: (should_protocol ? x.separator : ""),
     authority: x.authority,
-    domain:    (x.domain !== null
+    domain:    (x.domain
                  ? simplify_domain(x.domain)
-                 : null),
+                 : ""),
     port:      x.port,
     path:      x.path,
     file:      x.file,
@@ -68,27 +66,27 @@ export const minify = (x) => {
   const file  = y.file;
   const query = y.query;
 
-  y.path  = null;
-  y.file  = null;
-  y.query = null;
+  y.path  = "";
+  y.file  = "";
+  y.query = "";
 
-  y.hash = (y.hash !== null
+  y.hash = (y.hash
              ? spacify(decodeURIComponent(y.hash))
-             : null);
+             : "");
 
 
-  if (query !== null) {
+  if (query) {
     y.query = replace(query, /^\?/, "");
     y.query = replace(y.query, /^[\+&;]/, "");
     y.query = replace(y.query, /[\+&;]/g, ", ");
     y.query = replace(y.query, /=/g, ":");
     y.query = spacify(decodeURIComponent(y.query));
 
-  } else if (file !== null) {
+  } else if (file) {
     y.file = replace(file, /\.(?:html?|php|asp)$/, "");
     y.file = spacify(decodeURIComponent(y.file));
 
-  } else if (path !== null && path !== "/") {
+  } else if (path && path !== "/") {
     y.path = spacify(decodeURIComponent(path));
   }
 

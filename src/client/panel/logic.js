@@ -9,6 +9,7 @@ import { init as init_sort_by_window } from "./logic/sort-by-window";
 import { init as init_sort_by_created } from "./logic/sort-by-created";
 import { init as init_sort_by_focused } from "./logic/sort-by-focused";
 import { init as init_sort_by_title } from "./logic/sort-by-title";
+import { init as init_sort_by_url } from "./logic/sort-by-url";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -277,6 +278,7 @@ export const init = async(function* () {
   const { make: make_sort_by_created } = yield init_sort_by_created;
   const { make: make_sort_by_focused } = yield init_sort_by_focused;
   const { make: make_sort_by_title } = yield init_sort_by_title;
+  const { make: make_sort_by_url } = yield init_sort_by_url;
 
 
   // TODO a little bit hacky
@@ -298,6 +300,9 @@ export const init = async(function* () {
 
     } else if (type === "title") {
       group_type = make_sort_by_title();
+
+    } else if (type === "url") {
+      group_type = make_sort_by_url();
 
     } else {
       fail();
