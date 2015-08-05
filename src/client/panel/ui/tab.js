@@ -43,6 +43,24 @@ export const init = async(function* () {
     }
   });
 
+  const animation_tab_favicon = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "height": always("0px")
+    }
+  });
+
+  const animation_tab_close = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "height": always("0px"),
+      "border-top-width": always("0px"),
+      "border-bottom-width": always("0px"),
+    }
+  });
+
 
   const style_dragging = dom.style({
     "pointer-events": always("none"),
@@ -63,7 +81,9 @@ export const init = async(function* () {
     "cursor": always("pointer"),
 
     "transition": opt("theme.animation").map((animation) =>
-                    (animation ? "background-color 100ms ease-in-out" : null)),
+                    (animation
+                      ? "background-color 100ms ease-in-out"
+                      : null)),
 
     "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
   });
@@ -228,10 +248,12 @@ export const init = async(function* () {
     }
   });
 
+  // TODO code duplication
   const style_tab_dragging = dom.style({
     "margin-top": always("-18px")
   });
 
+  // TODO code duplication
   const style_tab_dragging_hidden = dom.style({
     "margin-top": always("-20px"),
     "opacity": always("0")
@@ -246,6 +268,11 @@ export const init = async(function* () {
       e.set_style(style_icon, always(true)),
       e.set_style(style_favicon, always(true)),
       e.set_style(style_favicon_unloaded, tab.get("unloaded")),
+
+      e.animate(animation_tab_favicon, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
     ]);
 
   const text = (tab) =>
@@ -284,6 +311,11 @@ export const init = async(function* () {
         e.hovering(),
         e.holding()
       ])),
+
+      e.animate(animation_tab_close, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       e.on_left_click(({ shift, ctrl, alt }) => {
         if (!shift && !ctrl && !alt) {
@@ -346,12 +378,9 @@ export const init = async(function* () {
         ])),
 
 
-        // TODO a tiny bit hacky
-        (index === 0
-          ? e.noop()
-          : e.set_style((index < 5
-                          ? style_tab_dragging
-                          : style_tab_dragging_hidden), always(true))),
+        e.set_style(style_tab_dragging, always(index >= 1 && index < 5)),
+
+        e.set_style(style_tab_dragging_hidden, always(index >= 5)),
 
 
         // TODO a tiny bit hacky
@@ -510,8 +539,9 @@ export const init = async(function* () {
       const ui_close = close(tab, latest([
         opt("tabs.close.display"),
         is_hovering
-      ], (display, hover) => (display === "every") ||
-                             (display === "hover" && hover)));
+      ], (display, hover) =>
+        (display === "every") ||
+        (display === "hover" && hover)));
 
       const is_holding = and([
         is_hovering,
