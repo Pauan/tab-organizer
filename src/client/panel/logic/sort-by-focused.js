@@ -2,8 +2,16 @@ import { make } from "./sorted";
 import { get_group_name, get_group_time } from "./time";
 
 
-const get_time = (tab) =>
-  tab.get("time").get("created");
+const get_time = (tab) => {
+  const time = tab.get("time");
+
+  if (time.has("focused")) {
+    return time.get("focused");
+  } else {
+    return time.get("created");
+  }
+};
+
 
 // TODO code duplication
 export const init = make({

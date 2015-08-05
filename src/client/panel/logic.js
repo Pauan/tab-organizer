@@ -7,6 +7,8 @@ import { init as init_top } from "./ui/top";
 import { init as init_options } from "../sync/options";
 import { init as init_sort_by_window } from "./logic/sort-by-window";
 import { init as init_sort_by_created } from "./logic/sort-by-created";
+import { init as init_sort_by_focused } from "./logic/sort-by-focused";
+import { init as init_sort_by_title } from "./logic/sort-by-title";
 
 
 /*const get_groups = new Ref((tab) => {
@@ -273,6 +275,8 @@ export const init = async(function* () {
   const { top: ui_top } = yield init_top;
   const { make: make_sort_by_window } = yield init_sort_by_window;
   const { make: make_sort_by_created } = yield init_sort_by_created;
+  const { make: make_sort_by_focused } = yield init_sort_by_focused;
+  const { make: make_sort_by_title } = yield init_sort_by_title;
 
 
   // TODO a little bit hacky
@@ -288,6 +292,12 @@ export const init = async(function* () {
 
     } else if (type === "created") {
       group_type = make_sort_by_created();
+
+    } else if (type === "focused") {
+      group_type = make_sort_by_focused();
+
+    } else if (type === "title") {
+      group_type = make_sort_by_title();
 
     } else {
       fail();

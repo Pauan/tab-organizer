@@ -326,9 +326,10 @@ export class SortedList extends ListBase {
   }
 
   remove(x) {
-    const { index, value } = get_sorted(this._list, x, this._sort);
+    // TODO can this be made more efficient ?
+    const index = this._list["indexOf"](x);
 
-    assert(value.has());
+    assert(index !== -1);
 
     this._remove(index);
   }
