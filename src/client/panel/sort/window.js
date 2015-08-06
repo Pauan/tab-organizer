@@ -6,13 +6,11 @@ import { Ref } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
 import { assert } from "../../../util/assert";
 import { search, value, matches } from "../search/search";
+import { update_tabs } from "../logic/general";
 
 
 const make_group = (window) =>
   new Record({
-    "id": window.get("id"),
-    "name": window.get("name"),
-
     // Standard properties
     "tabs": new List(),
     "header-name": new Ref(window.get("name")),
@@ -20,13 +18,15 @@ const make_group = (window) =>
     // TODO a little hacky
     "first-selected-tab": null,
     "matches": new Ref(false), // TODO is this correct ?
-    "height": new Ref(null)
+    "height": new Ref(null),
+
+    // Non-standard properties
+    "id": window.get("id"),
+    "name": window.get("name"),
   });
 
 const make_tab = (tab) =>
   new Record({
-    "id": tab.get("id"),
-
     // Standard properties
     "url": new Ref(tab.get("url")),
     "title": new Ref(tab.get("title")),
@@ -39,7 +39,11 @@ const make_tab = (tab) =>
     "selected": new Ref(false),
     "visible": new Ref(true),
     "animate": new Ref(false),
-    "top": new Ref(null)
+    "top": new Ref(null),
+    "index": null, // TODO a little bit hacky
+
+    // Non-standard properties
+    "id": tab.get("id"),
   });
 
 // TODO this can be more efficient if it's given a starting index
@@ -92,6 +96,8 @@ export const init = async(function* () {
         const x = new_tab(tab);
         group.get("tabs").insert(index, x);
 
+        update_tabs(group);
+
         search(groups);
       },
 
@@ -133,6 +139,15 @@ export const init = async(function* () {
         old_tabs.remove(old_index);
         new_tabs.insert(new_index, x);
 
+        // TODO test this
+        if (old_group === new_group) {
+          update_tabs(old_group);
+
+        } else {
+          update_tabs(old_group);
+          update_tabs(new_group);
+        }
+
         // TODO is this needed ?
         search(groups);
       },
@@ -147,6 +162,9 @@ export const init = async(function* () {
 
         assert(tabs.get(index) === x);
         tabs.remove(index);
+
+        // TODO what if `tabs.size` is 0 ?
+        update_tabs(group);
 
         // This is needed in order for animations to
         // properly play when removing a group

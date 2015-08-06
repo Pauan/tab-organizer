@@ -1,14 +1,15 @@
 import * as dom from "../../dom";
-import * as logic from "../logic";
 import { async } from "../../../util/async";
 import { always, and, latest } from "../../../util/mutable/ref";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
+import { init as init_logic } from "../logic";
 
 
 export const init = async(function* () {
   const { tab: ui_tab } = yield init_tab;
   const { get: opt } = yield init_options;
+  const logic = yield init_logic;
 
 
   const animation_group_wrapper = dom.animation({

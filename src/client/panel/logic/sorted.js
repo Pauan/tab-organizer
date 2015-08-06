@@ -5,14 +5,12 @@ import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
 import { search, value } from "../search/search";
+import { update_tabs } from "./general";
 
 
 // TODO code duplication
 const make_group = (id, data, name, sort_tabs) =>
   new Record({
-    "id": id,
-    "data": data,
-
     // Standard properties
     "tabs": new SortedList(sort_tabs),
     // TODO update the name periodically
@@ -21,16 +19,16 @@ const make_group = (id, data, name, sort_tabs) =>
     // TODO a little hacky
     "first-selected-tab": null,
     "matches": new Ref(false), // TODO is this correct ?
-    "height": new Ref(null)
+    "height": new Ref(null),
+
+    // Non-standard properties
+    "id": id,
+    "data": data,
   });
 
 // TODO code duplication
 const make_tab = (group, tab) =>
   new Record({
-    "id": tab.get("id"),
-    "time": tab.get("time"),
-    "group": group,
-
     // Standard properties
     "url": new Ref(tab.get("url")),
     "title": new Ref(tab.get("title")),
@@ -43,7 +41,13 @@ const make_tab = (group, tab) =>
     "selected": new Ref(false),
     "visible": new Ref(true),
     "animate": new Ref(false),
-    "top": new Ref(null)
+    "top": new Ref(null),
+    "index": null, // TODO a little bit hacky
+
+    // Non-standard properties
+    "id": tab.get("id"),
+    "time": tab.get("time"),
+    "group": group,
   });
 
 
@@ -84,6 +88,9 @@ export const make = ({ get_group_data,
 
         tabs.remove(x);
 
+        // TODO what if `tabs.size` is 0 ?
+        update_tabs(group);
+
         if (tabs.size === 0) {
           group_ids.remove(group.get("id"));
           groups.remove(group);
@@ -109,6 +116,8 @@ export const make = ({ get_group_data,
           f();
 
           new_group.get("tabs").insert(x);
+
+          update_tabs(new_group);
         }
       };
 
@@ -118,6 +127,8 @@ export const make = ({ get_group_data,
 
         tab_ids.insert(x.get("id"), x);
         group.get("tabs").insert(x);
+
+        update_tabs(group);
 
         return x;
       };

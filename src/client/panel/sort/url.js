@@ -1,4 +1,4 @@
-import { make } from "./sorted";
+import { make } from "../logic/sorted";
 import { lowercase } from "../../../util/string";
 import { simplify, parse } from "../../../util/url";
 

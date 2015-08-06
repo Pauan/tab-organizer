@@ -1,5 +1,5 @@
-import { make } from "./sorted";
-import { get_group_name, get_group_time } from "./time";
+import { make } from "../logic/sorted";
+import { get_group_name, get_group_time } from "../logic/time";
 
 
 const get_time = (tab) => {

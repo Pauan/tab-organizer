@@ -1,8 +1,8 @@
+import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { always } from "../../../util/mutable/ref";
 import { search as ui_search } from "./search";
 import { init as init_options } from "../../sync/options";
-import * as dom from "../../dom";
 
 
 export const init = async(function* () {

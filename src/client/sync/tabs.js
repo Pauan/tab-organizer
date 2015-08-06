@@ -4,7 +4,7 @@ import { async, async_callback } from "../../util/async";
 import { Event } from "../../util/event";
 import { Record } from "../../util/mutable/record";
 import { List } from "../../util/mutable/list";
-import { each, indexed } from "../../util/iterator";
+import { each, indexed, map, to_array,  } from "../../util/iterator";
 import { assert } from "../../util/assert";
 import { Timer } from "../../util/time";
 
@@ -48,6 +48,21 @@ export const init = async(function* () {
       "focused": focused,
       "unloaded": unloaded,
     });
+
+
+  const close_tabs = (a) => {
+    port.send({
+      "type": "close-tabs",
+      "tabs": to_array(map(a, (tab) => tab.get("id")))
+    });
+  };
+
+  const focus_tab = (tab) => {
+    port.send({
+      "type": "focus-tab",
+      "tab-id": tab.get("id")
+    });
+  };
 
 
   yield async_callback((success, error) => {
@@ -255,5 +270,5 @@ export const init = async(function* () {
   timer.done();
   console["debug"]("tabs: initialized (" + timer.diff() + "ms)");
 
-  return { windows, on_change: events.receive };
+  return { windows, on_change: events.receive, focus_tab, close_tabs };
 });

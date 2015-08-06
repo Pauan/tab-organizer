@@ -1,4 +1,4 @@
-import { make } from "./sorted";
+import { make } from "../logic/sorted";
 import { uppercase } from "../../../util/string";
 
 

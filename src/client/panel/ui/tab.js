@@ -1,4 +1,3 @@
-import * as logic from "../logic";
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { List } from "../../../util/mutable/list";
@@ -6,10 +5,12 @@ import { url_bar } from "./url-bar";
 import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
 import { init as init_options } from "../../sync/options";
+import { init as init_logic } from "../logic";
 
 
 export const init = async(function* () {
   const { get: opt } = yield init_options;
+  const logic = yield init_logic;
 
 
   const $selected = new Ref(empty);
@@ -120,7 +121,7 @@ export const init = async(function* () {
                            dom.hsl(211, 38, 57)),
 
     "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.2) + "," +
-                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.15) + "," +
+                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.1) + "," +
                           "0px 1px 1px " + dom.hsl(0, 0, 0, 0.2)) // TODO why is it duplicated like this ?
   });
 
@@ -533,20 +534,19 @@ export const init = async(function* () {
 
       x: (x - offset_x),
       y: (y - offset_y),
-      width: tab_box.width
+      width: Math["round"](tab_box.width)
     });
 
     logic.drag_start({ group, tab, height });
   };
 
   const drag_move = ({ x, y }) => {
-    $dragging.modify(({ offset_x, offset_y, x, width }) => {
+    $dragging.modify(({ offset_x, offset_y, width }) => {
       // TODO hacky
       return {
         offset_x,
         offset_y,
-        x,
-        //x: (x - offset_x),
+        x: (x - offset_x),
         y: (y - offset_y),
         width
       };
