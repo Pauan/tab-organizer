@@ -92,8 +92,6 @@ export const init = async(function* () {
                     (animation
                       ? "background-color 100ms ease-in-out"
                       : null)),
-
-    "text-shadow": always("0px 1px 1px " + dom.hsl(211, 61, 50, 0.1))
   });
 
   const style_menu_item_shadow = dom.style({
@@ -115,9 +113,16 @@ export const init = async(function* () {
                                repeating),
     "color": always(dom.hsl(211, 100, 99, 0.95)),
     "background-color": always(dom.hsl(211, 100, 65)),
-    "border-color": always(dom.hsl(211, 38, 57)),
-    "text-shadow": always("1px 0px 1px " + dom.hsl(211, 61, 50) + "," +
-                          "0px 1px 1px " + dom.hsl(211, 61, 50)) // TODO why is it duplicated like this ?
+
+    "border-color": always(dom.hsl(211, 38, 62) + " " +
+                           dom.hsl(211, 38, 57) + " " +
+                           dom.hsl(211, 38, 52) + " " +
+                           dom.hsl(211, 38, 57)),
+
+    "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.2) + "," +
+                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.1) + "," +
+                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.1) + "," +
+                          "0px 1px 1px " + dom.hsl(0, 0, 0, 0.2)) // TODO why is it duplicated like this ?
   });
 
   const style_menu_item_hold = dom.style({
@@ -161,9 +166,11 @@ export const init = async(function* () {
 
   const style_tab_unloaded_hover = dom.style({
     "background-color": always(dom.hsl(0, 0, 0, 0.4)),
-    "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.4) + "," +
-                          "0px 1px 1px " + dom.hsl(0, 0, 0, 0.4)), // TODO why is it duplicated like this ?
-    "border-color": always(dom.hsl(0, 0, 0, 0.2)),
+
+    "border-color": always(dom.hsl(0, 0, 62) + " " +
+                           dom.hsl(0, 0, 57) + " " +
+                           dom.hsl(0, 0, 52) + " " +
+                           dom.hsl(0, 0, 57)),
 
     "color": always(dom.hsl(0, 0, 99, 0.95)), // TODO minor code duplication with `style_menu_item_hover`
     "opacity": always("1")
@@ -171,21 +178,43 @@ export const init = async(function* () {
 
   const style_tab_focused = dom.style({
     "background-color": always(dom.hsl(30, 100, 94)),
-    "border-color":     always(dom.hsl(30, 100, 40)),
+
+    "border-color": always(dom.hsl(30, 70, 62) + " " +
+                           dom.hsl(30, 70, 57) + " " +
+                           dom.hsl(30, 70, 52) + " " +
+                           dom.hsl(30, 70, 57)),
+
     // TODO a bit hacky
     "transition-duration": always("0ms"),
   });
 
   const style_tab_focused_hover = dom.style({
     "background-color": always(dom.hsl(30, 85, 57)),
-    // TODO code duplication with `style_menu_item_hover`
-    "text-shadow": always("1px 0px 1px " + dom.hsl(30, 61, 50) + "," +
-                          "0px 1px 1px " + dom.hsl(30, 61, 50)) // TODO why is it duplicated like this ?
   });
 
   const style_tab_selected = dom.style({
-    "background-color": always("green"),
-    "border-color": always("black"),
+    "background-color": always(dom.hsl(100, 78, 80)),
+
+    "border-color": always(dom.hsl(100, 50, 55) + " " +
+                           dom.hsl(100, 50, 50) + " " +
+                           dom.hsl(100, 50, 45) + " " +
+                           dom.hsl(100, 50, 50)),
+
+    /*"box-shadow": always("inset 0px 1px 0px 0px " + dom.hsl(100, 70, 75) + "," +
+                         "inset 0px -1px 0px 0px " + dom.hsl(100, 70, 70) + "," +
+                         "inset 0px 0px 0px 1px " + dom.hsl(100, 70, 65) + "," +
+                         "")*/
+    /*
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(transparent), color-stop(0.1, rgba(0, 0, 0, 0.02)), color-stop(0.8, transparent), color-stop(0.9, rgba(0, 0, 0, 0.03)), to(rgba(0, 0, 0, 0.04)))
+
+    background-color: rgba(114, 255, 0, 0.3)
+
+    border-color: hsl(120, 100%, 20%)
+    */
+  });
+
+  const style_tab_selected_hover = dom.style({
+    "background-color": always(dom.hsl(100, 80, 45)),
   });
 
   const style_icon = dom.style({
@@ -372,6 +401,12 @@ export const init = async(function* () {
 
 
         e.set_style(style_tab_selected, tab.get("selected")),
+
+        // TODO test this
+        e.set_style(style_tab_selected_hover, and([
+          tab.get("selected"),
+          is_hovering
+        ])),
 
 
         e.set_style(style_tab_focused, is_focused),
@@ -595,7 +630,13 @@ export const init = async(function* () {
 
         e.set_style(style_tab_hover, is_hovering),
         e.set_style(style_menu_item_hover, is_hovering),
-        e.set_style(style_menu_item_shadow, is_hovering),
+
+        // TODO test this
+        // TODO a little bit hacky
+        e.set_style(style_menu_item_shadow, or([
+          is_hovering,
+          tab.get("selected")
+        ])),
 
 
         e.set_style(style_tab_hold, is_holding),
@@ -603,6 +644,12 @@ export const init = async(function* () {
 
 
         e.set_style(style_tab_selected, tab.get("selected")),
+
+        // TODO test this
+        e.set_style(style_tab_selected_hover, and([
+          tab.get("selected"),
+          is_hovering
+        ])),
 
 
         e.set_style(style_tab_focused, is_focused),

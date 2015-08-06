@@ -197,7 +197,19 @@ export const init = async(function* () {
       }
     }),
 
-    "border-color": always(dom.hsl(211, 50, 75)),
+    "border-color": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return dom.hsl(211, 50, 65) + " " +
+               dom.hsl(211, 50, 50) + " " +
+               dom.hsl(211, 50, 45) + " " +
+               dom.hsl(211, 50, 60);
+      case "vertical":
+        return dom.hsl(211, 50, 75);
+      default:
+        return dom.hsl(211, 50, 65);
+      }
+    }),
 
     /*"border-image-source": always(dom.gradient("to right",
                                                ["0%", "transparent"],
