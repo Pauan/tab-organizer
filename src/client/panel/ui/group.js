@@ -270,8 +270,8 @@ export const init = async(function* () {
       }
     }),
 
-    //"height": "100%"
-    "padding-bottom": always("3px"),
+    // TODO test if using "padding-bottom" rather than "margin-bottom" messes up tab drag-and-drop
+    "margin-bottom": always("3px"),
   });
 
   const group_header = (group) =>
@@ -310,7 +310,7 @@ export const init = async(function* () {
       }),
 
       e.on_mouse_hover((hover) => {
-        if (hover) {
+        if (hover && !hover.subtree) {
           logic.drag_onto_group(group);
         }
       }),

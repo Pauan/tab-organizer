@@ -102,6 +102,28 @@ export const init = async(function* () {
 
   let drag_info = null;
 
+  const get_direction_group = (group) => {
+    // TODO is there a better way than using indexes ?
+    const old_index = drag_info.group.get("index");
+    const new_index = group.get("index");
+
+    assert(old_index !== null);
+    assert(new_index !== null);
+
+    return (old_index < new_index ? "down" : "up");
+  };
+
+  const get_direction_tab = (tab) => {
+    // TODO is there a better way than using indexes ?
+    const old_index = drag_info.tab.get("index");
+    const new_index = tab.get("index");
+
+    assert(old_index !== null);
+    assert(new_index !== null);
+
+    return (old_index < new_index ? "up" : "down");
+  };
+
   const get_direction = (group, tab) => {
     if (drag_info.tab === tab) {
       return (drag_info.direction === "up"
@@ -109,22 +131,10 @@ export const init = async(function* () {
                : "up");
 
     } else if (drag_info.group === group) {
-      // TODO is there a better way than using indexes ?
-      const old_index = drag_info.tab.get("index");
-      const new_index = tab.get("index");
-
-      assert(old_index !== null);
-      assert(new_index !== null);
-
-      if (old_index < new_index) {
-        return "down";
-
-      } else {
-        return "up";
-      }
+      return get_direction_tab(tab);
 
     } else {
-      return drag_info.direction;
+      return get_direction_group(group);
     }
   };
 
@@ -133,28 +143,36 @@ export const init = async(function* () {
     let top = 0;
 
     each(group.get("tabs"), (x) => {
-      // TODO a bit hacky
-      if (drag_info.tab === x && drag_info.direction === "up") {
-        top += drag_info.height;
-      }
-
       // TODO a little bit hacky
       if (x.get("visible").get()) {
+        // TODO a bit hacky
+        if (drag_info.tab === x && drag_info.direction === "up") {
+          top += drag_info.height;
+        }
+
+
         x.get("animate").set(drag_info.animate);
         x.get("top").set(top + "px");
 
         top += 20; // TODO gross
-      }
 
-      // TODO a bit hacky
-      if (drag_info.tab === x && drag_info.direction === "down") {
-        top += drag_info.height;
+
+        // TODO a bit hacky
+        if (drag_info.tab === x && drag_info.direction === "down") {
+          top += drag_info.height;
+        }
       }
     });
 
-    // TODO hacky
-    // TODO the number `3` is because of `padding-bottom`, fix it
-    group.get("height").set(Math["max"](top, drag_info.height) + 3 + "px");
+    if (top === 0) {
+      top += 20; // TODO gross
+
+      if (drag_info.group === group) {
+        top += drag_info.height;
+      }
+    }
+
+    group.get("height").set(top + "px");
   };
 
   const stop_dragging = (group) => {
@@ -191,11 +209,18 @@ export const init = async(function* () {
 
       // TODO this isn't quite right, but it works most of the time
       if (old_group !== new_group) {
+        const direction = get_direction_group(new_group);
+
+        // TODO is it guaranteed that the group has tabs in it ?
+        // TODO is it ever possible for `direction` to be "down" ?
+        const new_tab = (direction === "up"
+                          ? new_group.get("tabs").get(-1)
+                          : new_group.get("tabs").get(0));
+
+        drag_info.direction = direction;
         drag_info.animate   = false;
         drag_info.group     = new_group;
-        // TODO is this guaranteed to be correct ?
-        drag_info.tab       = new_group.get("tabs").get(-1);
-        drag_info.direction = "down";
+        drag_info.tab       = new_tab;
 
         update_dragging(old_group);
         update_dragging(new_group);

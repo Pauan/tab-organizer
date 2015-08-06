@@ -6,7 +6,7 @@ import { Ref } from "../../../util/mutable/ref";
 import { each, indexed } from "../../../util/iterator";
 import { assert } from "../../../util/assert";
 import { search, value, matches } from "../search/search";
-import { update_tabs } from "../logic/general";
+import { update_groups, update_tabs } from "../logic/general";
 
 
 const make_group = (window) =>
@@ -19,6 +19,7 @@ const make_group = (window) =>
     "first-selected-tab": null,
     "visible": new Ref(false), // TODO is this correct ?
     "height": new Ref(null),
+    "index": null, // TODO a little bit hacky
 
     // Non-standard properties
     "id": window.get("id"),
@@ -46,7 +47,10 @@ const make_tab = (tab) =>
   });
 
 // TODO this can be more efficient if it's given a starting index
-const update_groups = (groups) => {
+// TODO inefficient; this should be combined with `update_groups` in some way
+const update_group_names = (groups) => {
+  update_groups(groups);
+
   each(indexed(groups), ([i, group]) => {
     if (group.get("name") === null) {
       group.get("header-name").set("" + (i + 1));
@@ -173,7 +177,7 @@ export const init = async(function* () {
           group_ids.remove(group.get("id"));
           // TODO can this be made more efficient ?
           groups.remove(groups.index_of(group).get());
-          update_groups(groups);
+          update_group_names(groups);
         }
 
         // TODO is this needed ?
@@ -185,7 +189,7 @@ export const init = async(function* () {
         const group = new_group(window);
 
         groups.insert(index, group);
-        update_groups(groups);
+        update_group_names(groups);
 
         search(groups);
       },
@@ -202,7 +206,7 @@ export const init = async(function* () {
           assert(groups.get(index) === group);
           groups.remove(index);
 
-          update_groups(groups);
+          update_group_names(groups);
         }
       }
     };
@@ -222,7 +226,7 @@ export const init = async(function* () {
       groups.push(group);
     });
 
-    update_groups(groups);
+    update_group_names(groups);
     search(groups);
 
 

@@ -16,13 +16,14 @@ const preventDefault = (e) => {
 };
 
 
-const mouse_event = (e) => {
+const mouse_event = (dom, e) => {
   return {
     x: e["clientX"],
     y: e["clientY"],
     alt: e["altKey"],
     ctrl: e["ctrlKey"], // TODO what about Macs ?
-    shift: e["shiftKey"]
+    shift: e["shiftKey"],
+    subtree: (e["target"] !== dom) // TODO a little hacky
   };
 };
 
@@ -130,7 +131,7 @@ class Element {
 
       // This is done to simulate "mouseenter"
       if (related === null || !this._dom["contains"](related)) {
-        send(mouse_event(e));
+        send(mouse_event(this._dom, e));
       }
     };
 
@@ -159,7 +160,7 @@ class Element {
     const mousedown = (e) => {
       // TODO is it possible for this to leak ?
       addEventListener("mouseup", mouseup, true);
-      send(mouse_event(e));
+      send(mouse_event(this._dom, e));
     };
 
     const mouseup = () => {
@@ -226,7 +227,7 @@ class Element {
   on_left_click(send) {
     const click = (e) => {
       if (e["button"] === 0) {
-        send(mouse_event(e));
+        send(mouse_event(this._dom, e));
       }
     };
 
@@ -243,7 +244,7 @@ class Element {
   on_middle_click(send) {
     const click = (e) => {
       if (e["button"] === 1) {
-        send(mouse_event(e));
+        send(mouse_event(this._dom, e));
       }
     };
 
@@ -259,7 +260,7 @@ class Element {
   on_right_click(send) {
     const click = (e) => {
       if (e["button"] === 2) {
-        send(mouse_event(e));
+        send(mouse_event(this._dom, e));
       }
     };
 
@@ -302,7 +303,7 @@ class Element {
 
   /*on_mouse_move(send) {
     const mousemove = (e) => {
-      send(mouse_event(e));
+      send(mouse_event(this._dom, e));
     };
 
     this._dom["addEventListener"]("mousemove", mousemove, true);
@@ -328,7 +329,7 @@ class Element {
         start_x = e["clientX"];
         start_y = e["clientY"];
 
-        const o = mouse_event(e);
+        const o = mouse_event(this._dom, e);
 
         if (start_if(start_x, start_y, o)) {
           dragging = true;
@@ -339,7 +340,7 @@ class Element {
     };
 
     const mousemove = (e) => {
-      const o = mouse_event(e);
+      const o = mouse_event(this._dom, e);
 
       if (dragging) {
         move(o);
@@ -361,7 +362,7 @@ class Element {
       if (dragging) {
         dragging = false;
 
-        end(mouse_event(e));
+        end(mouse_event(this._dom, e));
       }
     };
 

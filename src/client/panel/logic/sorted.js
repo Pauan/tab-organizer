@@ -5,7 +5,7 @@ import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/mutable/ref";
 import { each } from "../../../util/iterator";
 import { search, value } from "../search/search";
-import { update_tabs } from "./general";
+import { update_groups, update_tabs } from "./general";
 
 
 // TODO code duplication
@@ -20,6 +20,7 @@ const make_group = (id, data, name, sort_tabs) =>
     "first-selected-tab": null,
     "visible": new Ref(false), // TODO is this correct ?
     "height": new Ref(null),
+    "index": null, // TODO a little bit hacky
 
     // Non-standard properties
     "id": id,
@@ -77,6 +78,7 @@ export const make = ({ get_group_data,
 
           group_ids.insert(id, group);
           groups.insert(group);
+          update_groups(groups);
 
           return group;
         }
@@ -93,6 +95,7 @@ export const make = ({ get_group_data,
         if (tabs.size === 0) {
           group_ids.remove(group.get("id"));
           groups.remove(group);
+          update_groups(groups);
         }
       };
 
