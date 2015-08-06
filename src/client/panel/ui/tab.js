@@ -75,6 +75,9 @@ export const init = async(function* () {
     "pointer-events": always("none"),
     "opacity": always("0.98"),
     "overflow": always("visible"),
+
+    // Magical incantation to make it much smoother
+    //"transform": always("translate3d(0px, 0px, 0px)"),
   });
 
 
@@ -496,6 +499,7 @@ export const init = async(function* () {
     !alt && !ctrl && !shift &&
     hypot(start_x - x, start_y - y) > 5;
 
+  // TODO this should be a part of logic and stuff
   const drag_start = ({ group, tab, e, x, y }) => {
     const tab_box = e.get_position();
 
@@ -504,7 +508,9 @@ export const init = async(function* () {
     const selected = new List();
 
     each(tabs, (x) => {
-      if (x.get("selected").get()) {
+      if (x.get("selected").get() &&
+          // TODO is this correct ?
+          x.get("visible").get()) {
         selected.push(x);
       }
     });
@@ -609,11 +615,6 @@ export const init = async(function* () {
         not(tab.get("selected"))
       ]);
 
-      const is_visible = and([
-        tab.get("matches"),
-        tab.get("visible")
-      ]);
-
       return [
         e.set_children(opt("tabs.close.location").map((x) => {
           if (x === "left") {
@@ -676,15 +677,15 @@ export const init = async(function* () {
         }),
 
 
-        e.visible(is_visible),
+        e.visible(tab.get("visible")),
 
         e.scroll_to({
-          // TODO maybe add `is_visible` to the definition of `is_focused` ?
+          // TODO maybe add `tab.get("visible")` to the definition of `is_focused` ?
           initial: and([
             is_focused,
-            is_visible
+            tab.get("visible")
           ]),
-          insert: is_visible
+          insert: tab.get("visible")
         }),
 
         latest([

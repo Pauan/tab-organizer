@@ -34,15 +34,15 @@ export const search = (a) => {
 
     each(group.get("tabs"), (tab) => {
       if (search_parsed(tab)) {
-        tab.get("matches").set(true);
+        tab.get("visible").set(true);
         seen = true;
 
       } else {
-        tab.get("matches").set(false);
+        tab.get("visible").set(false);
       }
     });
 
-    group.get("matches").set(seen);
+    group.get("visible").set(seen);
   });
 };
 

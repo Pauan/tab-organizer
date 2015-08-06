@@ -309,12 +309,11 @@ export const init = async(function* () {
         "height": group.get("height")
       }),
 
-      // TODO
-      /*e.on_mouse_hover((hover) => {
+      e.on_mouse_hover((hover) => {
         if (hover) {
           logic.drag_onto_group(group);
         }
-      }),*/
+      }),
 
       e.children(group.get("tabs").map((x) => ui_tab(group, x)))
     ]);
@@ -325,7 +324,7 @@ export const init = async(function* () {
       e.set_style(dom.col, always(true)),
       e.set_style(style_group_wrapper, always(true)),
 
-      e.visible(group.get("matches")),
+      e.visible(group.get("visible")),
 
       e.animate(animation_group_wrapper, {
         insert: "play-to",

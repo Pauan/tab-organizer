@@ -758,12 +758,12 @@ class Parent extends Element {
 
   // TODO test this
   _clear() {
-    // TODO this can be implemented more efficient
-    while (this._children.size) {
-      this._remove(0);
-    }
+    each(this._children, (x) => {
+      x._on_remove(this);
+    });
 
-    assert(this._children.size === 0);
+    this._children.clear();
+    this._dom["innerHTML"] = "";
   }
 
   _remove(index) {

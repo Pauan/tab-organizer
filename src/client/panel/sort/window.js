@@ -17,7 +17,7 @@ const make_group = (window) =>
     "focused": new Ref(false),
     // TODO a little hacky
     "first-selected-tab": null,
-    "matches": new Ref(false), // TODO is this correct ?
+    "visible": new Ref(false), // TODO is this correct ?
     "height": new Ref(null),
 
     // Non-standard properties
@@ -35,9 +35,8 @@ const make_tab = (tab) =>
     "focused": new Ref(tab.get("focused")),
     "unloaded": new Ref(tab.get("unloaded")),
 
-    "matches": new Ref(false), // TODO use `matches(tab)` ?
     "selected": new Ref(false),
-    "visible": new Ref(true),
+    "visible": new Ref(false), // TODO use `matches(tab)` ?
     "animate": new Ref(false),
     "top": new Ref(null),
     "index": null, // TODO a little bit hacky
@@ -74,6 +73,8 @@ export const init = async(function* () {
         const x = new_tab(tab);
         tabs.push(x);
       });
+
+      update_tabs(group);
 
       group_ids.insert(group.get("id"), group);
 

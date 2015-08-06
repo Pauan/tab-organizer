@@ -53,8 +53,12 @@ export const simplify = (x) => {
     port:      x.port,
     path:      x.path,
     file:      x.file,
-    query:     x.query,
-    hash:      x.hash
+    query:     (x.query !== "?"
+                 ? x.query
+                 : ""),
+    hash:      (x.hash !== "#"
+                 ? x.hash
+                 : "")
   };
 };
 

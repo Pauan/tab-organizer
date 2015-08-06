@@ -113,6 +113,9 @@ export const init = async(function* () {
       const old_index = drag_info.tab.get("index");
       const new_index = tab.get("index");
 
+      assert(old_index !== null);
+      assert(new_index !== null);
+
       if (old_index < new_index) {
         return "down";
 
@@ -136,7 +139,6 @@ export const init = async(function* () {
       }
 
       // TODO a little bit hacky
-      // TODO it needs to take into account "matches" as well, and probably other things too
       if (x.get("visible").get()) {
         x.get("animate").set(drag_info.animate);
         x.get("top").set(top + "px");
@@ -150,7 +152,9 @@ export const init = async(function* () {
       }
     });
 
-    group.get("height").set(top + "px");
+    // TODO hacky
+    // TODO the number `3` is because of `padding-bottom`, fix it
+    group.get("height").set(Math["max"](top, drag_info.height) + 3 + "px");
   };
 
   const stop_dragging = (group) => {
@@ -175,7 +179,7 @@ export const init = async(function* () {
         update_dragging(old_group);
 
       } else {
-        stop_dragging(old_group);
+        update_dragging(old_group);
         update_dragging(new_group);
       }
     }
@@ -187,21 +191,14 @@ export const init = async(function* () {
 
       // TODO this isn't quite right, but it works most of the time
       if (old_group !== new_group) {
-        // TODO is this guaranteed to be correct ?
-        assert(new_group.get("tabs").size > 0);
-
-        drag_info.animate   = (old_group === new_group);
+        drag_info.animate   = false;
         drag_info.group     = new_group;
+        // TODO is this guaranteed to be correct ?
         drag_info.tab       = new_group.get("tabs").get(-1);
         drag_info.direction = "down";
 
-        /*if (old_group === new_group) {
-          update_dragging(old_group);
-
-        } else {*/
-          stop_dragging(old_group);
-          update_dragging(new_group);
-        //}
+        update_dragging(old_group);
+        update_dragging(new_group);
       }
     }
   };
@@ -215,7 +212,10 @@ export const init = async(function* () {
       direction: "up"
     };
 
-    update_dragging(group);
+    // TODO hacky
+    each(group_type.get().groups, (group) => {
+      update_dragging(group);
+    });
   };
 
   // TODO what about "first-selected-tab" ?
@@ -224,10 +224,16 @@ export const init = async(function* () {
 
     drag_info = null;
 
-    stop_dragging(info.group);
+    // TODO hacky
+    each(group_type.get().groups, (group) => {
+      stop_dragging(group);
+    });
 
 
     const index1 = info.tab.get("index");
+
+    assert(index1 !== null);
+
     const index2 = (info.direction === "down"
                      ? index1 + 1
                      : index1);
@@ -307,5 +313,6 @@ export const init = async(function* () {
 
 
   return { group_type, close_tabs, drag_start, drag_end, deselect_tab,
-           focus_tab, shift_select_tab, ctrl_select_tab, drag_onto_tab };
+           focus_tab, shift_select_tab, ctrl_select_tab, drag_onto_tab,
+           drag_onto_group };
 });
