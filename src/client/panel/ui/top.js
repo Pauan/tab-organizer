@@ -4,12 +4,14 @@ import { always, latest } from "../../../util/mutable/ref";
 import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";
 import { init as init_toolbar } from "./toolbar";
+import { init as init_logic } from "../logic";
 
 
 export const init = async(function* () {
   const { group_list: ui_group_list } = yield init_group_list;
   const { get: opt } = yield init_options;
   const { toolbar: ui_toolbar } = yield init_toolbar;
+  const { group_type } = yield init_logic;
 
 
   const style_top = dom.style({
@@ -27,14 +29,15 @@ export const init = async(function* () {
   });
 
 
-  const top = (group_list) =>
+  const top = () =>
     dom.parent((e) => [
       e.set_style(dom.col, always(true)),
       e.set_style(style_top, always(true)),
 
       e.children([
         ui_toolbar(),
-        ui_group_list(group_list)
+        // TODO handle `group_type` changing
+        ui_group_list(group_type.get().groups)
       ]),
 
 

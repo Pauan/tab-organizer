@@ -32,10 +32,10 @@ export const init = async(function* () {
     "border-width": always("1px"),
 
     //"border-bottom-width": always("1px"),
-    "border-top-color": always(dom.hsl(211, 100, 55)),
-    "border-left-color": always(dom.hsl(211, 100, 55)),
-    "border-bottom-color": always(dom.hsl(211, 100, 45)),
-    "border-right-color": always(dom.hsl(211, 100, 45)),
+    "border-color": always(dom.hsl(211, 100, 55) + " " +
+                           dom.hsl(211, 100, 45) + " " +
+                           dom.hsl(211, 100, 45) + " " +
+                           dom.hsl(211, 100, 55)),
 
     /*"background-image": always(dom.gradient("to bottom",
                                             ["0%", "transparent"],

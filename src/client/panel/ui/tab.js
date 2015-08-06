@@ -120,8 +120,7 @@ export const init = async(function* () {
                            dom.hsl(211, 38, 57)),
 
     "text-shadow": always("1px 0px 1px " + dom.hsl(0, 0, 0, 0.2) + "," +
-                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.1) + "," +
-                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.1) + "," +
+                          "0px 0px 1px " + dom.hsl(0, 0, 0, 0.15) + "," +
                           "0px 1px 1px " + dom.hsl(0, 0, 0, 0.2)) // TODO why is it duplicated like this ?
   });
 
