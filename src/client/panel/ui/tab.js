@@ -25,7 +25,6 @@ export const init = async(function* () {
     easing: "ease-in-out",
     duration: "500ms",
     from: {
-      "transform": always("rotateX(-90deg)"),
       /*"transform": {
         "rotationX": "-90deg", // 120deg
         "rotationY": "5deg", // 20deg
@@ -39,7 +38,8 @@ export const init = async(function* () {
       "height": always("0px"),
       "opacity": always("0"),
 
-      "margin-left": always("20px")
+      // This needs to match the "margin-left" in "group.js"
+      "margin-left": always("12px"),
     }
   });
 
@@ -48,6 +48,14 @@ export const init = async(function* () {
     duration: "500ms",
     from: {
       "height": always("0px")
+    }
+  });
+
+  const animation_tab_text = dom.animation({
+    easing: "ease-in-out",
+    duration: "500ms",
+    from: {
+      "transform": always("rotateX(-90deg)"),
     }
   });
 
@@ -279,6 +287,11 @@ export const init = async(function* () {
     dom.text((e) => [
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_text, always(true)),
+
+      e.animate(animation_tab_text, {
+        insert: "play-to",
+        remove: "play-from",
+      }),
 
       // TODO what about dragging ?
       e.tooltip(tab.get("title")),

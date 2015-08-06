@@ -88,7 +88,8 @@ export const init = async(function* () {
         }
       }),
 
-      "margin-left": always("20px"),
+      // This needs to match the "margin-left" in "tab.js"
+      "margin-left": always("12px"),
     }
   });
 
