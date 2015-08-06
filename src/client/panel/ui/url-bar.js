@@ -14,8 +14,8 @@ const top_style = dom.style({
 
   "border-top-width": always("1px"),
   "border-right-width": always("1px"),
-  "border-top-color": always("black"),
-  "border-right-color": always("black"),
+  "border-top-color": always(dom.hsl(0, 0, 45)),
+  "border-right-color": always(dom.hsl(0, 0, 40)),
   "border-top-right-radius": always("5px"),
 
   //e.set("paddingTop", "0px")

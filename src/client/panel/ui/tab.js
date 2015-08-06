@@ -247,7 +247,10 @@ export const init = async(function* () {
 
   const style_close_hover = dom.style({
     "background-color": always(dom.hsl(0, 0, 100, 0.75)),
-    "border-color": always(dom.hsl(0, 0, 90, 0.75))
+    "border-color": always(dom.hsl(0, 0, 90, 0.75) + " " +
+                           dom.hsl(0, 0, 85, 0.75) + " " +
+                           dom.hsl(0, 0, 85, 0.75) + " " +
+                           dom.hsl(0, 0, 90, 0.75))
   });
 
   const style_close_hold = dom.style({
