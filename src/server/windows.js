@@ -11,6 +11,7 @@ import { List } from "../util/immutable/list";
 import { Record } from "../util/immutable/record";
 import { Set } from "../util/mutable/set"; // TODO this is only needed for development
 import { async } from "../util/async";
+import { Timer } from "../util/time";
 
 
 export const init = async(function* () {
@@ -210,11 +211,15 @@ export const init = async(function* () {
   // TODO this can be removed for the final release, it's only for development
   // TODO more checks (e.g. that the indexes are correct)
   const check_integrity = () => {
+    const timer = new Timer();
+
     const windows    = db.get(["current.windows"]);
     const window_ids = db.get(["current.window-ids"]);
     const tab_ids    = db.get(["current.tab-ids"]);
 
     const seen = new Set();
+
+    let amount = 0;
 
     each(windows, (id) => {
       assert(window_ids.has(id));
@@ -239,7 +244,12 @@ export const init = async(function* () {
       const window = window_ids.get(tab.get("window"));
 
       window.get("tabs").index_of(id).get();
+
+      ++amount;
     });
+
+    timer.done();
+    console["debug"]("windows: checked " + amount + " tabs (" + timer.diff() + "ms)");
   };
 
 

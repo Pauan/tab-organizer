@@ -322,10 +322,6 @@ class Element {
 
     const mousedown = (e) => {
       if (e["button"] === 0) {
-        // TODO is it possible for these to leak ?
-        addEventListener("mousemove", mousemove, true);
-        addEventListener("mouseup", mouseup, true);
-
         start_x = e["clientX"];
         start_y = e["clientY"];
 
@@ -336,6 +332,10 @@ class Element {
 
           start(o);
         }
+
+        // TODO is it possible for these to leak ?
+        addEventListener("mousemove", mousemove, true);
+        addEventListener("mouseup", mouseup, true);
       }
     };
 
@@ -818,9 +818,11 @@ class Parent extends Element {
     return x.each((x) => {
       this._clear();
 
-      each(x, (x) => {
-        this._push(x);
-      });
+      if (x !== null) {
+        each(x, (x) => {
+          this._push(x);
+        });
+      }
     });
   }
 

@@ -1,6 +1,11 @@
 import { Set } from "../immutable/set";
 import { each } from "../iterator";
+import { assert } from "../assert";
 import { Event } from "../event";
+
+
+// TODO this should be in another module
+const noop = () => {};
 
 
 class Base {
@@ -8,14 +13,16 @@ class Base {
     return latest([this], f);
   }
 
-  each(f) {
-    f(this._get());
+  map_null(f) {
+    return this.map((x) => (x === null ? null : f(x)));
+  }
 
-    return this._listen(f);
+  each(f) {
+    return this._listen(f, f);
   }
 
   on_change(f) {
-    return this._listen(f);
+    return this._listen(noop, f);
   }
 }
 
@@ -28,17 +35,42 @@ class Latest extends Base {
     this._fn = f;
   }
 
-  // TODO this isn't quite right, but the correct solution leaks memory...
-  _get() {
-    return this._fn(...this._args["map"]((x) => x._get()));
-  }
+  _listen(initial, change) {
+    const values = new Array(this._args["length"]);
 
-  _listen(f) {
-    const x = this._args["map"]((x) =>
-      // This is needed in order to avoid errors with `Set#insert`
-      x._listen(() => {
-        f(this._get());
+    let old_value = null;
+    let pending = values["length"];
+
+    assert(pending === this._args["length"]);
+
+
+    const x = this._args["map"]((x, i) =>
+      x._listen((value) => {
+        values[i] = value;
+
+        --pending;
+
+        if (pending === 0) {
+          assert(old_value === null);
+          old_value = this._fn(...values);
+          initial(old_value);
+        }
+
+      }, (value) => {
+        values[i] = value;
+
+        assert(pending === 0);
+
+        const new_value = this._fn(...values);
+
+        if (old_value !== new_value) {
+          old_value = new_value;
+          change(old_value);
+        }
       }));
+
+
+    assert(pending === 0);
 
     return {
       stop: () => {
@@ -60,16 +92,13 @@ export class Ref extends Base {
     this._event = Event();
   }
 
-  _get() {
-    return this._value;
-  }
-
-  _listen(f) {
-    return this._event.receive(f);
+  _listen(initial, change) {
+    initial(this.get());
+    return this._event.receive(change);
   }
 
   get() {
-    return this._get();
+    return this._value;
   }
 
   set(value) {
@@ -92,14 +121,11 @@ class Constant extends Base {
     this._value = value;
   }
 
-  _get() {
-    return this._value;
-  }
+  _listen(initial, change) {
+    initial(this._value);
 
-  // TODO is this correct ?
-  _listen(f) {
     return {
-      stop: () => {}
+      stop: noop
     };
   }
 }

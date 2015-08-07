@@ -13,8 +13,12 @@ export const init = async(function* () {
   const logic = yield init_logic;
 
 
-  const $selected = new Ref(empty);
-  const $dragging = new Ref(null);
+  let dragging_offset_x = null;
+  let dragging_offset_y = null;
+  let dragging_should_x = true;
+
+  const dragging_started    = new Ref(null);
+  const dragging_dimensions = new Ref(null);
 
   // TODO move this into another module
   // TODO better implementation of this ?
@@ -76,8 +80,9 @@ export const init = async(function* () {
     "opacity": always("0.98"),
     "overflow": always("visible"),
 
-    // Magical incantation to make it much smoother
-    //"transform": always("translate3d(0px, 0px, 0px)"),
+    // This causes it to be displayed on its own layer, so that we can
+    // move it around without causing a relayout or repaint
+    "transform": always("translate3d(0px, 0px, 0px)"),
   });
 
 
@@ -148,9 +153,6 @@ export const init = async(function* () {
     "height": always("20px"),
     "padding": always("1px"),
     "border-radius": always("5px"),
-
-    // Magical incantation to make it much smoother
-    "transform": always("translate3d(0px, 0px, 0px)"),
   });
 
   const style_tab_hover = dom.style({
@@ -463,28 +465,25 @@ export const init = async(function* () {
       ];
     });
 
-  const drag_style = (f) =>
-    $dragging.map((info) =>
-      (info === null
-        ? null
-        : f(info) + "px"));
-
   const dragging =
     dom.parent((e) => [
       e.set_style(dom.col, always(true)),
       e.set_style(dom.floating, always(true)),
       e.set_style(style_dragging, always(true)),
 
-      e.visible($dragging),
+      e.visible(dragging_started),
 
-      e.set_children($selected.map((selected) =>
+      e.set_children(dragging_started.map_null(({ selected }) =>
         map(indexed(selected), ([index, tab]) =>
           ui_dragging(tab, index)))),
 
       e.style({
-        "left":  drag_style((info) => info.x),
-        "top":   drag_style((info) => info.y),
-        "width": drag_style((info) => info.width)
+        "transform": dragging_dimensions.map_null(({ x, y }) =>
+                       "translate3d(" + x + "px, " +
+                                        y + "px, 0px)"),
+
+        "width": dragging_started.map_null(({ width }) =>
+                   width + "px")
       }),
     ]);
 
@@ -529,17 +528,17 @@ export const init = async(function* () {
                      : (tab_box.height +
                         (Math["min"](selected.size, 4) * 3)));
 
-    const offset_x = (x - tab_box.left);
-    const offset_y = (height / 2);
+    dragging_should_x = (opt("groups.layout").get() !== "vertical");
+    dragging_offset_x = (x - tab_box.left);
+    dragging_offset_y = (height / 2);
 
-    $selected.set(selected);
+    dragging_dimensions.set({
+      x: (x - dragging_offset_x),
+      y: (y - dragging_offset_y)
+    });
 
-    $dragging.set({
-      offset_x: offset_x,
-      offset_y: offset_y,
-
-      x: (x - offset_x),
-      y: (y - offset_y),
+    dragging_started.set({
+      selected: selected,
       width: Math["round"](tab_box.width)
     });
 
@@ -547,20 +546,18 @@ export const init = async(function* () {
   };
 
   const drag_move = ({ x, y }) => {
-    $dragging.modify(({ offset_x, offset_y, width }) => {
-      // TODO hacky
-      return {
-        offset_x,
-        offset_y,
-        x: (x - offset_x),
-        y: (y - offset_y),
-        width
-      };
+    // TODO is it faster to have two Refs, rather than using an object ?
+    dragging_dimensions.set({
+      x: (dragging_should_x
+           ? (x - dragging_offset_x)
+           // TODO a little bit hacky
+           : dragging_dimensions.get().x),
+      y: (y - dragging_offset_y)
     });
   };
 
   const drag_end = () => {
-    const selected = $selected.get();
+    const { selected } = dragging_started.get();
 
     each(selected, (tab) => {
       tab.get("visible").set(true);
@@ -577,14 +574,18 @@ export const init = async(function* () {
 
     logic.drag_end(selected);
 
-    $selected.set(empty);
-    $dragging.set(null);
+    dragging_started.set(null);
+    dragging_dimensions.set(null);
+
+    dragging_should_x = true;
+    dragging_offset_x = null;
+    dragging_offset_y = null;
   };
 
   const tab = (group, tab) =>
     dom.parent((e) => {
       const is_hovering = and([
-        not($dragging),
+        not(dragging_started),
         e.hovering()
       ]);
 
@@ -690,7 +691,7 @@ export const init = async(function* () {
 
         latest([
           e.hovering(),
-          $dragging,
+          dragging_started,
           tab.get("url")
         ], (hover, dragging, url) => {
           if (hover && !dragging && url) {
@@ -737,13 +738,10 @@ export const init = async(function* () {
           "transition": tab.get("animate").map((x) =>
                           (x ? "transform 100ms ease-out" : null)),
 
-          "position": tab.get("top").map((x) =>
-                        (x !== null ? "absolute" : null)),
+          "position": tab.get("top").map_null((x) => "absolute"),
 
-          "transform": tab.get("top").map((x) =>
-                         (x !== null
-                           ? "translate3d(0px, " + x + ", 0px)"
-                           : null))
+          "transform": tab.get("top").map_null((x) =>
+                         "translate3d(0px, " + x + ", 0px)")
         }),
 
         e.on_mouse_hover((hover) => {

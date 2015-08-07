@@ -60,22 +60,10 @@ const hash_style = dom.style({
   "color": always("darkblue") // TODO replace with hsl
 });
 
-const parsed_url = url_bar.map((x) => {
-  if (x === null) {
-    return x;
-  } else {
-    return minify(parse(x.url));
-  }
-});
+const parsed_url = url_bar.map_null(({ url }) => minify(parse(url)));
 
 const make = (style, f) => {
-  const x = parsed_url.map((x) => {
-    if (x === null) {
-      return null;
-    } else {
-      return f(x);
-    }
-  });
+  const x = parsed_url.map_null(f);
 
   return dom.text((e) => [
     e.set_style(text_style, always(true)),
