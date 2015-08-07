@@ -1,3 +1,6 @@
+import { Some, None } from "./immutable/maybe";
+
+
 /*
 // TODO is this correct ?
 // TODO maybe use yield* instead ?
@@ -35,6 +38,7 @@ export const iterator = (x) => x[Symbol["iterator"]]();
 export const entries = (o) =>
   map(Object["keys"](o), (key) => [key, o[key]]);
 
+// TODO inefficient
 export const reverse = (iter) => {
   const a = to_array(iter);
 
@@ -50,6 +54,16 @@ export const each = (iter, f) => {
   }
 };
 
+export const first = (iter, f) => {
+  for (let x of iter) {
+    if (f(x)) {
+      return Some(x);
+    }
+  }
+
+  return None;
+};
+
 export const foldl = (current, iter, f) => {
   for (let x of iter) {
     current = f(current, x);
@@ -58,6 +72,7 @@ export const foldl = (current, iter, f) => {
 };
 
 export const foldr = (current, iter, f) =>
+  // TODO inefficient
   foldl(current, reverse(iter), f);
 
 export const join = (iter, s = "") => {
@@ -78,20 +93,6 @@ export const join = (iter, s = "") => {
   return out;
 };
 
-export const map = function* (iter, f) {
-  for (let x of iter) {
-    yield f(x);
-  }
-};
-
-export const keep = function* (iter, f) {
-  for (let x of iter) {
-    if (f(x)) {
-      yield x;
-    }
-  }
-};
-
 export const keep_map = function* (iter, f) {
   for (let x of iter) {
     const maybe = f(x);
@@ -101,23 +102,17 @@ export const keep_map = function* (iter, f) {
   }
 };
 
-export const all = (iter, f) => {
-  for (let x of iter) {
-    if (!f(x)) {
-      return false;
-    }
-  }
-  return true;
-};
+export const keep = (iter, f) =>
+  keep_map(iter, (x) => (f(x) ? Some(x) : None));
 
-export const any = (iter, f) => {
-  for (let x of iter) {
-    if (f(x)) {
-      return true;
-    }
-  }
-  return false;
-};
+export const map = (iter, f) =>
+  keep_map(iter, (x) => Some(f(x)));
+
+export const any = (iter, f) =>
+  first(iter, f).has();
+
+export const all = (iter, f) =>
+  !any(iter, (x) => !f(x));
 
 export const indexed = function* (iter) {
   let i = 0;

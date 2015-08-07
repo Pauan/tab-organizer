@@ -256,8 +256,8 @@ export const init = async(function* () {
   });
 
   const style_group_tabs = dom.style({
-    // Magical incantation to make it much smoother
-    //"transform": always("translate3d(0px, 0px, 0px"),
+    // This is needed so that drag-and-drop works correctly (i.e. "height")
+    "box-sizing": always("content-box"),
 
     //"transition": always("height 1000ms ease-in-out"),
     "overflow-y": opt("groups.layout").map((x) => {
@@ -271,7 +271,7 @@ export const init = async(function* () {
     }),
 
     // TODO test if using "padding-bottom" rather than "margin-bottom" messes up tab drag-and-drop
-    "margin-bottom": always("3px"),
+    "padding-bottom": always("3px"),
   });
 
   const group_header = (group) =>

@@ -1,6 +1,6 @@
 import { async } from "../../util/async";
 import { Ref } from "../../util/mutable/ref";
-import { each, indexed } from "../../util/iterator";
+import { each, indexed, first, reverse } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 import { init as init_tabs } from "../sync/tabs";
 import { init as init_options } from "../sync/options";
@@ -102,6 +102,11 @@ export const init = async(function* () {
 
   let drag_info = null;
 
+  const get_direction_swap = (direction) =>
+    (direction === "up"
+      ? "down"
+      : "up");
+
   const get_direction_group = (group) => {
     // TODO is there a better way than using indexes ?
     const old_index = drag_info.group.get("index");
@@ -121,14 +126,12 @@ export const init = async(function* () {
     assert(old_index !== null);
     assert(new_index !== null);
 
-    return (old_index < new_index ? "up" : "down");
+    return (old_index < new_index ? "down" : "up");
   };
 
   const get_direction = (group, tab) => {
     if (drag_info.tab === tab) {
-      return (drag_info.direction === "up"
-               ? "down"
-               : "up");
+      return get_direction_swap(drag_info.direction);
 
     } else if (drag_info.group === group) {
       return get_direction_tab(tab);
@@ -138,38 +141,61 @@ export const init = async(function* () {
     }
   };
 
+  const find_first = (group) => {
+    const tabs = group.get("tabs");
+
+    const m = first(tabs, (tab) => tab.get("visible").get());
+
+    if (m.has()) {
+      return m.get();
+    } else {
+      // TODO is it guaranteed that the group has tabs in it ?
+      return tabs.get(0);
+    }
+  };
+
+  const find_last = (group) => {
+    const tabs = group.get("tabs");
+
+    // TODO inefficient
+    const m = first(reverse(tabs), (tab) => tab.get("visible").get());
+
+    if (m.has()) {
+      return m.get();
+    } else {
+      // TODO is it guaranteed that the group has tabs in it ?
+      return tabs.get(-1);
+    }
+  };
+
   // TODO test this
   const update_dragging = (group) => {
-    let top = 0;
+    let top   = 0;
+    let empty = true;
 
     each(group.get("tabs"), (x) => {
+      // TODO a bit hacky
+      if (drag_info.tab === x && drag_info.direction === "up") {
+        top += drag_info.height;
+      }
+
       // TODO a little bit hacky
       if (x.get("visible").get()) {
-        // TODO a bit hacky
-        if (drag_info.tab === x && drag_info.direction === "up") {
-          top += drag_info.height;
-        }
-
-
         x.get("animate").set(drag_info.animate);
         x.get("top").set(top + "px");
 
         top += 20; // TODO gross
+        empty = false;
+      }
 
-
-        // TODO a bit hacky
-        if (drag_info.tab === x && drag_info.direction === "down") {
-          top += drag_info.height;
-        }
+      // TODO a bit hacky
+      if (drag_info.tab === x && drag_info.direction === "down") {
+        top += drag_info.height;
       }
     });
 
-    if (top === 0) {
+    if (empty) {
       top += 20; // TODO gross
-
-      if (drag_info.group === group) {
-        top += drag_info.height;
-      }
     }
 
     group.get("height").set(top + "px");
@@ -211,13 +237,11 @@ export const init = async(function* () {
       if (old_group !== new_group) {
         const direction = get_direction_group(new_group);
 
-        // TODO is it guaranteed that the group has tabs in it ?
-        // TODO is it ever possible for `direction` to be "down" ?
         const new_tab = (direction === "up"
-                          ? new_group.get("tabs").get(-1)
-                          : new_group.get("tabs").get(0));
+                          ? find_last(new_group)
+                          : find_first(new_group));
 
-        drag_info.direction = direction;
+        drag_info.direction = get_direction_swap(direction);
         drag_info.animate   = false;
         drag_info.group     = new_group;
         drag_info.tab       = new_tab;
