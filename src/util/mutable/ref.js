@@ -1,4 +1,5 @@
 import { Event } from "../event";
+//import { assert } from "../assert";
 
 
 // TODO this should be in another module

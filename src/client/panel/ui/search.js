@@ -1,5 +1,6 @@
 import { always } from "../../../util/mutable/ref";
 import { value } from "../search/search";
+import { failed } from "../../../util/assert";
 import * as dom from "../../dom";
 
 
@@ -12,6 +13,8 @@ const style_search = dom.style({
   "padding-right": always("2px"),
 
   "height": always("100%"),
+
+  "background-color": failed.map_null((failed) => dom.hsl(5, 100, 90)),
 });
 
 
@@ -19,6 +22,9 @@ export const search = () =>
   dom.search((e) => [
     e.set_style(dom.stretch, always(true)),
     e.set_style(style_search, always(true)),
+
+    // TODO this isn't quite correct
+    e.tooltip(failed.map_null((failed) => failed["message"])),
 
     // TODO a little hacky
     e.value(always(value.get())),

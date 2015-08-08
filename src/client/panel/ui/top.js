@@ -19,6 +19,7 @@ export const init = async(function* () {
     "font-size": always("13px"),
 
     "background-color": always("white"),
+
     "background-image": always(dom.repeating_gradient("0deg",
                                  ["0px", "transparent"],
                                  ["2px", dom.hsl(200, 30, 30, 0.022)],

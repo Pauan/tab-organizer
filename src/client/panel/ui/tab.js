@@ -95,7 +95,6 @@ export const init = async(function* () {
   const style_menu_item = dom.style({
     "cursor": always("pointer"),
     "border-width": always("1px"),
-    "cursor": always("pointer"),
 
     "transition": opt("theme.animation").map((animation) =>
                     (animation

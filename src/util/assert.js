@@ -1,17 +1,19 @@
 import { Ref } from "./mutable/ref";
 
 
-export const failed = new Ref(false);
+export const failed = new Ref(null);
 
 
 export const assert = (x) => {
   if (!x) {
-    failed.set(true);
-    throw new Error("Assertion failed");
+    const e = new Error("Assertion failed");
+    failed.set(e);
+    throw e;
   }
 };
 
 export const fail = () => {
-  failed.set(true);
-  throw new Error("Failed");
+  const e = new Error("Failed");
+  failed.set(e);
+  throw e;
 };
