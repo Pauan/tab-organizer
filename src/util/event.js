@@ -1,12 +1,12 @@
 import { each } from "./iterator";
-import { Set } from "./immutable/set";
+import { Set } from "./mutable/set";
 import { Some, None } from "./immutable/maybe";
-import { assert } from "./assert";
+//import { assert } from "./assert";
 
 
 export const Event = (info = {}) => {
-  // TODO use mutable Set ?
-  let listeners = Set();
+  const listeners = new Set();
+
   let state = None;
 
   const send = (value) => {
@@ -17,7 +17,8 @@ export const Event = (info = {}) => {
 
   const start = () => {
     if (info.start) {
-      assert(!state.has());
+      // TODO
+      //assert(!state.has());
       state = Some(info.start(e));
     }
   };
@@ -31,17 +32,13 @@ export const Event = (info = {}) => {
 
   // TODO test this
   const close = () => {
-    const a = listeners;
-
-    listeners = null;
-
-    if (a.size > 0) {
+    if (listeners.size > 0) {
       stop();
     }
   };
 
   const receive = (f) => {
-    listeners = listeners.insert(f);
+    listeners.insert(f);
 
     // TODO test this
     if (listeners.size === 1) {
@@ -50,7 +47,7 @@ export const Event = (info = {}) => {
 
     return {
       stop: () => {
-        listeners = listeners.remove(f);
+        listeners.remove(f);
 
         // TODO test this
         if (listeners.size === 0) {

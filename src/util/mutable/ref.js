@@ -1,6 +1,3 @@
-import { Set } from "../immutable/set";
-import { each } from "../iterator";
-import { assert } from "../assert";
 import { Event } from "../event";
 
 
@@ -23,63 +20,6 @@ class Base {
 
   on_change(f) {
     return this._listen(noop, f);
-  }
-}
-
-
-class Latest extends Base {
-  constructor(args, f) {
-    super();
-
-    this._args = args;
-    this._fn = f;
-  }
-
-  _listen(initial, change) {
-    const values = new Array(this._args["length"]);
-
-    let old_value = null;
-    let pending = values["length"];
-
-    assert(pending === this._args["length"]);
-
-
-    const x = this._args["map"]((x, i) =>
-      x._listen((value) => {
-        values[i] = value;
-
-        --pending;
-
-        if (pending === 0) {
-          assert(old_value === null);
-          old_value = this._fn(...values);
-          initial(old_value);
-        }
-
-      }, (value) => {
-        values[i] = value;
-
-        assert(pending === 0);
-
-        const new_value = this._fn(...values);
-
-        if (old_value !== new_value) {
-          old_value = new_value;
-          change(old_value);
-        }
-      }));
-
-
-    assert(pending === 0);
-
-    return {
-      stop: () => {
-        // TODO test this
-        x["forEach"]((x) => {
-          x.stop();
-        });
-      }
-    };
   }
 }
 
@@ -126,6 +66,67 @@ class Constant extends Base {
 
     return {
       stop: noop
+    };
+  }
+}
+
+
+class Latest extends Base {
+  constructor(args, f) {
+    super();
+
+    this._args = args;
+    this._fn = f;
+  }
+
+  _listen(initial, change) {
+    const values = new Array(this._args["length"]);
+
+    let old_value = null;
+    let pending = values["length"];
+
+    // TODO
+    //assert(pending === this._args["length"]);
+
+
+    const x = this._args["map"]((x, i) =>
+      x._listen((value) => {
+        values[i] = value;
+
+        --pending;
+
+        if (pending === 0) {
+          // TODO
+          //assert(old_value === null);
+          old_value = this._fn(...values);
+          initial(old_value);
+        }
+
+      }, (value) => {
+        values[i] = value;
+
+        // TODO
+        //assert(pending === 0);
+
+        const new_value = this._fn(...values);
+
+        if (old_value !== new_value) {
+          old_value = new_value;
+          change(old_value);
+        }
+      }));
+
+
+    // TODO
+    //assert(pending === 0);
+
+    return {
+      stop: () => {
+        // TODO test this
+        x["forEach"]((x) => {
+          x.stop();
+        });
+      }
     };
   }
 }
