@@ -1032,3 +1032,9 @@ export const main = (x) => {
   // TODO test this
   body._push(x);
 };
+
+export const title = (ref) => {
+  return ref.each((x) => {
+    document["title"] = x;
+  });
+};

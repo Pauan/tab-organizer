@@ -19,6 +19,9 @@ const parse_search = (value) => {
 
 export const value = new Ref(localStorage["search.last"] || "");
 
+// TODO is this the right place to put this ?
+export const visible = new Ref({ groups: 0, tabs: 0 });
+
 
 let search_parsed = null;
 
@@ -29,6 +32,9 @@ value.each((value) => {
 
 
 export const search = (a) => {
+  let groups = 0;
+  let tabs   = 0;
+
   each(a, (group) => {
     let seen = false;
 
@@ -36,14 +42,21 @@ export const search = (a) => {
       if (search_parsed(tab)) {
         tab.get("visible").set(true);
         seen = true;
+        ++tabs;
 
       } else {
         tab.get("visible").set(false);
       }
     });
 
+    if (seen) {
+      ++groups;
+    }
+
     group.get("visible").set(seen);
   });
+
+  visible.set({ groups, tabs });
 };
 
 export const matches = (tab) =>

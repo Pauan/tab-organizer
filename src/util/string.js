@@ -9,3 +9,11 @@ export const replace = (s, re, x) =>
 
 export const match = (s, re) =>
   re["exec"](s);
+
+export const plural = (x, s) => {
+  if (x === 1) {
+    return x + s;
+  } else {
+    return x + s + "s";
+  }
+};

@@ -1,7 +1,7 @@
+import * as dom from "../../dom";
 import { always } from "../../../util/mutable/ref";
 import { value } from "../search/search";
 import { failed } from "../../../util/assert";
-import * as dom from "../../dom";
 
 
 const style_search = dom.style({
