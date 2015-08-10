@@ -24,3 +24,14 @@ How to update
 * ``npm run-script build``
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
+
+How to develop
+==============
+
+* ``cd tab-organizer``
+* ``git pull``
+* ``npm run-script watch``
+* Make your changes to the code. When any of the files change, it will
+  automatically recompile.
+* In Google Chrome, go to the URL ``chrome://extensions/``
+* Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
