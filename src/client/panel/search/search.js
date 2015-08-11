@@ -42,6 +42,7 @@ export const search = (a) => {
       if (search_parsed(tab)) {
         tab.get("visible").set(true);
         seen = true;
+        // TODO what if the same tab belongs to multiple groups ?
         ++tabs;
 
       } else {
