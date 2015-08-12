@@ -18,10 +18,10 @@ const sort_strings = (key1, key2) => {
   }
 };
 
-const sort_keys = ([key1, value1], [key2, value2]) =>
+const sort_keys = ([key1], [key2]) =>
   sort_strings(key1, key2);
 
-const sort_key = (key1, [key2, value2]) =>
+const sort_key = (key1, [key2]) =>
   sort_strings(key1, key2);
 
 

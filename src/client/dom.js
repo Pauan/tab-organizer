@@ -6,7 +6,6 @@ import { uuid_list_insert,
          uuid_list_update,
          uuid_list_remove,
          uuid_list_clear } from "../util/mutable/list";
-import { batch_read, batch_write } from "./dom/batch";
 import { set_style, make_style, make_animation } from "./dom/style";
 import { assert, fail } from "../util/assert";
 
@@ -956,23 +955,6 @@ class Option extends Element {
       }
     });
   }
-}
-
-
-class Floating extends Parent {
-  // TODO change these to accept a Stream as input ?
-  /*set left(x) {
-    this._dom["style"]["left"] = x + "px";
-  }
-  set top(x) {
-    this._dom["style"]["top"] = x + "px";
-  }
-  set width(x) {
-    this._dom["style"]["width"] = x + "px";
-  }
-  set height(x) {
-    this._dom["style"]["height"] = x + "px";
-  }*/
 }
 
 

@@ -140,7 +140,7 @@ const defocus = (window) => {
 };
 
 
-export const open = ({ focused = true, state = "normal" }) => async(function* () {
+export const open = ({ focused = true/*, state = "normal"*/ }) => async(function* () {
   const window = yield async_chrome((callback) => {
     chrome["windows"]["create"]({
       "focused": focused,
@@ -153,10 +153,10 @@ export const open = ({ focused = true, state = "normal" }) => async(function* ()
 });
 
 
-const get_window = (window) =>
+/*const get_window = (window) =>
   async_chrome((callback) => {
     chrome["windows"]["get"](window.id, { "populate": false }, callback);
-  });
+  });*/
 
 const update_window = (window, info) =>
   ignore(async_chrome((callback) => {

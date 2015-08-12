@@ -10,23 +10,6 @@ const check_keys = (keys) => {
   assert(keys["length"] >= 1);
 };
 
-// TODO is this correct ?
-// TODO is this needed ?
-const nested_has = (init, keys) => {
-  for (let i = 0; i < keys["length"]; ++i) {
-    const key = keys[i];
-
-    if (init.has(key)) {
-      init = init.get(key);
-
-    } else {
-      return false;
-    }
-  }
-
-  return true;
-};
-
 const nested_lookup = (init, keys, f) => {
   const end = keys["length"] - 1;
 
@@ -205,7 +188,7 @@ class Transaction extends Base {
 
     const old_db = this._keys;
 
-    each(old_db, ([key, value]) => {
+    each(old_db, ([key]) => {
       if (!new_db.has(key)) {
         this.remove([key]);
       }

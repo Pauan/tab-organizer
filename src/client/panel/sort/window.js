@@ -121,7 +121,7 @@ export const init = async(function* () {
       },
 
 
-      "tab-update": ({ tab, old }) => {
+      "tab-update": ({ tab }) => {
         const x = tab_ids.get(tab.get("id"));
 
         x.get("url").set(tab.get("url"));
