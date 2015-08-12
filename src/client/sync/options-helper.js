@@ -10,11 +10,8 @@ export const make_options = (uuid) =>
   async(function* () {
     const options = new Record();
 
-    const get = (s) =>
-      options.get(s);
 
-
-    yield async_callback((success, error) => {
+    const defaults = yield async_callback((success, error) => {
       const port = ports.connect(uuid);
 
       const types = {
@@ -41,7 +38,7 @@ export const make_options = (uuid) =>
           each(entries(_current), make_ref);
           each(entries(_default), make_ref);
 
-          success(undefined);
+          success(new Record(_default));
         },
 
         "set": ({ "key":   key,
@@ -62,5 +59,13 @@ export const make_options = (uuid) =>
       });
     });
 
-    return { get };
+
+    const get = (s) =>
+      options.get(s);
+
+    const get_default = (s) =>
+      defaults.get(s);
+
+
+    return { get, get_default };
   });

@@ -705,6 +705,33 @@ class Search extends Element {
 }
 
 
+class Checkbox extends Element {
+  checked(ref) {
+    return ref.each((x) => {
+      if (x) {
+        this._dom["checked"] = true;
+      } else {
+        this._dom["checked"] = false;
+      }
+    });
+  }
+
+  on_change(send) {
+    const change = () => {
+      send(this._dom["checked"]);
+    };
+
+    this._dom["addEventListener"]("change", change, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("change", change, true);
+      }
+    };
+  }
+}
+
+
 class Parent extends Element {
   constructor(dom) {
     super(dom);
@@ -982,6 +1009,16 @@ export const parent = (f) => {
   return e;
 };
 
+export const label = (f) => {
+  const e = new Parent(document["createElement"]("label"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
 // TODO is this correct ?
 export const text = (f) => {
   const e = new Text(document["createElement"]("div"));
@@ -995,6 +1032,20 @@ export const text = (f) => {
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const checkbox = (f) => {
+  const x = document["createElement"]("input");
+
+  x["type"] = "checkbox";
+
+  const e = new Checkbox(x);
 
   each(f(e), (x) => {
     e._run(x);
