@@ -30,13 +30,10 @@ const style_header = dom.style({
 
 const style_separator = dom.style({
   "height": always("1px"),
-  //"margin-top": always("0.5em"),
-  //"margin-bottom": always("0.5em"),
-  "margin-bottom": always("calc(0.5em + 2px)"), // TODO a bit hacky
-  "background-color": always(dom.hsl(0, 0, 0, 0.05)),
-
-
   "margin-top": always("0.1em"),
+  "margin-bottom": always("calc(0.5em + 2px)"), // TODO a bit hacky
+  "background-color": always(dom.hsl(0, 0, 93)),
+  //"background-color": always(dom.hsl(0, 0, 0, 0.05)),
 });
 
 const style_content = dom.style({

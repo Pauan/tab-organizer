@@ -892,6 +892,73 @@ class Parent extends Element {
   }
 }
 
+
+class Select extends Parent {
+  value(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        this._dom["selectedIndex"] = -1;
+
+      } else {
+        this._dom["value"] = x;
+      }
+    });
+  }
+
+  on_change(send) {
+    const change = () => {
+      send(this._dom["value"]);
+    };
+
+    this._dom["addEventListener"]("change", change, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("change", change, true);
+      }
+    };
+  }
+}
+
+class Optgroup extends Parent {
+  label(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        this._dom["label"] = "";
+
+      } else {
+        this._dom["label"] = x;
+      }
+    });
+  }
+}
+
+class Option extends Element {
+  // TODO code duplication
+  label(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        this._dom["label"] = "";
+
+      } else {
+        this._dom["label"] = x;
+      }
+    });
+  }
+
+  value(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        this._dom["value"] = "";
+
+      } else {
+        this._dom["value"] = x;
+      }
+    });
+  }
+}
+
+
 class Floating extends Parent {
   // TODO change these to accept a Stream as input ?
   /*set left(x) {
@@ -1022,6 +1089,36 @@ export const label = (f) => {
 // TODO is this correct ?
 export const text = (f) => {
   const e = new Text(document["createElement"]("div"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const select = (f) => {
+  const e = new Select(document["createElement"]("select"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const optgroup = (f) => {
+  const e = new Optgroup(document["createElement"]("optgroup"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const option = (f) => {
+  const e = new Option(document["createElement"]("option"));
 
   each(f(e), (x) => {
     e._run(x);
