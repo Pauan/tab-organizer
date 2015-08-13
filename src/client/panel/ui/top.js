@@ -20,11 +20,6 @@ export const init = async(function* () {
 
     "background-color": always("white"),
 
-    "background-image": always(dom.repeating_gradient("0deg",
-                                 ["0px", "transparent"],
-                                 ["2px", dom.hsl(200, 30, 30, 0.022)],
-                                 ["3px", dom.hsl(200, 30, 30, 0.022)])),
-
     "width": always("100%"),
     "height": always("100%"),
   });

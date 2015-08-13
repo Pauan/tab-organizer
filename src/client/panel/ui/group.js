@@ -156,9 +156,6 @@ export const init = async(function* () {
         return null;
       }
     }),
-
-    // TODO hacky
-    "background": always("inherit"),
   });
 
   const style_group = dom.style({
@@ -225,9 +222,6 @@ export const init = async(function* () {
 
     //"border-color": always(dom.hsl(211, 50, 75)),
 
-    // TODO hacky
-    "background": always("inherit"),
-
     "top": opt("groups.layout").map((x) => {
       switch (x) {
       case "vertical":
@@ -240,6 +234,11 @@ export const init = async(function* () {
     "padding-top": always("1px"),
     "padding-left": always("1px"),
     "padding-right": always("1px"),
+
+    "background-image": always(dom.repeating_gradient("0deg",
+                                 ["0px", "transparent"],
+                                 ["2px", dom.hsl(200, 30, 30, 0.022)],
+                                 ["3px", dom.hsl(200, 30, 30, 0.022)])),
   });
 
   const style_group_focused = dom.style({

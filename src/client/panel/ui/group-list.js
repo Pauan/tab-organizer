@@ -47,9 +47,6 @@ export const init = async(function* () {
 
     // TODO really hacky
     "height": always("calc(100% - 27px)"),
-
-    // TODO hacky
-    "background": always("inherit"),
   });
 
 

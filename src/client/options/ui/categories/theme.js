@@ -15,10 +15,10 @@ export const init = async(function* () {
   const style_preview = dom.style({
     "border-width": always("1px"),
 
-    "border-color": always(dom.hsl(0, 0, 20) + " " +
-                           dom.hsl(0, 0, 30) + " " +
-                           dom.hsl(0, 0, 30) + " " +
-                           dom.hsl(0, 0, 20)),
+    "border-color": always(dom.hsl(0, 0, 30) + " " +
+                           dom.hsl(0, 0, 40) + " " +
+                           dom.hsl(0, 0, 40) + " " +
+                           dom.hsl(0, 0, 30)),
 
     "border-radius": always("4px"),
     "margin-top": always("0.4em"),
