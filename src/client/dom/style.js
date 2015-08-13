@@ -14,16 +14,16 @@ export const set_style = (() => {
   return (style, key, value, important = false) => {
     // TODO test this
     if (typeof key !== "string") {
-      fail("Key must be a string: " + key);
+      fail(new Error("Key must be a string: " + key));
     }
 
     // TODO test this
     if (value !== null && typeof value !== "string") {
-      fail("Value must be null or a string: " + value);
+      fail(new Error("Value must be null or a string: " + value));
     }
 
     if (value === "") {
-      fail("Value cannot be \"\", use `null` instead");
+      fail(new Error("Value cannot be \"\", use `null` instead"));
     }
 
     const keys = (prefixes[key]
@@ -53,7 +53,7 @@ export const set_style = (() => {
     });
 
     if (every) {
-      fail("Invalid key or value (\"" + key + "\": \"" + value + "\")");
+      fail(new Error("Invalid key or value (\"" + key + "\": \"" + value + "\")"));
     }
   };
 })();

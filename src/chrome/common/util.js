@@ -1,6 +1,7 @@
 import { chrome } from "../../common/globals";
 import { async_callback } from "../../util/async";
 import { each, indexed } from "../../util/iterator";
+import { fail } from "../../util/assert";
 
 
 // TODO this can be made faster if it was given an index to start at
@@ -42,8 +43,7 @@ export const check_error = () => {
 export const throw_error = () => {
   const err = check_error();
   if (err !== null) {
-    // TODO use `fail` ?
-    throw err;
+    fail(err);
   }
 };
 

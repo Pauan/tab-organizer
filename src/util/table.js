@@ -2,7 +2,7 @@ import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
 import { Some, None } from "./immutable/maybe";
 import { Event } from "./event";
-import { assert, fail } from "./assert";
+import { assert } from "./assert";
 import { each, to_array } from "./iterator";
 
 

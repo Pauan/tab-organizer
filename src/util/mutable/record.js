@@ -28,7 +28,7 @@ export class Record {
       return this._keys[key];
 
     } else {
-      fail("Key not found: " + key);
+      fail(new Error("Key not found: " + key));
     }
   }
 
@@ -47,7 +47,7 @@ export class Record {
     assert(typeof key === "string");
 
     if (key in this._keys) {
-      fail("Key already exists: " + key);
+      fail(new Error("Key already exists: " + key));
 
     } else {
       this._keys[key] = value;
@@ -61,7 +61,7 @@ export class Record {
       delete this._keys[key];
 
     } else {
-      fail("Key not found: " + key);
+      fail(new Error("Key not found: " + key));
     }
   }
 

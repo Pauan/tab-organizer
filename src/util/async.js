@@ -1,4 +1,4 @@
-import { assert } from "./assert";
+import { assert, fail } from "./assert";
 
 
 const PENDING = 0;
@@ -108,16 +108,17 @@ export const async = (f) =>
     loop(gen, "next", undefined, on_success, on_error, success);
   });
 
-// TODO use `fail` instead of `console.error` ?
 export const run_async = (f) => {
   const err = new Error("run_async function must return undefined");
 
   async(f).run((x) => {
     if (x !== undefined) {
-      console["error"](err["stack"]);
+      // TODO test this
+      fail(err);
     }
   }, (err) => {
-    console["error"](err["stack"]);
+    // TODO test this
+    fail(err);
   });
 };
 

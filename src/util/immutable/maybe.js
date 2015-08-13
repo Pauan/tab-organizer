@@ -11,7 +11,7 @@ class _None {
 
   // TODO maybe use a getter rather than methods ?
   get() {
-    fail("Cannot get from None");
+    fail(new Error("Cannot get from None"));
   }
 }
 

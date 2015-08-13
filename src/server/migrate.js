@@ -45,10 +45,10 @@ export const migrate = (db) => {
     return new_db.assign("version", version);
 
   } else if (old_version > version) {
-    fail("Cannot downgrade from version " +
-         old_version +
-         " to version " +
-         version);
+    fail(new Error("Cannot downgrade from version " +
+                   old_version +
+                   " to version " +
+                   version));
 
   } else {
     return db;

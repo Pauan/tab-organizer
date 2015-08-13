@@ -35,7 +35,7 @@ class ImmutableList {
       return this._list[index];
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 
@@ -51,7 +51,7 @@ class ImmutableList {
       return new ImmutableList(insert(this._list, index, value));
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 
@@ -77,7 +77,7 @@ class ImmutableList {
       }
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 
@@ -93,7 +93,7 @@ class ImmutableList {
       return new ImmutableList(remove(this._list, index));
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 

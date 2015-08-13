@@ -13,7 +13,8 @@ export class Timer {
 
   diff() {
     if (this._end === null) {
-      fail("Timer is not done yet");
+      fail(new Error("Timer is not done yet"));
+
     } else {
       return this._end - this._start;
     }

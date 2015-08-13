@@ -24,7 +24,7 @@ export class Dict {
       return this._dict["get"](key);
 
     } else {
-      fail("Key not found: " + key);
+      fail(new Error("Key not found: " + key));
     }
   }
 
@@ -35,13 +35,13 @@ export class Dict {
       this.size = this._dict["size"];
 
     } else {
-      fail("Key not found: " + key);
+      fail(new Error("Key not found: " + key));
     }
   }
 
   insert(key, value) {
     if (this._dict["has"](key)) {
-      fail("Key already exists: " + key);
+      fail(new Error("Key already exists: " + key));
 
     } else {
       this._dict["set"](key, value);
@@ -56,7 +56,7 @@ export class Dict {
       this.size = this._dict["size"];
 
     } else {
-      fail("Key not found: " + key);
+      fail(new Error("Key not found: " + key));
     }
   }
 

@@ -21,7 +21,7 @@ class _Set {
 
   insert(value) {
     if (this._set["has"](value)) {
-      fail("Value already exists in Set: " + value);
+      fail(new Error("Value already exists in Set: " + value));
 
     } else {
       this._set["add"](value);
@@ -35,7 +35,7 @@ class _Set {
       this.size = this._set["size"];
 
     } else {
-      fail("Value does not exist in Set: " + value);
+      fail(new Error("Value does not exist in Set: " + value));
     }
   }
 

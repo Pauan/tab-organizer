@@ -6,7 +6,6 @@ import { Table } from "../../util/table";
 import { to_json, from_json } from "../../util/immutable/json";
 import { async, run_async } from "../../util/async";
 import { async_chrome } from "../common/util";
-import { assert, fail } from "../../util/assert";
 import { each, entries } from "../../util/iterator";
 
 

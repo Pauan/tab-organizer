@@ -24,7 +24,7 @@ export const parse = (x) => {
       hash:      a[9] || ""
     };
   } else {
-    fail("Invalid URI: " + x);
+    fail(new Error("Invalid URI: " + x));
   }
 };
 

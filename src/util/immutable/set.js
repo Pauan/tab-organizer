@@ -19,7 +19,7 @@ class ImmutableSet {
       return new ImmutableSet(push(this._set, value));
 
     } else {
-      fail("Value already exists in Set: " + value);
+      fail(new Error("Value already exists in Set: " + value));
     }
   }
 
@@ -27,7 +27,7 @@ class ImmutableSet {
     const index = this._set["indexOf"](value);
 
     if (index === -1) {
-      fail("Value does not exist in Set: " + value);
+      fail(new Error("Value does not exist in Set: " + value));
 
     } else {
       return new ImmutableSet(remove(this._set, index));

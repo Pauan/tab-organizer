@@ -145,7 +145,7 @@ export class List extends ListBase {
       return this._list[index];
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 
@@ -172,7 +172,7 @@ export class List extends ListBase {
       }
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
   }
 
@@ -196,7 +196,7 @@ export class List extends ListBase {
       this._list["splice"](index, 0, value);
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
 
     ++this.size;
@@ -229,7 +229,7 @@ export class List extends ListBase {
       this._list["splice"](index, 1);
 
     } else {
-      fail("Invalid index: " + index);
+      fail(new Error("Invalid index: " + index));
     }
 
     --this.size;
