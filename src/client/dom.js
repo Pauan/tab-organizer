@@ -35,6 +35,7 @@ class Element {
     this._dom = dom;
     this._running = new Set();
     this._animations = new Set();
+    this._visible = true;
     this._hovering = null;
     this._holding = null;
     this._scroll_left = null;
@@ -55,6 +56,7 @@ class Element {
     this._dom = null;
     this._running = null;
     this._animations = null;
+    this._visible = null;
     this._hovering = null;
     this._holding = null;
     this._scroll_left = null;
@@ -557,32 +559,34 @@ class Element {
   _get_animations(fill, f) {
     const out = [];
 
-    each(this._animations, ({ animation, info }) => {
-      const type = f(info);
+    if (this._visible) {
+      each(this._animations, ({ animation, info }) => {
+        const type = f(info);
 
-      // TODO a tiny bit hacky
-      if (type) {
-        if (type === "play-to") {
-          out["push"](animation._name + " " +
-                      animation._duration + " " +
-                      animation._easing +
-                      " 0ms 1 normal " +
-                      fill +
-                      " running");
+        // TODO a tiny bit hacky
+        if (type) {
+          if (type === "play-to") {
+            out["push"](animation._name + " " +
+                        animation._duration + " " +
+                        animation._easing +
+                        " 0ms 1 normal " +
+                        fill +
+                        " running");
 
-        } else if (type === "play-from") {
-          out["push"](animation._name + " " +
-                      animation._duration + " " +
-                      animation._easing +
-                      " 0ms 1 reverse " +
-                      fill +
-                      " running");
+          } else if (type === "play-from") {
+            out["push"](animation._name + " " +
+                        animation._duration + " " +
+                        animation._easing +
+                        " 0ms 1 reverse " +
+                        fill +
+                        " running");
 
-        } else {
-          fail();
+          } else {
+            fail();
+          }
         }
-      }
-    });
+      });
+    }
 
     return out;
   }
@@ -599,8 +603,10 @@ class Element {
   visible(ref) {
     return ref.each((x) => {
       if (x) {
+        this._visible = true;
         this._dom["style"]["display"] = "";
       } else {
+        this._visible = false;
         this._dom["style"]["display"] = "none";
       }
     });
