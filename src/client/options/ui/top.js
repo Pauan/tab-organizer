@@ -42,7 +42,6 @@ export const init = async(function* () {
 
   const inner = () =>
     dom.parent((e) => [
-      e.set_style(dom.col, always(true)),
       e.set_style(style_inner, always(true)),
 
       e.children([
@@ -52,7 +51,6 @@ export const init = async(function* () {
 
   const top = () =>
     dom.parent((e) => [
-      e.set_style(dom.col, always(true)),
       e.set_style(style_top, always(true)),
 
       e.children([

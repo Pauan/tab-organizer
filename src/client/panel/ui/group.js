@@ -59,7 +59,7 @@ export const init = async(function* () {
       "padding": opt("groups.layout").map((x) => {
         switch (x) {
         case "horizontal":
-          // TODO a little hacky
+          // TODO a little hacky, this needs to match padding-top
           return "3px 0px 0px 0px";
         default:
           return null;
@@ -101,7 +101,6 @@ export const init = async(function* () {
     // TODO a little hacky
     duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
-      // TODO what about "grid" ?
       "padding-bottom": opt("groups.layout").map((x) => {
         switch (x) {
         case "vertical":
@@ -148,6 +147,9 @@ export const init = async(function* () {
       opt("groups.layout.grid.row")
     ], (layout, row) => {
       switch (layout) {
+      case "horizontal":
+        return "100%";
+
       case "grid":
         return ((1 / row) * 100) + "%";
 
@@ -162,6 +164,18 @@ export const init = async(function* () {
       switch (x) {
       case "horizontal":
         return "300px";
+      default:
+        return null;
+      }
+    }),
+
+    "height": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "100%";
+      case "grid":
+        // TODO this is hacky, it needs to be kept in sync with the margins
+        return "calc(100% - 2px)";
       default:
         return null;
       }
@@ -260,6 +274,17 @@ export const init = async(function* () {
     // This is needed so that drag-and-drop works correctly (i.e. "height")
     "box-sizing": always("content-box"),
 
+    "height": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        // TODO this is hacky, it needs to be kept in sync with style_group_header and padding-bottom
+        return "calc(100% - 16px - 3px)";
+      default:
+        return null;
+      }
+    }),
+
     //"transition": always("height 1000ms ease-in-out"),
     "overflow-y": opt("groups.layout").map((x) => {
       switch (x) {
@@ -297,7 +322,6 @@ export const init = async(function* () {
 
   const group_tabs = (group) =>
     dom.parent((e) => [
-      e.set_style(dom.col, always(true)),
       e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_tabs, always(true)),
 
@@ -321,8 +345,6 @@ export const init = async(function* () {
 
   const group = (group) =>
     dom.parent((e) => [
-      // TODO is this needed ?
-      e.set_style(dom.col, always(true)),
       e.set_style(style_group_wrapper, always(true)),
 
       e.visible(group.get("visible")),
@@ -334,7 +356,6 @@ export const init = async(function* () {
 
       e.children([
         dom.parent((e) => [
-          e.set_style(dom.col, always(true)),
           // TODO is this needed ?
           e.set_style(dom.stretch, always(true)),
           e.set_style(style_group, always(true)),

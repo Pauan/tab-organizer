@@ -61,8 +61,6 @@ export const init = async(function* () {
       }
     }),
 
-    "align-items": always("stretch"), // TODO hacky ?
-
     "justify-content": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
@@ -84,8 +82,6 @@ export const init = async(function* () {
   // "grid" layout is neither horizontal nor vertical,
   // because it uses "float: left"
   const is_horizontal = opt("groups.layout").map((x) => x === "horizontal");
-
-  const is_vertical   = opt("groups.layout").map((x) => x === "vertical");
 
 
   const group_list = (groups) =>
@@ -109,7 +105,6 @@ export const init = async(function* () {
       e.children([
         dom.parent((e) => [
           e.set_style(dom.row, is_horizontal),
-          e.set_style(dom.col, is_vertical),
           e.set_style(style_group_children, always(true)),
 
           e.children(groups.map(ui_group))

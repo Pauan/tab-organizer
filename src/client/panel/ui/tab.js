@@ -472,7 +472,6 @@ export const init = async(function* () {
 
   const dragging =
     dom.parent((e) => [
-      e.set_style(dom.col, always(true)),
       e.set_style(dom.floating, always(true)),
       e.set_style(style_dragging, always(true)),
 
