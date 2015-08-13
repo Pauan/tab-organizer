@@ -1,6 +1,7 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { always, and, latest } from "../../../util/mutable/ref";
+import { style_texture } from "./common";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";
@@ -45,7 +46,6 @@ export const init = async(function* () {
     // TODO a tiny bit hacky
     duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
-      // TODO what about "grid" ?
       "border-width": opt("groups.layout").map((x) => {
         switch (x) {
         case "horizontal":
@@ -56,12 +56,11 @@ export const init = async(function* () {
         }
       }),
 
-      // TODO what about "grid" ?
       "padding": opt("groups.layout").map((x) => {
         switch (x) {
         case "horizontal":
           // TODO a little hacky
-          return "1px 0px 0px 0px";
+          return "3px 0px 0px 0px";
         default:
           return null;
         }
@@ -171,6 +170,7 @@ export const init = async(function* () {
     "box-shadow": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
+      case "grid":
         return "-2px 0px 5px -2px " + dom.hsl(0, 0, 50, 0.7) + "," +
                "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
       default:
@@ -193,7 +193,7 @@ export const init = async(function* () {
     "margin": opt("groups.layout").map((x) => {
       switch (x) {
       case "grid":
-        return "-1px 0px 0px -1px";
+        return "1px";
       default:
         return null;
       }
@@ -202,6 +202,7 @@ export const init = async(function* () {
     "border-color": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
+      case "grid":
         return dom.hsl(211, 50, 65) + " " +
                dom.hsl(211, 50, 50) + " " +
                dom.hsl(211, 50, 45) + " " +
@@ -209,7 +210,7 @@ export const init = async(function* () {
       case "vertical":
         return dom.hsl(211, 50, 75);
       default:
-        return dom.hsl(211, 50, 65);
+        return null;
       }
     }),
 
@@ -231,25 +232,22 @@ export const init = async(function* () {
       }
     }),
 
-    "padding-top": always("1px"),
+    "padding-top": always("3px"),
     "padding-left": always("1px"),
     "padding-right": always("1px"),
 
-    "background-image": always(dom.repeating_gradient("0deg",
-                                 ["0px", "transparent"],
-                                 ["2px", dom.hsl(200, 30, 30, 0.022)],
-                                 ["3px", dom.hsl(200, 30, 30, 0.022)])),
+    "background-color": always(dom.hsl(0, 0, 100)),
   });
 
   const style_group_focused = dom.style({
     "z-index": always("2"),
 
-    "box-shadow": always("0px 0px 1px 3px " + dom.hsl(211, 80, 50)),
+    "box-shadow": always("0px 0px 4px 1px " + dom.hsl(211, 80, 50)),
   });
 
   const style_group_header = dom.style({
     // TODO is this correct ?
-    "height": always("18px"),
+    "height": always("16px"),
     //"padding-top": always("1px"), // TODO this needs to be animated
     "padding-left": always("4px")
   });
@@ -340,6 +338,7 @@ export const init = async(function* () {
           // TODO is this needed ?
           e.set_style(dom.stretch, always(true)),
           e.set_style(style_group, always(true)),
+          e.set_style(style_texture, always(true)),
 
           e.set_style(style_group_focused, and([
             group.get("focused"),

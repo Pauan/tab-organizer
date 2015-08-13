@@ -18,7 +18,7 @@ const make_group = (id, data, name, sort_tabs) =>
     "focused": new Ref(false),
     // TODO a little hacky
     "first-selected-tab": null,
-    "visible": new Ref(false), // TODO is this correct ?
+    "visible": new Ref(true), // TODO is this correct ?
     "height": new Ref(null),
     "index": null, // TODO a little bit hacky
 
@@ -39,7 +39,7 @@ const make_tab = (group, tab) =>
     "unloaded": new Ref(tab.get("unloaded")),
 
     "selected": new Ref(false),
-    "visible": new Ref(false), // TODO use `matches(tab)` ?
+    "visible": new Ref(true), // TODO use `matches(tab)` ?
     "animate": new Ref(false),
     "top": new Ref(null),
     "index": null, // TODO a little bit hacky

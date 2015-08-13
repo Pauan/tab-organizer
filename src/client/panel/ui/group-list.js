@@ -11,25 +11,55 @@ export const init = async(function* () {
 
 
   const style_group_list = dom.style({
+    // TODO really hacky
+    // This has to match with the height of the search bar
+    "height": always("calc(100% - 26px)"),
+
     "padding": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-        return "6px calc(190px + 8px + 1px) 8px 8px"
+        return "6px";
+      case "grid":
+        return "2px";
+      default:
+        return "4px 0px 0px 0px";
+      }
+    }),
+
+    "overflow": always("auto"),
+  });
+
+  const style_group_children = dom.style({
+    "overflow": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "grid":
+      case "horizontal":
+        return "visible";
       default:
         return null;
       }
     }),
 
-    "margin": opt("groups.layout").map((x) => {
+    "width": always("100%"),
+
+    "height": opt("groups.layout").map((x) => {
       switch (x) {
       case "grid":
-        return "2px -1px -1px 0px";
+      case "horizontal":
+        return "100%";
       default:
-        return "2px 0px 0px 0px";
+        return null;
       }
     }),
 
-    "overflow": always("auto"),
+    "padding": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+        return "0px 190px 0px 0px"
+      default:
+        return null;
+      }
+    }),
 
     "align-items": always("stretch"), // TODO hacky ?
 
@@ -44,9 +74,6 @@ export const init = async(function* () {
         return null;
       }
     }),
-
-    // TODO really hacky
-    "height": always("calc(100% - 27px)"),
   });
 
 
@@ -63,9 +90,7 @@ export const init = async(function* () {
 
   const group_list = (groups) =>
     dom.parent((e) => [
-      e.set_style(dom.row, is_horizontal),
-      e.set_style(dom.col, is_vertical),
-      e.set_style(dom.stretch, always(true)),
+      //e.set_style(dom.stretch, always(true)),
       e.set_style(style_group_list, always(true)),
 
       e.set_scroll({
@@ -80,7 +105,16 @@ export const init = async(function* () {
         localStorage["popup.scroll.y"] = "" + y;
       }),
 
-      e.children(groups.map(ui_group))
+      // TODO this is pretty hacky, but I don't know a better way to make it work
+      e.children([
+        dom.parent((e) => [
+          e.set_style(dom.row, is_horizontal),
+          e.set_style(dom.col, is_vertical),
+          e.set_style(style_group_children, always(true)),
+
+          e.children(groups.map(ui_group))
+        ])
+      ])
     ]);
 
 

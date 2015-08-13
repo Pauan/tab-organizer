@@ -796,27 +796,32 @@ class Parent extends Element {
 
   // TODO test this
   _animate(fill, f, done = null) {
-    let pending = this._children.size + 1;
+    if (this._visible) {
+      let pending = this._children.size + 1;
 
-    const done2 = (done == null
-                    ? null
-                    : () => {
-                        --pending;
+      const done2 = (done == null
+                      ? null
+                      : () => {
+                          --pending;
 
-                        if (pending === 0) {
-                          done();
-                        }
-                      });
+                          if (pending === 0) {
+                            done();
+                          }
+                        });
 
-    super._animate(fill, f, done2);
+      super._animate(fill, f, done2);
 
-    // TODO this is a bit broken;
-    //      e.g. try setting the "tab remove" animation to 5000ms,
-    //      then remove tabs 1 by 1 until the group is removed,
-    //      then look in console and wait 10 seconds
-    each(this._children, (x) => {
-      x._animate(fill, f, done2);
-    });
+      // TODO this is a bit broken;
+      //      e.g. try setting the "tab remove" animation to 5000ms,
+      //      then remove tabs 1 by 1 until the group is removed,
+      //      then look in console and wait 10 seconds
+      each(this._children, (x) => {
+        x._animate(fill, f, done2);
+      });
+
+    } else if (done != null) {
+      done();
+    }
   }
 
   // TODO test this

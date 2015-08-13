@@ -1,6 +1,7 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { always, latest } from "../../../util/mutable/ref";
+import { style_texture } from "./common";
 import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";
 import { init as init_toolbar } from "./toolbar";
@@ -18,7 +19,24 @@ export const init = async(function* () {
     "font-family": always("sans-serif"),
     "font-size": always("13px"),
 
-    "background-color": always("white"),
+    "background-color": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return dom.hsl(0, 0, 98);
+      default:
+        return dom.hsl(0, 0, 100);
+      }
+    }),
+
+    /*"background-image": always(dom.gradient("to bottom",
+                                 ["0%", "transparent"],
+                                 ["3px", dom.hsl(0, 0, 0, 0.1)],
+                                 // TODO this needs to be matched with the height of the search bar
+                                 // TODO what about the height in horizontal mode ?
+                                 ["25px", dom.hsl(0, 0, 0, 0.1)],
+                                 ["30px", "transparent"],
+                                 ["100%", "transparent"])),*/
 
     "width": always("100%"),
     "height": always("100%"),
@@ -29,6 +47,7 @@ export const init = async(function* () {
     dom.parent((e) => [
       e.set_style(dom.col, always(true)),
       e.set_style(style_top, always(true)),
+      e.set_style(style_texture, always(true)),
 
       e.children([
         ui_toolbar(),

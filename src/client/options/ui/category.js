@@ -43,6 +43,7 @@ const style_content = dom.style({
 const header = (name) =>
   dom.text((e) => [
     e.set_style(style_header, always(true)),
+
     e.value(always(name))
   ]);
 
