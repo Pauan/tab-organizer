@@ -331,7 +331,17 @@ export const init = async(function* () {
       }),
 
       e.style({
-        "height": group.get("height")
+        "height": latest([
+          opt("groups.layout"),
+          group.get("height")
+        ], (layout, height) => {
+          switch (layout) {
+          case "vertical":
+            return height;
+          default:
+            return null;
+          }
+        })
       }),
 
       e.on_mouse_hover((hover) => {
