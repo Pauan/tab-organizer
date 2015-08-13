@@ -69,10 +69,10 @@ class Style {
 }
 
 class Animation {
-  constructor(name, duration, easing) {
+  constructor(name) {
     this._name = name;
-    this._duration = duration;
-    this._easing = easing;
+    this._duration = "0ms";
+    this._easing = "linear";
   }
 }
 
@@ -110,6 +110,8 @@ export const make_style = (rules) => {
 export const make_animation = ({ from, to, duration, easing }) => {
   const class_name = "__animation_" + (++style_id) + "__";
 
+  const animation = new Animation(class_name);
+
   // TODO this may not work in all browsers
   // TODO remove vendor prefix
   const index = sheet["insertRule"]("@-webkit-keyframes " + class_name + " {}",
@@ -143,5 +145,17 @@ export const make_animation = ({ from, to, duration, easing }) => {
     });
   }
 
-  return new Animation(class_name, duration, easing);
+  if (easing) {
+    easing.each((easing) => {
+      animation._easing = easing;
+    });
+  }
+
+  if (duration) {
+    duration.each((duration) => {
+      animation._duration = duration;
+    });
+  }
+
+  return animation;
 };

@@ -27,8 +27,9 @@ export const init = async(function* () {
 
 
   const animation_tab = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       /*"transform": {
         "rotationX": "-90deg", // 120deg
@@ -49,24 +50,27 @@ export const init = async(function* () {
   });
 
   const animation_tab_favicon = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       "height": always("0px")
     }
   });
 
   const animation_tab_text = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       "transform": always("rotateX(-90deg)"),
     }
   });
 
   const animation_tab_close = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       "height": always("0px"),
       "border-top-width": always("0px"),
@@ -269,8 +273,9 @@ export const init = async(function* () {
 
 
   const animation_dragging = dom.animation({
-    easing: "ease-out",
-    duration: "300ms",
+    easing: always("ease-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "300ms" : "0ms")),
     from: {
       "margin-top": always("0px")
     },
@@ -280,8 +285,9 @@ export const init = async(function* () {
   });
 
   const animation_dragging_hidden = dom.animation({
-    easing: "ease-out",
-    duration: "300ms",
+    easing: always("ease-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "300ms" : "0ms")),
     from: {
       "margin-top": always("0px"),
       "opacity": always("1")
@@ -734,8 +740,10 @@ export const init = async(function* () {
         }),
 
         e.style({
-          "transition": tab.get("animate").map((x) =>
-                          (x ? "transform 100ms ease-out" : null)),
+          "transition": and([
+            opt("theme.animation"),
+            tab.get("animate")
+          ]).map((x) => (x ? "transform 100ms ease-out" : null)),
 
           "position": tab.get("top").map_null((x) => "absolute"),
 

@@ -13,8 +13,9 @@ export const init = async(function* () {
 
 
   const animation_group_wrapper = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a tiny bit hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       "width": opt("groups.layout").map((x) => {
         switch (x) {
@@ -40,8 +41,9 @@ export const init = async(function* () {
   });
 
   const animation_group = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a tiny bit hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       // TODO what about "grid" ?
       "border-width": opt("groups.layout").map((x) => {
@@ -77,8 +79,9 @@ export const init = async(function* () {
   });
 
   const animation_group_header = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       "height": opt("groups.layout").map((x) => {
         switch (x) {
@@ -95,8 +98,9 @@ export const init = async(function* () {
   });
 
   const animation_group_tabs = dom.animation({
-    easing: "ease-in-out",
-    duration: "500ms",
+    easing: always("ease-in-out"),
+    // TODO a little hacky
+    duration: opt("theme.animation").map((x) => (x ? "500ms" : "0ms")),
     from: {
       // TODO what about "grid" ?
       "padding-bottom": opt("groups.layout").map((x) => {
