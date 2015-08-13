@@ -12,6 +12,21 @@ export const init = async(function* () {
   const { dropdown, group, item } = yield init_dropdown;
 
 
+  const style_preview = dom.style({
+    "border-width": always("1px"),
+
+    "border-color": always(dom.hsl(0, 0, 20) + " " +
+                           dom.hsl(0, 0, 30) + " " +
+                           dom.hsl(0, 0, 30) + " " +
+                           dom.hsl(0, 0, 20)),
+
+    "border-radius": always("4px"),
+    "margin-top": always("0.4em"),
+    "margin-bottom": always("7px"),
+    "width": always("100%"),
+    "height": always("200px")
+  });
+
   const color = () =>
     dom.parent((e) => [
       e.set_style(dom.row, always(true)),
@@ -46,7 +61,12 @@ export const init = async(function* () {
 
       separator(),
 
-      color()
+      color(),
+
+      dom.iframe((e) => [
+        e.set_style(style_preview, always(true)),
+        e.url(always("panel.html"))
+      ])
     ]);
 
 

@@ -662,6 +662,22 @@ class Image extends Element {
 }
 
 
+class Iframe extends Element {
+  // TODO code duplication
+  url(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["src"] = "";
+
+      } else {
+        this._dom["src"] = x;
+      }
+    });
+  }
+}
+
+
 class Text extends Element {
   value(ref) {
     return ref.each((x) => {
@@ -1111,6 +1127,16 @@ export const option = (f) => {
 
 export const image = (f) => {
   const e = new Image(document["createElement"]("img"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const iframe = (f) => {
+  const e = new Iframe(document["createElement"]("iframe"));
 
   each(f(e), (x) => {
     e._run(x);
