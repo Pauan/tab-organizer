@@ -1,6 +1,7 @@
 import { map, each, entries } from "../iterator";
 import { List } from "./list";
 import { Record } from "./record";
+import { fail } from "../assert";
 
 
 export const to_json = (x) => {
@@ -15,7 +16,7 @@ export const to_json = (x) => {
     return x.to_json();
 
   } else {
-    throw new Error("Cannot convert to JSON: " + x);
+    fail("Cannot convert to JSON: " + x);
   }
 };
 
@@ -34,6 +35,6 @@ export const from_json = (x) => {
     return Record(map(entries(x), ([key, value]) => [key, from_json(value)]));
 
   } else {
-    throw new Error("Cannot convert from JSON: " + x);
+    fail("Cannot convert from JSON: " + x);
   }
 };

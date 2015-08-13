@@ -1,3 +1,6 @@
+import { fail } from "./assert";
+
+
 export class Timer {
   constructor() {
     this._start = current_time();
@@ -10,7 +13,7 @@ export class Timer {
 
   diff() {
     if (this._end === null) {
-      throw new Error("Timer is not done yet");
+      fail("Timer is not done yet");
     } else {
       return this._end - this._start;
     }

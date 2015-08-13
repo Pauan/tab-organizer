@@ -42,6 +42,7 @@ export const check_error = () => {
 export const throw_error = () => {
   const err = check_error();
   if (err !== null) {
+    // TODO use `fail` ?
     throw err;
   }
 };

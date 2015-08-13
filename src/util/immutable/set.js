@@ -1,4 +1,5 @@
 import { iterator, to_array } from "../iterator";
+import { fail } from "../assert";
 import { push, remove } from "./array";
 
 
@@ -18,7 +19,7 @@ class ImmutableSet {
       return new ImmutableSet(push(this._set, value));
 
     } else {
-      throw new Error("Value already exists in Set: " + value);
+      fail("Value already exists in Set: " + value);
     }
   }
 
@@ -26,7 +27,7 @@ class ImmutableSet {
     const index = this._set["indexOf"](value);
 
     if (index === -1) {
-      throw new Error("Value does not exist in Set: " + value);
+      fail("Value does not exist in Set: " + value);
 
     } else {
       return new ImmutableSet(remove(this._set, index));

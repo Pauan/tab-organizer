@@ -1,6 +1,6 @@
 import { each, entries, iterator } from "../iterator";
 import { to_json } from "../immutable/json";
-import { assert } from "../assert";
+import { assert, fail } from "../assert";
 
 
 // TODO test this
@@ -28,7 +28,7 @@ export class Record {
       return this._keys[key];
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 
@@ -47,7 +47,7 @@ export class Record {
     assert(typeof key === "string");
 
     if (key in this._keys) {
-      throw new Error("Key already exists: " + key);
+      fail("Key already exists: " + key);
 
     } else {
       this._keys[key] = value;
@@ -61,7 +61,7 @@ export class Record {
       delete this._keys[key];
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 

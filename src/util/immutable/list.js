@@ -2,7 +2,7 @@ import { iterator, to_array } from "../iterator";
 import { None, Some } from "./maybe";
 import { copy, insert, push, remove } from "./array";
 import { to_json } from "./json";
-import { assert } from "../assert";
+import { assert, fail } from "../assert";
 
 
 // TODO inefficient, it's O(n)
@@ -35,7 +35,7 @@ class ImmutableList {
       return this._list[index];
 
     } else {
-      throw new Error("Invalid index: " + index);
+      fail("Invalid index: " + index);
     }
   }
 
@@ -51,7 +51,7 @@ class ImmutableList {
       return new ImmutableList(insert(this._list, index, value));
 
     } else {
-      throw new Error("Invalid index: " + index);
+      fail("Invalid index: " + index);
     }
   }
 
@@ -77,7 +77,7 @@ class ImmutableList {
       }
 
     } else {
-      throw new Error("Invalid index: " + index);
+      fail("Invalid index: " + index);
     }
   }
 
@@ -93,7 +93,7 @@ class ImmutableList {
       return new ImmutableList(remove(this._list, index));
 
     } else {
-      throw new Error("Invalid index: " + index);
+      fail("Invalid index: " + index);
     }
   }
 

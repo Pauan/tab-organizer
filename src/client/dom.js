@@ -517,7 +517,7 @@ class Element {
 
     const error = () => {
       cleanup();
-      throw new Error("Animation took too long!");
+      fail("Animation took too long!");
     };
 
     // TODO is it possible for these to leak ?

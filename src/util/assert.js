@@ -4,16 +4,17 @@ import { Ref } from "./mutable/ref";
 export const failed = new Ref(null);
 
 
-export const assert = (x) => {
-  if (!x) {
-    const e = new Error("Assertion failed");
-    failed.set(e);
-    throw e;
-  }
-};
-
-export const fail = () => {
-  const e = new Error("Failed");
+// TODO this should accept an Error object rather than a string
+export const fail = (message = null) => {
+  const e = new Error((message == null
+                        ? "Failed"
+                        : "Failed: " + message));
   failed.set(e);
   throw e;
+};
+
+export const assert = (x) => {
+  if (!x) {
+    fail();
+  }
 };

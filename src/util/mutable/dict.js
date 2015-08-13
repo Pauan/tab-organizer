@@ -1,4 +1,5 @@
 import { each, iterator } from "../iterator";
+import { fail } from "../assert";
 
 
 // TODO maybe have it inherit from Map ?
@@ -23,7 +24,7 @@ export class Dict {
       return this._dict["get"](key);
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 
@@ -34,13 +35,13 @@ export class Dict {
       this.size = this._dict["size"];
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 
   insert(key, value) {
     if (this._dict["has"](key)) {
-      throw new Error("Key already exists: " + key);
+      fail("Key already exists: " + key);
 
     } else {
       this._dict["set"](key, value);
@@ -55,7 +56,7 @@ export class Dict {
       this.size = this._dict["size"];
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 

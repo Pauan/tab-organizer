@@ -1,6 +1,7 @@
 import { init as init_chrome } from "../chrome/server";
 import { foldl } from "../util/iterator";
 import { List } from "../util/immutable/list";
+import { fail } from "../util/assert";
 import { Timer } from "../util/time";
 import { async } from "../util/async";
 
@@ -44,10 +45,10 @@ export const migrate = (db) => {
     return new_db.assign("version", version);
 
   } else if (old_version > version) {
-    throw new Error("Cannot downgrade from version " +
-                    old_version +
-                    " to version " +
-                    version);
+    fail("Cannot downgrade from version " +
+         old_version +
+         " to version " +
+         version);
 
   } else {
     return db;

@@ -108,6 +108,7 @@ export const async = (f) =>
     loop(gen, "next", undefined, on_success, on_error, success);
   });
 
+// TODO use `fail` instead of `console.error` ?
 export const run_async = (f) => {
   const err = new Error("run_async function must return undefined");
 

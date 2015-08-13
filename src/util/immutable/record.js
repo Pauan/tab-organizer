@@ -1,7 +1,7 @@
 import { iterator, entries, to_array } from "../iterator";
 import { get_sorted, copy, insert, remove } from "./array";
 import { to_json } from "./json";
-import { assert } from "../assert";
+import { assert, fail } from "../assert";
 
 
 const sort_strings = (key1, key2) => {
@@ -43,7 +43,7 @@ export class ImmutableRecord {
       return x.get()[1];
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 
@@ -64,7 +64,7 @@ export class ImmutableRecord {
       }
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 
@@ -72,7 +72,7 @@ export class ImmutableRecord {
     const x = get_sorted(this._keys, key, sort_key);
 
     if (x.value.has()) {
-      throw new Error("Key already exists: " + key);
+      fail("Key already exists: " + key);
 
     } else {
       return new ImmutableRecord(insert(this._keys, x.index, [key, value]));
@@ -86,7 +86,7 @@ export class ImmutableRecord {
       return new ImmutableRecord(remove(this._keys, x.index));
 
     } else {
-      throw new Error("Key not found: " + key);
+      fail("Key not found: " + key);
     }
   }
 

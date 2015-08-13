@@ -1,3 +1,6 @@
+import { fail } from "../assert";
+
+
 class _None {
   constructor() {}
 
@@ -8,7 +11,7 @@ class _None {
 
   // TODO maybe use a getter rather than methods ?
   get() {
-    throw new Error("Cannot get from None");
+    fail("Cannot get from None");
   }
 }
 

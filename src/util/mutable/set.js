@@ -1,4 +1,5 @@
 import { each, iterator } from "../iterator";
+import { fail } from "../assert";
 
 
 // TODO maybe have it inherit from Set ?
@@ -20,7 +21,7 @@ class _Set {
 
   insert(value) {
     if (this._set["has"](value)) {
-      throw new Error("Value already exists in Set: " + value);
+      fail("Value already exists in Set: " + value);
 
     } else {
       this._set["add"](value);
@@ -34,7 +35,7 @@ class _Set {
       this.size = this._set["size"];
 
     } else {
-      throw new Error("Value does not exist in Set: " + value);
+      fail("Value does not exist in Set: " + value);
     }
   }
 
