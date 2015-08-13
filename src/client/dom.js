@@ -64,12 +64,22 @@ class Element {
   }
 
   _on_insert(parent, type) {
+    // TODO is this inefficient ?
     if (this._scroll_left !== null) {
-      this._dom["scrollLeft"] = this._scroll_left;
+      const width = this._dom["scrollWidth"] - this._dom["clientWidth"];
+
+      if (width !== 0) {
+        this._dom["scrollLeft"] = width * this._scroll_left;
+      }
     }
 
+    // TODO is this inefficient ?
     if (this._scroll_top !== null) {
-      this._dom["scrollTop"] = this._scroll_top;
+      const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
+
+      if (height !== 0) {
+        this._dom["scrollTop"] = height * this._scroll_top;
+      }
     }
 
 
@@ -204,11 +214,15 @@ class Element {
   }
 
   on_scroll(send) {
+    // TODO is this inefficient ?
     const scroll = (e) => {
       if (e["target"] === this._dom) {
+        const width  = this._dom["scrollWidth"]  - this._dom["clientWidth"];
+        const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
+
         send({
-          x: this._dom["scrollLeft"],
-          y: this._dom["scrollTop"]
+          x: (width  === 0 ? 0 : this._dom["scrollLeft"] / width),
+          y: (height === 0 ? 0 : this._dom["scrollTop"] / height)
         });
       }
     };
