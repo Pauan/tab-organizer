@@ -826,12 +826,14 @@ class Parent extends Element {
 
   // TODO test this
   _clear() {
-    each(this._children, (x) => {
-      x._on_remove(this);
-    });
+    if (this._children.size) {
+      each(this._children, (x) => {
+        x._on_remove(this);
+      });
 
-    this._children.clear();
-    this._dom["innerHTML"] = "";
+      this._children.clear();
+      this._dom["innerHTML"] = "";
+    }
   }
 
   _remove(index) {
