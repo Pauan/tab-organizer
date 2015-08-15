@@ -613,10 +613,10 @@ class Element {
     return ref.each((x) => {
       if (x) {
         this._visible = true;
-        this._dom["style"]["display"] = "";
+        set_style(this._dom["style"], "display", null);
       } else {
         this._visible = false;
-        this._dom["style"]["display"] = "none";
+        set_style(this._dom["style"], "display", "none");
       }
     });
   }
