@@ -79,6 +79,8 @@ export const init = async(function* () {
   });
 
 
+  // TODO the mouse cursor should be "grabbing" while dragging
+  //      https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
   const style_dragging = dom.style({
     "pointer-events": always("none"),
     "opacity": always("0.98"),

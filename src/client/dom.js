@@ -68,18 +68,22 @@ class Element {
   _on_insert(parent, type) {
     // TODO is this inefficient ?
     if (this._scroll_left !== null) {
+      // TODO this triggers a relayout
       const width = this._dom["scrollWidth"] - this._dom["clientWidth"];
 
       if (width !== 0) {
+        // TODO does this trigger a relayout ?
         this._dom["scrollLeft"] = width * this._scroll_left;
       }
     }
 
     // TODO is this inefficient ?
     if (this._scroll_top !== null) {
+      // TODO this triggers a relayout
       const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
 
       if (height !== 0) {
+        // TODO does this trigger a relayout ?
         this._dom["scrollTop"] = height * this._scroll_top;
       }
     }
@@ -107,11 +111,13 @@ class Element {
     const c = child.get_position();
 
     // TODO test this
+    // TODO does this trigger a relayout ?
     this._dom["scrollLeft"] +=
       Math["round"]((c.left - p.left) -
                     (p.width / 2) +
                     (c.width / 2));
 
+    // TODO does this trigger a relayout ?
     this._dom["scrollTop"] +=
       Math["round"]((c.top - p.top) -
                     (p.height / 2) +
@@ -219,6 +225,7 @@ class Element {
     // TODO is this inefficient ?
     const scroll = (e) => {
       if (e["target"] === this._dom) {
+        // TODO does this trigger a relayout ?
         const width  = this._dom["scrollWidth"]  - this._dom["clientWidth"];
         const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
 
@@ -462,6 +469,7 @@ class Element {
   }
 
   get_position() {
+    // TODO this triggers a relayout
     const box = this._dom["getBoundingClientRect"]();
     return {
       left: box["left"],
@@ -490,6 +498,7 @@ class Element {
   }
 
   _trigger_relayout(s) {
+    // TODO this triggers a relayout
     // TODO is there a "faster" way to trigger relayout ?
     getComputedStyle(this._dom)[s];
   }
@@ -1209,6 +1218,7 @@ export const search = (f) => {
 };
 
 
+// TODO should we use `pointer-events: none` while scrolling, to make it smoother ?
 const body = new Parent(document["body"]);
 
 export const main = (x) => {
