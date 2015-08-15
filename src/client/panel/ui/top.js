@@ -1,6 +1,6 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
-import { always, latest } from "../../../util/mutable/ref";
+import { always, latest } from "../../../util/ref";
 import { style_texture } from "./common";
 import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";

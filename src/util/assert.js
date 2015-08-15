@@ -1,4 +1,4 @@
-import { Ref } from "./mutable/ref";
+import { Ref } from "./ref";
 
 
 export const failed = new Ref(null);

@@ -2,7 +2,7 @@ import { init as init_tabs } from "../../sync/tabs";
 import { async } from "../../../util/async";
 import { SortedList } from "../../../util/mutable/list";
 import { Record } from "../../../util/mutable/record";
-import { Ref } from "../../../util/mutable/ref";
+import { Ref } from "../../../util/ref";
 import { each } from "../../../util/iterator";
 import { search, value } from "../search/search";
 import { update_groups, update_tabs } from "./general";

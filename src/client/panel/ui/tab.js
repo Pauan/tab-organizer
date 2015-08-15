@@ -2,7 +2,7 @@ import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
-import { latest, Ref, and, or, not, always } from "../../../util/mutable/ref";
+import { latest, Ref, and, or, not, always } from "../../../util/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
 import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";

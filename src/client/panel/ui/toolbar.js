@@ -1,6 +1,6 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
-import { always, and } from "../../../util/mutable/ref";
+import { always, and } from "../../../util/ref";
 import { search as ui_search } from "./search";
 import { init as init_options } from "../../sync/options";
 

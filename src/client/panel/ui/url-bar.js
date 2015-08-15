@@ -1,5 +1,5 @@
 import * as dom from "../../dom";
-import { Ref, always } from "../../../util/mutable/ref";
+import { Ref, always } from "../../../util/ref";
 import { parse, minify } from "../../../util/url";
 
 

@@ -1,5 +1,5 @@
 import { async } from "../../util/async";
-import { Ref } from "../../util/mutable/ref";
+import { Ref } from "../../util/ref";
 import { each, indexed, first, reverse } from "../../util/iterator";
 import { assert, fail } from "../../util/assert";
 import { init as init_tabs } from "../sync/tabs";

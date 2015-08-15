@@ -1,5 +1,5 @@
 import { each } from "../../../util/iterator";
-import { Ref } from "../../../util/mutable/ref";
+import { Ref } from "../../../util/ref";
 
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions

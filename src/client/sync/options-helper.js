@@ -2,7 +2,7 @@ import { ports } from "../../chrome/client";
 import { Record } from "../../util/mutable/record";
 import { each, entries } from "../../util/iterator";
 import { fail } from "../../util/assert";
-import { Ref } from "../../util/mutable/ref";
+import { Ref } from "../../util/ref";
 import { async_callback } from "../../util/async";
 
 

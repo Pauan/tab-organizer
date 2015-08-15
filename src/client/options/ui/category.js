@@ -1,5 +1,5 @@
 import * as dom from "../../dom";
-import { always } from "../../../util/mutable/ref";
+import { always } from "../../../util/ref";
 
 
 const style_category = dom.style({

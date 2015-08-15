@@ -1,7 +1,7 @@
 import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { async } from "../util/async";
-import { always } from "../util/mutable/ref";
+import { always } from "../util/ref";
 
 
 export const init = async([init_chrome,

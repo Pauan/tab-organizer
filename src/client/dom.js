@@ -1,6 +1,6 @@
 import { each, entries } from "../util/iterator";
 import { Set } from "../util/mutable/set";
-import { Ref, always } from "../util/mutable/ref";
+import { Ref, always } from "../util/ref";
 import { List } from "../util/mutable/list";
 import { uuid_list_insert,
          uuid_list_update,

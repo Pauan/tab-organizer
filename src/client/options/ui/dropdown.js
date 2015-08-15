@@ -1,7 +1,7 @@
 import * as dom from "../../dom";
 import { map, each } from "../../../util/iterator";
 import { Record } from "../../../util/mutable/record";
-import { always } from "../../../util/mutable/ref";
+import { always } from "../../../util/ref";
 import { async } from "../../../util/async";
 import { init as init_options } from "../../sync/options";
 

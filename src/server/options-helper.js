@@ -3,7 +3,7 @@ import { init as init_db } from "./migrate";
 import { each, entries } from "../util/iterator";
 import { Event } from "../util/event";
 import { Record } from "../util/mutable/record";
-import { Ref } from "../util/mutable/ref";
+import { Ref } from "../util/ref";
 import { async } from "../util/async";
 import { fail } from "../util/assert";
 

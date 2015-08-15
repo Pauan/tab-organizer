@@ -2,7 +2,7 @@ import { init as init_tabs } from "../../sync/tabs";
 import { async } from "../../../util/async";
 import { List } from "../../../util/mutable/list";
 import { Record } from "../../../util/mutable/record";
-import { Ref } from "../../../util/mutable/ref";
+import { Ref } from "../../../util/ref";
 import { each, indexed } from "../../../util/iterator";
 import { assert } from "../../../util/assert";
 import { search, value, matches } from "../search/search";

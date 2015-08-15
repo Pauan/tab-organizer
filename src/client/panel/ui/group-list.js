@@ -1,6 +1,6 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
-import { always } from "../../../util/mutable/ref";
+import { always } from "../../../util/ref";
 import { init as init_group } from "./group";
 import { init as init_options } from "../../sync/options";
 
