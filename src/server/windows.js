@@ -186,12 +186,7 @@ export const init = async([init_db,
     });
 
     port.on_receive((x) => {
-      const type = x["type"];
-      if (handle_event[type]) {
-        handle_event[type](x);
-      } else {
-        fail();
-      }
+      handle_event[x["type"]](x);
     });
 
     // When the port closes, stop listening for `tab_events`

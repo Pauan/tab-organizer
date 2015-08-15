@@ -1,6 +1,6 @@
 import { init as init_chrome } from "../chrome/server";
 import { foldl } from "../util/iterator";
-import { List } from "../util/immutable/list";
+import { List } from "../util/mutable/list";
 import { fail } from "../util/assert";
 import { Timer } from "../util/time";
 import { async } from "../util/async";
@@ -8,10 +8,10 @@ import { async } from "../util/async";
 
 const version = 1435820160244;
 
-let migrators = List();
+let migrators = new List();
 
 const migrate_to = (version, f) => {
-  migrators = migrators.push((old_version, db) => {
+  migrators.push((old_version, db) => {
     if (old_version < version) {
       return f(db);
     } else {

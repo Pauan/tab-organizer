@@ -1,7 +1,7 @@
 import { map, iterator, to_array, indexed } from "../iterator";
 import { insert, remove, get_sorted } from "../immutable/array";
 import { Set } from "../immutable/set";
-import { Some, None } from "../immutable/maybe";
+import { Some, None } from "../maybe";
 import { assert, fail } from "../assert";
 import { Event } from "../event";
 import { to_json } from "../immutable/json";

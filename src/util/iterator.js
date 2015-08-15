@@ -1,4 +1,4 @@
-import { Some, None } from "./immutable/maybe";
+import { Some, None } from "./maybe";
 
 
 export const to_array = (x) =>

@@ -1,6 +1,6 @@
 import { Set } from "./immutable/set";
 import { each } from "./iterator";
-import { Some, None } from "./immutable/maybe";
+import { Some, None } from "./maybe";
 
 
 // TODO is this correct ?

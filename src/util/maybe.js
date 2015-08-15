@@ -1,4 +1,4 @@
-import { fail } from "../assert";
+import { fail } from "./assert";
 
 
 class _None {

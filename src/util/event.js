@@ -1,6 +1,6 @@
 import { each } from "./iterator";
 import { Set } from "./mutable/set";
-import { Some, None } from "./immutable/maybe";
+import { Some, None } from "./maybe";
 //import { assert } from "./assert";
 
 

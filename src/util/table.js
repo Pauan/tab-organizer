@@ -1,6 +1,6 @@
 import { Record } from "./immutable/record";
 import { List } from "./immutable/list";
-import { Some, None } from "./immutable/maybe";
+import { Some, None } from "./maybe";
 import { Event } from "./event";
 import { assert } from "./assert";
 import { each, to_array } from "./iterator";

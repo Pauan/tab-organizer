@@ -1,4 +1,4 @@
-import { Some, None } from "./maybe";
+import { Some, None } from "../maybe";
 import { assert } from "../assert";
 
 
