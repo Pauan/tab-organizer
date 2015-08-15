@@ -8,12 +8,14 @@ import { init as init_toolbar } from "./toolbar";
 import { init as init_logic } from "../logic";
 
 
-export const init = async(function* () {
-  const { group_list: ui_group_list } = yield init_group_list;
-  const { get: opt } = yield init_options;
-  const { toolbar: ui_toolbar } = yield init_toolbar;
-  const { group_type } = yield init_logic;
-
+export const init = async([init_group_list,
+                           init_options,
+                           init_toolbar,
+                           init_logic],
+                          ({ group_list: ui_group_list },
+                           { get: opt },
+                           { toolbar: ui_toolbar },
+                           { group_type }) => {
 
   const style_top = dom.style({
     "font-family": always("sans-serif"),

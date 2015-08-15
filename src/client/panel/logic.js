@@ -11,15 +11,20 @@ import { init as init_sort_by_title } from "./sort/title";
 import { init as init_sort_by_url } from "./sort/url";
 
 
-export const init = async(function* () {
-  const tabs = yield init_tabs;
-  const { get: opt } = yield init_options;
-  const { make: make_sort_by_window } = yield init_sort_by_window;
-  const { make: make_sort_by_created } = yield init_sort_by_created;
-  const { make: make_sort_by_focused } = yield init_sort_by_focused;
-  const { make: make_sort_by_title } = yield init_sort_by_title;
-  const { make: make_sort_by_url } = yield init_sort_by_url;
-
+export const init = async([init_tabs,
+                           init_options,
+                           init_sort_by_window,
+                           init_sort_by_created,
+                           init_sort_by_focused,
+                           init_sort_by_title,
+                           init_sort_by_url],
+                          (tabs,
+                           { get: opt },
+                           { make: make_sort_by_window },
+                           { make: make_sort_by_created },
+                           { make: make_sort_by_focused },
+                           { make: make_sort_by_title },
+                           { make: make_sort_by_url }) => {
 
   /*const get_groups = new Ref((tab) => {
     const title = tab.get("title").value;

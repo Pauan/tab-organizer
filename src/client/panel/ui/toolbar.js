@@ -5,9 +5,7 @@ import { search as ui_search } from "./search";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async(function* () {
-  const { get: opt } = yield init_options;
-
+export const init = async([init_options], ({ get: opt }) => {
 
   const style_toolbar = dom.style({
     "margin": always("2px 2px 0px 2px"),

@@ -9,10 +9,10 @@ import { fail } from "../util/assert";
 
 
 export const make_options = (uuid, default_options) =>
-  async(function* () {
-    const db = yield init_db;
-    const { ports } = yield init_chrome;
-
+  async([init_db,
+         init_chrome],
+        (db,
+         { ports }) => {
 
     const events = Event();
 

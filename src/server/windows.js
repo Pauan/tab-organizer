@@ -14,11 +14,12 @@ import { async } from "../util/async";
 import { Timer } from "../util/time";
 
 
-export const init = async(function* () {
-  const db = yield init_db;
-  const { windows, tabs, ports } = yield init_chrome;
-  const session = yield init_session;
-
+export const init = async([init_db,
+                           init_chrome,
+                           init_session],
+                          (db,
+                           { windows, tabs, ports },
+                           session) => {
 
   db.transaction((db) => {
     db.default(["current.windows"], List());

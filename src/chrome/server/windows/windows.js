@@ -66,7 +66,7 @@ import { chrome } from "../../../common/globals";
 import { Event } from "../../../util/event";
 import { List } from "../../../util/mutable/list";
 import { Dict } from "../../../util/mutable/dict";
-import { async, ignore } from "../../../util/async";
+import { ignore } from "../../../util/async";
 import { async_chrome, update_indexes, dimensions } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
@@ -140,17 +140,17 @@ const defocus = (window) => {
 };
 
 
-export const open = ({ focused = true/*, state = "normal"*/ }) => async(function* () {
-  const window = yield async_chrome((callback) => {
+export const open = ({ focused = true, state = "normal" }) =>
+  async_chrome((callback) => {
     chrome["windows"]["create"]({
       "focused": focused,
       "type": "normal",
       //"state": state
-    }, callback);
+    }, (window) => {
+      // TODO test this
+      callback(window_ids.get(window["id"]));
+    });
   });
-
-  return window_ids.get(window["id"]);
-});
 
 
 /*const get_window = (window) =>

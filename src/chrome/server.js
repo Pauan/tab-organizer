@@ -8,10 +8,10 @@ import * as ports from "./server/ports";
 import * as button from "./server/button";
 
 
-export const init = async(function* () {
-  const db = yield init_db;
-  const { windows, tabs, popups, panels } = yield init_windows;
-
+export const init = async([init_db,
+                           init_windows],
+                          (db,
+                           { windows, tabs, popups, panels }) => {
   return {
     db,
     windows,

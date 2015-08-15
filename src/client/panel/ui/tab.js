@@ -8,10 +8,10 @@ import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";
 
 
-export const init = async(function* () {
-  const { get: opt } = yield init_options;
-  const logic = yield init_logic;
-
+export const init = async([init_options,
+                           init_logic],
+                          ({ get: opt },
+                           logic) => {
 
   let dragging_offset_x = null;
   let dragging_offset_y = null;

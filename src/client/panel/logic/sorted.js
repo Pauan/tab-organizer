@@ -55,8 +55,7 @@ export const make = ({ get_group_data,
                        get_group_name,
                        sort_groups,
                        sort_tabs }) =>
-  async(function* () {
-    const { windows, on_change } = yield init_tabs;
+  async([init_tabs], ({ windows, on_change }) => {
 
     const sort = (x, y) =>
       sort_groups(x.get("data"), y.get("data"));

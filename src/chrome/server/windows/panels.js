@@ -1,7 +1,5 @@
 import { chrome } from "../../../common/globals";
-import { async, ignore } from "../../../util/async";
 import { async_chrome, dimensions } from "../../common/util";
-import { assert } from "../../../util/assert";
 
 
 class Panel {
@@ -10,16 +8,16 @@ class Panel {
   }
 }
 
-export const open = (info) => async(function* () {
-  // TODO does this create a new panel id every time it's called ?
-  const panel = yield async_chrome((callback) => {
+// TODO does this create a new panel id every time it's called ?
+export const open = (info) =>
+  async_chrome((callback) => {
     const o = dimensions(info);
 
     o["url"] = info.url;
     o["type"] = "panel";
 
-    chrome["windows"]["create"](o, callback);
+    chrome["windows"]["create"](o, (panel) => {
+      // TODO test this
+      callback(new Panel(panel));
+    });
   });
-
-  return new Panel(panel);
-});

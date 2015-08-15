@@ -4,9 +4,10 @@ import { async } from "../util/async";
 import { always } from "../util/mutable/ref";
 
 
-export const init = async(function* () {
-  const { manifest, button, panels } = yield init_chrome;
-  const { get: opt } = yield init_options;
+export const init = async([init_chrome,
+                           init_options],
+                          ({ manifest, button, panels },
+                           { get: opt }) => {
 
   button.set_tooltip(always(manifest.get("name")));
 

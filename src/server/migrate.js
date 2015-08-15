@@ -67,9 +67,7 @@ migrate_to(1435820160244, (db) => {
 });
 
 
-export const init = async(function* () {
-  const { db } = yield init_chrome;
-
+export const init = async([init_chrome], ({ db }) => {
   const old_db = db.get_all();
 
   const timer = new Timer();

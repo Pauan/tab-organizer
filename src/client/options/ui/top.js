@@ -4,9 +4,7 @@ import { async } from "../../../util/async";
 import { init as init_theme } from "./categories/theme";
 
 
-export const init = async(function* () {
-  const { ui: ui_theme } = yield init_theme;
-
+export const init = async([init_theme], ({ ui: ui_theme }) => {
 
   const style_top = dom.style({
     // TODO code duplication

@@ -15,8 +15,6 @@ dom.title(visible.map(({ groups, tabs }) =>
 
 
 // TODO this can probably be moved into "panel.js"
-export const init = async(function* () {
-  const { top: ui_top } = yield init_top;
-
+export const init = async([init_top], ({ top: ui_top }) => {
   dom.main(ui_top());
 });

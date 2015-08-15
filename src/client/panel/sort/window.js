@@ -59,8 +59,7 @@ const update_group_names = (groups) => {
 };
 
 
-export const init = async(function* () {
-  const { windows, on_change } = yield init_tabs;
+export const init = async([init_tabs], ({ windows, on_change }) => {
 
   const make = () => {
     const groups = new List();

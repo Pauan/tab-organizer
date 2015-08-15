@@ -7,10 +7,10 @@ import { init as init_checkbox } from "../checkbox";
 import { init as init_dropdown } from "../dropdown";
 
 
-export const init = async(function* () {
-  const { checkbox } = yield init_checkbox;
-  const { dropdown, group, item } = yield init_dropdown;
-
+export const init = async([init_checkbox,
+                           init_dropdown],
+                          ({ checkbox },
+                           { dropdown, group, item }) => {
 
   const style_preview = dom.style({
     "border-width": always("1px"),

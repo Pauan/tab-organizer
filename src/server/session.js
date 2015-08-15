@@ -11,10 +11,7 @@ import { assert, fail } from "../util/assert";
 const new_id = () => "" + timestamp();
 
 
-export const init = async(function* () {
-  const db = yield init_db;
-
-
+export const init = async([init_db], (db) => {
   const namespace = "session.windows";
 
   const delay = (ms) => {

@@ -4,9 +4,7 @@ import { Timer } from "./util/time";
 
 const timer = new Timer();
 
-run_async(function* () {
-  yield init_ui;
-
+run_async([init_ui], () => {
   timer.done();
   console["debug"]("options: initialized (" + timer.diff() + "ms)");
 });

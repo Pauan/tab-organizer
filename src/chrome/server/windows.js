@@ -96,13 +96,13 @@ const ready = async_callback((success, error) => {
   }
 });
 
-export const init = async(function* () {
-  // TODO is this needed ?
-  yield ready;
-
-  const a = yield async_chrome((callback) => {
+const chrome_get_all = () =>
+  async_chrome((callback) => {
     chrome["windows"]["getAll"]({ "populate": true }, callback);
   });
+
+// TODO do we need `ready` ?
+export const init = async([chrome_get_all(), ready], (a) => {
 
   each(a, (info) => {
     make_window(info, false);

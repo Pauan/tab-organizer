@@ -5,10 +5,10 @@ import { init as init_group } from "./group";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async(function* () {
-  const { group: ui_group } = yield init_group;
-  const { get: opt } = yield init_options;
-
+export const init = async([init_group,
+                           init_options],
+                          ({ group: ui_group },
+                           { get: opt }) => {
 
   const style_group_list = dom.style({
     // TODO really hacky

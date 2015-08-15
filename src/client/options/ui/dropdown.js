@@ -6,9 +6,8 @@ import { async } from "../../../util/async";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async(function* () {
-  const { get, get_default } = yield init_options;
-
+export const init = async([init_options],
+                          ({ get, get_default }) => {
 
   const style_dropdown = dom.style({
     "height": always("20px"),

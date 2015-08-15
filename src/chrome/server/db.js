@@ -62,14 +62,28 @@ class DB extends Table {
 }
 
 
-export const init = async(function* () {
+const chrome_get_all = () =>
+  async_chrome((callback) => {
+    chrome["storage"]["local"]["get"](null, callback);
+  });
+
+const chrome_remove = (key) =>
+  async_chrome((callback) => {
+    chrome["storage"]["local"]["remove"](key, callback);
+  });
+
+const chrome_set = (key, value) =>
+  async_chrome((callback) => {
+    chrome["storage"]["local"]["set"]({ [key]: value }, callback);
+  });
+
+
+export const init = async([chrome_get_all()], (chrome_json) => {
   const db = new DB();
 
   const timer = new Timer();
 
-  const json = from_json(yield async_chrome((callback) => {
-    chrome["storage"]["local"]["get"](null, callback);
-  }));
+  const json = from_json(chrome_json);
 
   db.transaction((db) => {
     db.set_all(json);
@@ -97,13 +111,10 @@ export const init = async(function* () {
           // TODO test this
           if (type === "remove" && keys.size === 1) {
             with_delay(key, () => {
-              run_async(function* () {
-                const timer = new Timer();
+              const timer = new Timer();
 
-                yield async_chrome((callback) => {
-                  chrome["storage"]["local"]["remove"](key, callback);
-                });
-
+              // TODO a tiny bit hacky
+              run_async([chrome_remove(key)], () => {
                 timer.done();
 
                 console["debug"]("db.remove: \"" +
@@ -120,17 +131,14 @@ export const init = async(function* () {
             const value = table.get(key);
 
             with_delay(key, () => {
-              run_async(function* () {
-                const timer_serialize = new Timer();
-                const s_value = to_json(value);
-                timer_serialize.done();
+              const timer_serialize = new Timer();
+              const s_value = to_json(value);
+              timer_serialize.done();
 
-                const timer = new Timer();
+              const timer = new Timer();
 
-                yield async_chrome((callback) => {
-                  chrome["storage"]["local"]["set"]({ [key]: s_value }, callback);
-                });
-
+              // TODO a tiny bit hacky
+              run_async([chrome_set(key, s_value)], () => {
                 timer.done();
 
                 /*console["debug"]("db.set: \"" +

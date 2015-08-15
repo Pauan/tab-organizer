@@ -7,11 +7,12 @@ import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";
 
 
-export const init = async(function* () {
-  const { tab: ui_tab } = yield init_tab;
-  const { get: opt } = yield init_options;
-  const logic = yield init_logic;
-
+export const init = async([init_tab,
+                           init_options,
+                           init_logic],
+                          ({ tab: ui_tab },
+                           { get: opt },
+                           logic) => {
 
   const animation_group_wrapper = dom.animation({
     easing: always("ease-in-out"),
