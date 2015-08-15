@@ -1,6 +1,7 @@
 import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { always, and } from "../../../util/ref";
+import { top_inset, top_shadow } from "./common";
 import { search as ui_search } from "./search";
 import { init as init_options } from "../../sync/options";
 
@@ -23,8 +24,7 @@ export const init = async([init_options], ({ get: opt }) => {
                            dom.hsl(0, 0, 40) + " " +
                            dom.hsl(0, 0, 50)),
 
-    "box-shadow": always("0px 1px 1px 0px " + dom.hsl(211, 100, 65) + "," +
-                         "0px 1px 7px 0px " + dom.hsl(211, 100, 65)),
+    "box-shadow": always("0px 1px 3px 0px " + top_shadow),
   });
 
   const style_menu = dom.style({
@@ -32,6 +32,8 @@ export const init = async([init_options], ({ get: opt }) => {
     "padding-left": always("12px"),
     "padding-right": always("12px"),
     "cursor": always("pointer"),
+
+    "box-shadow": always("inset 0px 0px 1px 0px " + top_inset)
   });
 
   const style_menu_hold = dom.style({
@@ -57,9 +59,7 @@ export const init = async([init_options], ({ get: opt }) => {
       e.children([
         ui_search(),
 
-        separator(dom.hsl(211, 100, 45)),
-        separator(dom.hsl(211, 100, 45, 0.1)),
-        separator(dom.hsl(211, 100, 45)),
+        separator(dom.hsl(0, 0, 45)),
 
         dom.parent((e) => [
           e.set_style(dom.row, always(true)),

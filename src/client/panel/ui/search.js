@@ -2,6 +2,7 @@ import * as dom from "../../dom";
 import { always } from "../../../util/ref";
 import { value } from "../search/search";
 import { failed } from "../../../util/assert";
+import { top_inset } from "./common";
 
 
 const style_search = dom.style({
@@ -15,6 +16,8 @@ const style_search = dom.style({
   "height": always("100%"),
 
   "background-color": failed.map_null((failed) => dom.hsl(5, 100, 90)),
+
+  "box-shadow": always("inset 0px 0px 1px 0px " + top_inset)
 });
 
 
