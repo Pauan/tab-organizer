@@ -176,7 +176,7 @@ export const init = async([init_tab,
         return "100%";
       case "grid":
         // TODO this is hacky, it needs to be kept in sync with the margins
-        return "calc(100% - 2px)";
+        return "calc(100% - 6px)";
       default:
         return null;
       }
@@ -185,9 +185,11 @@ export const init = async([init_tab,
     "box-shadow": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-      case "grid":
         return "-2px 0px 5px -2px " + dom.hsl(0, 0, 50, 0.7) + "," +
                "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
+      case "grid":
+        // TODO code duplication
+        return "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
       default:
         return null;
       }
@@ -208,7 +210,7 @@ export const init = async([init_tab,
     "margin": opt("groups.layout").map((x) => {
       switch (x) {
       case "grid":
-        return "1px";
+        return "3px";
       default:
         return null;
       }

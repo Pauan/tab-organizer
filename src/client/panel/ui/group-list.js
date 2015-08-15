@@ -13,14 +13,15 @@ export const init = async([init_group,
   const style_group_list = dom.style({
     // TODO really hacky
     // This has to match with the height of the search bar
-    "height": always("calc(100% - 26px)"),
+    "height": always("calc(100% - 24px)"),
 
     "padding": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
-        return "6px";
+        return "9px 9px 9px 9px";
       case "grid":
-        return "2px";
+        // TODO this has to match up with the group's "margin"
+        return "6px 6px 6px 6px";
       default:
         return "4px 0px 0px 0px";
       }

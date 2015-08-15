@@ -9,7 +9,15 @@ import { init as init_options } from "../../sync/options";
 export const init = async([init_options], ({ get: opt }) => {
 
   const style_toolbar = dom.style({
-    "margin": always("2px 2px 0px 2px"),
+    "margin": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return "0px 7px 0px 7px";
+      default:
+        return "0px 2px 0px 2px";
+      }
+    }),
 
     // TODO is this correct ?
     "height": always("24px"),

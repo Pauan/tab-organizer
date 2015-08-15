@@ -21,6 +21,16 @@ export const init = async([init_group_list,
     "font-family": always("sans-serif"),
     "font-size": always("13px"),
 
+    "padding": opt("groups.layout").map((x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return "5px 0px 0px 0px";
+      default:
+        return "2px 0px 0px 0px";
+      }
+    }),
+
     "background-color": opt("groups.layout").map((x) => {
       switch (x) {
       case "horizontal":
