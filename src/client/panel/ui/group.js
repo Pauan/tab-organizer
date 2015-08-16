@@ -353,7 +353,7 @@ export const init = async([init_tab,
         }
       }),
 
-      e.children(group.get("tabs").map((x) => ui_tab(group, x)))
+      e.stream(group.get("tabs").map((x) => ui_tab(group, x)))
     ]);
 
   const group = (group) =>

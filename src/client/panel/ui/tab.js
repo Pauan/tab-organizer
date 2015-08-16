@@ -461,7 +461,7 @@ export const init = async([init_options,
         }),
 
         // TODO code duplication
-        e.set_children(opt("tabs.close.location").map((x) => {
+        e.children(opt("tabs.close.location").map((x) => {
           if (x === "left") {
             return [ui_close, ui_text, ui_favicon];
 
@@ -479,7 +479,7 @@ export const init = async([init_options,
 
       e.visible(dragging_started),
 
-      e.set_children(dragging_started.map_null(({ selected }) =>
+      e.children(dragging_started.map_null(({ selected }) =>
         map(indexed(selected), ([index, tab]) =>
           ui_dragging(tab, index)))),
 
@@ -623,7 +623,7 @@ export const init = async([init_options,
       ]);
 
       return [
-        e.set_children(opt("tabs.close.location").map((x) => {
+        e.children(opt("tabs.close.location").map((x) => {
           if (x === "left") {
             return [ui_close, ui_text, ui_favicon];
 

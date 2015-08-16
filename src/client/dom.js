@@ -892,54 +892,59 @@ class Parent extends Element {
   }
 
   // TODO is this correct ?
-  set_children(x) {
-    return x.each((x) => {
-      this._clear();
-
-      if (x !== null) {
-        each(x, (x) => {
-          this._push(x);
-        });
-      }
-    });
-  }
-
   children(x) {
-    each(x, (x) => {
-      this._push(x);
-    });
-
-    // TODO hacky
+    // TODO a tiny bit hacky
     if (Array["isArray"](x)) {
+      each(x, (x) => {
+        this._push(x);
+      });
+
+      // TODO noop function
       return {
         stop: () => {}
       };
 
     } else {
-      return x.on_change((x) => {
-        switch (x.type) {
-        case uuid_stream_insert:
-          this._insert(x.index, x.value);
-          break;
+      return x.each((x) => {
+        this._clear();
 
-        case uuid_stream_update:
-          this._update(x.index, x.value);
-          break;
-
-        case uuid_stream_remove:
-          this._remove(x.index);
-          break;
-
-        case uuid_stream_clear:
-          this._clear();
-          break;
-
-        default:
-          fail();
-          break;
+        if (x !== null) {
+          each(x, (x) => {
+            this._push(x);
+          });
         }
       });
     }
+  }
+
+  stream(x) {
+    each(x, (x) => {
+      this._push(x);
+    });
+
+    return x.on_change((x) => {
+      switch (x.type) {
+      case uuid_stream_insert:
+        this._insert(x.index, x.value);
+        break;
+
+      case uuid_stream_update:
+        this._update(x.index, x.value);
+        break;
+
+      case uuid_stream_remove:
+        this._remove(x.index);
+        break;
+
+      case uuid_stream_clear:
+        this._clear();
+        break;
+
+      default:
+        fail();
+        break;
+      }
+    });
   }
 }
 

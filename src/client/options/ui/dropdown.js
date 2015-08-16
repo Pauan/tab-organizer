@@ -69,7 +69,7 @@ export const init = async([init_options],
       e.tooltip(always("Default: " + values.get(def))),
 
       // TODO a little hacky
-      e.set_children(always(map(children, ({ dom }) => dom))),
+      e.children(always(map(children, ({ dom }) => dom))),
 
       e.value(ref),
 
@@ -86,7 +86,7 @@ export const init = async([init_options],
       dom: dom.optgroup((e) => [
         e.label(always(name)),
         // TODO a little hacky
-        e.set_children(always(map(children, ({ dom }) => dom)))
+        e.children(always(map(children, ({ dom }) => dom)))
       ])
     };
   };

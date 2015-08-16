@@ -108,7 +108,7 @@ export const init = async([init_group,
           e.set_style(dom.row, is_horizontal),
           e.set_style(style_group_children, always(true)),
 
-          e.children(groups.map(ui_group))
+          e.stream(groups.map(ui_group))
         ])
       ])
     ]);
