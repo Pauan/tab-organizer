@@ -2,9 +2,13 @@ import * as dom from "../../dom";
 import { always } from "../../../util/ref";
 import { async } from "../../../util/async";
 import { init as init_theme } from "./categories/theme";
+import { init as init_groups } from "./categories/groups";
 
 
-export const init = async([init_theme], ({ ui: ui_theme }) => {
+export const init = async([init_theme,
+                           init_groups],
+                          ({ ui: ui_theme },
+                           { ui: ui_groups }) => {
 
   const style_top = dom.style({
     // TODO code duplication
@@ -43,7 +47,8 @@ export const init = async([init_theme], ({ ui: ui_theme }) => {
       e.set_style(style_inner, always(true)),
 
       e.children([
-        ui_theme()
+        ui_theme(),
+        ui_groups()
       ])
     ]);
 

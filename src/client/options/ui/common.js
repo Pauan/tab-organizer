@@ -18,7 +18,7 @@ const style_category = dom.style({
   "margin-bottom": always("30px")
 });
 
-const style_header = dom.style({
+const style_category_header = dom.style({
   "font-weight": always("bold"),
 
   "font-size": always("18px"),
@@ -28,7 +28,7 @@ const style_header = dom.style({
   "text-shadow": always("1px 1px 2px " + dom.hsl(211, 30, 30, 0.15))
 });
 
-const style_separator = dom.style({
+const style_category_separator = dom.style({
   "height": always("1px"),
   "margin-top": always("0.1em"),
   "margin-bottom": always("calc(0.5em + 2px)"), // TODO a bit hacky
@@ -36,25 +36,25 @@ const style_separator = dom.style({
   //"background-color": always(dom.hsl(0, 0, 0, 0.05)),
 });
 
-const style_content = dom.style({
+const style_category_content = dom.style({
   "padding": always("0px 10px")
 });
 
-const header = (name) =>
+const category_header = (name) =>
   dom.text((e) => [
-    e.set_style(style_header, always(true)),
+    e.set_style(style_category_header, always(true)),
 
     e.value(always(name))
   ]);
 
-const separator = () =>
+const category_separator = () =>
   dom.child((e) => [
-    e.set_style(style_separator, always(true))
+    e.set_style(style_category_separator, always(true))
   ]);
 
-const content = (children) =>
+const category_content = (children) =>
   dom.parent((e) => [
-    e.set_style(style_content, always(true)),
+    e.set_style(style_category_content, always(true)),
 
     e.children(children)
   ]);
@@ -64,8 +64,36 @@ export const category = (name, children) =>
     e.set_style(style_category, always(true)),
 
     e.children([
-      header(name),
-      separator(),
-      content(children)
+      category_header(name),
+      category_separator(),
+      category_content(children)
     ])
+  ]);
+
+
+// TODO code duplication with category.js
+const style_separator = dom.style({
+  "height": always("1px"),
+  "margin-top": always("0.5em"),
+  "margin-bottom": always("calc(0.5em + 2px)"), // TODO a bit hacky
+  "background-color": always(dom.hsl(0, 0, 93)),
+  //"background-color": always(dom.hsl(0, 0, 0, 0.05)),
+});
+
+export const separator = () =>
+  dom.child((e) => [
+    e.set_style(style_separator, always(true))
+  ]);
+
+
+export const row = (a) =>
+  dom.parent((e) => [
+    e.set_style(dom.row, always(true)),
+    e.children(a)
+  ]);
+
+
+export const text = (s) =>
+  dom.text((e) => [
+    e.value(always(s))
   ]);

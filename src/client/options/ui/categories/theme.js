@@ -1,8 +1,7 @@
 import * as dom from "../../../dom";
 import { always } from "../../../../util/ref";
 import { async } from "../../../../util/async";
-import { category } from "../category";
-import { separator } from "../separator";
+import { category, separator } from "../common";
 import { init as init_checkbox } from "../checkbox";
 import { init as init_dropdown } from "../dropdown";
 
