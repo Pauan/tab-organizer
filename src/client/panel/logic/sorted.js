@@ -1,6 +1,6 @@
 import { init as init_tabs } from "../../sync/tabs";
 import { async } from "../../../util/async";
-import { SortedList } from "../../../util/mutable/list";
+import { SortedListStream } from "../../../util/mutable/stream";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/ref";
 import { each } from "../../../util/iterator";
@@ -12,7 +12,7 @@ import { update_groups, update_tabs } from "./general";
 const make_group = (id, data, name, sort_tabs) =>
   new Record({
     // Standard properties
-    "tabs": new SortedList(sort_tabs),
+    "tabs": new SortedListStream(sort_tabs),
     // TODO update the name periodically
     "header-name": new Ref(name),
     "focused": new Ref(false),
@@ -61,7 +61,7 @@ export const make = ({ get_group_data,
       sort_groups(x.get("data"), y.get("data"));
 
     const make = () => {
-      const groups = new SortedList(sort);
+      const groups = new SortedListStream(sort);
       const group_ids = new Record();
       const tab_ids = new Record();
 
@@ -105,9 +105,8 @@ export const make = ({ get_group_data,
         if (old_group === new_group) {
           f();
 
-          // TODO can this be made more efficient ?
-          old_group.get("tabs").change_sort(sort_tabs);
-
+          // TODO test this
+          old_group.get("tabs").update(x);
 
         } else {
           x.update("group", new_group);

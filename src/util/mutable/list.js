@@ -1,79 +1,12 @@
-import { map, iterator, to_array, indexed } from "../iterator";
-import { insert, remove, get_sorted } from "../immutable/array";
-import { Set } from "../immutable/set";
+import { iterator, to_array } from "../iterator";
+import { get_sorted } from "../immutable/array";
 import { Some, None } from "../maybe";
 import { assert, fail } from "../assert";
-import { Event } from "../event";
 import { to_json } from "../immutable/json";
 
 
-export const uuid_list_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
-export const uuid_list_remove = "df55a53e-ce78-40b4-b751-d6a356f311c2";
-export const uuid_list_update = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
-export const uuid_list_clear  = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
-
-
-class Base {
-  map(f) {
-    return new Map(this, f);
-  }
-
-  on_change(f) {
-    return this._listen(f);
-  }
-}
-
-
-class Map extends Base {
-  constructor(parent, fn) {
-    super();
-
-    this._parent = parent;
-    this._fn = fn;
-  }
-
-/*
-  // TODO a bit hacky
-  get size() {
-    return this._parent.size;
-  }*/
-
-  _listen(f) {
-    return this._parent._listen((x) => {
-      switch (x.type) {
-      case uuid_list_insert:
-      case uuid_list_update:
-        f({
-          type: x.type,
-          index: x.index,
-          // TODO should this pass in the index to the function ?
-          value: this._fn(x.value, x.index)
-        });
-        break;
-
-      case uuid_list_remove:
-      case uuid_list_clear:
-        f(x);
-        break;
-
-      default:
-        fail();
-        break;
-      }
-    });
-  }
-
-  [Symbol["iterator"]]() {
-    // TODO is this correct ?
-    return iterator(map(indexed(this._parent), ([i, x]) => this._fn(x, i)));
-  }
-}
-
-
-class ListBase extends Base {
+class ListBase {
   constructor(x = null) {
-    super();
-
     if (x == null) {
       this._list = [];
     } else {
@@ -82,21 +15,52 @@ class ListBase extends Base {
 
     // TODO use a getter to prevent assignment to the `size` ?
     this.size = this._list["length"];
-
-    this._event = Event();
   }
 
-  _listen(f) {
-    return this._event.receive(f);
+  _clear() {
+    this._list["length"] = 0;
+    this.size = 0;
+  }
+
+  _insert(index, value) {
+    // TODO test this
+    // TODO maybe have the check for "unshift" before the check for "push" ?
+    if (index === 0) {
+      this._list["unshift"](value);
+
+    } else if (index === this.size) {
+      this._list["push"](value);
+
+    } else {
+      this._list["splice"](index, 0, value);
+    }
+
+    ++this.size;
+  }
+
+  _remove(index) {
+    // TODO test this
+    if (index === 0) {
+      this._list["shift"]();
+
+    // TODO test this
+    // TODO maybe have the check for "pop" before the check for "shift" ?
+    } else if (index === this.size - 1) {
+      this._list["pop"]();
+
+    } else {
+      this._list["splice"](index, 1);
+    }
+
+    --this.size;
+  }
+
+  _update(index, value) {
+    this._list[index] = value;
   }
 
   clear() {
-    this._list["length"] = 0;
-    this.size = 0;
-
-    this._event.send({
-      type: uuid_list_clear
-    });
+    this._clear();
   }
 
   to_json() {
@@ -120,6 +84,22 @@ class ListBase extends Base {
 const index_in_range = (index, len) =>
   index >= 0 && index < len;
 
+const get_index = (index, len) => {
+  assert(typeof index === "number");
+
+  // TODO test this
+  if (index < 0) {
+    index += len;
+  }
+
+  if (index_in_range(index, len)) {
+    return index;
+
+  } else {
+    fail(new Error("Invalid index: " + index));
+  }
+};
+
 // TODO test this
 export class List extends ListBase {
   has(index) {
@@ -133,128 +113,46 @@ export class List extends ListBase {
     return index_in_range(index, this.size);
   }
 
-  get(index) {
-    assert(typeof index === "number");
+  get(i) {
+    const index = get_index(i, this.size);
 
-    // TODO test this
-    if (index < 0) {
-      index += this.size;
-    }
+    return this._list[index];
+  }
 
-    if (index_in_range(index, this.size)) {
-      return this._list[index];
+  update(i, new_value) {
+    const index = get_index(i, this.size);
 
-    } else {
-      fail(new Error("Invalid index: " + index));
+    const old_value = this._list[index];
+
+    if (old_value !== new_value) {
+      this._update(index, new_value);
     }
   }
 
-  modify(index, f) {
-    assert(typeof index === "number");
+  insert(i, value) {
+    // TODO is this correct ?
+    const index = get_index(i, this.size + 1);
 
-    // TODO test this
-    if (index < 0) {
-      index += this.size;
-    }
-
-    if (index_in_range(index, this.size)) {
-      const old_value = this._list[index];
-      const new_value = f(old_value);
-
-      if (old_value !== new_value) {
-        this._list[index] = new_value;
-
-        this._event.send({
-          type: uuid_list_update,
-          index: index,
-          value: new_value
-        });
-      }
-
-    } else {
-      fail(new Error("Invalid index: " + index));
-    }
+    this._insert(index, value);
   }
 
-  insert(index, value) {
-    assert(typeof index === "number");
+  remove(i) {
+    const index = get_index(i, this.size);
 
-    // TODO test this
-    if (index < 0) {
-      index += this.size + 1;
-    }
-
-    // TODO test this
-    // TODO maybe have the check for "unshift" before the check for "push" ?
-    if (index === 0) {
-      this._list["unshift"](value);
-
-    } else if (index === this.size) {
-      this._list["push"](value);
-
-    } else if (index > 0 && index < this.size) {
-      this._list["splice"](index, 0, value);
-
-    } else {
-      fail(new Error("Invalid index: " + index));
-    }
-
-    ++this.size;
-
-    this._event.send({
-      type: uuid_list_insert,
-      index: index,
-      value: value
-    });
-  }
-
-  remove(index) {
-    assert(typeof index === "number");
-
-    // TODO test this
-    if (index < 0) {
-      index += this.size;
-    }
-
-    // TODO test this
-    if (index === 0) {
-      this._list["shift"]();
-
-    // TODO test this
-    // TODO maybe have the check for "pop" before the check for "shift" ?
-    } else if (index === this.size - 1) {
-      this._list["pop"]();
-
-    } else if (index > 0 && index < this.size) {
-      this._list["splice"](index, 1);
-
-    } else {
-      fail(new Error("Invalid index: " + index));
-    }
-
-    --this.size;
-
-    this._event.send({
-      type: uuid_list_remove,
-      index: index
-    });
+    this._remove(index);
   }
 
   push(value) {
-    // TODO is this correct ?
-    const index = this._list["push"](value) - 1;
-
-    ++this.size;
-
-    this._event.send({
-      type: uuid_list_insert,
-      index: index,
-      value: value
-    });
+    this._insert(this.size, value);
   }
 
-  update(index, value) {
-    this.modify(index, (_) => value);
+  modify(index, f) {
+    const old_value = this.get(index);
+    const new_value = f(old_value);
+
+    if (old_value !== new_value) {
+      this._update(index, new_value);
+    }
   }
 
   index_of(value) {
@@ -270,19 +168,17 @@ export class List extends ListBase {
 }
 
 
-/*const is_sorted = (self, x, index) => {
-  assert(index !== -1);
-  assert(index_in_range(index, self.size));
-
+// TODO is this correct ?
+const is_sorted = (list, index, len, sort) => {
   const prev = index - 1;
   const next = index + 1;
 
   // TODO code duplication
-  return (!index_in_range(prev, self.size) ||
-          self._sort(self._list[prev], x) <= 0) &&
-         (!index_in_range(next, self.size) ||
-          self._sort(x, self._list[next]) >= 0);
-};*/
+  return (!index_in_range(prev, len) ||
+          sort(list[prev], list[index]) < 0) &&
+         (!index_in_range(next, len) ||
+          sort(list[index], list[next]) > 0);
+};
 
 // TODO test this
 export class SortedList extends ListBase {
@@ -298,15 +194,27 @@ export class SortedList extends ListBase {
     return value.has();
   }
 
-  _remove(index) {
-    // TODO hacky
-    this._list["splice"](index, 1);
-    --this.size;
+  // TODO test this
+  _is_sorted() {
+    const len = this._list["length"] - 1;
 
-    this._event.send({
-      type: uuid_list_remove,
-      index: index
-    });
+    let index = 0;
+
+    // TODO this might be incorrect
+    while (index < len) {
+      // TODO assert that `index + 1` is a valid index ?
+      const x = this._list[index];
+      const y = this._list[index + 1];
+
+      if (this._sort(x, y) < 0) {
+        ++index;
+
+      } else {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   insert(x) {
@@ -314,62 +222,37 @@ export class SortedList extends ListBase {
 
     assert(!value.has());
 
-    // TODO hacky
-    this._list["splice"](index, 0, x);
-    ++this.size;
+    this._insert(index, x);
 
-    this._event.send({
-      type: uuid_list_insert,
-      index: index,
-      value: x
-    });
+    // TODO inefficient
+    assert(this._is_sorted());
   }
 
   remove(x) {
-    // TODO can this be made more efficient ?
-    const index = this._list["indexOf"](x);
+    const { index, value } = get_sorted(this._list, x, this._sort);
 
-    assert(index !== -1);
+    assert(value.get() === x);
 
     this._remove(index);
+
+    // TODO inefficient
+    assert(this._is_sorted());
   }
 
-  // TODO test this
-  // TODO use cycle sort or something ?
-  change_sort(sort) {
-    this._sort = sort;
+  update(x) {
+    const index = this._list["indexOf"](x);
+    const len   = this._list["length"];
 
-    const changes = [];
+    assert(index !== -1);
+    assert(index_in_range(index, len));
 
-    let index = 0;
-
-    // TODO this might be incorrect
-    while (index < this._list["length"] - 1) {
-      // TODO assert that `index + 1` is a valid index ?
-      const x = this._list[index];
-      const y = this._list[index + 1];
-
-      if (this._sort(x, y) <= 0) {
-        ++index;
-
-      } else {
-        changes["push"](y);
-
-        this._remove(index + 1);
-      }
+    // TODO is this correct ?
+    if (!is_sorted(this._list, index, len, this._sort)) {
+      this.remove(x); // TODO this probably needs to use indexOf
+      this.insert(x);
     }
 
-    changes["forEach"]((x) => {
-      this.insert(x);
-    });
+    // TODO inefficient
+    assert(this._is_sorted());
   }
-
-/*
-  // TODO can this be made any better ?
-  is_sorted(x) {
-    // TODO hacky
-    const index = this._list["indexOf"](x);
-
-    return is_sorted(this, x, index);
-  }*/
 }

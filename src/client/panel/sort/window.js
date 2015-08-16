@@ -1,6 +1,6 @@
 import { init as init_tabs } from "../../sync/tabs";
 import { async } from "../../../util/async";
-import { List } from "../../../util/mutable/list";
+import { ListStream } from "../../../util/mutable/stream";
 import { Record } from "../../../util/mutable/record";
 import { Ref } from "../../../util/ref";
 import { each, indexed } from "../../../util/iterator";
@@ -12,7 +12,7 @@ import { update_groups, update_tabs } from "../logic/general";
 const make_group = (window) =>
   new Record({
     // Standard properties
-    "tabs": new List(),
+    "tabs": new ListStream(),
     "header-name": new Ref(window.get("name")),
     "focused": new Ref(false),
     // TODO a little hacky
@@ -62,7 +62,7 @@ const update_group_names = (groups) => {
 export const init = async([init_tabs], ({ windows, on_change }) => {
 
   const make = () => {
-    const groups = new List();
+    const groups = new ListStream();
     const group_ids = new Record();
     const tab_ids = new Record();
 

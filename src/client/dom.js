@@ -2,10 +2,10 @@ import { each, entries } from "../util/iterator";
 import { Set } from "../util/mutable/set";
 import { Ref, always } from "../util/ref";
 import { List } from "../util/mutable/list";
-import { uuid_list_insert,
-         uuid_list_update,
-         uuid_list_remove,
-         uuid_list_clear } from "../util/mutable/list";
+import { uuid_stream_insert,
+         uuid_stream_update,
+         uuid_stream_remove,
+         uuid_stream_clear } from "../util/mutable/stream";
 import { set_style, make_style, make_animation } from "./dom/style";
 import { assert, fail } from "../util/assert";
 
@@ -918,19 +918,19 @@ class Parent extends Element {
     } else {
       return x.on_change((x) => {
         switch (x.type) {
-        case uuid_list_insert:
+        case uuid_stream_insert:
           this._insert(x.index, x.value);
           break;
 
-        case uuid_list_update:
+        case uuid_stream_update:
           this._update(x.index, x.value);
           break;
 
-        case uuid_list_remove:
+        case uuid_stream_remove:
           this._remove(x.index);
           break;
 
-        case uuid_list_clear:
+        case uuid_stream_clear:
           this._clear();
           break;
 
