@@ -97,3 +97,93 @@ export const text = (s) =>
   dom.text((e) => [
     e.value(always(s))
   ]);
+
+
+export const vertical_space = (s) =>
+  dom.child((e) => [
+    e.style({
+      "height": always(s)
+    })
+  ]);
+
+
+const style_header = dom.style({
+  "font-weight": always("bold"),
+  "margin-bottom": always("6px")
+});
+
+export const header = (s) =>
+  dom.text((e) => [
+    e.set_style(style_header, always(true)),
+    e.value(always(s))
+  ]);
+
+
+const style_indent = dom.style({
+  "margin-left": always("12px")
+});
+
+export const indent = (a) =>
+  dom.parent((e) => [
+    e.set_style(style_indent, always(true)),
+    e.children(a)
+  ]);
+
+
+export const style_dropdown = dom.style({
+  "cursor": always("pointer"),
+
+  "height": always("20px"),
+  "box-shadow": always("0px 0px 1px " + dom.hsl(0, 0, 0, 0.4)),
+  "padding-left": always("1px"),
+  /* margin-top: -2px; */
+  /* top: -2px; */
+  "text-shadow": always("0px 1px 0px white"),
+  "background-color": always(dom.hsl(211, 75, 99)),
+
+  "background-image": always(dom.gradient("to bottom",
+                               ["0%", "transparent"],
+                               ["20%", dom.hsl(0, 0, 0, 0.01)],
+                               ["80%", dom.hsl(0, 0, 0, 0.02)],
+                               ["100%", dom.hsl(0, 0, 0, 0.05)])),
+
+  "border-width": always("1px"),
+  "border-radius": always("3px"),
+  "border-color": always(dom.hsl(0, 0, 65) + " " +
+                         dom.hsl(0, 0, 55) + " " +
+                         dom.hsl(0, 0, 55) + " " +
+                         dom.hsl(0, 0, 65)),
+});
+
+export const style_textbox = dom.style({
+  "cursor": always("auto"),
+
+  "box-shadow": always("0px 0px 3px " + dom.hsl(0, 0, 0, 0.5)),
+
+  "margin-top": always("2px"),
+  "margin-bottom": always("2px"),
+  "margin-left": always("3px"),
+  "margin-right": always("3px"),
+
+  "border-width": always("1px"),
+  "border-color": always("dimgray"), /* TODO replace with hsl value */
+  "border-radius": always("3px"),
+
+  "text-align": always("center"),
+  "background-color": always(dom.hsl(211, 75, 99))
+});
+
+export const style_changed = dom.style({
+  "border-color":     always(dom.hsl(200, 50, 60)),
+  "background-color": always(dom.hsl(200, 50, 96))
+});
+
+export const style_invalid = dom.style({
+  "border-color":     always(dom.hsl(0, 50, 60)),
+  "background-color": always(dom.hsl(0, 50, 96))
+});
+
+export const style_icon = dom.style({
+  "top": always("1px"),
+  "margin-right": always("3px")
+});

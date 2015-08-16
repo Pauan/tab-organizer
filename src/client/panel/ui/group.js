@@ -189,7 +189,8 @@ export const init = async([init_tab,
                "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
       case "grid":
         // TODO code duplication
-        return "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
+        return "0px 0px 5px -2px " + dom.hsl(0, 0, 50, 0.7) + "," +
+               "1px 1px 1px 0px " + dom.hsl(0, 0, 50, 0.7);
       default:
         return null;
       }

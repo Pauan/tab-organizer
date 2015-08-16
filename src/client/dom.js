@@ -721,7 +721,7 @@ class Text extends Element {
 }
 
 
-class Search extends Element {
+class TextBox extends Element {
   value(ref) {
     return ref.each((x) => {
       if (x === null) {
@@ -733,6 +733,29 @@ class Search extends Element {
     });
   }
 
+  on_change(send) {
+    let timer = null;
+
+    const input = () => {
+      clearTimeout(timer);
+
+      timer = setTimeout(() => {
+        send(this._dom["value"]);
+      }, 300);
+    };
+
+    this._dom["addEventListener"]("input", input, true);
+
+    return {
+      stop: () => {
+        this._dom["removeEventListener"]("input", input, true);
+      }
+    };
+  }
+}
+
+
+class SearchBox extends TextBox {
   on_change(send) {
     const search = () => {
       send(this._dom["value"]);
@@ -772,6 +795,21 @@ class Checkbox extends Element {
         this._dom["removeEventListener"]("change", change, true);
       }
     };
+  }
+}
+
+
+class Radio extends Checkbox {
+  name(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["name"] = "";
+
+      } else {
+        this._dom["name"] = x;
+      }
+    });
   }
 }
 
@@ -1200,6 +1238,20 @@ export const checkbox = (f) => {
   return e;
 };
 
+export const radio = (f) => {
+  const x = document["createElement"]("input");
+
+  x["type"] = "radio";
+
+  const e = new Radio(x);
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
 export const search = (f) => {
   const x = document["createElement"]("input");
 
@@ -1213,7 +1265,21 @@ export const search = (f) => {
   x["placeholder"] = "Search";
   x["setAttribute"]("results", "");
 
-  const e = new Search(x);
+  const e = new SearchBox(x);
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const textbox = (f) => {
+  const x = document["createElement"]("input");
+
+  x["type"] = "text";
+
+  const e = new TextBox(x);
 
   each(f(e), (x) => {
     e._run(x);

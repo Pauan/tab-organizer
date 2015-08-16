@@ -4,29 +4,30 @@ import { async } from "../../../../util/async";
 import { category, header, indent,
          row, text, vertical_space } from "../common";
 import { init as init_radio } from "../radio";
-import { init as init_text } from "../text";
+import { init as init_textbox } from "../textbox";
 
 
 export const init = async([init_radio,
-                           init_text],
-                          ({ radio, item },
-                           { number }) => {
+                           init_textbox],
+                          ({ radio },
+                           { textbox }) => {
 
   const ui = () =>
-    category("GROUPS", [
+    category("Groups", [
       header("Display groups:"),
       indent([
         radio("groups.layout", [
-          item({ name: "Vertically",   value: "vertical"   }),
-          item({ name: "Horizontally", value: "horizontal" }),
-          item({ name: "In a grid",    value: "grid"       })
+          { name: "Vertically",   value: "vertical"   },
+          { name: "Horizontally", value: "horizontal" },
+          { name: "In a grid",    value: "grid"       }
         ]),
 
         vertical_space("2px"),
 
         indent([
           row([
-            number("groups.layout.grid.column", {
+            textbox("groups.layout.grid.column", {
+              type: "number",
               width: "2em"
             }),
 
@@ -34,7 +35,8 @@ export const init = async([init_radio,
           ]),
 
           row([
-            number("groups.layout.grid.row", {
+            textbox("groups.layout.grid.row", {
+              type: "number",
               width: "2em"
             }),
 
