@@ -1,29 +1,10 @@
 var path = require("path");
-var fs   = require("fs");
-
-function mkdir(path) {
-  try {
-    fs.mkdirSync(path);
-  } catch (e) {
-    if (e.code !== "EEXIST") {
-      throw e;
-    }
-  }
-}
-
-function cp(from, to) {
-  fs.writeFileSync(to, fs.readFileSync(from));
-}
 
 
 //# Cleanup old build dir
 //rm --recursive --force build/gsap
 //rm --recursive --force build/lib/gsap
-
-mkdir(path.join("build", "lib"));
-
-cp(path.join("node_modules", "babel-core", "browser-polyfill.min.js"),
-   path.join("build", "lib", "browser-polyfill.min.js"));
+//rm --recursive --force build/lib
 
 
 module.exports = {
