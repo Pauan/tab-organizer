@@ -6,7 +6,8 @@ import { uuid_stream_insert,
          uuid_stream_update,
          uuid_stream_remove,
          uuid_stream_clear } from "../util/mutable/stream";
-import { set_style, make_style, make_animation } from "./dom/style";
+import { set_style, make_style,
+         make_animation, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
 
 
@@ -1056,6 +1057,8 @@ class Option extends Element {
 export const style = (o) => make_style(o);
 
 export const animation = (o) => make_animation(o);
+
+export const stylesheet = (n, o) => make_stylesheet(n, o);
 
 export const calc = (...args) =>
   "calc(" + args["join"](" ") + ")";

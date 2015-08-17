@@ -60,12 +60,8 @@ export const set_style = (() => {
 
 
 class Style {
-  constructor(name, style, rules) {
+  constructor(name) {
     this._name = name;
-    this._rules = rules;
-    this._style = style;
-    // TODO a little hacky
-    this._keys = Object["keys"](rules);
   }
 }
 
@@ -92,9 +88,16 @@ const cssRules = sheet["cssRules"];
 export const make_style = (rules) => {
   const class_name = "__style_" + (++style_id) + "__";
 
+  make_stylesheet("." + class_name, rules);
+
+  return new Style(class_name);
+};
+
+
+export const make_stylesheet = (name, rules) => {
   // TODO this may not work in all browsers
-  const index = sheet["insertRule"]("." + class_name + " {}",
-                                    cssRules["length"]); // TODO sheet.addRule(s)
+  // TODO sheet.addRule(s)
+  const index = sheet["insertRule"](name + " {}", cssRules["length"]);
 
   const style = cssRules[index]["style"];
 
@@ -103,8 +106,6 @@ export const make_style = (rules) => {
       set_style(style, key, value);
     });
   });
-
-  return new Style(class_name, style, rules);
 };
 
 

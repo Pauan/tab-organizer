@@ -1,9 +1,16 @@
 import * as dom from "../dom";
 import { manifest } from "../../chrome/client";
 import { plural } from "../../util/string";
+import { always } from "../../util/ref";
 import { visible } from "./search/search";
 import { async } from "../../util/async";
 import { init as init_top } from "./ui/top";
+import "../styles";
+
+
+dom.stylesheet("*", {
+  "overflow": always("hidden"),
+});
 
 
 const name = manifest.get("name");

@@ -3,6 +3,7 @@ import { manifest } from "../../chrome/client";
 import { always } from "../../util/ref";
 import { async } from "../../util/async";
 import { init as init_top } from "./ui/top";
+import "../styles";
 
 
 dom.title(always(manifest.get("name") + " - Options"));
