@@ -735,6 +735,33 @@ class Text extends Element {
 }
 
 
+class Link extends Text {
+  url(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["href"] = "";
+
+      } else {
+        this._dom["href"] = x;
+      }
+    });
+  }
+
+  target(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["target"] = "";
+
+      } else {
+        this._dom["target"] = x;
+      }
+    });
+  }
+}
+
+
 class TextBox extends Element {
   value(ref) {
     return ref.each((x) => {
@@ -1296,6 +1323,16 @@ export const textbox = (f) => {
   x["type"] = "text";
 
   const e = new TextBox(x);
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const link = (f) => {
+  const e = new Link(document["createElement"]("a"));
 
   each(f(e), (x) => {
     e._run(x);

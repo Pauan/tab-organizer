@@ -4,16 +4,19 @@ import { async } from "../../../util/async";
 import { init as init_theme } from "./categories/theme";
 import { init as init_groups } from "./categories/groups";
 import { init as init_tabs } from "./categories/tabs";
+import { init as init_popup } from "./categories/popup";
 import { init as init_counter } from "./categories/counter";
 
 
 export const init = async([init_theme,
                            init_groups,
                            init_tabs,
+                           init_popup,
                            init_counter],
                           ({ ui: ui_theme },
                            { ui: ui_groups },
                            { ui: ui_tabs },
+                           { ui: ui_popup },
                            { ui: ui_counter }) => {
 
   const style_top = dom.style({
@@ -53,6 +56,7 @@ export const init = async([init_theme,
         ui_theme(),
         ui_groups(),
         ui_tabs(),
+        ui_popup(),
         ui_counter()
       ])
     ]);
