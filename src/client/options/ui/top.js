@@ -41,6 +41,8 @@ export const init = async([init_theme,
                                  ["0px", "transparent"],
                                  ["2px", dom.hsl(0, 0, 0, 0.05)],
                                  ["3px", dom.hsl(0, 0, 0, 0.05)])),
+
+    "overflow": always("auto"),
   });
 
   const style_inner = dom.style({

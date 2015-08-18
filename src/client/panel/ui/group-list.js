@@ -97,6 +97,7 @@ export const init = async([init_group,
         y: always(scroll_y)
       }),
 
+      // TODO should it also save the current scroll after using the search box ?
       e.on_scroll(({ x, y }) => {
         localStorage["popup.scroll.x"] = "" + x;
         localStorage["popup.scroll.y"] = "" + y;

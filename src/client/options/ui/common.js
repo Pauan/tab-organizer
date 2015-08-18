@@ -1,5 +1,5 @@
 import * as dom from "../../dom";
-import { always } from "../../../util/ref";
+import { always, and } from "../../../util/ref";
 
 
 const style_category = dom.style({
@@ -133,11 +133,17 @@ export const indent = (a) =>
   ]);
 
 
+export const stretch = () =>
+  dom.child((e) => [
+    e.set_style(dom.stretch, always(true))
+  ]);
+
+
 export const style_dropdown = dom.style({
   "cursor": always("pointer"),
 
   "height": always("20px"),
-  "box-shadow": always("0px 0px 1px " + dom.hsl(0, 0, 0, 0.4)),
+  "box-shadow": always("1px 1px 4px " + dom.hsl(0, 0, 0, 0.2)),
   "padding-left": always("1px"),
   /* margin-top: -2px; */
   /* top: -2px; */
@@ -146,9 +152,9 @@ export const style_dropdown = dom.style({
 
   "background-image": always(dom.gradient("to bottom",
                                ["0%", "transparent"],
-                               ["20%", dom.hsl(0, 0, 0, 0.01)],
-                               ["80%", dom.hsl(0, 0, 0, 0.02)],
-                               ["100%", dom.hsl(0, 0, 0, 0.05)])),
+                               ["20%", dom.hsl(0, 0, 0, 0.04)],
+                               ["70%", dom.hsl(0, 0, 0, 0.05)],
+                               ["100%", dom.hsl(0, 0, 0, 0.1)])),
 
   "border-width": always("1px"),
   "border-radius": always("3px"),
@@ -190,3 +196,75 @@ export const style_icon = dom.style({
   //"top": always("1px"),
   "margin-right": always("3px")
 });
+
+
+// TODO code duplication with `style_dropdown`
+const style_button = dom.style({
+  "cursor": always("pointer"),
+
+  /* min-height: 22px; */
+  "padding-top": always("1px"),
+  "padding-left": always("14px"),
+  "padding-right": always("14px"),
+  "padding-bottom": always("2px"),
+
+  "text-shadow": always("0px 1px 0px white"),
+  "background-color": always(dom.hsl(211, 75, 99)),
+
+  "box-shadow": always("1px 1px 4px " + dom.hsl(0, 0, 0, 0.2)),
+
+  "border-width": always("1px"),
+  "border-radius": always("3px"),
+  "border-color": always(dom.hsl(0, 0, 65) + " " +
+                         dom.hsl(0, 0, 55) + " " +
+                         dom.hsl(0, 0, 55) + " " +
+                         dom.hsl(0, 0, 65)),
+
+  "background-image": always(dom.gradient("to bottom",
+                               ["0%", "transparent"],
+                               ["20%", dom.hsl(0, 0, 0, 0.04)],
+                               ["70%", dom.hsl(0, 0, 0, 0.05)],
+                               ["100%", dom.hsl(0, 0, 0, 0.1)])),
+});
+
+const style_button_hover = dom.style({
+  "background-color": always(dom.hsl(211, 100, 92))
+});
+
+const style_button_hold = dom.style({
+  "padding-bottom": always("0px"),
+
+  "box-shadow": always("none"),
+  // TODO replace with hsl
+  "border-color": always("gray silver silver gray"),
+
+  "background-image": always(dom.gradient("to bottom",
+                               ["0%", "transparent"],
+                               ["15%", dom.hsl(0, 0, 0, 0.05)],
+                               ["85%", dom.hsl(0, 0, 0, 0.06)],
+                               ["100%", dom.hsl(0, 0, 0, 0.1)])),
+});
+
+export const button = (s, { on_click, height = "24px" }) =>
+  dom.button((e) => [
+    e.set_style(style_button, always(true)),
+
+    e.set_style(style_button_hover, e.hovering()),
+
+    e.set_style(style_button_hold, and([
+      e.hovering(),
+      e.holding()
+    ])),
+
+    e.style({
+      "height": always(height)
+    }),
+
+    e.on_left_click(() => {
+      on_click();
+    }),
+
+    e.children([
+      text(s)
+    ])
+  ]);

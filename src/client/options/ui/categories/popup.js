@@ -2,7 +2,7 @@ import * as dom from "../../../dom";
 import { async } from "../../../../util/async";
 import { always } from "../../../../util/ref";
 import { chrome } from "../../../../common/globals";
-import { category, row, text } from "../common";
+import { category, row, text, separator, stretch, button } from "../common";
 import { init as init_textbox } from "../textbox";
 import { init as init_dropdown } from "../dropdown";
 
@@ -29,7 +29,7 @@ export const init = async([init_textbox,
   };
 
   const style_link = dom.style({
-    "cursor": always("auto")
+    "cursor": always("auto"),
   });
 
   const ui_keyboard = () =>
@@ -54,7 +54,30 @@ export const init = async([init_textbox,
 
   const ui = () =>
     category("Popup", [
-      ui_keyboard()
+      ui_keyboard(),
+
+      separator(),
+
+      row([
+        text("Open as a... "),
+
+        dropdown("popup.type", [
+          { name: "bubble",  value: "bubble"  },
+          { name: "panel",   value: "panel"   },
+          { name: "popup",   value: "popup"   },
+          { name: "sidebar", value: "sidebar" },
+          { name: "tab",     value: "tab"     }
+        ]),
+
+        stretch(),
+
+        button("Check monitor size", {
+          height: "20px",
+          on_click: () => {
+            console.log("clicked");
+          }
+        })
+      ])
     ]);
 
 

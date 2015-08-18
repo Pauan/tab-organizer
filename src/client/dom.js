@@ -1299,6 +1299,16 @@ export const radio = (f) => {
   return e;
 };
 
+export const button = (f) => {
+  const e = new Parent(document["createElement"]("button"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
 export const search = (f) => {
   const x = document["createElement"]("input");
 
