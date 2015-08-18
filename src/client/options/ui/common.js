@@ -120,11 +120,14 @@ export const header = (s) =>
 
 
 const style_indent = dom.style({
-  "margin-left": always("12px")
+  "margin-left": always("12px"),
+  // TODO hacky
+  "align-items": always("flex-start"),
 });
 
 export const indent = (a) =>
   dom.parent((e) => [
+    e.set_style(dom.col, always(true)),
     e.set_style(style_indent, always(true)),
     e.children(a)
   ]);
@@ -184,6 +187,6 @@ export const style_invalid = dom.style({
 });
 
 export const style_icon = dom.style({
-  "top": always("1px"),
+  //"top": always("1px"),
   "margin-right": always("3px")
 });

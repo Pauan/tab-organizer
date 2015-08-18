@@ -19,7 +19,7 @@ export const init = async([init_options],
 
   const style_label = dom.style({
     "cursor": always("pointer"),
-    "padding": always("1px 4px"),
+    "padding": always("1px 3px"),
   });
 
   let radio_id = 0;
