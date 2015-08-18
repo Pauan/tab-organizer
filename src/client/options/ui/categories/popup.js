@@ -12,6 +12,8 @@ export const init = async([init_textbox,
                           ({ textbox },
                            { dropdown }) => {
 
+  // TODO it's gross to hardcode this
+  // TODO can I rely on this URL not changing ?
   const keyboard_shortcut_url = "chrome://extensions/configureCommands";
 
   const open_keyboard_url = () => {
@@ -26,11 +28,18 @@ export const init = async([init_textbox,
     });
   };
 
+  const style_link = dom.style({
+    "cursor": always("auto")
+  });
+
   const ui_keyboard = () =>
     row([
-      text("Configure a keyboard shortcut for opening the popup "),
+      text("You can go "),
 
       dom.link((e) => [
+        // TODO a little bit hacky
+        e.set_style(style_link, always(true)),
+
         e.target(always("_blank")),
         e.value(always("here")),
         e.url(always(keyboard_shortcut_url)),
@@ -38,7 +47,9 @@ export const init = async([init_textbox,
         // TODO hacky, but needed to work around a security restriction in Chrome
         e.on_left_click(open_keyboard_url),
         e.on_middle_click(open_keyboard_url)
-      ])
+      ]),
+
+      text(" to configure a keyboard shortcut for opening the popup"),
     ]);
 
   const ui = () =>
