@@ -38,9 +38,6 @@ export const init = async([init_theme,
   });
 
   const style_inner = dom.style({
-    "overflow": always("visible"),
-
-
     "margin-left": always("auto"),
     "margin-right": always("auto")
   });
@@ -58,6 +55,7 @@ export const init = async([init_theme,
 
   const top = () =>
     dom.parent((e) => [
+      e.set_style(dom.col, always(true)),
       e.set_style(style_top, always(true)),
 
       e.children([

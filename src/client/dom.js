@@ -679,9 +679,22 @@ class Element {
 
 
 class Image extends Element {
+  alt(ref) {
+    return ref.each((x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["alt"] = "";
+
+      } else {
+        this._dom["alt"] = x;
+      }
+    });
+  }
+
   url(ref) {
     return ref.each((x) => {
       if (x === null) {
+        // TODO is this correct ?
         this._dom["src"] = "";
 
       } else {
