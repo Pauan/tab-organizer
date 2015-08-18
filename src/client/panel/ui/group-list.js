@@ -23,7 +23,7 @@ export const init = async([init_group,
         // TODO this has to match up with the group's "margin"
         return "6px 6px 6px 6px";
       default:
-        return "4px 0px 0px 0px";
+        return "1px 0px 0px 0px";
       }
     }),
 

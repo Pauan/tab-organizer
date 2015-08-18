@@ -1,5 +1,4 @@
 import * as dom from "../../../dom";
-import { always } from "../../../../util/ref";
 import { async } from "../../../../util/async";
 import { category, header, indent,
          row, text, vertical_space } from "../common";

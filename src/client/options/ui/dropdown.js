@@ -12,7 +12,10 @@ export const init = async([init_options],
 
   const get_values1 = (out, children) => {
     each(children, (child) => {
-      if (child.children) {
+      if (child.separator) {
+        // Do nothing
+
+      } else if (child.group != null) {
         get_values1(out, child.children);
 
       } else {
@@ -27,6 +30,21 @@ export const init = async([init_options],
     return out;
   };
 
+  const dropdown_children = (children) =>
+    // TODO a little hacky
+    always(map(children, (info) =>
+      (info.separator
+        ? dom.optgroup((e) => [])
+        : (info.group != null
+            ? dom.optgroup((e) => [
+                e.label(always(info.group)),
+                e.children(dropdown_children(info.children))
+              ])
+            : dom.option((e) => [
+                e.value(always(info.value)),
+                e.label(always(info.name))
+              ])))));
+
   const dropdown = (name, children) => {
     const ref = get(name);
     const def = get_default(name);
@@ -40,7 +58,7 @@ export const init = async([init_options],
       e.tooltip(always("Default: " + values.get(def))),
 
       // TODO a little hacky
-      e.children(always(map(children, ({ dom }) => dom))),
+      e.children(dropdown_children(children)),
 
       e.value(ref),
 
@@ -51,28 +69,6 @@ export const init = async([init_options],
     ]);
   };
 
-  const group = (name, children) => {
-    return {
-      children,
-      dom: dom.optgroup((e) => [
-        e.label(always(name)),
-        // TODO a little hacky
-        e.children(always(map(children, ({ dom }) => dom)))
-      ])
-    };
-  };
 
-  const item = ({ value, name }) => {
-    return {
-      value,
-      name,
-      dom: dom.option((e) => [
-        e.value(always(value)),
-        e.label(always(name))
-      ])
-    };
-  };
-
-
-  return { dropdown, group, item };
+  return { dropdown };
 });

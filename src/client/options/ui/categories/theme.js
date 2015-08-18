@@ -9,7 +9,7 @@ import { init as init_dropdown } from "../dropdown";
 export const init = async([init_checkbox,
                            init_dropdown],
                           ({ checkbox },
-                           { dropdown, group, item }) => {
+                           { dropdown }) => {
 
   const style_preview = dom.style({
     "border-width": always("1px"),
@@ -30,22 +30,25 @@ export const init = async([init_checkbox,
     row([
       text("Color... "),
 
-      dropdown("theme.color", [
-        group("Color", [
-          item({ name: "Blue",   value: "blue"   }),
-          item({ name: "Green",  value: "green"  }),
-          item({ name: "Yellow", value: "yellow" }),
-          item({ name: "Orange", value: "orange" }),
-          item({ name: "Red",    value: "red"    }),
-          item({ name: "Purple", value: "purple" }),
-          item({ name: "Pink",   value: "pink"   }),
-        ]),
-        group("Grayscale", [
-          item({ name: "Black", value: "black" }),
-          item({ name: "Grey",  value: "grey"  }),
-          item({ name: "White", value: "white" })
-        ])
-      ])
+      dropdown("theme.color", [{
+        group: "Color",
+        children: [
+          { name: "Blue",   value: "blue"   },
+          { name: "Green",  value: "green"  },
+          { name: "Yellow", value: "yellow" },
+          { name: "Orange", value: "orange" },
+          { name: "Red",    value: "red"    },
+          { name: "Purple", value: "purple" },
+          { name: "Pink",   value: "pink"   },
+        ]
+      }, {
+        group: "Grayscale",
+        children: [
+          { name: "Black", value: "black" },
+          { name: "Grey",  value: "grey"  },
+          { name: "White", value: "white" },
+        ]
+      }])
     ]);
 
   const ui = () =>

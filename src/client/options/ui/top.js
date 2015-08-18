@@ -3,12 +3,15 @@ import { always } from "../../../util/ref";
 import { async } from "../../../util/async";
 import { init as init_theme } from "./categories/theme";
 import { init as init_groups } from "./categories/groups";
+import { init as init_tabs } from "./categories/tabs";
 
 
 export const init = async([init_theme,
-                           init_groups],
+                           init_groups,
+                           init_tabs],
                           ({ ui: ui_theme },
-                           { ui: ui_groups }) => {
+                           { ui: ui_groups },
+                           { ui: ui_tabs }) => {
 
   const style_top = dom.style({
     // TODO code duplication
@@ -48,7 +51,8 @@ export const init = async([init_theme,
 
       e.children([
         ui_theme(),
-        ui_groups()
+        ui_groups(),
+        ui_tabs()
       ])
     ]);
 
