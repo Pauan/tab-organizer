@@ -14,6 +14,18 @@ export const init = async([init_textbox,
 
   const keyboard_shortcut_url = "chrome://extensions/configureCommands";
 
+  const open_keyboard_url = () => {
+    // TODO lib:extension module for handling async stuff like this ?
+    chrome["tabs"]["getCurrent"]((tab) => {
+      chrome["tabs"]["create"]({
+        "url": keyboard_shortcut_url,
+        "windowId": tab["windowId"],
+        "openerTabId": tab["id"],
+        "index": tab["index"] + 1
+      });
+    });
+  };
+
   const ui_keyboard = () =>
     row([
       text("Configure a keyboard shortcut for opening the popup "),
@@ -24,17 +36,8 @@ export const init = async([init_textbox,
         e.url(always(keyboard_shortcut_url)),
 
         // TODO hacky, but needed to work around a security restriction in Chrome
-        e.on_left_click(() => {
-          // TODO lib:extension module for handling async stuff like this ?
-          chrome["tabs"]["getCurrent"]((tab) => {
-            chrome["tabs"]["create"]({
-              "url": keyboard_shortcut_url,
-              "windowId": tab["windowId"],
-              "openerTabId": tab["id"],
-              "index": tab["index"] + 1
-            });
-          });
-        })
+        e.on_left_click(open_keyboard_url),
+        e.on_middle_click(open_keyboard_url)
       ])
     ]);
 

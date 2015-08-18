@@ -250,6 +250,7 @@ class Element {
   on_left_click(send) {
     const click = (e) => {
       if (e["button"] === 0) {
+        preventDefault(e);
         send(mouse_event(this._dom, e));
       }
     };
@@ -267,6 +268,7 @@ class Element {
   on_middle_click(send) {
     const click = (e) => {
       if (e["button"] === 1) {
+        preventDefault(e);
         send(mouse_event(this._dom, e));
       }
     };
@@ -283,6 +285,8 @@ class Element {
   on_right_click(send) {
     const click = (e) => {
       if (e["button"] === 2) {
+        // TODO is this correct ?
+        preventDefault(e);
         send(mouse_event(this._dom, e));
       }
     };
