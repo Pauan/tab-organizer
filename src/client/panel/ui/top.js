@@ -55,6 +55,11 @@ export const init = async([init_group_list,
   });
 
 
+  // TODO hacky
+  // TODO this should use a regexp or something to search, rather than hardcoding it
+  const should_resize = (location["search"] !== "?options=true");
+
+
   const top = () =>
     dom.parent((e) => [
       e.set_style(style_top, always(true)),
@@ -74,7 +79,7 @@ export const init = async([init_group_list,
         opt("size.bubble.width")
       ], (type, width) => {
         // TODO seems unreliable
-        if (type === "bubble"/* && window["outerWidth"] < (width / 2)*/) {
+        if (should_resize && type === "bubble"/* && window["outerWidth"] < (width / 2)*/) {
           return width + "px";
         } else {
           return null;
@@ -90,7 +95,7 @@ export const init = async([init_group_list,
         opt("size.bubble.height")
       ], (type, height) => {
         // TODO seems unreliable
-        if (type === "bubble"/* && window["outerHeight"] < (height / 2)*/) {
+        if (should_resize && type === "bubble"/* && window["outerHeight"] < (height / 2)*/) {
           return height + "px";
         } else {
           return null;

@@ -61,7 +61,7 @@ export const init = async([init_checkbox,
 
       dom.iframe((e) => [
         e.set_style(style_preview, always(true)),
-        e.url(always("panel.html"))
+        e.url(always("panel.html?options=true"))
       ])
     ]);
 
