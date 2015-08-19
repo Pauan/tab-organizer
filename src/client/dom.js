@@ -1148,6 +1148,12 @@ export const hsl = (hue, sat, light, alpha = 1) => {
   }
 };
 
+export const text_stroke = (color, blur) =>
+  "-1px -1px " + blur + " " + color + "," +
+  "-1px  1px " + blur + " " + color + "," +
+  " 1px -1px " + blur + " " + color + "," +
+  " 1px  1px " + blur + " " + color;
+
 export const transition = (o) => {
   const out = [];
 

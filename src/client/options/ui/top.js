@@ -32,7 +32,6 @@ export const init = async([init_theme,
     //"white-space": always("pre-wrap"),
 
     "padding-top": always("29px"),
-    "padding-right": always("45px"),
 
     "background-attachment": always("fixed"),
     "background-color": always(dom.hsl(211, 13, 35)),
