@@ -78,20 +78,25 @@ export const async_callback = (f) =>
 // TODO test this
 export const async = (a, f) =>
   async_callback((success, error) => {
-    const out = new Array(a["length"]);
-
     let pending = a["length"];
 
-    for (let i = 0; i < a["length"]; ++i) {
-      a[i].run((value) => {
-        out[i] = value;
+    if (pending === 0) {
+      success(f());
 
-        --pending;
+    } else {
+      const out = new Array(a["length"]);
 
-        if (pending === 0) {
-          success(f(...out));
-        }
-      }, error);
+      for (let i = 0; i < a["length"]; ++i) {
+        a[i].run((value) => {
+          out[i] = value;
+
+          --pending;
+
+          if (pending === 0) {
+            success(f(...out));
+          }
+        }, error);
+      }
     }
   });
 

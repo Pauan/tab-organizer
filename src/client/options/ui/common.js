@@ -99,6 +99,13 @@ export const text = (s) =>
   ]);
 
 
+export const horizontal_space = (s) =>
+  dom.child((e) => [
+    e.style({
+      "width": always(s)
+    })
+  ]);
+
 export const vertical_space = (s) =>
   dom.child((e) => [
     e.style({
