@@ -35,7 +35,7 @@ class Element {
     this._id = ++element_id;
     this._dom = dom;
     this._running = new Set();
-    this._animations = new Set();
+    this._animations = new Set(); // TODO lazily generate this ?
     this._visible = true;
     this._hovering = null;
     this._holding = null;
@@ -876,6 +876,7 @@ class Parent extends Element {
   }
 
   // TODO test this
+  // TODO this doesn't seem quite right: it gets called multiple times when the element is initially pushed
   _on_insert(parent, type) {
     // TODO is this in the right order ?
     super._on_insert(parent, type);

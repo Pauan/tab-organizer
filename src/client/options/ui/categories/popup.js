@@ -465,7 +465,7 @@ export const init = async([init_textbox,
               e.set_style(style_popup_chrome_position, always(true)),
 
               e.children([
-                text("CHROME")
+                text("Google Chrome")
               ])
             ]),
 
@@ -481,7 +481,9 @@ export const init = async([init_textbox,
 
               e.children([
                 dom.text((e) => [
-                  e.value(opt("popup.type").map(uppercase))
+                  e.value(opt("popup.type").map((x) =>
+                            // TODO function for this
+                            uppercase(x[0]) + x["slice"](1)))
                 ])
               ])
             ]),
@@ -501,9 +503,14 @@ export const init = async([init_textbox,
     ]);
 
 
+  const style_controls_wrapper = dom.style({
+    // TODO a little bit hacky
+    "justify-content": always("center")
+  });
+
   const style_controls_table = dom.style({
-    "margin-left": always("auto"),
-    "margin-right": always("auto")
+    "table-layout": always("fixed"),
+    "overflow": always("hidden")
   });
 
   const style_controls_cell = dom.style({
@@ -515,16 +522,22 @@ export const init = async([init_textbox,
   });
 
   const ui_controls = (o) => {
-    const max_height = new Ref(0);
-
     return dom.parent((e) => [
+      e.set_style(dom.row, always(true)),
+      e.set_style(style_controls_wrapper, always(true)),
+
       // TODO a little bit hacky
       e.children(always(map(entries(o), ([key, value]) =>
         dom.table((e) => [
           e.set_style(style_controls_table, always(true)),
 
-          // Only show the controls that match the type
-          e.visible(opt("popup.type").map((type) => type === key)),
+          e.style({
+            // Only show the controls that match the type
+            "width": opt("popup.type").map((type) =>
+                       (type === key
+                         ? null
+                         : "0px"))
+          }),
 
           // TODO a little bit hacky
           e.children(always(map(value, (row) =>
@@ -571,11 +584,11 @@ export const init = async([init_textbox,
         text("Open as a... "),
 
         dropdown("popup.type", [
-          { name: "bubble",  value: "bubble"  },
-          { name: "panel",   value: "panel"   },
-          { name: "popup",   value: "popup"   },
-          { name: "sidebar", value: "sidebar" },
-          { name: "tab",     value: "tab"     }
+          { name: "Bubble",  value: "bubble"  },
+          { name: "Panel",   value: "panel"   },
+          { name: "Popup",   value: "popup"   },
+          { name: "Sidebar", value: "sidebar" },
+          { name: "Tab",     value: "tab"     }
         ]),
 
         stretch(),
