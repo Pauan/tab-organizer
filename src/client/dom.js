@@ -1362,6 +1362,37 @@ export const link = (f) => {
 };
 
 
+export const table = (f) => {
+  const e = new Parent(document["createElement"]("table"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const table_row = (f) => {
+  const e = new Parent(document["createElement"]("tr"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+export const table_cell = (f) => {
+  const e = new Parent(document["createElement"]("td"));
+
+  each(f(e), (x) => {
+    e._run(x);
+  });
+
+  return e;
+};
+
+
 // TODO should we use `pointer-events: none` while scrolling, to make it smoother ?
 const body = new Parent(document["body"]);
 

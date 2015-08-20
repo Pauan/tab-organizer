@@ -6,12 +6,16 @@ import { style_changed, style_icon,
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_options],
-                          ({ get, get_default }) => {
+export const init = async([init_options], (options) => {
 
-  const textbox = (name, { width = "3em", type = "text" }) => {
-    const ref = get(name);
-    const def = get_default(name);
+  const textbox = (name, { width = "3em",
+                           type = "text",
+                           // TODO
+                           get_value = (x) => x,
+                           set_value = (x) => x }) => {
+
+    const ref = options.get(name);
+    const def = options.get_default(name);
 
     const invalid = new Ref(false);
 
@@ -24,12 +28,18 @@ export const init = async([init_options],
         "width": always(width)
       }),
 
-      e.tooltip(always("Default: " + def)),
+      e.tooltip(always("Default: " + get_value(def))),
 
-      e.value(ref),
+      e.value(ref.map(get_value)),
 
       e.on_change((value) => {
-        if (type === "number") {
+        // TODO this isn't quite right
+        if (value === "") {
+          invalid.set(false);
+          ref.set(def);
+
+
+        } else if (type === "number") {
           value = +value;
 
           console.log(value);
@@ -40,12 +50,13 @@ export const init = async([init_options],
 
           } else {
             invalid.set(false);
-            ref.set(value);
+            ref.set(set_value(value));
           }
+
 
         } else {
           invalid.set(false);
-          ref.set(value);
+          ref.set(set_value(value));
         }
       })
     ])

@@ -45,3 +45,12 @@ dom.stylesheet("html, body", {
   "width": always("100%"),
   "height": always("100%"),
 });
+
+/* Overwriting Webkit's silly user agent style */
+dom.stylesheet("input, textarea, keygen, select, button", {
+  "font": always("inherit")
+});
+
+dom.stylesheet("table", {
+  "border-spacing": always("0px")
+});

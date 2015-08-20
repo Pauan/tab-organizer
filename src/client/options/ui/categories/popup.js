@@ -1,10 +1,12 @@
 import * as dom from "../../../dom";
 import { async } from "../../../../util/async";
 import { fail } from "../../../../util/assert";
-import { latest, always } from "../../../../util/ref";
+import { latest, always, Ref } from "../../../../util/ref";
+import { map, entries } from "../../../../util/iterator";
 import { uppercase } from "../../../../util/string";
 import { chrome } from "../../../../common/globals";
-import { category, row, text, separator, stretch, button } from "../common";
+import { category, row, text, separator, stretch, button,
+         horizontal_space } from "../common";
 import { init as init_textbox } from "../textbox";
 import { init as init_dropdown } from "../dropdown";
 import { init as init_options } from "../../../sync/options";
@@ -109,30 +111,14 @@ export const init = async([init_textbox,
     "background-color": always(dom.hsl(0, 0, 90)),
   });*/
 
-  const style_popup_width = dom.style({
-    "position": always("absolute"),
-    "left": always("50%"),
-    "bottom": always("2px"),
-  });
-
-  const style_popup_height = dom.style({
-    "position": always("absolute"),
-    "top": always("50%"),
-    "right": always("3px"),
-  });
-
   const style_popup_text = dom.style({
+    "position": always("absolute"),
+    "left": always("4px"),
+    "bottom": always("2px"),
+
     "font-weight": always("bold"),
     "font-size": always("12px"),
     "text-shadow": always(dom.text_stroke("white", "1px")),
-  });
-
-  const style_popup_text_width = dom.style({
-    "left": always("-50%"),
-  });
-
-  const style_popup_text_height = dom.style({
-    "top": always("calc(-0.5em - 1px)"),
   });
 
   const style_popup_item = dom.style({
@@ -361,10 +347,7 @@ export const init = async([init_textbox,
     })
   });
 
-  const style_popup_chrome = dom.style({
-    //"background-color": always(dom.hsl(0, 0, 90)),
-    "background-color": always(dom.hsl(211, 13, 80)),
-
+  const style_popup_chrome_position = dom.style({
     "left": latest([
       opt("popup.type"),
       opt("screen.available.width"),
@@ -442,10 +425,13 @@ export const init = async([init_textbox,
     }),
   });
 
+  const style_popup_chrome = dom.style({
+    //"background-color": always(dom.hsl(0, 0, 90)),
+    "background-color": always(dom.hsl(211, 13, 80)),
+  });
+
   const style_popup_chrome_top = dom.style({
     "position": always("absolute"),
-    "left": always("0px"),
-    "top": always("0px"),
     //"background-color": always(dom.hsl(211, 13, 80)),
 
     // TODO code duplication
@@ -456,8 +442,6 @@ export const init = async([init_textbox,
                              (type === "tab"
                                ? null
                                : "1px")),
-
-    "width": always("100%"),
 
     // TODO is this correct? e.g. what about when "sidebar" is set to "top" ?
     "height": opt("screen.available.height").map((height) =>
@@ -474,26 +458,20 @@ export const init = async([init_textbox,
           e.set_style(style_popup_screen, always(true)),
 
           e.children([
-            /*dom.child((e) => [
-              e.set_style(style_popup_vertical_line, always(true))
-            ]),
-
-            dom.child((e) => [
-              e.set_style(style_popup_horizontal_line, always(true))
-            ]),*/
-
             dom.parent((e) => [
               e.set_style(dom.row, always(true)),
               e.set_style(style_popup_item, always(true)),
               e.set_style(style_popup_chrome, always(true)),
+              e.set_style(style_popup_chrome_position, always(true)),
 
               e.children([
-                dom.child((e) => [
-                  e.set_style(style_popup_chrome_top, always(true))
-                ]),
-
                 text("CHROME")
               ])
+            ]),
+
+            dom.child((e) => [
+              e.set_style(style_popup_chrome_top, always(true)),
+              e.set_style(style_popup_chrome_position, always(true)),
             ]),
 
             dom.parent((e) => [
@@ -508,38 +486,80 @@ export const init = async([init_textbox,
               ])
             ]),
 
-            dom.parent((e) => [
-              e.set_style(style_popup_width, always(true)),
+            dom.text((e) => [
+              e.set_style(style_popup_text, always(true)),
 
-              e.children([
-                dom.text((e) => [
-                  e.set_style(style_popup_text, always(true)),
-                  e.set_style(style_popup_text_width, always(true)),
-
-                  e.value(opt("screen.available.width").map((x) =>
-                            x + " px"))
-                ])
-              ])
+              e.value(latest([
+                opt("screen.available.width"),
+                opt("screen.available.height")
+              ], (width, height) =>
+                width + " × " + height + " px"))
             ]),
-
-            dom.parent((e) => [
-              e.set_style(style_popup_height, always(true)),
-
-              e.children([
-                dom.text((e) => [
-                  e.set_style(style_popup_text, always(true)),
-                  e.set_style(style_popup_text_height, always(true)),
-
-                  e.value(opt("screen.available.height").map((x) =>
-                            x + " px"))
-                ])
-              ])
-            ])
           ])
         ])
       ])
     ]);
 
+
+  const style_controls_table = dom.style({
+    "margin-left": always("auto"),
+    "margin-right": always("auto")
+  });
+
+  const style_controls_cell = dom.style({
+    "text-align": always("right")
+  });
+
+  const style_controls_text = dom.style({
+    "margin-right": always("2px")
+  });
+
+  const ui_controls = (o) => {
+    const max_height = new Ref(0);
+
+    return dom.parent((e) => [
+      // TODO a little bit hacky
+      e.children(always(map(entries(o), ([key, value]) =>
+        dom.table((e) => [
+          e.set_style(style_controls_table, always(true)),
+
+          // Only show the controls that match the type
+          e.visible(opt("popup.type").map((type) => type === key)),
+
+          // TODO a little bit hacky
+          e.children(always(map(value, (row) =>
+            dom.table_row((e) => [
+              e.children(always(map(row, (cell) =>
+                dom.table_cell((e) => [
+                  e.set_style(style_controls_cell, always(true)),
+
+                  e.children([cell])
+                ]))))
+            ]))))
+        ]))))
+    ]);
+  };
+
+  const ui_text = (text) =>
+    dom.text((e) => [
+      e.set_style(dom.stretch, always(true)),
+      e.set_style(style_controls_text, always(true)),
+      e.value(always(text))
+    ]);
+
+  const ui_textbox = (left, right, name, info) =>
+    row([
+      ui_text(left),
+      textbox(name, info),
+      text(right)
+    ]);
+
+
+  const popup_get = (s) =>
+    Math["round"]((s * 200) - 100);
+
+  const popup_set = (s) =>
+    (s + 100) / 200;
 
   const ui = () =>
     category("Popup", [
@@ -569,6 +589,75 @@ export const init = async([init_textbox,
       ]),
 
       ui_popup(),
+
+      ui_controls({
+        "popup": [
+          [ui_textbox("Left:", "%", "size.popup.left", {
+             type: "number",
+             width: "2em",
+             get_value: popup_get,
+             set_value: popup_set
+           }),
+
+           horizontal_space("20px"),
+
+           ui_textbox("Width:", "px", "size.popup.width", {
+             type: "number"
+           })],
+
+          [ui_textbox("Top:", "%", "size.popup.top", {
+             type: "number",
+             width: "2em",
+             get_value: popup_get,
+             set_value: popup_set
+           }),
+
+           horizontal_space("15px"),
+
+           ui_textbox("Height:", "px", "size.popup.height", {
+             type: "number"
+           })]
+        ],
+
+        "bubble": [
+          // TODO put a maximum on this? it seems to be (screen_width / 2) and (screen_height / 1.5)
+          [ui_textbox("Width:", "px", "size.bubble.width", {
+             type: "number"
+           })],
+          [ui_textbox("Height:", "px", "size.bubble.height", {
+             type: "number"
+           })]
+        ],
+
+        "panel": [
+          // TODO put a maximum on this?
+          [ui_textbox("Width:", "px", "size.panel.width", {
+             type: "number"
+           })],
+          [ui_textbox("Height:", "px", "size.panel.height", {
+             type: "number"
+           })]
+        ],
+
+        "sidebar": [
+          [ui_textbox("Size:", "px", "size.sidebar", {
+             type: "number"
+           }),
+
+           horizontal_space("25px"),
+
+           ui_text("Position: "),
+
+           dropdown("size.sidebar.position", [
+             { name: "Left",   value: "left"   },
+             { name: "Right",  value: "right"  },
+             { name: "Top",    value: "top"    },
+             { name: "Bottom", value: "bottom" }
+           ])]
+        ],
+
+        "tab": []
+      })
     ]);
 
 
