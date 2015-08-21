@@ -48,6 +48,11 @@ class Element {
 
   // TODO test this
   _on_remove(parent) {
+    assert(this._id !== null);
+    assert(this._dom !== null);
+    assert(this._parent !== null);
+    assert(this._parent === parent);
+
     each(this._running, (x) => {
       x.stop();
     });
@@ -69,6 +74,9 @@ class Element {
   }
 
   _on_insert(parent, type) {
+    assert(this._dom !== null);
+    assert(this._parent === null);
+
     this._parent = parent;
 
 
@@ -967,18 +975,22 @@ class Parent extends Element {
 
     this._children.insert(index, x);
 
-    x._on_insert(this, "insert");
+    if (this._parent !== null) {
+      x._on_insert(this, "insert");
 
-    x._animate("none", (x) => x.insert);
+      x._animate("none", (x) => x.insert);
+    }
   }
 
   _push(x) {
     this._dom["appendChild"](x._dom);
     this._children.push(x);
 
-    x._on_insert(this, "initial");
+    if (this._parent !== null) {
+      x._on_insert(this, "initial");
 
-    x._animate("none", (x) => x.initial);
+      x._animate("none", (x) => x.initial);
+    }
   }
 
   // TODO is this correct ?
@@ -1402,6 +1414,9 @@ export const table_cell = (f) => {
 
 // TODO should we use `pointer-events: none` while scrolling, to make it smoother ?
 const body = new Parent(document["body"]);
+
+// TODO a tiny bit hacky
+body._parent = new Parent(document["body"]["parentNode"]);
 
 export const main = (x) => {
   // TODO test this
