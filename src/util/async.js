@@ -1,4 +1,5 @@
 import { assert, fail } from "./assert";
+import { noop } from "./function";
 
 
 const PENDING = 0;
@@ -122,5 +123,4 @@ export const delay = (ms) =>
   });
 
 export const ignore = (x) =>
-  // TODO use noop function
-  async([x], () => {});
+  async([x], noop);

@@ -1,6 +1,7 @@
 import { each, entries } from "../util/iterator";
 import { Set } from "../util/mutable/set";
 import { Ref, always } from "../util/ref";
+import { noop } from "../util/function";
 import { List } from "../util/mutable/list";
 import { uuid_stream_insert,
          uuid_stream_update,
@@ -47,11 +48,14 @@ class Element {
   }
 
   // TODO test this
-  _on_remove(parent) {
+  _on_remove(parent, done) {
     assert(this._id !== null);
     assert(this._dom !== null);
     assert(this._parent !== null);
     assert(this._parent === parent);
+
+    // TODO is this the right order for this ?
+    this._animate("both", (x) => x.remove, done);
 
     each(this._running, (x) => {
       x.stop();
@@ -109,11 +113,17 @@ class Element {
         parent._scroll_to(this);
       }
 
+      // TODO is this the right order for this ?
+      this._animate("none", (x) => x.initial);
+
 
     } else if (type === "insert") {
       if (this._scroll_to_insert) {
         parent._scroll_to(this);
       }
+
+      // TODO is this the right order for this ?
+      this._animate("none", (x) => x.insert);
 
 
     } else {
@@ -146,7 +156,7 @@ class Element {
   // TODO a tiny bit hacky
   noop() {
     return {
-      stop: () => {}
+      stop: noop
     };
   }
 
@@ -587,6 +597,7 @@ class Element {
   _get_animations(fill, f) {
     const out = [];
 
+    // TODO test this
     if (this._visible) {
       each(this._animations, ({ animation, info }) => {
         const type = f(info);
@@ -880,13 +891,27 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  _on_remove(parent) {
+  _on_remove(parent, done) {
+    let pending = this._children.size + 1;
+
+    const done2 = () => {
+      --pending;
+
+      if (pending === 0) {
+        done();
+      }
+    };
+
+    // TODO this is a bit broken;
+    //      e.g. try setting the "tab remove" animation to 5000ms,
+    //      then remove tabs 1 by 1 until the group is removed,
+    //      then look in console and wait 10 seconds
     each(this._children, (x) => {
-      x._on_remove(this);
+      x._on_remove(this, done2);
     });
 
     // TODO is this in the right order ?
-    super._on_remove(parent);
+    super._on_remove(parent, done2);
   }
 
   // TODO test this
@@ -902,40 +927,11 @@ class Parent extends Element {
   }
 
   // TODO test this
-  _animate(fill, f, done = null) {
-    if (this._visible) {
-      let pending = this._children.size + 1;
-
-      const done2 = (done == null
-                      ? null
-                      : () => {
-                          --pending;
-
-                          if (pending === 0) {
-                            done();
-                          }
-                        });
-
-      super._animate(fill, f, done2);
-
-      // TODO this is a bit broken;
-      //      e.g. try setting the "tab remove" animation to 5000ms,
-      //      then remove tabs 1 by 1 until the group is removed,
-      //      then look in console and wait 10 seconds
-      each(this._children, (x) => {
-        x._animate(fill, f, done2);
-      });
-
-    } else if (done != null) {
-      done();
-    }
-  }
-
-  // TODO test this
   _clear() {
     if (this._children.size) {
       each(this._children, (x) => {
-        x._on_remove(this);
+        // TODO test this
+        x._on_remove(this, noop);
       });
 
       this._children.clear();
@@ -950,12 +946,9 @@ class Parent extends Element {
     const parent_dom = this._dom;
     const child_dom  = child._dom;
 
-    // TODO test this
-    child._animate("both", (x) => x.remove, () => {
+    child._on_remove(this, () => {
       parent_dom["removeChild"](child_dom);
     });
-
-    child._on_remove(this);
   }
 
   // TODO test this
@@ -977,8 +970,6 @@ class Parent extends Element {
 
     if (this._parent !== null) {
       x._on_insert(this, "insert");
-
-      x._animate("none", (x) => x.insert);
     }
   }
 
@@ -988,8 +979,6 @@ class Parent extends Element {
 
     if (this._parent !== null) {
       x._on_insert(this, "initial");
-
-      x._animate("none", (x) => x.initial);
     }
   }
 
@@ -1001,9 +990,8 @@ class Parent extends Element {
         this._push(x);
       });
 
-      // TODO noop function
       return {
-        stop: () => {}
+        stop: noop
       };
 
     } else {

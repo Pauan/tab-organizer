@@ -1,9 +1,6 @@
 import { Event } from "./event";
+import { noop } from "./function";
 //import { assert } from "../assert";
-
-
-// TODO this should be in another module
-const noop = () => {};
 
 
 class Base {
