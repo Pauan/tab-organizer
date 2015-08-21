@@ -42,8 +42,6 @@ export const init = async([init_options], (options) => {
         } else if (type === "number") {
           value = +value;
 
-          console.log(value);
-
           // TODO better test for this ?
           if (isNaN(value)) {
             invalid.set(true);

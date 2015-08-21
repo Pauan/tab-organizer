@@ -34,6 +34,7 @@ class Element {
   constructor(dom) {
     this._id = ++element_id;
     this._dom = dom;
+    this._parent = null;
     this._running = new Set();
     this._animations = new Set(); // TODO lazily generate this ?
     this._visible = true;
@@ -55,6 +56,7 @@ class Element {
 
     this._id = null;
     this._dom = null;
+    this._parent = null;
     this._running = null;
     this._animations = null;
     this._visible = null;
@@ -67,6 +69,9 @@ class Element {
   }
 
   _on_insert(parent, type) {
+    this._parent = parent;
+
+
     // TODO is this inefficient ?
     if (this._scroll_left !== null) {
       // TODO this triggers a relayout
@@ -77,6 +82,7 @@ class Element {
         this._dom["scrollLeft"] = width * this._scroll_left;
       }
     }
+
 
     // TODO is this inefficient ?
     if (this._scroll_top !== null) {
