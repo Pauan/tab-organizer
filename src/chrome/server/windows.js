@@ -12,7 +12,6 @@ import { make_tab, remove_tab, focus_tab, replace_tab,
 import * as windows from "./windows/windows";
 import * as tabs from "./windows/tabs";
 import * as popups from "./windows/popups";
-import * as panels from "./windows/panels";
 
 
 chrome["windows"]["onCreated"]["addListener"]((info) => {
@@ -125,10 +124,6 @@ export const init = async([chrome_get_all(), ready], (a) => {
       on_focus: tabs.on_focus,
       on_move: tabs.on_move,
       on_replace: tabs.on_replace
-    },
-
-    panels: {
-      open: panels.open
     },
 
     popups: {

@@ -11,7 +11,7 @@ import * as button from "./server/button";
 export const init = async([init_db,
                            init_windows],
                           (db,
-                           { windows, tabs, popups, panels }) => {
+                           { windows, tabs, popups }) => {
   return {
     db,
     windows,
@@ -19,7 +19,6 @@ export const init = async([init_db,
     popups,
     ports,
     button,
-    panels,
     manifest
   };
 });
