@@ -6,7 +6,7 @@ import { always, latest } from "../util/ref";
 
 export const init = async([init_chrome,
                            init_options],
-                          ({ manifest, button, popups },
+                          ({ manifest, button, popups, tabs },
                            { get: opt }) => {
 
   button.set_tooltip(always(manifest.get("name")));
@@ -49,6 +49,58 @@ export const init = async([init_chrome,
 
         width: opt("size.panel.width"),
         height: opt("size.panel.height")
+      });
+    },
+
+
+    "sidebar": () => {
+      popups.open({
+        url: "panel.html",
+
+        left: latest([
+          opt("size.sidebar.position"),
+          opt("size.sidebar"),
+          opt("screen.available.left"),
+          opt("screen.available.width")
+        ], (position, size, left, width) =>
+          (position === "right"
+            ? left + width - size
+            : left)),
+
+        top: latest([
+          opt("size.sidebar.position"),
+          opt("size.sidebar"),
+          opt("screen.available.top"),
+          opt("screen.available.height")
+        ], (position, size, top, height) =>
+          (position === "bottom"
+            ? top + height - size
+            : top)),
+
+        width: latest([
+          opt("size.sidebar.position"),
+          opt("size.sidebar"),
+          opt("screen.available.width")
+        ], (position, size, width) =>
+          (position === "left" || position === "right"
+            ? size
+            : width)),
+
+        height: latest([
+          opt("size.sidebar.position"),
+          opt("size.sidebar"),
+          opt("screen.available.height")
+        ], (position, size, height) =>
+          (position === "top" || position === "bottom"
+            ? size
+            : height))
+      });
+    },
+
+
+    "tab": () => {
+      tabs.open({
+        url: "panel.html"
       });
     }
   };

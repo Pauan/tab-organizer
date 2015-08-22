@@ -118,6 +118,7 @@ export const init = async([chrome_get_all(), ready], (a) => {
     },
 
     tabs: {
+      open: tabs.open,
       on_open: tabs.on_open,
       on_close: tabs.on_close,
       on_update: tabs.on_update,
@@ -127,11 +128,7 @@ export const init = async([chrome_get_all(), ready], (a) => {
     },
 
     popups: {
-      get: popups.get,
-      open: popups.open,
-      on_open: popups.on_open,
-      on_close: popups.on_close,
-      on_focus: popups.on_focus
+      open: popups.open
     }
   };
 });

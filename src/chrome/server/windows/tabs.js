@@ -2,7 +2,7 @@ import { chrome } from "../../../common/globals";
 import { Dict } from "../../../util/mutable/dict";
 import { Event } from "../../../util/event";
 import { assert } from "../../../util/assert";
-import { update_indexes } from "../../common/util";
+import { update_indexes, throw_error } from "../../common/util";
 import { window_ids } from "./windows";
 
 
@@ -68,6 +68,15 @@ const defocus = (window, tab) => {
   if (tab === window.focused_tab) {
     unfocus(window);
   }
+};
+
+
+export const open = ({ url }) => {
+  chrome["tabs"]["create"]({
+    "url": url
+  }, () => {
+    throw_error();
+  });
 };
 
 
