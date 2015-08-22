@@ -2,47 +2,51 @@ const readers = [];
 const writers = [];
 let batching = false;
 
-const batch = () => {
-  if (!batching) {
-    requestAnimationFrame(() => {
-      while (readers["length"]) {
-        readers["shift"]()();
-      }
 
-      let pending = writers["length"];
+// TODO is this slow ?
+const run = (a) => {
+  for (let i = 0; i < a["length"]; ++i) {
+    a[i]();
+  }
 
-      // Run all the writers for this frame
-      // If a writer adds another writer, it will be run on the next frame, not this frame
-      do {
-        writers["shift"]()();
-        --pending;
-      } while (pending !== 0);
+  // TODO is this slow ?
+  a["length"] = 0;
+};
 
-      /*console["debug"]("dom.batch: " +
-                       i_readers +
-                       " readers, " +
-                       i_writers +
-                       " writers");*/
 
-      batching = false;
+const loop = () => {
+  run(readers);
+  run(writers);
 
-      // More stuff is scheduled, run them on the next frame
-      if (readers["length"] || writers["length"]) {
-        batch();
-      }
-    });
+  // More stuff is scheduled, run them on the next frame
+  if (readers["length"]) {
+    requestAnimationFrame(loop);
 
-    batching = true;
+  } else {
+    batching = false;
   }
 };
 
-/*export const batch_read = (f) => {
-  readers["push"](f);
-  batch();
-};*/
+
+const batch = () => {
+  if (!batching) {
+    batching = true;
+
+    requestAnimationFrame(loop);
+  }
+};
+
+
+export const batch_read = (f) => {
+  //setTimeout(f, 1000);
+  f();
+  //readers["push"](f);
+  //batch();
+};
 
 export const batch_write = (f) => {
+  //setTimeout(f, 1000);
   f();
-  /*writers["push"](f);
-  batch();*/
+  //writers["push"](f);
+  //batch();
 };

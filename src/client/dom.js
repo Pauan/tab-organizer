@@ -7,7 +7,8 @@ import { uuid_stream_insert,
          uuid_stream_update,
          uuid_stream_remove,
          uuid_stream_clear } from "../util/mutable/stream";
-import { set_style, make_style,
+import { batch_read, batch_write } from "./dom/batch";
+import { get_style, set_style, make_style,
          make_animation, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
 
@@ -26,6 +27,56 @@ const mouse_event = (dom, e) => {
     shift: e["shiftKey"],
     subtree: (e["target"] !== dom) // TODO a little hacky
   };
+};
+
+// TODO this triggers a relayout
+const trigger_relayout = (dom, s) => {
+  // TODO is there a "faster" way to trigger relayout ?
+  getComputedStyle(dom)[s];
+};
+
+// TODO this isn't quite correct, but it will do for now
+// TODO use batch_read ?
+const wait_for_animation = (dom, a, done) => {
+  let pending = a["length"];
+
+  const cleanup = () => {
+    clearTimeout(timer);
+    // TODO remove vendor prefix
+    dom["removeEventListener"]("webkitAnimationEnd", end, true);
+  };
+
+  const end = (e) => {
+    if (e["target"] === dom) {
+      --pending;
+
+      if (pending === 0) {
+        cleanup();
+        done();
+      }
+    }
+  };
+
+  const error = () => {
+    cleanup();
+    fail(new Error("Animation took too long!"));
+  };
+
+  // TODO is it possible for these to leak ?
+  // TODO remove vendor prefix
+  dom["addEventListener"]("webkitAnimationEnd", end, true);
+
+  const timer = setTimeout(error, 10000);
+};
+
+const start_animation = (dom, a, done) => {
+  if (done != null) {
+    wait_for_animation(dom, a, done);
+  }
+
+  // TODO remove vendor prefix
+  // TODO code duplication
+  set_style(dom["style"], "-webkit-animation", a["join"](","));
 };
 
 
@@ -90,25 +141,33 @@ class Element {
 
     // TODO is this inefficient ?
     if (this._scroll_left !== null) {
-      // TODO this triggers a relayout
-      const width = this._dom["scrollWidth"] - this._dom["clientWidth"];
+      this._batch_read(() => {
+        const width = this._dom["scrollWidth"] -
+                      this._dom["clientWidth"];
 
-      if (width !== 0) {
-        // TODO does this trigger a relayout ?
-        this._dom["scrollLeft"] = width * this._scroll_left;
-      }
+        if (width !== 0) {
+          batch_write(() => {
+            // TODO what if the scroll_left is null ?
+            this._dom["scrollLeft"] = width * this._scroll_left;
+          });
+        }
+      });
     }
 
 
     // TODO is this inefficient ?
     if (this._scroll_top !== null) {
-      // TODO this triggers a relayout
-      const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
+      this._batch_read(() => {
+        const height = this._dom["scrollHeight"] -
+                       this._dom["clientHeight"];
 
-      if (height !== 0) {
-        // TODO does this trigger a relayout ?
-        this._dom["scrollTop"] = height * this._scroll_top;
-      }
+        if (height !== 0) {
+          batch_write(() => {
+            // TODO what if the scroll_top is null ?
+            this._dom["scrollTop"] = height * this._scroll_top;
+          });
+        }
+      });
     }
 
 
@@ -139,22 +198,46 @@ class Element {
     }
   }
 
+  _batch_read(f) {
+    batch_read(() => {
+      if (this._dom !== null) {
+        f();
+      }
+    });
+  }
+
+  _batch_write(f) {
+    batch_write(() => {
+      if (this._dom !== null) {
+        f();
+      }
+    });
+  }
+
   _scroll_to(child) {
-    const p = this.get_position();
-    const c = child.get_position();
+    this.get_position((p) => {
+      child.get_position((c) => {
+        this._batch_read(() => {
+          const scrollLeft = this._dom["scrollLeft"];
+          const scrollTop  = this._dom["scrollTop"];
 
-    // TODO test this
-    // TODO does this trigger a relayout ?
-    this._dom["scrollLeft"] +=
-      Math["round"]((c.left - p.left) -
-                    (p.width / 2) +
-                    (c.width / 2));
+          batch_write(() => {
+            // TODO test this
+            // TODO does this trigger a relayout ?
+            this._dom["scrollLeft"] = scrollLeft +
+              Math["round"]((c.left - p.left) -
+                            (p.width / 2) +
+                            (c.width / 2));
 
-    // TODO does this trigger a relayout ?
-    this._dom["scrollTop"] +=
-      Math["round"]((c.top - p.top) -
-                    (p.height / 2) +
-                    (c.height / 2));
+            // TODO does this trigger a relayout ?
+            this._dom["scrollTop"] = scrollTop +
+              Math["round"]((c.top - p.top) -
+                            (p.height / 2) +
+                            (c.height / 2));
+          });
+        });
+      });
+    });
   }
 
   _run(x) {
@@ -174,6 +257,7 @@ class Element {
     return new this.constructor(this._dom["cloneNode"](true));
   }*/
 
+  // TODO use batch_read ?
   on_mouse_hover(send) {
     // TODO code duplication
     const mouseover = (e) => {
@@ -206,6 +290,7 @@ class Element {
     };
   }
 
+  // TODO use batch_read ?
   on_mouse_hold(send) {
     const mousedown = (e) => {
       // TODO is it possible for this to leak ?
@@ -254,6 +339,7 @@ class Element {
     return this._holding;
   }
 
+  // TODO use batch_read ?
   on_scroll(send) {
     // TODO is this inefficient ?
     const scroll = (e) => {
@@ -279,6 +365,7 @@ class Element {
   }
 
   // TODO code duplication
+  // TODO use batch_read ?
   on_left_click(send) {
     const click = (e) => {
       if (e["button"] === 0) {
@@ -297,6 +384,7 @@ class Element {
   }
 
   // TODO code duplication
+  // TODO use batch_read ?
   on_middle_click(send) {
     const click = (e) => {
       if (e["button"] === 1) {
@@ -314,6 +402,7 @@ class Element {
     };
   }
 
+  // TODO use batch_read ?
   on_right_click(send) {
     const click = (e) => {
       if (e["button"] === 2) {
@@ -334,6 +423,7 @@ class Element {
     };
   }
 
+  // TODO use batch_read ?
   on_focus(send) {
     this._dom["tabIndex"] = 0;
 
@@ -374,6 +464,7 @@ class Element {
     };
   }*/
 
+  // TODO use batch_read ?
   draggable({ start, move, end, start_if }) {
     let start_x = null;
     let start_y = null;
@@ -437,21 +528,15 @@ class Element {
     };
   }
 
-  _add_style(style) {
-    this._dom["classList"]["add"](style._name);
-  }
-
-  _remove_style(style) {
-    this._dom["classList"]["remove"](style._name);
-  }
-
   set_style(style, ref) {
     return ref.each((x) => {
-      if (x) {
-        this._add_style(style);
-      } else {
-        this._remove_style(style);
-      }
+      this._batch_write(() => {
+        if (x) {
+          this._dom["classList"]["add"](style._name);
+        } else {
+          this._dom["classList"]["remove"](style._name);
+        }
+      });
     });
   }
 
@@ -505,17 +590,19 @@ class Element {
     };
   }
 
-  get_position() {
-    // TODO this triggers a relayout
-    const box = this._dom["getBoundingClientRect"]();
-    return {
-      left: box["left"],
-      top: box["top"],
-      right: box["right"],
-      bottom: box["bottom"],
-      width: box["width"],
-      height: box["height"]
-    };
+  get_position(f) {
+    this._batch_read(() => {
+      // TODO this triggers a relayout
+      const box = this._dom["getBoundingClientRect"]();
+      f({
+        left: box["left"],
+        top: box["top"],
+        right: box["right"],
+        bottom: box["bottom"],
+        width: box["width"],
+        height: box["height"]
+      });
+    });
   }
 
   animate(animation, info) {
@@ -534,47 +621,6 @@ class Element {
     };
   }
 
-  _trigger_relayout(s) {
-    // TODO this triggers a relayout
-    // TODO is there a "faster" way to trigger relayout ?
-    getComputedStyle(this._dom)[s];
-  }
-
-  // TODO this isn't quite correct, but it will do for now
-  _wait_for_animation(a, done) {
-    const dom = this._dom;
-
-    let pending = a["length"];
-
-    const cleanup = () => {
-      clearTimeout(timer);
-      // TODO remove vendor prefix
-      dom["removeEventListener"]("webkitAnimationEnd", end, true);
-    };
-
-    const end = (e) => {
-      if (e["target"] === dom) {
-        --pending;
-
-        if (pending === 0) {
-          cleanup();
-          done();
-        }
-      }
-    };
-
-    const error = () => {
-      cleanup();
-      fail(new Error("Animation took too long!"));
-    };
-
-    // TODO is it possible for these to leak ?
-    // TODO remove vendor prefix
-    dom["addEventListener"]("webkitAnimationEnd", end, true);
-
-    const timer = setTimeout(error, 10000);
-  }
-
   // TODO test this
   _animate(fill, f, done = null) {
     assert(this._visible);
@@ -583,20 +629,35 @@ class Element {
     const a = this._get_animations(fill, f);
 
     if (a["length"]) {
-      // TODO is this correct ?
-      // TODO remove vendor prefix
-      set_style(this._dom["style"], "-webkit-animation", null);
+      const dom = this._dom;
 
-      // TODO hacky, but I don't know of any other way to make it work
-      this._trigger_relayout("-webkit-animation");
+      batch_write(() => {
+        // TODO remove vendor prefix
+        const animation = get_style(dom["style"], "-webkit-animation");
 
-      if (done != null) {
-        this._wait_for_animation(a, done);
-      }
+        // TODO is this correct ?
+        if (animation === null) {
+          start_animation(dom, a, done);
 
-      // TODO remove vendor prefix
-      // TODO code duplication
-      set_style(this._dom["style"], "-webkit-animation", a["join"](","));
+        } else {
+          // TODO is this correct ?
+          // TODO remove vendor prefix
+          set_style(dom["style"], "-webkit-animation", null);
+
+          // TODO hacky, but I don't know of any other way to make it work
+          //trigger_relayout(dom, "-webkit-animation");
+
+          // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
+          requestAnimationFrame(() => {
+          // TODO this is just to force it to animate on the next frame
+          //batch_read(() => {
+            //batch_write(() => {
+              start_animation(dom, a, done);
+            //});
+          //});
+          });
+        }
+      });
 
     // TODO should this set "-webkit-animation" to `null` ?
     } else if (done != null) {
@@ -651,21 +712,31 @@ class Element {
     return ref.each((x) => {
       if (x) {
         this._visible = true;
-        set_style(this._dom["style"], "display", null);
+
+        this._batch_write(() => {
+          set_style(this._dom["style"], "display", null);
+        });
+
       } else {
         this._visible = false;
-        set_style(this._dom["style"], "display", "none");
+
+        this._batch_write(() => {
+          set_style(this._dom["style"], "display", "none");
+        });
       }
     });
   }
 
+  // TODO does this trigger a relayout ?
   tooltip(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["title"] = "";
-      } else {
-        this._dom["title"] = x;
-      }
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["title"] = "";
+        } else {
+          this._dom["title"] = x;
+        }
+      });
     });
   }
 
@@ -697,8 +768,10 @@ class Element {
 
       // TODO a little hacky
       stops["push"](ref.each((x) => {
-        // TODO test this
-        set_style(this._dom["style"], key, x);
+        this._batch_write(() => {
+          // TODO test this
+          set_style(this._dom["style"], key, x);
+        });
       }));
     });
 
@@ -716,27 +789,33 @@ class Element {
 
 
 class Image extends Element {
+  // TODO does this trigger a relayout ?
   alt(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["alt"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["alt"] = "";
 
-      } else {
-        this._dom["alt"] = x;
-      }
+        } else {
+          this._dom["alt"] = x;
+        }
+      });
     });
   }
 
+  // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["src"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["src"] = "";
 
-      } else {
-        this._dom["src"] = x;
-      }
+        } else {
+          this._dom["src"] = x;
+        }
+      });
     });
   }
 }
@@ -744,73 +823,89 @@ class Image extends Element {
 
 class Iframe extends Element {
   // TODO code duplication
+  // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["src"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["src"] = "";
 
-      } else {
-        this._dom["src"] = x;
-      }
+        } else {
+          this._dom["src"] = x;
+        }
+      });
     });
   }
 }
 
 
 class Text extends Element {
+  // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["textContent"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["textContent"] = "";
 
-      } else {
-        this._dom["textContent"] = x;
-      }
+        } else {
+          this._dom["textContent"] = x;
+        }
+      });
     });
   }
 }
 
 
 class Link extends Text {
+  // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["href"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["href"] = "";
 
-      } else {
-        this._dom["href"] = x;
-      }
+        } else {
+          this._dom["href"] = x;
+        }
+      });
     });
   }
 
+  // TODO does this trigger a relayout ?
   target(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["target"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["target"] = "";
 
-      } else {
-        this._dom["target"] = x;
-      }
+        } else {
+          this._dom["target"] = x;
+        }
+      });
     });
   }
 }
 
 
 class TextBox extends Element {
+  // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["value"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["value"] = "";
 
-      } else {
-        this._dom["value"] = x;
-      }
+        } else {
+          this._dom["value"] = x;
+        }
+      });
     });
   }
 
+  // TODO use batch_read ?
   on_change(send) {
     let timer = null;
 
@@ -834,6 +929,7 @@ class TextBox extends Element {
 
 
 class SearchBox extends TextBox {
+  // TODO use batch_read ?
   on_change(send) {
     const search = () => {
       send(this._dom["value"]);
@@ -851,16 +947,20 @@ class SearchBox extends TextBox {
 
 
 class Checkbox extends Element {
+  // TODO does this trigger a relayout ?
   checked(ref) {
     return ref.each((x) => {
-      if (x) {
-        this._dom["checked"] = true;
-      } else {
-        this._dom["checked"] = false;
-      }
+      this._batch_write(() => {
+        if (x) {
+          this._dom["checked"] = true;
+        } else {
+          this._dom["checked"] = false;
+        }
+      });
     });
   }
 
+  // TODO use batch_read ?
   on_change(send) {
     const change = () => {
       send(this._dom["checked"]);
@@ -878,15 +978,18 @@ class Checkbox extends Element {
 
 
 class Radio extends Checkbox {
+  // TODO does this trigger a relayout ?
   name(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["name"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          // TODO is this correct ?
+          this._dom["name"] = "";
 
-      } else {
-        this._dom["name"] = x;
-      }
+        } else {
+          this._dom["name"] = x;
+        }
+      });
     });
   }
 }
@@ -945,7 +1048,10 @@ class Parent extends Element {
       });
 
       this._children.clear();
-      this._dom["innerHTML"] = "";
+
+      this._batch_write(() => {
+        this._dom["innerHTML"] = "";
+      });
     }
   }
 
@@ -953,11 +1059,12 @@ class Parent extends Element {
     const child = this._children.get(index);
     this._children.remove(index);
 
-    const parent_dom = this._dom;
-    const child_dom  = child._dom;
+    const child_dom = child._dom;
 
     child._on_remove(this, child._visible, () => {
-      parent_dom["removeChild"](child_dom);
+      batch_write(() => {
+        this._dom["removeChild"](child_dom);
+      });
     });
   }
 
@@ -970,10 +1077,16 @@ class Parent extends Element {
   _insert(index, x) {
     // TODO is this correct ?
     if (this._children.has(index)) {
-      this._dom["insertBefore"](x._dom, this._children.get(index)._dom);
+      const child = this._children.get(index);
+
+      this._batch_write(() => {
+        this._dom["insertBefore"](x._dom, child._dom);
+      });
 
     } else {
-      this._dom["appendChild"](x._dom);
+      this._batch_write(() => {
+        this._dom["appendChild"](x._dom);
+      });
     }
 
     this._children.insert(index, x);
@@ -984,7 +1097,10 @@ class Parent extends Element {
   }
 
   _push(x) {
-    this._dom["appendChild"](x._dom);
+    this._batch_write(() => {
+      this._dom["appendChild"](x._dom);
+    });
+
     this._children.push(x);
 
     if (this._parent !== null) {
@@ -1050,17 +1166,21 @@ class Parent extends Element {
 
 
 class Select extends Parent {
+  // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["selectedIndex"] = -1;
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["selectedIndex"] = -1;
 
-      } else {
-        this._dom["value"] = x;
-      }
+        } else {
+          this._dom["value"] = x;
+        }
+      });
     });
   }
 
+  // TODO use batch_read ?
   on_change(send) {
     const change = () => {
       send(this._dom["value"]);
@@ -1077,39 +1197,48 @@ class Select extends Parent {
 }
 
 class Optgroup extends Parent {
+  // TODO does this trigger a relayout ?
   label(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["label"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["label"] = "";
 
-      } else {
-        this._dom["label"] = x;
-      }
+        } else {
+          this._dom["label"] = x;
+        }
+      });
     });
   }
 }
 
 class Option extends Element {
   // TODO code duplication
+  // TODO does this trigger a relayout ?
   label(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["label"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["label"] = "";
 
-      } else {
-        this._dom["label"] = x;
-      }
+        } else {
+          this._dom["label"] = x;
+        }
+      });
     });
   }
 
+  // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      if (x === null) {
-        this._dom["value"] = "";
+      this._batch_write(() => {
+        if (x === null) {
+          this._dom["value"] = "";
 
-      } else {
-        this._dom["value"] = x;
-      }
+        } else {
+          this._dom["value"] = x;
+        }
+      });
     });
   }
 }
@@ -1421,8 +1550,11 @@ export const main = (x) => {
   body._push(x);
 };
 
+// TODO does this trigger a relayout ?
 export const title = (ref) => {
   return ref.each((x) => {
-    document["title"] = x;
+    batch_write(() => {
+      document["title"] = x;
+    });
   });
 };
