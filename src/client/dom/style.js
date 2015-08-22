@@ -1,6 +1,5 @@
 import { each, entries } from "../../util/iterator";
 import { fail } from "../../util/assert";
-import { batch_write } from "./batch";
 
 
 export const get_style = (style, key) =>
@@ -100,20 +99,16 @@ export const make_style = (rules) => {
 
 
 export const make_stylesheet = (name, rules) => {
-  batch_write(() => {
-    // TODO does this trigger a relayout ?
-    // TODO this may not work in all browsers
-    // TODO sheet.addRule(s)
-    const index = sheet["insertRule"](name + " {}", cssRules["length"]);
+  // TODO does this trigger a relayout ?
+  // TODO this may not work in all browsers
+  // TODO sheet.addRule(s)
+  const index = sheet["insertRule"](name + " {}", cssRules["length"]);
 
-    const style = cssRules[index]["style"];
+  const style = cssRules[index]["style"];
 
-    each(entries(rules), ([key, value]) => {
-      value.each((value) => {
-        batch_write(() => {
-          set_style(style, key, value);
-        });
-      });
+  each(entries(rules), ([key, value]) => {
+    value.each((value) => {
+      set_style(style, key, value);
     });
   });
 };
@@ -124,45 +119,39 @@ export const make_animation = ({ from, to, duration, easing }) => {
 
   const animation = new Animation(class_name);
 
-  batch_write(() => {
-    // TODO does this trigger a relayout ?
-    // TODO this may not work in all browsers
-    // TODO remove vendor prefix
-    const index = sheet["insertRule"]("@-webkit-keyframes " + class_name + " {}",
-                                      cssRules["length"]);
+  // TODO does this trigger a relayout ?
+  // TODO this may not work in all browsers
+  // TODO remove vendor prefix
+  const index = sheet["insertRule"]("@-webkit-keyframes " + class_name + " {}",
+                                    cssRules["length"]);
 
-    const keyframe = cssRules[index];
+  const keyframe = cssRules[index];
 
-    keyframe["appendRule"]("0% {}");
-    keyframe["appendRule"]("100% {}");
+  keyframe["appendRule"]("0% {}");
+  keyframe["appendRule"]("100% {}");
 
-    const from_style = keyframe["cssRules"][0]["style"];
-    const to_style   = keyframe["cssRules"][1]["style"];
+  const from_style = keyframe["cssRules"][0]["style"];
+  const to_style   = keyframe["cssRules"][1]["style"];
 
-    // TODO is this less efficient than specifying the values ?
-    if (from) {
-      each(entries(from), ([key, value]) => {
-        value.each((value) => {
-          batch_write(() => {
-            // TODO does this throw an error on un-animatable values ?
-            set_style(from_style, key, value);
-          });
-        });
+  // TODO is this less efficient than specifying the values ?
+  if (from) {
+    each(entries(from), ([key, value]) => {
+      value.each((value) => {
+        // TODO does this throw an error on un-animatable values ?
+        set_style(from_style, key, value);
       });
-    }
+    });
+  }
 
-    // TODO is this less efficient than specifying the values ?
-    if (to) {
-      each(entries(to), ([key, value]) => {
-        value.each((value) => {
-          batch_write(() => {
-            // TODO does this throw an error on un-animatable values ?
-            set_style(to_style, key, value);
-          });
-        });
+  // TODO is this less efficient than specifying the values ?
+  if (to) {
+    each(entries(to), ([key, value]) => {
+      value.each((value) => {
+        // TODO does this throw an error on un-animatable values ?
+        set_style(to_style, key, value);
       });
-    }
-  });
+    });
+  }
 
   if (easing) {
     easing.each((easing) => {

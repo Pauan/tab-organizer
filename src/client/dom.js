@@ -7,7 +7,6 @@ import { uuid_stream_insert,
          uuid_stream_update,
          uuid_stream_remove,
          uuid_stream_clear } from "../util/mutable/stream";
-import { batch_read, batch_write } from "./dom/batch";
 import { get_style, set_style, make_style,
          make_animation, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
@@ -141,33 +140,25 @@ class Element {
 
     // TODO is this inefficient ?
     if (this._scroll_left !== null) {
-      this._batch_read(() => {
-        const width = this._dom["scrollWidth"] -
-                      this._dom["clientWidth"];
+      const width = this._dom["scrollWidth"] -
+                    this._dom["clientWidth"];
 
-        if (width !== 0) {
-          batch_write(() => {
-            // TODO what if the scroll_left is null ?
-            this._dom["scrollLeft"] = width * this._scroll_left;
-          });
-        }
-      });
+      if (width !== 0) {
+        // TODO what if the scroll_left is null ?
+        this._dom["scrollLeft"] = width * this._scroll_left;
+      }
     }
 
 
     // TODO is this inefficient ?
     if (this._scroll_top !== null) {
-      this._batch_read(() => {
-        const height = this._dom["scrollHeight"] -
-                       this._dom["clientHeight"];
+      const height = this._dom["scrollHeight"] -
+                     this._dom["clientHeight"];
 
-        if (height !== 0) {
-          batch_write(() => {
-            // TODO what if the scroll_top is null ?
-            this._dom["scrollTop"] = height * this._scroll_top;
-          });
-        }
-      });
+      if (height !== 0) {
+        // TODO what if the scroll_top is null ?
+        this._dom["scrollTop"] = height * this._scroll_top;
+      }
     }
 
 
@@ -198,44 +189,24 @@ class Element {
     }
   }
 
-  _batch_read(f) {
-    batch_read(() => {
-      if (this._dom !== null) {
-        f();
-      }
-    });
-  }
-
-  _batch_write(f) {
-    batch_write(() => {
-      if (this._dom !== null) {
-        f();
-      }
-    });
-  }
-
   _scroll_to(child) {
     this.get_position((p) => {
       child.get_position((c) => {
-        this._batch_read(() => {
-          const scrollLeft = this._dom["scrollLeft"];
-          const scrollTop  = this._dom["scrollTop"];
+        const scrollLeft = this._dom["scrollLeft"];
+        const scrollTop  = this._dom["scrollTop"];
 
-          batch_write(() => {
-            // TODO test this
-            // TODO does this trigger a relayout ?
-            this._dom["scrollLeft"] = scrollLeft +
-              Math["round"]((c.left - p.left) -
-                            (p.width / 2) +
-                            (c.width / 2));
+        // TODO test this
+        // TODO does this trigger a relayout ?
+        this._dom["scrollLeft"] = scrollLeft +
+          Math["round"]((c.left - p.left) -
+                        (p.width / 2) +
+                        (c.width / 2));
 
-            // TODO does this trigger a relayout ?
-            this._dom["scrollTop"] = scrollTop +
-              Math["round"]((c.top - p.top) -
-                            (p.height / 2) +
-                            (c.height / 2));
-          });
-        });
+        // TODO does this trigger a relayout ?
+        this._dom["scrollTop"] = scrollTop +
+          Math["round"]((c.top - p.top) -
+                        (p.height / 2) +
+                        (c.height / 2));
       });
     });
   }
@@ -530,13 +501,11 @@ class Element {
 
   set_style(style, ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x) {
-          this._dom["classList"]["add"](style._name);
-        } else {
-          this._dom["classList"]["remove"](style._name);
-        }
-      });
+      if (x) {
+        this._dom["classList"]["add"](style._name);
+      } else {
+        this._dom["classList"]["remove"](style._name);
+      }
     });
   }
 
@@ -591,17 +560,15 @@ class Element {
   }
 
   get_position(f) {
-    this._batch_read(() => {
-      // TODO this triggers a relayout
-      const box = this._dom["getBoundingClientRect"]();
-      f({
-        left: box["left"],
-        top: box["top"],
-        right: box["right"],
-        bottom: box["bottom"],
-        width: box["width"],
-        height: box["height"]
-      });
+    // TODO this triggers a relayout
+    const box = this._dom["getBoundingClientRect"]();
+    f({
+      left: box["left"],
+      top: box["top"],
+      right: box["right"],
+      bottom: box["bottom"],
+      width: box["width"],
+      height: box["height"]
     });
   }
 
@@ -631,33 +598,23 @@ class Element {
     if (a["length"]) {
       const dom = this._dom;
 
-      batch_write(() => {
-        // TODO remove vendor prefix
-        const animation = get_style(dom["style"], "-webkit-animation");
+      // TODO remove vendor prefix
+      const animation = get_style(dom["style"], "-webkit-animation");
 
+      // TODO is this correct ?
+      if (animation === null) {
+        start_animation(dom, a, done);
+
+      } else {
         // TODO is this correct ?
-        if (animation === null) {
+        // TODO remove vendor prefix
+        set_style(dom["style"], "-webkit-animation", null);
+
+        // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
+        requestAnimationFrame(() => {
           start_animation(dom, a, done);
-
-        } else {
-          // TODO is this correct ?
-          // TODO remove vendor prefix
-          set_style(dom["style"], "-webkit-animation", null);
-
-          // TODO hacky, but I don't know of any other way to make it work
-          //trigger_relayout(dom, "-webkit-animation");
-
-          // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
-          requestAnimationFrame(() => {
-          // TODO this is just to force it to animate on the next frame
-          //batch_read(() => {
-            //batch_write(() => {
-              start_animation(dom, a, done);
-            //});
-          //});
-          });
-        }
-      });
+        });
+      }
 
     // TODO should this set "-webkit-animation" to `null` ?
     } else if (done != null) {
@@ -712,17 +669,11 @@ class Element {
     return ref.each((x) => {
       if (x) {
         this._visible = true;
-
-        this._batch_write(() => {
-          set_style(this._dom["style"], "display", null);
-        });
+        set_style(this._dom["style"], "display", null);
 
       } else {
         this._visible = false;
-
-        this._batch_write(() => {
-          set_style(this._dom["style"], "display", "none");
-        });
+        set_style(this._dom["style"], "display", "none");
       }
     });
   }
@@ -730,13 +681,11 @@ class Element {
   // TODO does this trigger a relayout ?
   tooltip(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["title"] = "";
-        } else {
-          this._dom["title"] = x;
-        }
-      });
+      if (x === null) {
+        this._dom["title"] = "";
+      } else {
+        this._dom["title"] = x;
+      }
     });
   }
 
@@ -768,10 +717,8 @@ class Element {
 
       // TODO a little hacky
       stops["push"](ref.each((x) => {
-        this._batch_write(() => {
-          // TODO test this
-          set_style(this._dom["style"], key, x);
-        });
+        // TODO test this
+        set_style(this._dom["style"], key, x);
       }));
     });
 
@@ -792,30 +739,26 @@ class Image extends Element {
   // TODO does this trigger a relayout ?
   alt(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["alt"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["alt"] = "";
 
-        } else {
-          this._dom["alt"] = x;
-        }
-      });
+      } else {
+        this._dom["alt"] = x;
+      }
     });
   }
 
   // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["src"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["src"] = "";
 
-        } else {
-          this._dom["src"] = x;
-        }
-      });
+      } else {
+        this._dom["src"] = x;
+      }
     });
   }
 }
@@ -826,15 +769,13 @@ class Iframe extends Element {
   // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["src"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["src"] = "";
 
-        } else {
-          this._dom["src"] = x;
-        }
-      });
+      } else {
+        this._dom["src"] = x;
+      }
     });
   }
 }
@@ -844,14 +785,12 @@ class Text extends Element {
   // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["textContent"] = "";
+      if (x === null) {
+        this._dom["textContent"] = "";
 
-        } else {
-          this._dom["textContent"] = x;
-        }
-      });
+      } else {
+        this._dom["textContent"] = x;
+      }
     });
   }
 }
@@ -861,30 +800,26 @@ class Link extends Text {
   // TODO does this trigger a relayout ?
   url(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["href"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["href"] = "";
 
-        } else {
-          this._dom["href"] = x;
-        }
-      });
+      } else {
+        this._dom["href"] = x;
+      }
     });
   }
 
   // TODO does this trigger a relayout ?
   target(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["target"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["target"] = "";
 
-        } else {
-          this._dom["target"] = x;
-        }
-      });
+      } else {
+        this._dom["target"] = x;
+      }
     });
   }
 }
@@ -894,14 +829,12 @@ class TextBox extends Element {
   // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["value"] = "";
+      if (x === null) {
+        this._dom["value"] = "";
 
-        } else {
-          this._dom["value"] = x;
-        }
-      });
+      } else {
+        this._dom["value"] = x;
+      }
     });
   }
 
@@ -950,13 +883,11 @@ class Checkbox extends Element {
   // TODO does this trigger a relayout ?
   checked(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x) {
-          this._dom["checked"] = true;
-        } else {
-          this._dom["checked"] = false;
-        }
-      });
+      if (x) {
+        this._dom["checked"] = true;
+      } else {
+        this._dom["checked"] = false;
+      }
     });
   }
 
@@ -981,15 +912,13 @@ class Radio extends Checkbox {
   // TODO does this trigger a relayout ?
   name(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          // TODO is this correct ?
-          this._dom["name"] = "";
+      if (x === null) {
+        // TODO is this correct ?
+        this._dom["name"] = "";
 
-        } else {
-          this._dom["name"] = x;
-        }
-      });
+      } else {
+        this._dom["name"] = x;
+      }
     });
   }
 }
@@ -1048,10 +977,7 @@ class Parent extends Element {
       });
 
       this._children.clear();
-
-      this._batch_write(() => {
-        this._dom["innerHTML"] = "";
-      });
+      this._dom["innerHTML"] = "";
     }
   }
 
@@ -1062,9 +988,7 @@ class Parent extends Element {
     const child_dom = child._dom;
 
     child._on_remove(this, child._visible, () => {
-      batch_write(() => {
-        this._dom["removeChild"](child_dom);
-      });
+      this._dom["removeChild"](child_dom);
     });
   }
 
@@ -1078,15 +1002,10 @@ class Parent extends Element {
     // TODO is this correct ?
     if (this._children.has(index)) {
       const child = this._children.get(index);
-
-      this._batch_write(() => {
-        this._dom["insertBefore"](x._dom, child._dom);
-      });
+      this._dom["insertBefore"](x._dom, child._dom);
 
     } else {
-      this._batch_write(() => {
-        this._dom["appendChild"](x._dom);
-      });
+      this._dom["appendChild"](x._dom);
     }
 
     this._children.insert(index, x);
@@ -1097,9 +1016,7 @@ class Parent extends Element {
   }
 
   _push(x) {
-    this._batch_write(() => {
-      this._dom["appendChild"](x._dom);
-    });
+    this._dom["appendChild"](x._dom);
 
     this._children.push(x);
 
@@ -1169,14 +1086,12 @@ class Select extends Parent {
   // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["selectedIndex"] = -1;
+      if (x === null) {
+        this._dom["selectedIndex"] = -1;
 
-        } else {
-          this._dom["value"] = x;
-        }
-      });
+      } else {
+        this._dom["value"] = x;
+      }
     });
   }
 
@@ -1200,14 +1115,12 @@ class Optgroup extends Parent {
   // TODO does this trigger a relayout ?
   label(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["label"] = "";
+      if (x === null) {
+        this._dom["label"] = "";
 
-        } else {
-          this._dom["label"] = x;
-        }
-      });
+      } else {
+        this._dom["label"] = x;
+      }
     });
   }
 }
@@ -1217,28 +1130,24 @@ class Option extends Element {
   // TODO does this trigger a relayout ?
   label(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["label"] = "";
+      if (x === null) {
+        this._dom["label"] = "";
 
-        } else {
-          this._dom["label"] = x;
-        }
-      });
+      } else {
+        this._dom["label"] = x;
+      }
     });
   }
 
   // TODO does this trigger a relayout ?
   value(ref) {
     return ref.each((x) => {
-      this._batch_write(() => {
-        if (x === null) {
-          this._dom["value"] = "";
+      if (x === null) {
+        this._dom["value"] = "";
 
-        } else {
-          this._dom["value"] = x;
-        }
-      });
+      } else {
+        this._dom["value"] = x;
+      }
     });
   }
 }
@@ -1553,8 +1462,6 @@ export const main = (x) => {
 // TODO does this trigger a relayout ?
 export const title = (ref) => {
   return ref.each((x) => {
-    batch_write(() => {
-      document["title"] = x;
-    });
+    document["title"] = x;
   });
 };
