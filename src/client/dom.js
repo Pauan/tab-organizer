@@ -48,14 +48,18 @@ class Element {
   }
 
   // TODO test this
-  _on_remove(parent, done) {
+  _on_remove(parent, animate, done) {
     assert(this._id !== null);
     assert(this._dom !== null);
     assert(this._parent !== null);
     assert(this._parent === parent);
 
-    // TODO is this the right order for this ?
-    this._animate("both", (x) => x.remove, done);
+    if (animate) {
+      // TODO is this the right order for this ?
+      this._animate("both", (x) => x.remove, done);
+    } else {
+      done();
+    }
 
     each(this._running, (x) => {
       x.stop();
@@ -77,7 +81,7 @@ class Element {
     this._scroll_to_insert = null;
   }
 
-  _on_insert(parent, type) {
+  _on_insert(parent, animate, type) {
     assert(this._dom !== null);
     assert(this._parent === null);
 
@@ -113,8 +117,10 @@ class Element {
         parent._scroll_to(this);
       }
 
-      // TODO is this the right order for this ?
-      this._animate("none", (x) => x.initial);
+      if (animate) {
+        // TODO is this the right order for this ?
+        this._animate("none", (x) => x.initial);
+      }
 
 
     } else if (type === "insert") {
@@ -122,8 +128,10 @@ class Element {
         parent._scroll_to(this);
       }
 
-      // TODO is this the right order for this ?
-      this._animate("none", (x) => x.insert);
+      if (animate) {
+        // TODO is this the right order for this ?
+        this._animate("none", (x) => x.insert);
+      }
 
 
     } else {
@@ -569,6 +577,9 @@ class Element {
 
   // TODO test this
   _animate(fill, f, done = null) {
+    assert(this._visible);
+    assert(this._parent !== null);
+
     const a = this._get_animations(fill, f);
 
     if (a["length"]) {
@@ -597,35 +608,32 @@ class Element {
   _get_animations(fill, f) {
     const out = [];
 
-    // TODO test this
-    if (this._visible) {
-      each(this._animations, ({ animation, info }) => {
-        const type = f(info);
+    each(this._animations, ({ animation, info }) => {
+      const type = f(info);
 
-        // TODO a tiny bit hacky
-        if (type) {
-          if (type === "play-to") {
-            out["push"](animation._name + " " +
-                        animation._duration + " " +
-                        animation._easing +
-                        " 0ms 1 normal " +
-                        fill +
-                        " running");
+      // TODO a tiny bit hacky
+      if (type) {
+        if (type === "play-to") {
+          out["push"](animation._name + " " +
+                      animation._duration + " " +
+                      animation._easing +
+                      " 0ms 1 normal " +
+                      fill +
+                      " running");
 
-          } else if (type === "play-from") {
-            out["push"](animation._name + " " +
-                        animation._duration + " " +
-                        animation._easing +
-                        " 0ms 1 reverse " +
-                        fill +
-                        " running");
+        } else if (type === "play-from") {
+          out["push"](animation._name + " " +
+                      animation._duration + " " +
+                      animation._easing +
+                      " 0ms 1 reverse " +
+                      fill +
+                      " running");
 
-          } else {
-            fail();
-          }
+        } else {
+          fail();
         }
-      });
-    }
+      }
+    });
 
     return out;
   }
@@ -891,7 +899,7 @@ class Parent extends Element {
     this._children = new List();
   }
 
-  _on_remove(parent, done) {
+  _on_remove(parent, animate, done) {
     let pending = this._children.size + 1;
 
     const done2 = () => {
@@ -902,27 +910,29 @@ class Parent extends Element {
       }
     };
 
+    // TODO is this in the right order ?
+    super._on_remove(parent, animate, done2);
+
     // TODO this is a bit broken;
     //      e.g. try setting the "tab remove" animation to 5000ms,
     //      then remove tabs 1 by 1 until the group is removed,
     //      then look in console and wait 10 seconds
     each(this._children, (x) => {
-      x._on_remove(this, done2);
+      // TODO a bit hacky
+      x._on_remove(this, animate && x._visible, done2);
     });
-
-    // TODO is this in the right order ?
-    super._on_remove(parent, done2);
   }
 
   // TODO test this
   // TODO this doesn't seem quite right: it gets called multiple times when the element is initially pushed
-  _on_insert(parent, type) {
+  _on_insert(parent, animate, type) {
     // TODO is this in the right order ?
-    super._on_insert(parent, type);
+    super._on_insert(parent, animate, type);
 
     // TODO is this correct ?
     each(this._children, (x) => {
-      x._on_insert(this, type);
+      // TODO a bit hacky
+      x._on_insert(this, animate && x._visible, type);
     });
   }
 
@@ -931,7 +941,7 @@ class Parent extends Element {
     if (this._children.size) {
       each(this._children, (x) => {
         // TODO test this
-        x._on_remove(this, noop);
+        x._on_remove(this, x._visible, noop);
       });
 
       this._children.clear();
@@ -946,7 +956,7 @@ class Parent extends Element {
     const parent_dom = this._dom;
     const child_dom  = child._dom;
 
-    child._on_remove(this, () => {
+    child._on_remove(this, child._visible, () => {
       parent_dom["removeChild"](child_dom);
     });
   }
@@ -969,7 +979,7 @@ class Parent extends Element {
     this._children.insert(index, x);
 
     if (this._parent !== null) {
-      x._on_insert(this, "insert");
+      x._on_insert(this, x._visible, "insert");
     }
   }
 
@@ -978,7 +988,7 @@ class Parent extends Element {
     this._children.push(x);
 
     if (this._parent !== null) {
-      x._on_insert(this, "initial");
+      x._on_insert(this, x._visible, "initial");
     }
   }
 
