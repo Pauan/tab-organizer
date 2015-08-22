@@ -69,6 +69,28 @@ class Constant extends Base {
 }
 
 
+class First extends Base {
+  constructor(parent) {
+    super();
+
+    this._parent = parent;
+  }
+
+  // TODO is this correct ?
+  // TODO does this leak ?
+  _listen(initial, change) {
+    // TODO assert that `noop` is never called ?
+    const x = this._parent._listen(initial, noop);
+
+    x.stop();
+
+    return {
+      stop: noop
+    };
+  }
+}
+
+
 class Latest extends Base {
   constructor(args, f) {
     super();
@@ -132,6 +154,9 @@ class Latest extends Base {
 
 export const always = (x) =>
   new Constant(x);
+
+export const first = (x) =>
+  new First(x);
 
 export const latest = (args, f) =>
   new Latest(args, f);

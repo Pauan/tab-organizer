@@ -2,7 +2,7 @@ import * as dom from "../../dom";
 import { async } from "../../../util/async";
 import { List } from "../../../util/mutable/list";
 import { url_bar } from "./url-bar";
-import { latest, Ref, and, or, not, always } from "../../../util/ref";
+import { latest, Ref, and, or, not, always, first } from "../../../util/ref";
 import { each, map, indexed, empty } from "../../../util/iterator";
 import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";
@@ -690,11 +690,9 @@ export const init = async([init_options,
 
         e.scroll_to({
           // TODO maybe add `tab.get("visible")` to the definition of `is_focused` ?
-          initial: and([
-            is_focused,
-            tab.get("visible")
-          ]),
-          insert: tab.get("visible")
+          initial: first(is_focused),
+          // TODO make this work with vertical mode
+          //insert: tab.get("visible")
         }),
 
         latest([

@@ -167,28 +167,6 @@ class Element {
     }
   }
 
-  _scroll_to(child) {
-    this.get_position((p) => {
-      child.get_position((c) => {
-        const scrollLeft = this._dom["scrollLeft"];
-        const scrollTop  = this._dom["scrollTop"];
-
-        // TODO test this
-        // TODO does this trigger a relayout ?
-        this._dom["scrollLeft"] = scrollLeft +
-          Math["round"]((c.left - p.left) -
-                        (p.width / 2) +
-                        (c.width / 2));
-
-        // TODO does this trigger a relayout ?
-        this._dom["scrollTop"] = scrollTop +
-          Math["round"]((c.top - p.top) -
-                        (p.height / 2) +
-                        (c.height / 2));
-      });
-    });
-  }
-
   _run(x) {
     this._running.insert(x);
   }
@@ -521,7 +499,8 @@ class Element {
     });
   }
 
-  scroll_to({ initial, insert }) {
+  scroll_to({ initial = always(false),
+              insert  = always(false) }) {
     // TODO does this leak memory ?
     return latest([
       this._on_inserted(),
@@ -536,6 +515,31 @@ class Element {
         this._parent._scroll_to(this);
       }
     });
+  }
+
+  _scroll_to(child) {
+    // TODO what if the child is visible but the parent isn't ?
+    if (child._visible) {
+      this.get_position((p) => {
+        child.get_position((c) => {
+          const scrollLeft = this._dom["scrollLeft"];
+          const scrollTop  = this._dom["scrollTop"];
+
+          // TODO test this
+          // TODO does this trigger a relayout ?
+          this._dom["scrollLeft"] = scrollLeft +
+            Math["round"]((c.left - p.left) -
+                          (p.width / 2) +
+                          (c.width / 2));
+
+          // TODO does this trigger a relayout ?
+          this._dom["scrollTop"] = scrollTop +
+            Math["round"]((c.top - p.top) -
+                          (p.height / 2) +
+                          (c.height / 2));
+        });
+      });
+    }
   }
 
   get_position(f) {
