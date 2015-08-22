@@ -91,6 +91,62 @@ class First extends Base {
 }
 
 
+// TODO test this
+class Throttle extends Base {
+  constructor(parent, interval) {
+    super();
+
+    this._parent = parent;
+    this._interval = interval;
+  }
+
+  _listen(initial, change) {
+    let timer = null;
+    let waiting = false;
+    let old_value = null;
+    let new_value = null;
+
+    const done = () => {
+      timer = null;
+      waiting = false;
+
+      if (old_value !== new_value) {
+        old_value = new_value;
+        change(old_value);
+      }
+    };
+
+    const wait = (value) => {
+      new_value = value;
+
+      if (!waiting) {
+        waiting = true;
+
+        timer = setTimeout(done, this._interval);
+      }
+    };
+
+    const x = this._parent._listen((value) => {
+      old_value = value;
+      new_value = value;
+
+      wait(old_value);
+      initial(old_value);
+    }, wait);
+
+    return {
+      stop: () => {
+        x.stop();
+
+        if (timer !== null) {
+          clearTimeout(timer);
+        }
+      }
+    };
+  }
+}
+
+
 class Latest extends Base {
   constructor(args, f) {
     super();
@@ -157,6 +213,9 @@ export const always = (x) =>
 
 export const first = (x) =>
   new First(x);
+
+export const throttle = (x, i) =>
+  new Throttle(x, i);
 
 export const latest = (args, f) =>
   new Latest(args, f);

@@ -826,9 +826,13 @@ class TextBox extends Element {
     let timer = null;
 
     const input = () => {
-      clearTimeout(timer);
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
 
       timer = setTimeout(() => {
+        timer = null;
+
         send(this._dom["value"]);
       }, 300);
     };
