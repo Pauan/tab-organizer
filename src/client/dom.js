@@ -1,6 +1,6 @@
 import { each, entries } from "../util/iterator";
 import { Set } from "../util/mutable/set";
-import { Ref, always } from "../util/ref";
+import { Ref, always, latest } from "../util/ref";
 import { noop } from "../util/function";
 import { List } from "../util/mutable/list";
 import { uuid_stream_insert,
@@ -89,12 +89,9 @@ class Element {
     this._running = new Set();
     this._animations = new Set(); // TODO lazily generate this ?
     this._visible = true;
+    this._inserted = null;
     this._hovering = null;
     this._holding = null;
-    this._scroll_left = null;
-    this._scroll_top = null;
-    this._scroll_to_initial = false;
-    this._scroll_to_insert = false;
   }
 
   // TODO test this
@@ -104,6 +101,7 @@ class Element {
     assert(this._parent !== null);
     assert(this._parent === parent);
 
+    // TODO what if the child node is visible but the parent node is not ?
     if (animate) {
       // TODO is this the right order for this ?
       this._animate("both", (x) => x.remove, done);
@@ -123,12 +121,18 @@ class Element {
     this._running = null;
     this._animations = null;
     this._visible = null;
-    this._hovering = null;
-    this._holding = null;
-    this._scroll_left = null;
-    this._scroll_top = null;
-    this._scroll_to_initial = null;
-    this._scroll_to_insert = null;
+    this._inserted = null; // TODO does this leak ?
+    this._hovering = null; // TODO does this leak ?
+    this._holding = null; // TODO does this leak ?
+  }
+
+  _on_inserted() {
+    if (this._inserted === null) {
+      // TODO is it possible for this to run after the element is inserted ?
+      this._inserted = new Ref(null);
+    }
+
+    return this._inserted;
   }
 
   _on_insert(parent, animate, type) {
@@ -137,36 +141,13 @@ class Element {
 
     this._parent = parent;
 
-
-    // TODO is this inefficient ?
-    if (this._scroll_left !== null) {
-      const width = this._dom["scrollWidth"] -
-                    this._dom["clientWidth"];
-
-      if (width !== 0) {
-        // TODO what if the scroll_left is null ?
-        this._dom["scrollLeft"] = width * this._scroll_left;
-      }
-    }
-
-
-    // TODO is this inefficient ?
-    if (this._scroll_top !== null) {
-      const height = this._dom["scrollHeight"] -
-                     this._dom["clientHeight"];
-
-      if (height !== 0) {
-        // TODO what if the scroll_top is null ?
-        this._dom["scrollTop"] = height * this._scroll_top;
-      }
+    if (this._inserted !== null) {
+      this._inserted.set(type);
     }
 
 
     if (type === "initial") {
-      if (this._scroll_to_initial) {
-        parent._scroll_to(this);
-      }
-
+      // TODO what if the child node is visible but the parent node is not ?
       if (animate) {
         // TODO is this the right order for this ?
         this._animate("none", (x) => x.initial);
@@ -174,10 +155,7 @@ class Element {
 
 
     } else if (type === "insert") {
-      if (this._scroll_to_insert) {
-        parent._scroll_to(this);
-      }
-
+      // TODO what if the child node is visible but the parent node is not ?
       if (animate) {
         // TODO is this the right order for this ?
         this._animate("none", (x) => x.insert);
@@ -511,52 +489,53 @@ class Element {
 
   // TODO test this
   set_scroll({ x, y }) {
-    const r1 = x.each((x) => {
-      this._scroll_left = x;
+    // TODO does this leak memory ?
+    return latest([
+      this._on_inserted(),
+      x,
+      y
+    ], (inserted, x, y) => {
+      if (inserted !== null) {
+        const width = this._dom["scrollWidth"] -
+                      this._dom["clientWidth"];
 
-      // TODO is this needed ?
-      //this._dom["scrollLeft"] = x;
-    });
+        const height = this._dom["scrollHeight"] -
+                       this._dom["clientHeight"];
 
-    const r2 = y.each((y) => {
-      this._scroll_top = y;
+        // TODO what if x is null ?
+        // TODO what if y is null ?
+        return {
+          x: x * width,
+          y: y * height
+        };
 
-      // TODO is this needed ?
-      //this._dom["scrollTop"] = y;
-    });
-
-    return {
-      // TODO test this
-      stop: () => {
-        r1.stop();
-        r2.stop();
+      } else {
+        return null;
       }
-    };
+
+    }).each((info) => {
+      if (info !== null) {
+        this._dom["scrollLeft"] = info.x;
+        this._dom["scrollTop"]  = info.y;
+      }
+    });
   }
 
-  scroll_to(info) {
-    const running = new Set();
+  scroll_to({ initial, insert }) {
+    // TODO does this leak memory ?
+    return latest([
+      this._on_inserted(),
+      initial,
+      insert
+    ], (inserted, initial, insert) => {
+      return (inserted === "initial" && initial) ||
+             (inserted === "insert"  && insert);
 
-    if (info.initial) {
-      running.insert(info.initial.each((x) => {
-        this._scroll_to_initial = x;
-      }));
-    }
-
-    if (info.insert) {
-      running.insert(info.insert.each((x) => {
-        this._scroll_to_insert = x;
-      }));
-    }
-
-    return {
-      // TODO test this
-      stop: () => {
-        each(running, (x) => {
-          x.stop();
-        });
+    }).each((scroll) => {
+      if (scroll) {
+        this._parent._scroll_to(this);
       }
-    };
+    });
   }
 
   get_position(f) {
@@ -1455,8 +1434,10 @@ const body = new Parent(document["body"]);
 body._parent = new Parent(document["body"]["parentNode"]);
 
 export const main = (x) => {
-  // TODO test this
-  body._push(x);
+  //requestAnimationFrame(() => {
+    // TODO test this
+    body._push(x);
+  //});
 };
 
 // TODO does this trigger a relayout ?
