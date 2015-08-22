@@ -20,6 +20,8 @@ export const init = async([init_options,
   const dragging_started    = new Ref(null);
   const dragging_dimensions = new Ref(null);
 
+  const tab_height = 20;
+
   // TODO move this into another module
   // TODO better implementation of this ?
   const hypot = (x, y) =>
@@ -155,7 +157,7 @@ export const init = async([init_options,
 
   const style_tab = dom.style({
     "width": always("100%"),
-    "height": always("20px"),
+    "height": always(tab_height + "px"),
     "padding": always("1px"),
     "border-radius": always("5px"),
   });
@@ -295,7 +297,7 @@ export const init = async([init_options,
       "opacity": always("1")
     },
     to: {
-      "margin-top": always("-20px"),
+      "margin-top": always("-" + tab_height + "px"),
       "opacity": always("0")
     }
   });
@@ -307,7 +309,7 @@ export const init = async([init_options,
 
   // TODO code duplication
   const style_tab_dragging_hidden = dom.style({
-    "margin-top": always("-20px"),
+    "margin-top": always("-" + tab_height + "px"),
     "opacity": always("0")
   });
 
@@ -506,49 +508,49 @@ export const init = async([init_options,
 
   // TODO this should be a part of logic and stuff
   const drag_start = ({ group, tab, e, x, y }) => {
-    const tab_box = e.get_position();
+    e.get_position((tab_box) => {
+      const tabs = group.get("tabs");
 
-    const tabs = group.get("tabs");
+      const selected = new List();
 
-    const selected = new List();
+      each(tabs, (x) => {
+        if (x.get("selected").get() &&
+            // TODO is this correct ?
+            x.get("visible").get()) {
+          selected.push(x);
+        }
+      });
 
-    each(tabs, (x) => {
-      if (x.get("selected").get() &&
-          // TODO is this correct ?
-          x.get("visible").get()) {
-        selected.push(x);
+      if (selected.size === 0) {
+        selected.push(tab);
       }
+
+      each(selected, (tab) => {
+        tab.get("visible").set(false);
+      });
+
+      // TODO hacky
+      const height = (selected.size === 1
+                       ? tab_height
+                       : (tab_height +
+                          (Math["min"](selected.size, 4) * 3)));
+
+      dragging_should_x = (opt("groups.layout").get() !== "vertical");
+      dragging_offset_x = (x - tab_box.left);
+      dragging_offset_y = (height / 2);
+
+      dragging_dimensions.set({
+        x: (x - dragging_offset_x),
+        y: (y - dragging_offset_y)
+      });
+
+      dragging_started.set({
+        selected: selected,
+        width: Math["round"](tab_box.width)
+      });
+
+      logic.drag_start({ group, tab, height });
     });
-
-    if (selected.size === 0) {
-      selected.push(tab);
-    }
-
-    each(selected, (tab) => {
-      tab.get("visible").set(false);
-    });
-
-    // TODO hacky
-    const height = (selected.size === 1
-                     ? tab_box.height
-                     : (tab_box.height +
-                        (Math["min"](selected.size, 4) * 3)));
-
-    dragging_should_x = (opt("groups.layout").get() !== "vertical");
-    dragging_offset_x = (x - tab_box.left);
-    dragging_offset_y = (height / 2);
-
-    dragging_dimensions.set({
-      x: (x - dragging_offset_x),
-      y: (y - dragging_offset_y)
-    });
-
-    dragging_started.set({
-      selected: selected,
-      width: Math["round"](tab_box.width)
-    });
-
-    logic.drag_start({ group, tab, height });
   };
 
   const drag_move = ({ x, y }) => {
