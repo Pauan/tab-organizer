@@ -71,11 +71,12 @@ const defocus = (window, tab) => {
 };
 
 
-export const open = ({ url }) => {
+export const open = ({ url }, f) => {
   chrome["tabs"]["create"]({
     "url": url
-  }, () => {
+  }, (info) => {
     throw_error();
+    f(tab_ids.get(info["id"]));
   });
 };
 

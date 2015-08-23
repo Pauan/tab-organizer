@@ -128,7 +128,8 @@ export const init = async([chrome_get_all(), ready], (a) => {
     },
 
     popups: {
-      open: popups.open
+      open: popups.open,
+      on_close: popups.on_close
     }
   };
 });

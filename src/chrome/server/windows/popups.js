@@ -1,60 +1,89 @@
 import { chrome } from "../../../common/globals";
 import { throw_error } from "../../common/util";
-import { Ref, latest, throttle, always } from "../../../util/ref";
+import { Event } from "../../../util/event";
+import { EmptyRef } from "../../../util/ref";
+import { Dict } from "../../../util/mutable/dict";
+import { assert } from "../../../util/assert";
+
+
+const _on_close = Event();
+
+export const on_close = _on_close.receive;
+
+const popup_ids = new Dict();
 
 
 export const make_popup = (info, events) => {};
 
-export const remove_popup = (id) => {};
+
+export const remove_popup = (id) => {
+  if (popup_ids.has(id)) {
+    const popup = popup_ids.get(id);
+
+    assert(popup._id.get() === id);
+
+    popup._close();
+
+    _on_close.send(popup);
+  }
+};
+
 
 export const focus_popup = (id) => {};
 
 
-export const open = ({ type = "popup",
-                       url,
-                       left = always(null),
-                       top = always(null),
-                       width = always(null),
-                       height = always(null) }) => {
-  let first = true;
+class Popup {
+  constructor({ type = "popup",
+                url,
+                left = null,
+                top = null,
+                width = null,
+                height = null }) {
 
-  const popup_id = new Ref(null);
+    this._id = new EmptyRef();
 
-  const info = latest([
-    popup_id,
-    left,
-    top,
-    width,
-    height
-  ], (id, left, top, width, height) => {
-    if (first) {
-      first = false;
+    chrome["windows"]["create"]({
+      "type": type,
+      "url": url,
+      "left": (left == null ? null : Math["round"](left)),
+      "top": (top == null ? null : Math["round"](top)),
+      "width": (width == null ? null : Math["round"](width)),
+      "height": (height == null ? null : Math["round"](height))
+    }, (info) => {
+      throw_error();
 
-      chrome["windows"]["create"]({
-        "type": type,
-        "url": url,
-        "left": (left == null ? null : Math["round"](left)),
-        "top": (top == null ? null : Math["round"](top)),
-        "width": (width == null ? null : Math["round"](width)),
-        "height": (height == null ? null : Math["round"](height))
-      }, (info) => {
+      this._open(info["id"]);
+    });
+  }
+
+  _open(id) {
+    popup_ids.insert(id, this);
+    this._id.set(id);
+  }
+
+  _close() {
+    // TODO additional cleanup ?
+    this._id = null;
+  }
+
+  close() {
+    this._id.wait((id) => {
+      chrome["windows"]["remove"](id, () => {
         throw_error();
-        popup_id.set(info["id"]);
       });
-    }
+    });
+  }
 
-    return { id, left, top, width, height };
-  });
+  focus() {
+    this._id.wait((id) => {
+      chrome["windows"]["update"](id, { "focused": true }, () => {
+        throw_error();
+      });
+    });
+  }
 
-  // TODO is `throttle` a good idea ?
-  const run = throttle(info, 300).each(({
-    id,
-    left,
-    top,
-    width,
-    height
-  }) => {
-    if (id !== null) {
+  move({ left, top, width, height }) {
+    this._id.wait((id) => {
       chrome["windows"]["update"](id, {
         "left": (left == null ? null : Math["round"](left)),
         "top": (top == null ? null : Math["round"](top)),
@@ -63,20 +92,10 @@ export const open = ({ type = "popup",
       }, () => {
         throw_error();
       });
-    }
-  });
+    });
+  }
+}
 
-  const onRemoved = (window_id) => {
-    throw_error();
 
-    const id = popup_id.get();
-
-    if (id !== null && id === window_id) {
-      chrome["windows"]["onRemoved"]["removeListener"](onRemoved);
-      run.stop();
-      popup_id.set(null);
-    }
-  };
-
-  chrome["windows"]["onRemoved"]["addListener"](onRemoved);
-};
+export const open = (info) =>
+  new Popup(info);

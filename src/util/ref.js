@@ -1,5 +1,6 @@
 import { Event } from "./event";
 import { noop } from "./function";
+import { Some, None } from "./maybe";
 //import { assert } from "../assert";
 
 
@@ -48,6 +49,45 @@ export class Ref extends Base {
 
   modify(f) {
     this.set(f(this.get()));
+  }
+}
+
+
+export class EmptyRef extends Base {
+  constructor() {
+    super();
+
+    this._value = None;
+    this._event = Event();
+  }
+
+  has() {
+    return this._value.has();
+  }
+
+  get() {
+    return this._value.get();
+  }
+
+  set(value) {
+    if (this._value.has()) {
+      this._value = Some(value);
+
+    } else {
+      this._value = Some(value);
+
+      this._event.send(value);
+      this._event = null; // TODO does this need to do any more cleanup ?
+    }
+  }
+
+  wait(f) {
+    if (this._value.has()) {
+      f(this._value.get());
+
+    } else {
+      this._event.receive(f);
+    }
   }
 }
 

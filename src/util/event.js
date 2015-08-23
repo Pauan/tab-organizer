@@ -31,6 +31,7 @@ export const Event = (info = {}) => {
   };
 
   // TODO test this
+  // TODO shouldn't this get rid of the listeners ?
   const close = () => {
     if (listeners.size > 0) {
       stop();
