@@ -70,6 +70,7 @@ import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
+import { Popup } from "./popups";
 
 
 const _on_open  = Event();
@@ -139,13 +140,12 @@ const defocus = (window) => {
 };
 
 
-export const open = ({ focused = true,
-                       state = "normal" }, f) => {
+export const open = ({ focused = true }, f) => {
   chrome["windows"]["create"]({
-    "focused": focused,
     "type": "normal",
-    //"state": state
+    "focused": focused
   }, (window) => {
+    throw_error();
     // TODO test this
     f(window_ids.get(window["id"]));
   });
@@ -157,44 +157,14 @@ export const open = ({ focused = true,
     chrome["windows"]["get"](window.id, { "populate": false }, callback);
   });*/
 
-const update_window = (window, info) => {
-  chrome["windows"]["update"](window.id, info, () => {
-    throw_error();
-  });
-};
-
-// TODO make this inherit from Popup
-class Window {
+class Window extends Popup {
   constructor(info) {
-    this.id = info["id"];
+    super(info);
+
     this.focused = false;
     this.focused_tab = null;
     this.index = windows.size;
     this.tabs = new List();
-  }
-
-  focus() {
-    update_window(this, { "focused": true });
-  }
-
-  close() {
-    chrome["windows"]["remove"](this.id, () => {
-      throw_error();
-    });
-  }
-
-  move({ left, top, width, height }) {
-    update_window(this, {
-      "state": "normal",
-      "left": round(left),
-      "top": round(top),
-      "width": round(width),
-      "height": round(height)
-    });
-  }
-
-  maximize() {
-    update_window(this, { "state": "maximized" });
   }
 
   /*get_state() {

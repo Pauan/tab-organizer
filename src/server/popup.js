@@ -14,6 +14,7 @@ export const init = async([init_chrome,
   button.set_tooltip(always(manifest.get("name")));
 
   const panel_url = "panel.html";
+  const empty_url = "data/empty.html";
 
   const popup = {
     open: false,
@@ -76,13 +77,50 @@ export const init = async([init_chrome,
   };
 
 
-  const get_screen_size = (f) => {
-    f({
-      left:   opt("screen.available.left").get(),
-      top:    opt("screen.available.top").get(),
-      width:  opt("screen.available.width").get(),
-      height: opt("screen.available.height").get()
+  const get_monitor_size = (f) => {
+    // In Chrome (on Linux only?), screen.avail doesn't work, so we fall back
+    // to the old approach of "create a maximized window then check its size"
+    // TODO creating a maximized window and checking its size causes it to be off by 1, is this true only on Linux?
+    popups.open({
+      url: empty_url,
+      focused: false
+    }, (x) => {
+      x.maximize();
+
+      // TODO Yes we really need this delay, because Chrome is stupid
+      setTimeout(() => {
+        x.get_size((size) => {
+          // TODO rather than closing the popup, how about instead re-using it for the popup/sidebar ?
+          x.close();
+          f(size);
+        });
+      }, 500);
     });
+  };
+
+  const set_monitor_size = (size) => {
+    opt("screen.available.left").set(size.left);
+    opt("screen.available.top").set(size.top);
+    opt("screen.available.width").set(size.width);
+    opt("screen.available.height").set(size.height);
+    opt("screen.available.checked").set(true);
+  };
+
+  const get_screen_size = (f) => {
+    if (opt("screen.available.checked").get()) {
+      f({
+        left:   opt("screen.available.left").get(),
+        top:    opt("screen.available.top").get(),
+        width:  opt("screen.available.width").get(),
+        height: opt("screen.available.height").get()
+      });
+
+    } else {
+      get_monitor_size((size) => {
+        set_monitor_size(size);
+        f(size);
+      });
+    }
   };
 
   const resize_window = (window) => {
@@ -102,7 +140,6 @@ export const init = async([init_chrome,
   const resize_windows = () => {
     assert(popup.windows !== null);
 
-    console.log(popup.windows);
     each(windows.get(), resize_window);
   };
 
@@ -203,6 +240,9 @@ export const init = async([init_chrome,
       // TODO test this
       if (type === "sidebar") {
         popup.windows = get_window_size(screen);
+        // TODO this has to be before open_popup because of a bug in Chrome
+        //      where moving a window causes it to be focused. In addition,
+        //      we can't do it in parallel with open_popup, for that same reason
         resize_windows();
 
       // TODO test this

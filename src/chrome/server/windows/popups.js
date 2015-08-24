@@ -39,9 +39,23 @@ export const remove_popup = (id) => {
 export const focus_popup = (id) => {};
 
 
-class Popup {
+const update_popup = (popup, info) => {
+  chrome["windows"]["update"](popup.id, info, () => {
+    throw_error();
+  });
+};
+
+const get_popup = (popup, f) => {
+  chrome["windows"]["get"](popup.id, { "populate": false }, f);
+};
+
+export class Popup {
   constructor(info) {
     this.id = info["id"];
+  }
+
+  focus() {
+    update_popup(this, { "focused": true });
   }
 
   close() {
@@ -50,27 +64,35 @@ class Popup {
     });
   }
 
-  focus() {
-    chrome["windows"]["update"](this.id, { "focused": true }, () => {
-      throw_error();
-    });
-  }
-
   move({ left, top, width, height }) {
-    chrome["windows"]["update"](this.id, {
+    update_popup(this, {
       "state": "normal",
       "left": round(left),
       "top": round(top),
       "width": round(width),
       "height": round(height)
-    }, () => {
-      throw_error();
+    });
+  }
+
+  maximize() {
+    update_popup(this, { "state": "maximized" });
+  }
+
+  get_size(f) {
+    get_popup(this, (info) => {
+      f({
+        left: info["left"],
+        top: info["top"],
+        width: info["width"],
+        height: info["height"],
+      });
     });
   }
 }
 
 
 export const open = ({ type = "popup",
+                       focused = true,
                        url,
                        left = null,
                        top = null,
@@ -79,7 +101,7 @@ export const open = ({ type = "popup",
   chrome["windows"]["create"]({
     "type": type,
     "url": url,
-    "state": "normal",
+    "focused": focused,
     "left": round(left),
     "top": round(top),
     "width": round(width),
