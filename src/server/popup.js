@@ -2,12 +2,13 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { async } from "../util/async";
 import { always } from "../util/ref";
-import { fail } from "../util/assert";
+import { each } from "../util/iterator";
+import { assert, fail } from "../util/assert";
 
 
 export const init = async([init_chrome,
                            init_options],
-                          ({ manifest, button, popups, tabs },
+                          ({ manifest, button, popups, tabs, windows },
                            { get: opt }) => {
 
   button.set_tooltip(always(manifest.get("name")));
@@ -34,7 +35,9 @@ export const init = async([init_chrome,
   const cleanup_popup = () => {
     popup.open = false;
     popup.value = null;
-    popup.windows = null;
+
+    // TODO test this
+    unresize_windows();
   };
 
   const cleanup_panel = () => {
@@ -51,10 +54,6 @@ export const init = async([init_chrome,
   const close_popup = () => {
     if (popup.value !== null) {
       popup.value.close();
-    }
-
-    if (popup.windows !== null) {
-
     }
 
     cleanup_popup();
@@ -84,6 +83,35 @@ export const init = async([init_chrome,
       width:  opt("screen.available.width").get(),
       height: opt("screen.available.height").get()
     });
+  };
+
+  const resize_window = (window) => {
+    assert(popup.windows !== null);
+
+    // TODO only do this if the state is "normal" or "maximized" ?
+    window.move(popup.windows);
+  };
+
+  const unresize_window = (window) => {
+    assert(popup.windows !== null);
+
+    // TODO only do this if the state is "normal" ?
+    window.maximize();
+  };
+
+  const resize_windows = () => {
+    assert(popup.windows !== null);
+
+    console.log(popup.windows);
+    each(windows.get(), resize_window);
+  };
+
+  const unresize_windows = () => {
+    if (popup.windows !== null) {
+      each(windows.get(), unresize_window);
+
+      popup.windows = null;
+    }
   };
 
   const get_popup_dimensions = (type, screen) => {
@@ -172,12 +200,15 @@ export const init = async([init_chrome,
     get_screen_size((screen) => {
       const dimensions = get_popup_dimensions(type, screen);
 
-      // TODO
-      /*if (type === "sidebar") {
+      // TODO test this
+      if (type === "sidebar") {
         popup.windows = get_window_size(screen);
+        resize_windows();
+
+      // TODO test this
       } else {
-        popup.windows = null;
-      }*/
+        unresize_windows();
+      }
 
       if (popup.value === null) {
         // TODO test this
@@ -301,6 +332,14 @@ export const init = async([init_chrome,
   tabs.on_close((x) => {
     if (tab.value !== null && tab.value === x.tab) {
       cleanup_tab();
+    }
+  });
+
+
+  windows.on_open((x) => {
+    // TODO test this
+    if (popup.windows !== null) {
+      resize_window(x.window);
     }
   });
 

@@ -11,6 +11,11 @@ export const update_indexes = (list) => {
   });
 };
 
+export const round = (x) =>
+  (x == null
+    ? undefined
+    : Math["round"](x));
+
 export const dimensions = (info) => {
   const o = {};
 

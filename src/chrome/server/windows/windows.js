@@ -66,8 +66,7 @@ import { chrome } from "../../../common/globals";
 import { Event } from "../../../util/event";
 import { List } from "../../../util/mutable/list";
 import { Dict } from "../../../util/mutable/dict";
-import { ignore } from "../../../util/async";
-import { async_chrome, update_indexes, dimensions } from "../../common/util";
+import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
@@ -140,17 +139,17 @@ const defocus = (window) => {
 };
 
 
-export const open = ({ focused = true, state = "normal" }) =>
-  async_chrome((callback) => {
-    chrome["windows"]["create"]({
-      "focused": focused,
-      "type": "normal",
-      //"state": state
-    }, (window) => {
-      // TODO test this
-      callback(window_ids.get(window["id"]));
-    });
+export const open = ({ focused = true,
+                       state = "normal" }, f) => {
+  chrome["windows"]["create"]({
+    "focused": focused,
+    "type": "normal",
+    //"state": state
+  }, (window) => {
+    // TODO test this
+    f(window_ids.get(window["id"]));
   });
+};
 
 
 /*const get_window = (window) =>
@@ -158,11 +157,13 @@ export const open = ({ focused = true, state = "normal" }) =>
     chrome["windows"]["get"](window.id, { "populate": false }, callback);
   });*/
 
-const update_window = (window, info) =>
-  ignore(async_chrome((callback) => {
-    chrome["windows"]["update"](window.id, info, callback);
-  }));
+const update_window = (window, info) => {
+  chrome["windows"]["update"](window.id, info, () => {
+    throw_error();
+  });
+};
 
+// TODO make this inherit from Popup
 class Window {
   constructor(info) {
     this.id = info["id"];
@@ -173,14 +174,27 @@ class Window {
   }
 
   focus() {
-    return update_window(this, { "focused": true });
+    update_window(this, { "focused": true });
   }
 
-  // TODO this should probably wait until after the Window is removed from `windows`
   close() {
-    return ignore(async_chrome((callback) => {
-      chrome["windows"]["remove"](this.id, callback);
-    }));
+    chrome["windows"]["remove"](this.id, () => {
+      throw_error();
+    });
+  }
+
+  move({ left, top, width, height }) {
+    update_window(this, {
+      "state": "normal",
+      "left": round(left),
+      "top": round(top),
+      "width": round(width),
+      "height": round(height)
+    });
+  }
+
+  maximize() {
+    update_window(this, { "state": "maximized" });
   }
 
   /*get_state() {

@@ -1,5 +1,5 @@
 import { chrome } from "../../../common/globals";
-import { throw_error } from "../../common/util";
+import { throw_error, round } from "../../common/util";
 import { Event } from "../../../util/event";
 import { Dict } from "../../../util/mutable/dict";
 import { assert } from "../../../util/assert";
@@ -39,12 +39,6 @@ export const remove_popup = (id) => {
 export const focus_popup = (id) => {};
 
 
-const round = (x) =>
-  (x == null
-    ? undefined
-    : Math["round"](x));
-
-
 class Popup {
   constructor(info) {
     this.id = info["id"];
@@ -64,6 +58,7 @@ class Popup {
 
   move({ left, top, width, height }) {
     chrome["windows"]["update"](this.id, {
+      "state": "normal",
       "left": round(left),
       "top": round(top),
       "width": round(width),
@@ -84,6 +79,7 @@ export const open = ({ type = "popup",
   chrome["windows"]["create"]({
     "type": type,
     "url": url,
+    "state": "normal",
     "left": round(left),
     "top": round(top),
     "width": round(width),
