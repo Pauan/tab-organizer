@@ -14,45 +14,66 @@ export const init = async([init_chrome,
 
   const panel_url = "panel.html";
 
-  let popup       = null;
-  let panel       = null;
-  let tab         = null;
-  let window_size = null;
+  const popup = {
+    open: false,
+    value: null,
+    windows: null
+  };
+
+  const panel = {
+    open: false,
+    value: null
+  };
+
+  const tab = {
+    open: false,
+    value: null
+  };
 
 
   const cleanup_popup = () => {
-    popup = null;
-    window_size = null;
+    popup.open = false;
+    popup.value = null;
+    popup.windows = null;
   };
 
   const cleanup_panel = () => {
-    panel = null;
+    panel.open = false;
+    panel.value = null;
   };
 
   const cleanup_tab = () => {
-    tab = null;
+    tab.open = false;
+    tab.value = null;
   };
 
 
   const close_popup = () => {
-    if (popup !== null) {
-      popup.close();
-      cleanup_popup();
+    if (popup.value !== null) {
+      popup.value.close();
     }
+
+    if (popup.windows !== null) {
+
+    }
+
+    cleanup_popup();
   };
 
   const close_panel = () => {
-    if (panel !== null) {
-      panel.close();
-      cleanup_panel();
+    if (panel.value !== null) {
+      panel.value.close();
     }
+
+    cleanup_panel();
   };
 
   const close_tab = () => {
-    if (tab !== null) {
-      tab.close();
-      cleanup_tab();
+    if (tab.value !== null) {
+      tab.value.close();
     }
+
+    cleanup_tab();
   };
 
 
@@ -152,24 +173,37 @@ export const init = async([init_chrome,
       const dimensions = get_popup_dimensions(type, screen);
 
       // TODO
-      if (type === "sidebar") {
-        window_size = get_window_size(screen);
+      /*if (type === "sidebar") {
+        popup.windows = get_window_size(screen);
       } else {
-        window_size = null;
-      }
+        popup.windows = null;
+      }*/
 
-      if (popup === null) {
-        popup = popups.open({
-          url: panel_url,
-          left: dimensions.left,
-          top: dimensions.top,
-          width: dimensions.width,
-          height: dimensions.height
-        });
+      if (popup.value === null) {
+        // TODO test this
+        if (!popup.open) {
+          popup.open = true;
 
+          popups.open({
+            url: panel_url,
+            left: dimensions.left,
+            top: dimensions.top,
+            width: dimensions.width,
+            height: dimensions.height
+          }, (x) => {
+            popup.value = x;
+
+            // TODO test this
+            if (!popup.open) {
+              close_popup();
+            }
+          });
+        }
+
+      // TODO test this
       } else {
-        popup.move(dimensions);
-        popup.focus();
+        popup.value.move(dimensions);
+        popup.value.focus();
       }
     });
   };
@@ -184,17 +218,29 @@ export const init = async([init_chrome,
       height: opt("size.panel.height").get()
     };
 
-    if (panel === null) {
-      panel = popups.open({
-        type: "panel",
-        url: panel_url,
-        width: dimensions.width,
-        height: dimensions.height
-      });
+    if (panel.value === null) {
+      // TODO test this
+      if (!panel.open) {
+        panel.open = true;
+
+        popups.open({
+          type: "panel",
+          url: panel_url,
+          width: dimensions.width,
+          height: dimensions.height
+        }, (x) => {
+          panel.value = x;
+
+          // TODO test this
+          if (!panel.open) {
+            close_panel();
+          }
+        });
+      }
 
     } else {
-      panel.move(dimensions);
-      panel.focus();
+      panel.value.move(dimensions);
+      panel.value.focus();
     }
   };
 
@@ -203,16 +249,25 @@ export const init = async([init_chrome,
     close_popup();
     close_panel();
 
-    if (tab === null) {
-      tabs.open({
-        url: panel_url
-      }, (x) => {
-        // TODO what if open_tab is called before the tab has opened ?
-        tab = x;
-      });
+    if (tab.value === null) {
+      // TODO test this
+      if (!tab.open) {
+        tab.open = true;
+
+        tabs.open({
+          url: panel_url
+        }, (x) => {
+          tab.value = x;
+
+          // TODO test this
+          if (!tab.open) {
+            close_tab();
+          }
+        });
+      }
 
     } else {
-      tab.focus();
+      tab.value.focus();
     }
   };
 
@@ -233,18 +288,18 @@ export const init = async([init_chrome,
 
 
   popups.on_close((x) => {
-    if (panel !== null && panel === x) {
+    if (panel.value !== null && panel.value === x) {
       cleanup_panel();
     }
 
-    if (popup !== null && popup === x) {
+    if (popup.value !== null && popup.value === x) {
       cleanup_popup();
     }
   });
 
 
   tabs.on_close((x) => {
-    if (tab !== null && tab === x.tab) {
+    if (tab.value !== null && tab.value === x.tab) {
       cleanup_tab();
     }
   });
