@@ -1,5 +1,6 @@
 import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
+import { uuid_port_popup } from "../common/uuid";
 import { async } from "../util/async";
 import { always } from "../util/ref";
 import { each } from "../util/iterator";
@@ -8,7 +9,7 @@ import { assert, fail } from "../util/assert";
 
 export const init = async([init_chrome,
                            init_options],
-                          ({ manifest, button, popups, tabs, windows },
+                          ({ manifest, button, popups, tabs, windows, ports },
                            { get: opt }) => {
 
   button.set_tooltip(always(manifest.get("name")));
@@ -77,6 +78,7 @@ export const init = async([init_chrome,
   };
 
 
+  // TODO test this
   const get_monitor_size = (f) => {
     // In Chrome (on Linux only?), screen.avail doesn't work, so we fall back
     // to the old approach of "create a maximized window then check its size"
@@ -387,6 +389,31 @@ export const init = async([init_chrome,
   button.on_click(() => {
     const type = opt("popup.type").get();
     types[type](type);
+  });
+
+
+  const handle_event = {
+    "open-panel": () => {
+      if (opt("popup.type").get() === "bubble") {
+        open_bubble();
+      }
+    },
+
+    "get-monitor-size": (port) => {
+      get_monitor_size((size) => {
+        set_monitor_size(size);
+
+        port.send({
+          "type": "set-monitor-size"
+        });
+      });
+    }
+  };
+
+  ports.on_connect(uuid_port_popup, (port) => {
+    port.on_receive((x) => {
+      handle_event[x["type"]](port, x);
+    });
   });
 
 

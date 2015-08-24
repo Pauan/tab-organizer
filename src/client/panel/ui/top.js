@@ -6,6 +6,7 @@ import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";
 import { init as init_toolbar } from "./toolbar";
 import { init as init_logic } from "../logic";
+import { is_panel } from "../init";
 
 
 export const init = async([init_group_list,
@@ -55,9 +56,14 @@ export const init = async([init_group_list,
   });
 
 
-  // TODO hacky
-  // TODO this should use a regexp or something to search, rather than hardcoding it
-  const should_resize = (location["search"] !== "?options=true");
+  // TODO a bit hacky
+  if (is_panel && opt("popup.type").get() === "bubble") {
+    document["body"]["style"]["width"] =
+      opt("size.bubble.width").get() + "px";
+
+    document["body"]["style"]["height"] =
+      opt("size.bubble.height").get() + "px";
+  }
 
 
   const top = () =>
@@ -69,40 +75,7 @@ export const init = async([init_group_list,
         ui_toolbar(),
         // TODO handle `group_type` changing
         ui_group_list(group_type.get().groups)
-      ]),
-
-
-      // TODO a bit hacky
-      // TODO test this
-      latest([
-        opt("popup.type"),
-        opt("size.bubble.width")
-      ], (type, width) => {
-        // TODO seems unreliable
-        if (should_resize && type === "bubble"/* && window["outerWidth"] < (width / 2)*/) {
-          return width + "px";
-        } else {
-          return null;
-        }
-      }).each((x) => {
-        document["body"]["style"]["width"] = x;
-      }),
-
-      // TODO a bit hacky
-      // TODO test this
-      latest([
-        opt("popup.type"),
-        opt("size.bubble.height")
-      ], (type, height) => {
-        // TODO seems unreliable
-        if (should_resize && type === "bubble"/* && window["outerHeight"] < (height / 2)*/) {
-          return height + "px";
-        } else {
-          return null;
-        }
-      }).each((x) => {
-        document["body"]["style"]["height"] = x;
-      })
+      ])
     ]);
 
 
