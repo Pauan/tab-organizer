@@ -6,6 +6,7 @@ import { Ref } from "../../util/ref";
 import { async_callback } from "../../util/async";
 
 
+// TODO rather than syncing with the background page, maybe instead use `chrome.storage.local` ?
 export const make_options = (uuid) =>
   async_callback((success, error) => {
     const port = ports.connect(uuid);

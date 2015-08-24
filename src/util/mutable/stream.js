@@ -1,13 +1,67 @@
 import { map, iterator } from "../iterator";
 import { fail } from "../assert";
+import { Record } from "./record";
 import { List, SortedList } from "./list";
 import { Event } from "../event";
 
 
-export const uuid_stream_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
-export const uuid_stream_remove = "df55a53e-ce78-40b4-b751-d6a356f311c2";
-export const uuid_stream_update = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
-export const uuid_stream_clear  = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
+export const uuid_stream_insert  = "fa4a6522-a031-4294-861e-d536b21b3b2d";
+export const uuid_stream_remove  = "df55a53e-ce78-40b4-b751-d6a356f311c2";
+export const uuid_stream_update  = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
+export const uuid_stream_clear   = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
+export const uuid_stream_default = "f033f4cc-36e7-448f-a513-48d609e31f74";
+
+
+export class RecordStream extends Record {
+  constructor(x = null) {
+    super(x);
+
+    this._event = Event();
+  }
+
+  on_change(f) {
+    return this._event.receive(f);
+  }
+
+  _insert(key, value) {
+    super._insert(key, value);
+
+    this._event.send({
+      type: uuid_stream_insert,
+      key: key,
+      value: value
+    });
+  }
+
+  _update(key, value) {
+    super._update(key, value);
+
+    this._event.send({
+      type: uuid_stream_update,
+      key: key,
+      value: value
+    });
+  }
+
+  _default(key, value) {
+    super._default(key, value);
+
+    this._event.send({
+      type: uuid_stream_default,
+      key: key,
+      value: value
+    });
+  }
+
+  _remove(key) {
+    super._remove(key);
+
+    this._event.send({
+      type: uuid_stream_remove,
+      key: key
+    });
+  }
+}
 
 
 export class ListStream extends List {

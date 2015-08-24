@@ -15,6 +15,22 @@ export class Record {
     }
   }
 
+  _insert(key, value) {
+    this._keys[key] = value;
+  }
+
+  _update(key, value) {
+    this._keys[key] = value;
+  }
+
+  _default(key, value) {
+    this._keys[key] = value;
+  }
+
+  _remove(key, value) {
+    delete this._keys[key];
+  }
+
   has(key) {
     assert(typeof key === "string");
 
@@ -39,7 +55,7 @@ export class Record {
     const new_value = f(old_value);
 
     if (old_value !== new_value) {
-      this._keys[key] = new_value;
+      this._update(key, new_value);
     }
   }
 
@@ -50,7 +66,7 @@ export class Record {
       fail(new Error("Key already exists: " + key));
 
     } else {
-      this._keys[key] = value;
+      this._insert(key, value);
     }
   }
 
@@ -58,7 +74,7 @@ export class Record {
     assert(typeof key === "string");
 
     if (key in this._keys) {
-      delete this._keys[key];
+      this._remove(key);
 
     } else {
       fail(new Error("Key not found: " + key));
@@ -72,7 +88,7 @@ export class Record {
   // TODO maybe change this to accept a thunk rather than a value ?
   default(key, value) {
     if (!this.has(key)) {
-      this.insert(key, value);
+      this._default(key, value);
     }
   }
 
