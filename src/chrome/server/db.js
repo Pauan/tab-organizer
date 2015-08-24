@@ -3,7 +3,7 @@ import { Timer } from "../../util/time";
 import { Set } from "../../util/mutable/set";
 import { Record } from "../../util/immutable/record";
 import { Table } from "../../util/table";
-import { to_json, from_json } from "../../util/immutable/json";
+import { to_json, from_json } from "../../util/json";
 import { async, run_async } from "../../util/async";
 import { async_chrome } from "../common/util";
 import { each, entries } from "../../util/iterator";

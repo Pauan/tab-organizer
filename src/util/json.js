@@ -1,7 +1,7 @@
-import { map, each, entries } from "../iterator";
-import { List } from "./list";
-import { Record } from "./record";
-import { fail } from "../assert";
+import { map, each, entries } from "./iterator";
+import { List } from "./immutable/list";
+import { Record } from "./immutable/record";
+import { fail } from "./assert";
 
 
 export const to_json = (x) => {

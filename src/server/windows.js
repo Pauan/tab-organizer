@@ -3,7 +3,7 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
 import { each, map, to_array, indexed } from "../util/iterator";
-import { to_json } from "../util/immutable/json";
+import { to_json } from "../util/json";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 import { Event } from "../util/event";
