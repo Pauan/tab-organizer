@@ -3,8 +3,7 @@ import { to_json } from "../json";
 import { assert, fail } from "../assert";
 
 
-// TODO test this
-export class Record {
+export class ImmutableRecord {
   constructor(keys = null) {
     if (keys == null) {
       this._keys = {};
@@ -13,22 +12,6 @@ export class Record {
       // TODO make a copy ?
       this._keys = keys;
     }
-  }
-
-  _insert(key, value) {
-    this._keys[key] = value;
-  }
-
-  _update(key, value) {
-    this._keys[key] = value;
-  }
-
-  _default(key, value) {
-    this._keys[key] = value;
-  }
-
-  _remove(key, value) {
-    delete this._keys[key];
   }
 
   has(key) {
@@ -46,6 +29,42 @@ export class Record {
     } else {
       fail(new Error("Key not found: " + key));
     }
+  }
+
+  to_json() {
+    const out = {};
+
+    // TODO is this inefficient ?
+    for (let key in this._keys) {
+      out[key] = to_json(this._keys[key]);
+    }
+
+    return out;
+  }
+
+  [Symbol["iterator"]]() {
+    // TODO is this correct ?
+    return iterator(entries(this._keys));
+  }
+}
+
+
+// TODO test this
+export class Record extends ImmutableRecord {
+  _insert(key, value) {
+    this._keys[key] = value;
+  }
+
+  _update(key, value) {
+    this._keys[key] = value;
+  }
+
+  _default(key, value) {
+    this._keys[key] = value;
+  }
+
+  _remove(key, value) {
+    delete this._keys[key];
   }
 
   modify(key, f) {
@@ -99,21 +118,5 @@ export class Record {
     } else {
       this.insert(key, value);
     }
-  }
-
-  to_json() {
-    const out = {};
-
-    // TODO is this inefficient ?
-    for (let key in this._keys) {
-      out[key] = to_json(this._keys[key]);
-    }
-
-    return out;
-  }
-
-  [Symbol["iterator"]]() {
-    // TODO is this correct ?
-    return iterator(entries(this._keys));
   }
 }
