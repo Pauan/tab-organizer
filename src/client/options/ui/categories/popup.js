@@ -1,4 +1,6 @@
 import * as dom from "../../../dom";
+import { uuid_port_popup } from "../../../../common/uuid";
+import { ports } from "../../../../chrome/client";
 import { async } from "../../../../util/async";
 import { fail } from "../../../../util/assert";
 import { latest, always, Ref } from "../../../../util/ref";
@@ -574,6 +576,20 @@ export const init = async([init_textbox,
   const popup_set = (s) =>
     (s + 100) / 200;
 
+
+  const port = ports.connect(uuid_port_popup);
+
+  const handle_events = {
+    "set-monitor-size": () => {
+      alert("Success!");
+    }
+  };
+
+  port.on_receive((x) => {
+    handle_events[x["type"]]();
+  });
+
+
   const ui = () =>
     category("Popup", [
       ui_keyboard(),
@@ -596,7 +612,9 @@ export const init = async([init_textbox,
         button("Check monitor size", {
           height: "20px",
           on_click: () => {
-            console.log("clicked");
+            port.send({
+              "type": "get-monitor-size"
+            });
           }
         })
       ]),

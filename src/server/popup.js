@@ -392,7 +392,7 @@ export const init = async([init_chrome,
   });
 
 
-  const handle_event = {
+  const handle_events = {
     "open-panel": () => {
       if (opt("popup.type").get() === "bubble") {
         open_bubble();
@@ -412,7 +412,7 @@ export const init = async([init_chrome,
 
   ports.on_connect(uuid_port_popup, (port) => {
     port.on_receive((x) => {
-      handle_event[x["type"]](port, x);
+      handle_events[x["type"]](port, x);
     });
   });
 
