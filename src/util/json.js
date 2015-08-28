@@ -1,6 +1,6 @@
 import { map, each, entries } from "./iterator";
-import { List } from "./immutable/list";
-import { Record } from "./immutable/record";
+import { ImmutableList } from "./mutable/list";
+import { ImmutableRecord } from "./mutable/record";
 import { fail } from "./assert";
 
 
@@ -29,10 +29,17 @@ export const from_json = (x) => {
     return x;
 
   } else if (Array["isArray"](x)) {
-    return List(map(x, from_json));
+    return new ImmutableList(map(x, from_json));
 
   } else if (typeof x === "object") {
-    return Record(map(entries(x), ([key, value]) => [key, from_json(value)]));
+    const o = {};
+
+    // TODO inefficient ?
+    each(entries(x), ([key, value]) => {
+      o[key] = from_json(value);
+    });
+
+    return new ImmutableRecord(o);
 
   } else {
     fail("Cannot convert from JSON: " + x);
