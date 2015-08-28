@@ -1,7 +1,7 @@
 import { chrome } from "../../common/globals";
 import { Timer } from "../../util/time";
 import { Set } from "../../util/mutable/set";
-import { Record } from "../../util/immutable/record";
+import { Record } from "../../util/mutable/record";
 import { Table } from "../../util/table";
 import { to_json, from_json } from "../../util/json";
 import { async, run_async } from "../../util/async";
@@ -9,7 +9,7 @@ import { async_chrome } from "../common/util";
 import { each, entries } from "../../util/iterator";
 
 
-let delaying = Record();
+const delaying = new Record();
 
 const with_delay = (key, f) => {
   if (delaying.has(key)) {
@@ -39,12 +39,12 @@ class DB extends Table {
       ms: ms
     };
 
-    delaying = delaying.assign(key, o);
+    delaying.assign(key, o);
 
     setTimeout(() => {
       // TODO is this correct ?
       if (delaying.get(key) === o) {
-        delaying = delaying.remove(key);
+        delaying.remove(key);
       }
 
       o.thunk();
