@@ -383,6 +383,7 @@ export const init = async([init_options,
       }),
     ]);
 
+  // TODO code duplication with `tab`
   const ui_dragging = (tab, index) =>
     dom.parent((e) => {
       const is_hovering = always(index === 0);
@@ -401,8 +402,12 @@ export const init = async([init_options,
 
       const ui_text = text(tab);
 
-      const ui_close = close(tab, opt("tabs.close.display").map((display) =>
-                                    (display === "every")));
+      const ui_close = close(tab, latest([
+        opt("tabs.close.display"),
+        is_hovering
+      ], (display, hover) =>
+        (display === "every") ||
+        (display === "hover" && hover)));
 
 
       // TODO code duplication with `tab`
