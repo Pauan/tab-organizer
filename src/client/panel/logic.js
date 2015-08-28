@@ -47,14 +47,48 @@ export const init = async([init_tabs,
   });*/
 
 
-  const deselect_tab = (group, tab) => {
-    if (!tab.get("selected").get()) {
-      group.update("first-selected-tab", null);
+  const click_tab = (group, tab) => {
+    // TODO ew
+    switch (opt("tabs.click.type").get()) {
+    case "select-focus":
+      if (tab.get("selected").get()) {
+        focus_tab(tab);
 
-      each(group.get("tabs"), (tab) => {
-        tab.get("selected").set(false);
-      });
+      } else {
+        deselect_group(group);
+        select_tab(group, tab);
+      }
+      break;
+
+    case "focus":
+      if (!tab.get("selected").get()) {
+        deselect_group(group);
+      }
+
+      focus_tab(tab);
+      break;
+
+    default:
+      fail();
     }
+  };
+
+
+  const deselect_group = (group) => {
+    group.update("first-selected-tab", null);
+
+    each(group.get("tabs"), (tab) => {
+      tab.get("selected").set(false);
+    });
+  };
+
+  const select_tab = (group, tab) => {
+    assert(group.get("first-selected-tab") === null);
+    assert(tab.get("selected").get() === false);
+
+    group.update("first-selected-tab", tab);
+
+    tab.get("selected").set(true);
   };
 
   const ctrl_select_tab = (group, tab) => {
@@ -366,7 +400,7 @@ export const init = async([init_tabs,
   });
 
 
-  return { group_type, close_tabs, drag_start, drag_end, deselect_tab,
-           focus_tab, shift_select_tab, ctrl_select_tab, drag_onto_tab,
-           drag_onto_group };
+  return { group_type, close_tabs, click_tab, drag_start, drag_end,
+           focus_tab, shift_select_tab, ctrl_select_tab,
+           drag_onto_tab, drag_onto_group };
 });

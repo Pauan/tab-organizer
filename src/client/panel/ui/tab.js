@@ -718,8 +718,7 @@ export const init = async([init_options,
           // TODO a little hacky
           if (!ui_close.hovering().get()) {
             if (!shift && !ctrl && !alt) {
-              logic.deselect_tab(group, tab);
-              logic.focus_tab(tab);
+              logic.click_tab(group, tab);
 
             } else if (shift && !ctrl && !alt) {
               logic.shift_select_tab(group, tab);
