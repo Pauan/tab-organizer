@@ -17,6 +17,25 @@ class ListBase {
     this.size = this._list["length"];
   }
 
+  to_json() {
+    const a = this._list;
+
+    const out = new Array(a["length"]);
+
+    for (let i = 0; i < a["length"]; ++i) {
+      out[i] = to_json(a[i]);
+    }
+
+    return out;
+  }
+
+  [Symbol["iterator"]]() {
+    return iterator(this._list);
+  }
+}
+
+
+class MutableListBase extends ListBase {
   _clear() {
     this._list["length"] = 0;
     this.size = 0;
@@ -62,22 +81,6 @@ class ListBase {
   clear() {
     this._clear();
   }
-
-  to_json() {
-    const a = this._list;
-
-    const out = new Array(a["length"]);
-
-    for (let i = 0; i < a["length"]; ++i) {
-      out[i] = to_json(a[i]);
-    }
-
-    return out;
-  }
-
-  [Symbol["iterator"]]() {
-    return iterator(this._list);
-  }
 }
 
 
@@ -100,8 +103,9 @@ const get_index = (index, len) => {
   }
 };
 
-// TODO test this
-export class List extends ListBase {
+
+// TODO code duplication with List
+export class ImmutableList extends ListBase {
   has(index) {
     assert(typeof index === "number");
 
@@ -118,6 +122,50 @@ export class List extends ListBase {
 
     return this._list[index];
   }
+
+  index_of(value) {
+    const index = this._list["indexOf"](value);
+
+    if (index === -1) {
+      return None;
+
+    } else {
+      return Some(index);
+    }
+  }
+}
+
+
+// TODO test this
+export class List extends MutableListBase {
+  has(index) {
+    assert(typeof index === "number");
+
+    // TODO test this
+    if (index < 0) {
+      index += this.size;
+    }
+
+    return index_in_range(index, this.size);
+  }
+
+  get(i) {
+    const index = get_index(i, this.size);
+
+    return this._list[index];
+  }
+
+  index_of(value) {
+    const index = this._list["indexOf"](value);
+
+    if (index === -1) {
+      return None;
+
+    } else {
+      return Some(index);
+    }
+  }
+
 
   update(i, new_value) {
     const index = get_index(i, this.size);
@@ -154,17 +202,6 @@ export class List extends ListBase {
       this._update(index, new_value);
     }
   }
-
-  index_of(value) {
-    const index = this._list["indexOf"](value);
-
-    if (index === -1) {
-      return None;
-
-    } else {
-      return Some(index);
-    }
-  }
 }
 
 
@@ -181,7 +218,7 @@ const is_sorted = (list, index, len, sort) => {
 };
 
 // TODO test this
-export class SortedList extends ListBase {
+export class SortedList extends MutableListBase {
   constructor(sort) {
     super();
 
