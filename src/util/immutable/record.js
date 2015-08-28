@@ -1,5 +1,5 @@
 import { iterator, entries, to_array } from "../iterator";
-import { get_sorted, copy, insert, remove } from "./array";
+import { get_sorted, copy, insert, remove } from "../array";
 import { to_json } from "../json";
 import { assert, fail } from "../assert";
 

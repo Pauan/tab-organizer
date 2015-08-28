@@ -1,6 +1,6 @@
 import { iterator, to_array } from "../iterator";
 import { None, Some } from "../maybe";
-import { copy, insert, push, remove } from "./array";
+import { copy, insert, push, remove } from "../array";
 import { to_json } from "../json";
 import { assert, fail } from "../assert";
 

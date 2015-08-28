@@ -1,6 +1,6 @@
 import { iterator, to_array } from "../iterator";
 import { fail } from "../assert";
-import { push, remove } from "./array";
+import { push, remove } from "../array";
 
 
 // TODO inefficient, it's O(2n)

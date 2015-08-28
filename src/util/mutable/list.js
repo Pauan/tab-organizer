@@ -1,5 +1,5 @@
 import { iterator, to_array } from "../iterator";
-import { get_sorted } from "../immutable/array";
+import { get_sorted } from "../array";
 import { Some, None } from "../maybe";
 import { assert, fail } from "../assert";
 import { to_json } from "../json";
