@@ -18,23 +18,6 @@ export const init = async([init_radio,
   const ui = () =>
     category("Tabs", [
       row([
-        text("Sort tabs by... "),
-
-        dropdown("group.sort.type", [
-          { name: "Window",  value: "window"  },
-          { name: "Tag",     value: "tag"     },
-          { separator: true },
-          { name: "Focused", value: "focused" },
-          { name: "Created", value: "created" },
-          { separator: true },
-          { name: "URL",     value: "url"     },
-          { name: "Name",    value: "title"   }
-        ])
-      ]),
-
-      separator(),
-
-      row([
         text("Show the "),
 
         dom.image((e) => [
