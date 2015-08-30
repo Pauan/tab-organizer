@@ -116,7 +116,7 @@ export const vertical_space = (s) =>
 
 const style_header = dom.style({
   "font-weight": always("bold"),
-  "margin-bottom": always("1px")
+  "margin-bottom": always("2px")
 });
 
 export const header = (s) =>
