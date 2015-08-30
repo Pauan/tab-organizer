@@ -8,7 +8,7 @@ export const init = async([], () => {
   const ui = () =>
     category("User Data", [
       row([
-        button("Export", {
+        button("Export...", {
           on_click: () => {
 
           }
@@ -16,7 +16,7 @@ export const init = async([], () => {
 
         horizontal_space("10px"),
 
-        button("Import", {
+        button("Import...", {
           on_click: () => {
 
           }
@@ -24,7 +24,7 @@ export const init = async([], () => {
 
         horizontal_space("25px"),
 
-        button("Reset options to default", {
+        button("Reset options to default...", {
           on_click: () => {
 
           }
