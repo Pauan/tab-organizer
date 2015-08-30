@@ -61,7 +61,7 @@ export const init = async([init_radio,
 
       separator(),
 
-      header("Click behavior:"),
+      header("When a tab is clicked..."),
       indent([
         radio("tabs.click.type", [{
           name: "1 click to focus",
@@ -74,7 +74,19 @@ export const init = async([init_radio,
 
       separator(),
 
-      checkbox("tabs.close.duplicates", "Automatically close duplicate tabs")
+      header("When a duplicate tab is opened..."),
+      indent([
+        radio("tabs.duplicates.behavior", [{
+          name: "Do nothing",
+          value: "nothing"
+        }, {
+          name: "Close the old tab",
+          value: "close-old-tab"
+        }, {
+          name: "Close the old tab and merge it into the new tab",
+          value: "close-merge-old-tab"
+        }])
+      ])
     ]);
 
 

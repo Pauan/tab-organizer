@@ -13,7 +13,8 @@ export const init = async([init_radio,
 
   const ui = () =>
     category("Groups", [
-      header("Display groups:"),
+      header("Display groups..."),
+      vertical_space("2px"),
       indent([
         radio("groups.layout", [
           { name: "Vertically",   value: "vertical"   },
