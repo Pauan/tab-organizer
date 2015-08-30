@@ -9,7 +9,7 @@ export const init = async([init_checkbox],
 
   const ui = () =>
     category("Button", [
-      header("Display a counter that shows how many tabs you have..."),
+      header("Show the number of tabs you have..."),
       indent([
         checkbox("counter.display.loaded", "Loaded in Chrome"),
         checkbox("counter.display.unloaded", "Unloaded in Chrome")

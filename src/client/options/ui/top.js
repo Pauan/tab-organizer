@@ -1,7 +1,7 @@
 import * as dom from "../../dom";
 import { always } from "../../../util/ref";
 import { async } from "../../../util/async";
-import { init as init_theme } from "./categories/theme";
+import { init as init_appearance } from "./categories/appearance";
 import { init as init_groups } from "./categories/groups";
 import { init as init_tabs } from "./categories/tabs";
 import { init as init_button } from "./categories/button";
@@ -10,14 +10,14 @@ import { init as init_popup } from "./categories/popup";
 import { init as init_user_data } from "./categories/user data";
 
 
-export const init = async([init_theme,
+export const init = async([init_appearance,
                            init_groups,
                            init_tabs,
                            init_button,
                            init_keyboard,
                            init_popup,
                            init_user_data],
-                          ({ ui: ui_theme },
+                          ({ ui: ui_appearance },
                            { ui: ui_groups },
                            { ui: ui_tabs },
                            { ui: ui_button },
@@ -60,7 +60,7 @@ export const init = async([init_theme,
       e.set_style(style_inner, always(true)),
 
       e.children([
-        ui_theme(),
+        ui_appearance(),
         ui_groups(),
         ui_tabs(),
         ui_button(),

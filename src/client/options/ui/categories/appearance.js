@@ -52,7 +52,7 @@ export const init = async([init_checkbox,
     ]);
 
   const ui = () =>
-    category("Theme", [
+    category("Appearance", [
       checkbox("theme.animation", "Animation enabled"),
 
       separator(),
