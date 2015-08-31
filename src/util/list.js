@@ -1,5 +1,4 @@
-import { Some, None } from "../maybe";
-import { assert, fail } from "../assert";
+import { assert, fail } from "./assert";
 
 
 const index_in_range = (index, len) =>
@@ -89,10 +88,10 @@ export const index_of = (array, value) => {
   const index = array["indexOf"](value);
 
   if (index === -1) {
-    return None;
+    fail(new Error("Could not find value: " + value));
 
   } else {
-    return Some(index);
+    return index;
   }
 };
 
