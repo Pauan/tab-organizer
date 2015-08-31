@@ -31,6 +31,8 @@ export const init = async([init_db,
   db.transient("transient.tab-ids", Record());
 
 
+  const _on_tab_open = Event();
+  const _on_tab_close = Event();
   const tab_events = Event();
 
   const serialize_tab = (db, id) => {
@@ -444,14 +446,18 @@ export const init = async([init_db,
     });
   };
 
-  const tab_open = ({ window, tab, index }) => {
+  const tab_open = ({ window, tab: info, index }) => {
     db.transaction((db) => {
       const window_id = session.window_id(window.id);
-      const tab_id = session.tab_id(tab.id);
+      const tab_id = session.tab_id(info.id);
 
-      make_new_tab(db, window_id, tab_id, tab);
+      make_new_tab(db, window_id, tab_id, info);
 
-      db.insert(["transient.tab-ids", tab_id], tab);
+      db.insert(["transient.tab-ids", tab_id], info);
+
+      // TODO a tiny bit inefficient ?
+      const tab = db.get(["current.tab-ids", tab_id]);
+      const transient = db.get(["transient.tab-ids", tab_id]);
 
       const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 
@@ -465,6 +471,8 @@ export const init = async([init_db,
         "tab-index": session_index,
         "tab": serialize_tab(db, tab_id)
       });
+
+      _on_tab_open.send({ tab, transient });
     });
   };
 
@@ -591,6 +599,9 @@ export const init = async([init_db,
       const window_id = session.window_id(info.window.id);
       const tab_id = session.tab_id(info.tab.id);
 
+      const tab = db.get(["current.tab-ids", tab_id]);
+      const transient = db.get(["transient.tab-ids", tab_id]);
+
       db.remove(["current.tab-ids", tab_id]);
       db.remove(["transient.tab-ids", tab_id]);
 
@@ -607,6 +618,8 @@ export const init = async([init_db,
         "tab-id": tab_id,
         "tab-index": index
       });
+
+      _on_tab_close.send({ tab, transient });
     });
   };
 
@@ -688,4 +701,20 @@ export const init = async([init_db,
   console.log(yield delay(1000));
   console.log(yield window.get_state());
   console.log(yield window.close());*/
+
+  const get_all_tabs = () => {
+    const transients = db.get(["transient.tab-ids"]);
+
+    return map(db.get(["current.tab-ids"]), ([id, tab]) => {
+      const transient = (transients.has(id)
+                          ? transients.get(id)
+                          : null);
+      return { tab, transient };
+    });
+  };
+
+  const on_tab_open = _on_tab_open.receive;
+  const on_tab_close = _on_tab_close.receive;
+
+  return { get_all_tabs, on_tab_open, on_tab_close };
 });
