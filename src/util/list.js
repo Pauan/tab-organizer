@@ -55,6 +55,9 @@ const _remove = (array, index) => {
 };
 
 
+export const make = (array = []) =>
+  array;
+
 export const length = (array) =>
   array["length"];
 
