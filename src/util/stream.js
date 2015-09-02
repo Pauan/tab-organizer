@@ -1,4 +1,5 @@
 import * as list from "./list";
+import * as record from "./record";
 import * as event from "./event";
 import * as maybe from "./maybe";
 import { insert as _insert, remove as _remove,
@@ -8,29 +9,18 @@ import { map, iterator } from "./iterator";
 import { assert, fail } from "./assert";
 
 
-export const uuid_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
-export const uuid_remove = "df55a53e-ce78-40b4-b751-d6a356f311c2";
-export const uuid_update = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
-export const uuid_clear  = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
-
-
-const list_iterator = function () {
-  // TODO is this correct ?;
-  return iterator(this._list);
-};
-
-const map_iterator = function () {
-  // TODO is this correct ?
-  return iterator(map(this._parent, this._fn));
-};
+export const uuid_initial = "9fea84a4-c36f-4ecf-a1d2-9bbcf778385b";
+export const uuid_insert  = "fa4a6522-a031-4294-861e-d536b21b3b2d";
+export const uuid_remove  = "df55a53e-ce78-40b4-b751-d6a356f311c2";
+export const uuid_update  = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
+export const uuid_clear   = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
 
 
 export const make = () => {
   return {
     _type: 0,
     _list: list.make(),
-    _events: event.make(),
-    [Symbol["iterator"]]: list_iterator
+    _events: event.make()
   };
 };
 
@@ -39,7 +29,6 @@ export const sorted_make = (sort) => {
     _type: 1,
     _list: [],
     _events: event.make(),
-    [Symbol["iterator"]]: list_iterator,
     _sort: sort
   };
 };
@@ -48,8 +37,7 @@ export const map = (parent, fn) => {
   return {
     _type: 2,
     _parent: parent,
-    _fn: fn,
-    [Symbol["iterator"]]: map_iterator
+    _fn: fn
   };
 };
 
@@ -154,18 +142,18 @@ export const sorted_update = (stream, x) => {
 
 
 const event_insert = (stream, index, value) => {
-  event.send(stream._events, {
-    type: uuid_insert,
-    index: index,
-    value: value
-  });
+  event.send(stream._events, record.make({
+    "type": uuid_insert,
+    "index": index,
+    "value": value
+  }));
 };
 
 const event_remove = (stream, index) => {
-  event.send(stream._events, {
-    type: uuid_remove,
-    index: index
-  });
+  event.send(stream._events, record.make({
+    "type": uuid_remove,
+    "index": index
+  }));
 };
 
 
@@ -173,9 +161,9 @@ export const clear = (stream) => {
   if (stream._type === 0 || stream._type === 1) {
     _clear(stream._list);
 
-    event.send(stream._events, {
-      type: uuid_clear
-    });
+    event.send(stream._events, record.make({
+      "type": uuid_clear
+    }));
 
   } else {
     fail();
@@ -184,19 +172,34 @@ export const clear = (stream) => {
 
 export const on_change = (stream, f) => {
   if (stream._type === 0 || stream._type === 1) {
+    f(record.make({
+      "type": uuid_initial,
+      "value": stream._list
+    }));
+
     return event.receive(stream._events, f);
 
 
   } else if (stream._type === 2) {
     return on_change(stream._parent, (x) => {
-      switch (x.type) {
+      const type = record.get(x, "type");
+
+      switch (type) {
+      case uuid_initial:
+        f(record.make({
+          "type": type,
+          // TODO a tiny bit hacky
+          "value": record.get(x, "value")["map"]((x) => stream._fn(x))
+        }));
+        break;
+
       case uuid_insert:
       case uuid_update:
-        f({
-          type: x.type,
-          index: x.index,
-          value: stream._fn(x.value)
-        });
+        f(record.make({
+          "type": type,
+          "index": record.get(x, "index"),
+          "value": stream._fn(record.get(x, "value"))
+        }));
         break;
 
       case uuid_remove:
