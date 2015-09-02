@@ -1,4 +1,4 @@
-import { Some, None } from "./maybe";
+import * as maybe from "./maybe";
 
 
 export const to_array = (x) =>
@@ -64,10 +64,10 @@ export const first = (iter, f) => {
     const info = x["next"]();
 
     if (info["done"]) {
-      return None;
+      return maybe.None;
 
     } else if (f(info["value"])) {
-      return Some(info["value"]);
+      return maybe.Some(info["value"]);
     }
   }
 };
@@ -115,12 +115,12 @@ export const keep_map = (iter, f) =>
             };
 
           } else {
-            const maybe = f(info["value"]);
+            const x = f(info["value"]);
 
-            if (maybe.has()) {
+            if (maybe.has(x)) {
               return {
                 "done": false,
-                "value": maybe.get()
+                "value": maybe.get(x)
               };
             }
           }
@@ -130,13 +130,17 @@ export const keep_map = (iter, f) =>
   });
 
 export const keep = (iter, f) =>
-  keep_map(iter, (x) => (f(x) ? Some(x) : None));
+  keep_map(iter, (x) =>
+    (f(x)
+      ? maybe.Some(x)
+      : maybe.None));
 
 export const map = (iter, f) =>
-  keep_map(iter, (x) => Some(f(x)));
+  keep_map(iter, (x) =>
+    maybe.Some(f(x)));
 
 export const any = (iter, f) =>
-  first(iter, f).has();
+  maybe.has(first(iter, f));
 
 export const all = (iter, f) =>
   !any(iter, (x) => !f(x));

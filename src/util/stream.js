@@ -1,198 +1,206 @@
-import { map, iterator } from "../iterator";
-import { fail } from "../assert";
-import { Record } from "./record";
-import { List, SortedList } from "./list";
-import { Event } from "../event";
+import * as list from "./list";
+import * as event from "./event";
+import * as maybe from "./maybe";
+import { insert as _insert, remove as _remove,
+         index_of, size, index_in_range, get_sorted,
+         is_sorted, clear as _clear } from "./array";
+import { map, iterator } from "./iterator";
+import { assert, fail } from "./assert";
 
 
-export const uuid_stream_insert  = "fa4a6522-a031-4294-861e-d536b21b3b2d";
-export const uuid_stream_remove  = "df55a53e-ce78-40b4-b751-d6a356f311c2";
-export const uuid_stream_update  = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
-export const uuid_stream_clear   = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
-export const uuid_stream_default = "f033f4cc-36e7-448f-a513-48d609e31f74";
+export const uuid_insert = "fa4a6522-a031-4294-861e-d536b21b3b2d";
+export const uuid_remove = "df55a53e-ce78-40b4-b751-d6a356f311c2";
+export const uuid_update = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
+export const uuid_clear  = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
 
 
-export class RecordStream extends Record {
-  constructor(x = null) {
-    super(x);
+const list_iterator = function () {
+  // TODO is this correct ?;
+  return iterator(this._list);
+};
 
-    this._event = Event();
+const map_iterator = function () {
+  // TODO is this correct ?
+  return iterator(map(this._parent, this._fn));
+};
+
+
+export const make = () => {
+  return {
+    _type: 0,
+    _list: list.make(),
+    _events: event.make(),
+    [Symbol["iterator"]]: list_iterator
+  };
+};
+
+export const sorted_make = (sort) => {
+  return {
+    _type: 1,
+    _list: [],
+    _events: event.make(),
+    [Symbol["iterator"]]: list_iterator,
+    _sort: sort
+  };
+};
+
+export const map = (parent, fn) => {
+  return {
+    _type: 2,
+    _parent: parent,
+    _fn: fn,
+    [Symbol["iterator"]]: map_iterator
+  };
+};
+
+
+export const insert = (stream, index, x) => {
+  if (stream._type === 0) {
+    list.insert(stream._list, index, x);
+    event_insert(stream, index, x);
+
+  } else {
+    fail();
   }
+};
 
-  on_change(f) {
-    return this._event.receive(f);
+export const push = (stream, x) => {
+  if (stream._type === 0) {
+    list.push(stream._list, x);
+    // TODO is this correct ?
+    event_insert(stream, size(stream._list) - 1, x);
+
+  } else {
+    fail();
   }
+};
 
-  _insert(key, value) {
-    super._insert(key, value);
+export const remove = (stream, index) => {
+  if (stream._type === 0) {
+    list.remove(stream._list, index);
+    event_remove(stream, index);
 
-    this._event.send({
-      type: uuid_stream_insert,
-      key: key,
-      value: value
+  } else {
+    fail();
+  }
+};
+
+
+export const sorted_has = (stream, x) => {
+  if (stream._type === 1) {
+    const { value } = get_sorted(stream._list, x, stream._sort);
+    return maybe.has(value);
+
+  } else {
+    fail();
+  }
+};
+
+export const sorted_insert = (stream, x) => {
+  if (stream._type === 1) {
+    const { index, value } = get_sorted(stream._list, x, stream._sort);
+
+    assert(!maybe.has(value));
+
+    _insert(stream._list, index, x);
+    event_insert(stream, index, x);
+
+    // TODO inefficient
+    assert(is_all_sorted(stream._list, stream._sort));
+
+  } else {
+    fail();
+  }
+};
+
+export const sorted_remove = (stream, x) => {
+  if (stream._type === 1) {
+    const { index, value } = get_sorted(stream._list, x, stream._sort);
+
+    assert(maybe.get(value) === x);
+
+    _remove(stream._list, index);
+    event_remove(stream, index);
+
+    // TODO inefficient
+    assert(is_all_sorted(stream._list, stream._sort));
+
+  } else {
+    fail();
+  }
+};
+
+export const sorted_update = (stream, x) => {
+  if (stream._type === 1) {
+    const index = index_of(stream._list, x);
+    const len   = size(stream._list);
+
+    assert(index_in_range(index, len));
+
+    // TODO is this correct ?
+    if (!is_sorted(stream._list, index, len, stream._sort)) {
+      _remove(stream._list, index);
+      event_remove(stream, index);
+      sorted_insert(stream, x);
+    }
+
+    // TODO inefficient
+    assert(is_all_sorted(stream._list, stream._sort));
+
+  } else {
+    fail();
+  }
+};
+
+
+const event_insert = (stream, index, value) => {
+  event.send(stream._events, {
+    type: uuid_insert,
+    index: index,
+    value: value
+  });
+};
+
+const event_remove = (stream, index) => {
+  event.send(stream._events, {
+    type: uuid_remove,
+    index: index
+  });
+};
+
+
+export const clear = (stream) => {
+  if (stream._type === 0 || stream._type === 1) {
+    _clear(stream._list);
+
+    event.send(stream._events, {
+      type: uuid_clear
     });
+
+  } else {
+    fail();
   }
+};
 
-  _update(key, value) {
-    super._update(key, value);
-
-    this._event.send({
-      type: uuid_stream_update,
-      key: key,
-      value: value
-    });
-  }
-
-  _default(key, value) {
-    super._default(key, value);
-
-    this._event.send({
-      type: uuid_stream_default,
-      key: key,
-      value: value
-    });
-  }
-
-  _remove(key) {
-    super._remove(key);
-
-    this._event.send({
-      type: uuid_stream_remove,
-      key: key
-    });
-  }
-}
+export const on_change = (stream, f) => {
+  if (stream._type === 0 || stream._type === 1) {
+    return event.receive(stream._events, f);
 
 
-export class ListStream extends List {
-  constructor(x = null) {
-    super(x);
-
-    this._event = Event();
-  }
-
-  // TODO code duplication
-  map(f) {
-    return new Map(this, f);
-  }
-
-  on_change(f) {
-    return this._event.receive(f);
-  }
-
-  _clear() {
-    super._clear();
-
-    this._event.send({
-      type: uuid_stream_clear
-    });
-  }
-
-  _update(index, value) {
-    super._update(index, value);
-
-    this._event.send({
-      type: uuid_stream_update,
-      index: index,
-      value: value
-    });
-  }
-
-  _insert(index, value) {
-    super._insert(index, value);
-
-    this._event.send({
-      type: uuid_stream_insert,
-      index: index,
-      value: value
-    });
-  }
-
-  _remove(index) {
-    super._remove(index);
-
-    this._event.send({
-      type: uuid_stream_remove,
-      index: index
-    });
-  }
-}
-
-
-export class SortedListStream extends SortedList {
-  constructor(sort) {
-    super(sort);
-
-    this._event = Event();
-  }
-
-  // TODO code duplication
-  map(f) {
-    return new Map(this, f);
-  }
-
-  // TODO code duplication
-  on_change(f) {
-    return this._event.receive(f);
-  }
-
-  // TODO code duplication
-  _clear() {
-    super._clear();
-
-    this._event.send({
-      type: uuid_stream_clear
-    });
-  }
-
-  // TODO code duplication
-  _insert(index, value) {
-    super._insert(index, value);
-
-    this._event.send({
-      type: uuid_stream_insert,
-      index: index,
-      value: value
-    });
-  }
-
-  // TODO code duplication
-  _remove(index) {
-    super._remove(index);
-
-    this._event.send({
-      type: uuid_stream_remove,
-      index: index
-    });
-  }
-}
-
-
-class Map {
-  constructor(parent, fn) {
-    this._parent = parent;
-    this._fn = fn;
-  }
-
-  // TODO code duplication
-  map(f) {
-    return new Map(this, f);
-  }
-
-  on_change(f) {
-    return this._parent.on_change((x) => {
+  } else if (stream._type === 2) {
+    return on_change(stream._parent, (x) => {
       switch (x.type) {
-      case uuid_stream_insert:
-      case uuid_stream_update:
+      case uuid_insert:
+      case uuid_update:
         f({
           type: x.type,
           index: x.index,
-          value: this._fn(x.value)
+          value: stream._fn(x.value)
         });
         break;
 
-      case uuid_stream_remove:
-      case uuid_stream_clear:
+      case uuid_remove:
+      case uuid_clear:
         f(x);
         break;
 
@@ -201,10 +209,9 @@ class Map {
         break;
       }
     });
-  }
 
-  [Symbol["iterator"]]() {
-    // TODO is this correct ?
-    return iterator(map(this._parent, this._fn));
+
+  } else {
+    fail();
   }
-}
+};

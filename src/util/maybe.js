@@ -1,34 +1,17 @@
 import { fail } from "./assert";
 
 
-class _None {
-  constructor() {}
+export const None = [];
 
-  // TODO maybe use static properties rather than methods ?
-  has() {
-    return false;
-  }
+export const Some = (x) => [x];
 
-  // TODO maybe use a getter rather than methods ?
-  get() {
+export const has = (x) =>
+  x["length"] !== 0;
+
+export const get = (x) => {
+  if (x["length"]) {
+    return x[0];
+  } else {
     fail(new Error("Cannot get from None"));
   }
-}
-
-class _Some {
-  constructor(x) {
-    this._value = x;
-  }
-
-  has() {
-    return true;
-  }
-
-  get() {
-    return this._value;
-  }
-}
-
-export const None = new _None();
-
-export const Some = (x) => new _Some(x);
+};

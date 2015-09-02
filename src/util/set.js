@@ -1,4 +1,6 @@
 import { fail } from "./assert";
+import { remove as _remove } from "./array";
+export { size } from "./array";
 
 
 export const make = () =>
@@ -25,7 +27,6 @@ export const remove = (array, value) => {
     fail(new Error("Value does not exist in set: " + value));
 
   } else {
-    // TODO use _remove
-    array["splice"](index, 1);
+    _remove(array, index);
   }
 };

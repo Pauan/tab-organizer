@@ -1,27 +1,3 @@
-import { fail } from "./assert";
-
-
-export class Timer {
-  constructor() {
-    this._start = current_time();
-    this._end = null;
-  }
-
-  done() {
-    this._end = current_time();
-  }
-
-  diff() {
-    if (this._end === null) {
-      fail(new Error("Timer is not done yet"));
-
-    } else {
-      return this._end - this._start;
-    }
-  }
-}
-
-
 // TODO this probably isn't super-robust, but it should work for common cases
 let max = null;
 

@@ -1,68 +1,66 @@
+import * as set from "./set";
+import * as maybe from "./maybe";
 import { each } from "./iterator";
-import { Set } from "./mutable/set";
-import { Some, None } from "./maybe";
-//import { assert } from "./assert";
+import { assert } from "./assert";
 
 
-export const Event = (info = {}) => {
-  const listeners = new Set();
-
-  let state = None;
-
-  const send = (value) => {
-    each(listeners, (f) => {
-      f(value);
-    });
+export const make = (info = {}) => {
+  return {
+    _listeners: set.make(),
+    _info: info,
+    _state: maybe.None
   };
+};
 
-  const start = () => {
-    if (info.start) {
-      // TODO
-      //assert(!state.has());
-      state = Some(info.start(e));
-    }
-  };
+const start = (event) => {
+  const f = event._info.start;
+  if (f) {
+    assert(!maybe.has(state));
+    event._state = maybe.Some(f(event));
+  }
+};
 
-  const stop = () => {
-    if (info.stop) {
-      info.stop(e, state.get());
-      state = None;
-    }
-  };
+const stop = (event) => {
+  const f = event._info.stop;
+  if (f) {
+    f(event, maybe.get(event._state));
+    event._state = maybe.None;
+  }
+};
+
+export const send = (event, value) => {
+  each(event._listeners, (f) => {
+    f(value);
+  });
+};
+
+export const receive = (event, f) => {
+  set.insert(event._listeners, f);
 
   // TODO test this
-  // TODO shouldn't this get rid of the listeners ?
-  const close = () => {
-    if (listeners.size > 0) {
-      stop();
-    }
-  };
+  if (set.size(event._listeners) === 1) {
+    start(event);
+  }
 
-  const receive = (f) => {
-    listeners.insert(f);
+  return {
+    stop: () => {
+      set.remove(event._listeners, f);
 
-    // TODO test this
-    if (listeners.size === 1) {
-      start();
-    }
-
-    return {
-      stop: () => {
-        listeners.remove(f);
-
-        // TODO test this
-        if (listeners.size === 0) {
-          stop();
-        }
+      // TODO test this
+      if (set.size(event._listeners) === 0) {
+        stop(event);
       }
-    };
+    }
   };
+};
 
-  const e = {
-    send,
-    close,
-    receive
-  };
+export const close = (event) => {
+  // TODO test this
+  if (set.size(event._listeners) !== 0) {
+    stop(event);
+  }
 
-  return e;
+  event._listeners = null;
+  event._info = null;
+  event._state = null;
 };
