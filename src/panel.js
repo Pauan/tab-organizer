@@ -1,11 +1,11 @@
+import * as timer from "./util/time";
 import { init as init_ui } from "./client/panel/ui";
 import { run_async } from "./util/async";
-import { Timer } from "./util/time";
 import "./client/panel/init";
 
-const timer = new Timer();
+const duration = timer.make();
 
 run_async([init_ui], () => {
-  timer.done();
-  console["debug"]("panel: initialized (" + timer.diff() + "ms)");
+  timer.done(duration);
+  console["debug"]("panel: initialized (" + timer.diff(duration) + "ms)");
 });
