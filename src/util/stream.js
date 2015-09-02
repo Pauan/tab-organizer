@@ -177,7 +177,7 @@ export const on_change = (stream, f) => {
       "value": stream._list
     }));
 
-    return event.receive(stream._events, f);
+    return event.on_receive(stream._events, f);
 
 
   } else if (stream._type === 2) {

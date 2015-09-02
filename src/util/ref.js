@@ -117,7 +117,7 @@ const listen_latest = (x, initial, change) => {
 const listen = (x, initial, change) => {
   if (x._type === 0) {
     initial(x._value);
-    return event.receive(x._event, change);
+    return event.on_receive(x._event, change);
 
 
   } else if (x._type === 1) {

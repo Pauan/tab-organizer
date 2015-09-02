@@ -1,11 +1,17 @@
 import { assert, fail } from "./assert";
+import { to_array } from "./iterator";
 import { insert as _insert, remove as _insert,
          check_index, size, index_in_range, get_index } from "./array";
 export { size, index_of, clear } from "./array";
 
 
-export const make = (x = []) =>
-  x;
+export const make = (x = null) => {
+  if (x == null) {
+    return [];
+  } else {
+    return to_array(x);
+  };
+};
 
 export const has = (x, index) => {
   check_index(x);

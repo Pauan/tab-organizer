@@ -34,7 +34,7 @@ export const send = (event, value) => {
   });
 };
 
-export const receive = (event, f) => {
+export const on_receive = (event, f) => {
   set.insert(event._listeners, f);
 
   // TODO test this
