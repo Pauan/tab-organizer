@@ -5,17 +5,6 @@ const check_key = (key) => {
   assert(typeof key === "string" || typeof key === "number");
 };
 
-const _get = (obj, key) => {
-  check_key(key);
-
-  if (key in obj) {
-    return obj[key];
-
-  } else {
-    fail(new Error("Key not found: " + key));
-  }
-};
-
 
 export const make = (obj = {}) =>
   obj;
@@ -25,14 +14,15 @@ export const has = (obj, key) => {
   return key in obj;
 };
 
-export const get = (obj, ...keys) => {
-  assert(keys["length"] >= 1);
+export const get = (obj, key) => {
+  check_key(key);
 
-  for (let i = 0; i < keys["length"]; ++i) {
-    obj = _get(obj, keys[i]);
+  if (key in obj) {
+    return obj[key];
+
+  } else {
+    fail(new Error("Key not found: " + key));
   }
-
-  return obj;
 };
 
 export const insert = (obj, key, value) => {
