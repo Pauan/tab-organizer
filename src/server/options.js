@@ -4,6 +4,7 @@ import { make_options } from "./options-helper";
 
 
 export const init = make_options(uuid_port_options, record.make({
+  "counter.session"           : null,
   "counter.display.loaded"    : true,
   "counter.display.unloaded"  : true,
 
