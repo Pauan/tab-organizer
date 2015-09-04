@@ -1,8 +1,10 @@
+import * as ref from "../util/ref";
+import * as event from "../util/event";
+import * as record from "../util/record";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { uuid_port_popup } from "../common/uuid";
 import { async } from "../util/async";
-import { always } from "../util/ref";
 import { each } from "../util/iterator";
 import { assert, fail } from "../util/assert";
 
@@ -12,7 +14,7 @@ export const init = async([init_chrome,
                           ({ manifest, button, popups, tabs, windows, ports },
                            { get: opt }) => {
 
-  button.set_tooltip(always(manifest.get("name")));
+  button.set_tooltip(ref.always(record.get(manifest, "name")));
 
   const panel_url = "panel.html";
   const empty_url = "data/empty.html";
@@ -87,13 +89,13 @@ export const init = async([init_chrome,
       url: empty_url,
       focused: false
     }, (x) => {
-      x.maximize();
+      popups.maximize(x);
 
       // TODO Yes we really need this delay, because Chrome is stupid
       setTimeout(() => {
-        x.get_size((size) => {
+        popups.get_size(x, (size) => {
           // TODO rather than closing the popup, how about instead re-using it for the popup/sidebar ?
-          x.close();
+          popups.close(x);
           f(size);
         });
       }, 500);
@@ -101,20 +103,20 @@ export const init = async([init_chrome,
   };
 
   const set_monitor_size = (size) => {
-    opt("screen.available.left").set(size.left);
-    opt("screen.available.top").set(size.top);
-    opt("screen.available.width").set(size.width);
-    opt("screen.available.height").set(size.height);
-    opt("screen.available.checked").set(true);
+    ref.set(opt("screen.available.left"), size.left);
+    ref.set(opt("screen.available.top"), size.top);
+    ref.set(opt("screen.available.width"), size.width);
+    ref.set(opt("screen.available.height"), size.height);
+    ref.set(opt("screen.available.checked"), true);
   };
 
   const get_screen_size = (f) => {
-    if (opt("screen.available.checked").get()) {
+    if (ref.get(opt("screen.available.checked"))) {
       f({
-        left:   opt("screen.available.left").get(),
-        top:    opt("screen.available.top").get(),
-        width:  opt("screen.available.width").get(),
-        height: opt("screen.available.height").get()
+        left:   ref.get(opt("screen.available.left")),
+        top:    ref.get(opt("screen.available.top")),
+        width:  ref.get(opt("screen.available.width")),
+        height: ref.get(opt("screen.available.height"))
       });
 
     } else {
@@ -129,25 +131,25 @@ export const init = async([init_chrome,
     assert(popup.windows !== null);
 
     // TODO only do this if the state is "normal" or "maximized" ?
-    window.move(popup.windows);
+    windows.move(window, popup.windows);
   };
 
   const unresize_window = (window) => {
     assert(popup.windows !== null);
 
     // TODO only do this if the state is "normal" ?
-    window.maximize();
+    windows.maximize(window);
   };
 
   const resize_windows = () => {
     assert(popup.windows !== null);
 
-    each(windows.get(), resize_window);
+    each(windows.get_all(), resize_window);
   };
 
   const unresize_windows = () => {
     if (popup.windows !== null) {
-      each(windows.get(), unresize_window);
+      each(windows.get_all(), unresize_window);
 
       popup.windows = null;
     }
@@ -156,10 +158,10 @@ export const init = async([init_chrome,
   const get_popup_dimensions = (type, screen) => {
     switch (type) {
     case "popup":
-      const popup_left   = opt("size.popup.left").get();
-      const popup_top    = opt("size.popup.top").get();
-      const popup_width  = opt("size.popup.width").get();
-      const popup_height = opt("size.popup.height").get();
+      const popup_left   = ref.get(opt("size.popup.left"));
+      const popup_top    = ref.get(opt("size.popup.top"));
+      const popup_width  = ref.get(opt("size.popup.width"));
+      const popup_height = ref.get(opt("size.popup.height"));
 
       return {
         left: screen.left +
@@ -177,8 +179,8 @@ export const init = async([init_chrome,
 
 
     case "sidebar":
-      const sidebar_position = opt("size.sidebar.position").get();
-      const sidebar_size     = opt("size.sidebar").get();
+      const sidebar_position = ref.get(opt("size.sidebar.position"));
+      const sidebar_size     = ref.get(opt("size.sidebar"));
 
       return {
         left: (sidebar_position === "right"
@@ -207,8 +209,8 @@ export const init = async([init_chrome,
   };
 
   const get_window_size = (screen) => {
-    const sidebar_position = opt("size.sidebar.position").get();
-    const sidebar_size     = opt("size.sidebar").get();
+    const sidebar_position = ref.get(opt("size.sidebar.position"));
+    const sidebar_size     = ref.get(opt("size.sidebar"));
 
     return {
       left:   (sidebar_position === "left"
@@ -275,8 +277,8 @@ export const init = async([init_chrome,
 
       // TODO test this
       } else {
-        popup.value.move(dimensions);
-        popup.value.focus();
+        popups.move(popup.value, dimensions);
+        popups.focus(popup.value);
       }
     });
   };
@@ -287,8 +289,8 @@ export const init = async([init_chrome,
     close_tab();
 
     const dimensions = {
-      width:  opt("size.panel.width").get(),
-      height: opt("size.panel.height").get()
+      width:  ref.get(opt("size.panel.width")),
+      height: ref.get(opt("size.panel.height"))
     };
 
     if (panel.value === null) {
@@ -312,8 +314,8 @@ export const init = async([init_chrome,
       }
 
     } else {
-      panel.value.move(dimensions);
-      panel.value.focus();
+      popups.move(panel.value, dimensions);
+      popups.focus(panel.value);
     }
   };
 
@@ -340,7 +342,7 @@ export const init = async([init_chrome,
       }
 
     } else {
-      tab.value.focus();
+      tabs.focus(tab.value);
     }
   };
 
@@ -352,15 +354,15 @@ export const init = async([init_chrome,
   };
 
 
-  const types = {
+  const types = record.make({
     "popup": open_popup,
     "panel": open_panel,
     "sidebar": open_popup,
     "tab": open_tab
-  };
+  });
 
 
-  popups.on_close((x) => {
+  event.on_receive(popups.on_close, (x) => {
     if (panel.value !== null && panel.value === x) {
       cleanup_panel();
     }
@@ -371,30 +373,30 @@ export const init = async([init_chrome,
   });
 
 
-  tabs.on_close((x) => {
+  event.on_receive(tabs.on_close, (x) => {
     if (tab.value !== null && tab.value === x.tab) {
       cleanup_tab();
     }
   });
 
 
-  windows.on_open((x) => {
+  event.on_receive(windows.on_open, ({ window }) => {
     // TODO test this
     if (popup.windows !== null) {
-      resize_window(x.window);
+      resize_window(window);
     }
   });
 
 
-  button.on_click(() => {
-    const type = opt("popup.type").get();
-    types[type](type);
+  event.on_receive(button.on_click, () => {
+    const type = ref.get(opt("popup.type"));
+    record.get(types, type)(type);
   });
 
 
-  const handle_events = {
+  const handle_events = record.make({
     "open-panel": () => {
-      if (opt("popup.type").get() === "bubble") {
+      if (ref.get(opt("popup.type")) === "bubble") {
         open_bubble();
       }
     },
@@ -403,21 +405,21 @@ export const init = async([init_chrome,
       get_monitor_size((size) => {
         set_monitor_size(size);
 
-        port.send({
+        ports.send(port, record.make({
           "type": "set-monitor-size"
-        });
+        }));
       });
     }
-  };
+  });
 
-  ports.on_connect(uuid_port_popup, (port) => {
-    port.on_receive((x) => {
-      handle_events[x["type"]](port, x);
+  ports.on_open(uuid_port_popup, (port) => {
+    ports.on_receive(port, (x) => {
+      record.get(handle_events, record.get(x, "type"))(port);
     });
   });
 
 
-  button.set_bubble_url(opt("popup.type").map((type) =>
+  button.set_bubble_url(ref.map(opt("popup.type"), (type) =>
                           (type === "bubble"
                             ? panel_url
                             : null)));

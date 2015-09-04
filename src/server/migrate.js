@@ -1,28 +1,27 @@
+import * as record from "../util/record";
+import * as list from "../util/list";
+import * as timer from "../util/timer";
 import { init as init_chrome } from "../chrome/server";
 import { foldl } from "../util/iterator";
-import { List } from "../util/mutable/list";
 import { fail } from "../util/assert";
-import { Timer } from "../util/time";
 import { async } from "../util/async";
 
 
 const version = 1435820160244;
 
-let migrators = new List();
+const migrators = list.make();
 
 const migrate_to = (version, f) => {
-  migrators.push((old_version, db) => {
+  list.push(migrators, (old_version, db) => {
     if (old_version < version) {
-      return f(db);
-    } else {
-      return db;
+      f(db);
     }
   });
 };
 
 const get_version = (db) => {
-  if (db.has("version")) {
-    const version = db.get("version");
+  if (record.has(db, "version")) {
+    const version = record.get(db, "version");
 
     if (typeof version === "number") {
       return version;
@@ -39,10 +38,14 @@ export const migrate = (db) => {
   const old_version = get_version(db);
 
   if (old_version < version) {
-    const new_db = foldl(db, migrators, (db, f) => f(old_version, db));
+    each(migrators, (db, f) => {
+      f(old_version, db);
+    });
 
     // TODO is this correct ?
-    return new_db.assign("version", version);
+    record.assign(db, "version", version);
+
+    return true;
 
   } else if (old_version > version) {
     fail(new Error("Cannot downgrade from version " +
@@ -51,44 +54,41 @@ export const migrate = (db) => {
                    version));
 
   } else {
-    return db;
+    return false;
   }
 };
 
 
 migrate_to(1414145108930, (db) => {
   delete localStorage["migrated"];
-  return db;
 });
 
 
 migrate_to(1435820160244, (db) => {
-  return db;
+
 });
 
 
 export const init = async([init_chrome], ({ db }) => {
   const old_db = db.get_all();
 
-  const timer = new Timer();
+  const duration = timer.make();
 
-  const new_db = migrate(old_db);
+  const migrated = migrate(old_db);
 
-  timer.done();
+  timer.done(duration);
 
-  if (old_db === new_db) {
-    console["debug"]("migrate: already at version " + version);
-
-  } else {
-    db.transaction((db) => {
-      db.set_all(new_db);
-    });
+  if (migrated) {
+    db.set_all(new_db);
 
     console["debug"]("migrate: upgraded to version " +
                      version +
                      " (" +
-                     timer.diff() +
+                     timer.diff(duration) +
                      "ms)");
+
+  } else {
+    console["debug"]("migrate: already at version " + version);
   }
 
   return db;

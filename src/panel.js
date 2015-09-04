@@ -1,4 +1,4 @@
-import * as timer from "./util/time";
+import * as timer from "./util/timer";
 import { init as init_ui } from "./client/panel/ui";
 import { run_async } from "./util/async";
 import "./client/panel/init";

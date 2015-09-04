@@ -1,8 +1,9 @@
+import * as ref from "../util/ref";
+import * as event from "../util/event";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_windows } from "./windows";
 import { init as init_options } from "./options";
 import { each } from "../util/iterator";
-import { always, latest, Ref } from "../util/ref";
 import { assert, fail } from "../util/assert";
 import { async } from "../util/async";
 
@@ -14,8 +15,8 @@ export const init = async([init_chrome,
                            { get_all_tabs, on_tab_open, on_tab_close },
                            { get: opt }) => {
 
-  const loaded   = new Ref(0);
-  const unloaded = new Ref(0);
+  const loaded   = ref.make(0);
+  const unloaded = ref.make(0);
 
   const add1 = (x) => x + 1;
   const sub1 = (x) => x - 1;
@@ -27,33 +28,33 @@ export const init = async([init_chrome,
           ? x
           : x + y));
 
-  each(get_all_tabs(), ({ tab, transient }) => {
+  each(get_all_tabs(), ({ transient }) => {
     if (transient !== null) {
-      loaded.modify(add1);
+      ref.modify(loaded, add1);
     } else {
-      unloaded.modify(add1);
+      ref.modify(unloaded, add1);
     }
   });
 
-  on_tab_open(({ tab, transient }) => {
+  event.on_receive(on_tab_open, ({ transient }) => {
     if (transient !== null) {
-      loaded.modify(add1);
+      ref.modify(loaded, add1);
     } else {
-      unloaded.modify(add1);
+      ref.modify(unloaded, add1);
     }
   });
 
   // TODO handle a tab transitioning from loaded to unloaded, and vice versa
-  on_tab_close(({ tab, transient }) => {
+  event.on_receive(on_tab_close, ({ transient }) => {
     if (transient !== null) {
-      loaded.modify(sub1);
+      ref.modify(loaded, sub1);
     } else {
-      unloaded.modify(sub1);
+      ref.modify(unloaded, sub1);
     }
   });
 
 
-  button.set_text(latest([
+  button.set_text(ref.latest([
     opt("counter.display.loaded"),
     opt("counter.display.unloaded"),
     loaded,
@@ -70,5 +71,10 @@ export const init = async([init_chrome,
     }
   }));
 
-  button.set_color(always({ red: 0, green: 0, blue: 0, alpha: 0.9 }));
+  button.set_color(ref.always({
+    red: 0,
+    green: 0,
+    blue: 0,
+    alpha: 0.9
+  }));
 });

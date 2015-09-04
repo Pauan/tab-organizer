@@ -1,17 +1,16 @@
+import * as event from "../util/event";
+import * as list from "../util/list";
+import * as record from "../util/record";
+import * as set from "../util/set"; // TODO this is only needed for development
+import * as timer from "../util/timer";
 import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, map, to_array, indexed } from "../util/iterator";
-import { to_json } from "../util/json";
+import { each, map, indexed } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
-import { Event } from "../util/event";
-import { List } from "../util/immutable/list";
-import { Record } from "../util/immutable/record";
-import { Set } from "../util/mutable/set"; // TODO this is only needed for development
 import { async } from "../util/async";
-import { Timer } from "../util/time";
 
 
 export const init = async([init_db,
@@ -21,63 +20,62 @@ export const init = async([init_db,
                            { windows, tabs, ports },
                            session) => {
 
-  db.transaction((db) => {
-    db.default(["current.windows"], List());
-    db.default(["current.window-ids"], Record());
-    db.default(["current.tab-ids"], Record());
-  });
+  db.default("current.windows", list.make());
+  db.default("current.window-ids", record.make());
+  db.default("current.tab-ids", record.make());
 
-  db.transient("transient.window-ids", Record());
-  db.transient("transient.tab-ids", Record());
+  const transient_window_ids = record.make();
+  const transient_tab_ids = record.make();
 
+  const on_tab_open = event.make();
+  const on_tab_close = event.make();
+  const tab_events = event.make();
 
-  const _on_tab_open = Event();
-  const _on_tab_close = Event();
-  const tab_events = Event();
+  const serialize_tab = (id) => {
+    const tab = record.get(db.get("current.tab-ids"), id);
 
-  const serialize_tab = (db, id) => {
-    const tab = db.get(["current.tab-ids", id]);
-
-    const transients = db.get(["transient.tab-ids"]);
-
-    return {
-      "id": tab.get("id"),
-      "time": to_json(tab.get("time")),
-      "url": tab.get("url"),
-      "title": tab.get("title"),
-      "favicon": tab.get("favicon"),
-      "pinned": tab.get("pinned"),
-      "focused": transients.has(id) && transients.get(id).focused,
-      "unloaded": !transients.has(id)
-    };
+    return record.make({
+      "id": record.get(tab, "id"),
+      "time": record.get(tab, "time"),
+      "url": record.get(tab, "url"),
+      "title": record.get(tab, "title"),
+      "favicon": record.get(tab, "favicon"),
+      "pinned": record.get(tab, "pinned"),
+      "focused": record.has(transient_tab_ids, id) &&
+                 record.get(transient_tab_ids, id).focused,
+      "unloaded": !record.has(transient_tab_ids, id)
+    });
   };
 
-  const serialize_window = (db, id) => {
-    const window = db.get(["current.window-ids", id]);
+  const serialize_window = (id) => {
+    const window = record.get(db.get("current.window-ids"), id);
 
-    return {
-      "id": window.get("id"),
-      "name": window.get("name"),
-      "tabs": to_array(map(window.get("tabs"), (id) => serialize_tab(db, id)))
-    };
+    return record.make({
+      "id": record.get(window, "id"),
+      "name": record.get(window, "name"),
+      "tabs": list.make(map(record.get(window, "tabs"), serialize_tab))
+    });
   };
 
-  const serialize_windows = (db) => {
-    const windows = db.get(["current.windows"]);
+  const serialize_windows = () => {
+    const windows = db.get("current.windows");
 
-    return to_array(map(windows, (id) => serialize_window(db, id)));
+    return list.make(map(windows, serialize_window));
   };
 
+  // TODO test this
   const find_chrome_tab = (window_id, index) => {
-    const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+    const window = record.get(db.get("current.window-ids"), window_id);
+    const tabs   = record.get(window, "tabs");
 
-    const transients = db.get(["transient.tab-ids"]);
+    const size = list.size(tabs);
 
-    while (tabs.has(index)) {
-      const tab_id = tabs.get(index);
+    // TODO test this
+    while (index < size) {
+      const tab_id = list.get(tabs, index);
 
-      if (transients.has(tab_id)) {
-        return transients.get(tab_id);
+      if (record.has(transient_tab_ids, tab_id)) {
+        return record.get(transient_tab_ids, tab_id);
       }
 
       ++index;
@@ -86,85 +84,87 @@ export const init = async([init_db,
     return null;
   };
 
-  const handle_event = {
+  const handle_event = record.make({
     // TODO send out `tab_events` ?
-    "move-tabs": ({ "window": window_id,
-                    "tabs": tabs,
-                    "index": index }) => {
+    "move-tabs": (x) => {
+      const window_id = record.get(x, "window");
+      const _tabs = record.get(x, "tabs");
+      const index = record.get(x, "index");
 
-      db.transaction((db) => {
-        // TODO if the Chrome window doesn't exist, we should create a new one
-        const chrome_window = db.get(["transient.window-ids", window_id]);
-        const chrome_tab = find_chrome_tab(window_id, index);
+      // TODO if the Chrome window doesn't exist, we should create a new one
+      const chrome_window = record.get(transient_window_ids, window_id);
+      const chrome_tab = find_chrome_tab(window_id, index);
 
-        if (chrome_tab !== null) {
-          assert(chrome_tab.window === chrome_window);
+      if (chrome_tab !== null) {
+        assert(chrome_tab.window === chrome_window);
+      }
+
+
+      const move_tabs = list.make();
+
+      each(indexed(_tabs), ([i, tab_id]) => {
+        /*const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
+        const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
+        const old_index = old_tabs.index_of(tab_id).get();
+
+        db.update(["current.tab-ids", tab_id, "window"], window_id);
+
+        db.remove(["current.window-ids", old_window_id, "tabs", old_index]);
+
+        // TODO test this
+        if (old_window_id === window_id && old_index < index) {
+          db.insert(["current.window-ids", window_id, "tabs", index - 1],
+                    tab_id);
+
+        } else {
+          db.insert(["current.window-ids", window_id, "tabs", index + i],
+                    tab_id);
+        }
+
+        if (db.has(["transient.tab-ids", tab_id])) {*/
+          list.push(move_tabs, record.get(transient_tab_ids, tab_id));
+        //}
+      });
+
+
+      each(indexed(move_tabs), ([i, tab]) => {
+        if (chrome_tab !== null && chrome_tab.pinned) {
+          tabs.pin(tab);
+        } else {
+          tabs.unpin(tab);
         }
 
 
-        const move_tabs = [];
+        if (chrome_tab === null) {
+          tabs.move(tab, chrome_window, -1);
 
-        each(indexed(tabs), ([i, tab_id]) => {
-          /*const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
-          const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
-          const old_index = old_tabs.index_of(tab_id).get();
+        // TODO is this correct ?
+        } else if (tab.window === chrome_window &&
+                   tab.index < chrome_tab.index) {
+          tabs.move(tab, chrome_window, chrome_tab.index - 1);
 
-          db.update(["current.tab-ids", tab_id, "window"], window_id);
-
-          db.remove(["current.window-ids", old_window_id, "tabs", old_index]);
-
-          // TODO test this
-          if (old_window_id === window_id && old_index < index) {
-            db.insert(["current.window-ids", window_id, "tabs", index - 1],
-                      tab_id);
-
-          } else {
-            db.insert(["current.window-ids", window_id, "tabs", index + i],
-                      tab_id);
-          }
-
-          if (db.has(["transient.tab-ids", tab_id])) {*/
-            move_tabs["push"](db.get(["transient.tab-ids", tab_id]));
-          //}
-        });
-
-
-        each(indexed(move_tabs), ([i, tab]) => {
-          if (chrome_tab !== null && chrome_tab.pinned) {
-            tab.pin();
-          } else {
-            tab.unpin();
-          }
-
-
-          if (chrome_tab === null) {
-            tab.move(chrome_window, -1);
-
-          // TODO is this correct ?
-          } else if (tab.window === chrome_window &&
-                     tab.index < chrome_tab.index) {
-            tab.move(chrome_window, chrome_tab.index - 1);
-
-          } else {
-            tab.move(chrome_window, chrome_tab.index + i);
-          }
-        });
+        } else {
+          tabs.move(tab, chrome_window, chrome_tab.index + i);
+        }
       });
     },
 
 
-    "focus-tab": ({ "tab-id": tab_id }) => {
+    "focus-tab": (x) => {
+      const tab_id = record.get(x, "tab-id");
       // TODO it should re-open the tab if it's unloaded
-      const tab = db.get(["transient.tab-ids", tab_id]);
+      const tab = record.get(transient_tab_ids, tab_id);
 
-      tab.focus();
+      tabs.focus(tab);
     },
 
 
-    "close-tabs": ({ "tabs": tabs }) => {
-      each(tabs, (tab_id) => {
+    "close-tabs": (x) => {
+      const _tabs = record.get(x, "tabs");
+
+      each(_tabs, (tab_id) => {
         // TODO it should work even if the tab is unloaded
-        const chrome_tab = db.get(["transient.tab-ids", tab_id]);
+        const chrome_tab = record.get(transient_tab_ids, tab_id);
 
         //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
         //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
@@ -172,28 +172,28 @@ export const init = async([init_db,
 
 
         //const tab = db.get(["current.tab-ids", tab_id]);
-        chrome_tab.close();
+        tabs.close(chrome_tab);
       });
     }
-  };
+  });
 
-  ports.on_connect(uuid_port_tab, (port) => {
-    port.send({
+  ports.on_open(uuid_port_tab, (port) => {
+    ports.send(port, record.make({
       "type": "init",
-      "windows": serialize_windows(db)
+      "windows": serialize_windows()
+    }));
+
+    const x = event.on_receive(tab_events, (x) => {
+      ports.send(port, x);
     });
 
-    const x = tab_events.receive((x) => {
-      port.send(x);
-    });
-
-    port.on_receive((x) => {
-      handle_event[x["type"]](x);
+    ports.on_receive(port, (x) => {
+      record.get(handle_event, record.get(x, "type"))(x);
     });
 
     // When the port closes, stop listening for `tab_events`
     // TODO test this
-    port.on_disconnect(() => {
+    ports.on_close(port, () => {
       x.stop();
     });
   });
@@ -209,348 +209,372 @@ export const init = async([init_db,
   // TODO this can be removed for the final release, it's only for development
   // TODO more checks (e.g. that the indexes are correct)
   const check_integrity = () => {
-    const timer = new Timer();
+    const duration = timer.make();
 
-    const windows    = db.get(["current.windows"]);
-    const window_ids = db.get(["current.window-ids"]);
-    const tab_ids    = db.get(["current.tab-ids"]);
+    const windows    = db.get("current.windows");
+    const window_ids = db.get("current.window-ids");
+    const tab_ids    = db.get("current.tab-ids");
 
-    const seen = new Set();
+    const seen = set.make();
 
     let amount = 0;
 
     each(windows, (id) => {
-      assert(window_ids.has(id));
-      seen.insert(id);
+      assert(record.has(window_ids, id));
+      set.insert(seen, id);
     });
 
     each(window_ids, ([id, window]) => {
-      assert(window.get("id") === id);
-      windows.index_of(id).get();
+      assert(record.get(window, "id") === id);
+      list.index_of(windows, id);
 
-      const seen = new Set();
+      const seen = set.make();
 
-      each(window.get("tabs"), (id) => {
-        assert(tab_ids.has(id));
-        seen.insert(id);
+      each(record.get(window, "tabs"), (id) => {
+        assert(record.get(tab_ids, id));
+        set.insert(seen, id);
       });
     });
 
     each(tab_ids, ([id, tab]) => {
-      assert(tab.get("id") === id);
+      assert(record.get(tab, "id") === id);
 
-      const window = window_ids.get(tab.get("window"));
+      const window = record.get(window_ids, record.get(tab, "window"));
 
-      window.get("tabs").index_of(id).get();
+      list.index_of(record.get(window, "tabs"), id);
 
       ++amount;
     });
 
-    timer.done();
-    console["debug"]("windows: checked " + amount + " tabs (" + timer.diff() + "ms)");
+    timer.done(duration);
+    console["debug"]("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
   };
 
 
-  const update_tab = (db, tab_id, info) => {
-    const old_tab = db.get(["current.tab-ids", tab_id]);
+  const should_update = (tab, info) =>
+    record.get(tab, "url")     !== info.url     ||
+    record.get(tab, "title")   !== info.title   ||
+    record.get(tab, "favicon") !== info.favicon ||
+    record.get(tab, "pinned")  !== info.pinned;
 
-    db.update(["current.tab-ids", tab_id, "url"], info.url);
-    db.update(["current.tab-ids", tab_id, "title"], info.title);
-    db.update(["current.tab-ids", tab_id, "favicon"], info.favicon);
-    db.update(["current.tab-ids", tab_id, "pinned"], info.pinned);
-
-    const new_tab = db.get(["current.tab-ids", tab_id]);
-
-    // TODO is this correct ?
-    if (old_tab !== new_tab) {
-      db.assign(["current.tab-ids", tab_id, "time", "updated"], timestamp());
-    }
+  const update_time = (x, name) => {
+    record.assign(record.get(x, "time"), name, timestamp());
   };
 
-  const make_new_tab = (db, window_id, tab_id, info) => {
-    const tab = Record([
-      ["id", tab_id],
-      ["window", window_id],
-      ["url", info.url],
-      ["title", info.title],
-      ["favicon", info.favicon],
-      ["pinned", info.pinned],
+  const update_tab = (tab_id, info, events) => {
+    db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
 
-      ["time", Record([
-        ["created", timestamp()],
-        //["updated", null],
-        //["unloaded", null],
-        //["focused", null],
-        //["moved-in-window", null],
-        //["moved-to-window", null]
-      ])],
+      if (should_update(tab, info)) {
+        record.update(tab, "url", info.url);
+        record.update(tab, "title", info.title);
+        record.update(tab, "favicon", info.favicon);
+        record.update(tab, "pinned", info.pinned);
+        update_time(tab, "updated");
 
-      ["tags", Record()]
-    ]);
-
-    db.insert(["current.tab-ids", tab_id], tab);
-  };
-
-  const update_window = (db, window_id, info) => {
-    const tab_ids = db.get(["current.tab-ids"]);
-
-    each(info.tabs, (info) => {
-      const tab_id = session.tab_id(info.id);
-
-      db.insert(["transient.tab-ids", tab_id], info);
-
-      if (tab_ids.has(tab_id)) {
-        // TODO assert that the index is correct ?
-        update_tab(db, tab_id, info);
-
-      } else {
-        make_new_tab(db, window_id, tab_id, info);
-
-        // TODO is this correct ?
-        db.push(["current.window-ids", window_id, "tabs"], tab_id);
+        if (events) {
+          event.send(tab_events, record.make({
+            "type": "tab-update",
+            "tab-id": tab_id,
+            "tab": serialize_tab(tab_id)
+          }));
+        }
       }
     });
   };
 
-  const make_new_window = (db, window_id, info) => {
-    const window = Record([
-      ["id", window_id],
-      ["name", null],
+  const make_new_tab = (window_id, tab_id, info) => {
+    const tab = record.make({
+      "id": tab_id,
+      "window": window_id,
+      "url": info.url,
+      "title": info.title,
+      "favicon": info.favicon,
+      "pinned": info.pinned,
 
-      ["tabs", List(map(info.tabs, (tab) => {
+      "time": record.make({
+        "created": timestamp()
+        //"updated": null,
+        //"unloaded": null,
+        //"focused": null,
+        //"moved-in-window": null,
+        //"moved-to-window": null
+      }),
+
+      "tags": record.make()
+    });
+
+    db.write("current.tab-ids", (tab_ids) => {
+      record.insert(tab_ids, tab_id, tab);
+    });
+  };
+
+  const update_window = (window_id, info) => {
+    const tab_ids = db.get("current.tab-ids");
+
+    each(info.tabs, (info) => {
+      const tab_id = session.tab_id(info.id);
+
+      record.insert(transient_tab_ids, tab_id, info);
+
+      if (record.has(tab_ids, tab_id)) {
+        // TODO assert that the index is correct ?
+        update_tab(tab_id, info, false);
+
+      } else {
+        make_new_tab(window_id, tab_id, info);
+
+        db.write("current.window-ids", (window_ids) => {
+          const tabs = record.get(record.get(window_ids, window_id), "tabs");
+
+          // TODO is this correct ?
+          list.push(tabs, tab_id);
+        });
+      }
+    });
+  };
+
+  const make_new_window = (window_id, info) => {
+    const window = record.make({
+      "id": window_id,
+      "name": null,
+
+      "tabs": list.make(map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
 
-        make_new_tab(db, window_id, tab_id, tab);
-        db.insert(["transient.tab-ids", tab_id], tab);
+        make_new_tab(window_id, tab_id, tab);
+
+        record.insert(transient_tab_ids, tab_id, tab);
 
         return tab_id;
-      }))],
+      })),
 
-      ["time", Record([
-        ["created", timestamp()],
-        //["focused", null],
-        //["unloaded", null]
-      ])]
-    ]);
+      "time": record.make({
+        "created": timestamp()
+        //"focused": null,
+        //"unloaded": null
+      })
+    });
 
-    db.insert(["current.window-ids", window_id], window);
+    db.write("current.window-ids", (window_ids) => {
+      record.insert(window_ids, window_id, window);
+    });
   };
 
   const find_right_index = (tabs, window, index) => {
     // TODO test this
-    const prev = window.tabs.get(index - 1);
+    const prev = list.get(window.tabs, index - 1);
     const prev_id = session.tab_id(prev.id);
     // TODO can this be implemented more efficiently ?
-    const prev_index = tabs.index_of(prev_id).get();
+    const prev_index = list.index_of(tabs, prev_id);
     return prev_index + 1;
   };
 
   const find_left_index = (tabs, window, index) => {
     // TODO test this
-    if (window.tabs.has(index + 1)) {
-      const next = window.tabs.get(index + 1);
+    if (list.has(window.tabs, index + 1)) {
+      const next = list.get(window.tabs, index + 1);
       const next_id = session.tab_id(next.id);
       // TODO can this be implemented more efficiently ?
-      return tabs.index_of(next_id).get();
+      return list.index_of(tabs, next_id);
 
     } else {
       // TODO is this correct ?
-      return tabs.size;
+      return list.size(tabs);
     }
   };
 
 
-  const window_init = (db, info) => {
+  const window_init = (info) => {
     const id = session.window_id(info.id);
 
-    db.insert(["transient.window-ids", id], info);
+    record.insert(transient_window_ids, id, info);
 
     // TODO this is a little inefficient
-    const window_ids = db.get(["current.window-ids"]);
+    const window_ids = db.get("current.window-ids");
 
     // TODO is this correct ?
-    if (window_ids.has(id)) {
+    if (record.has(window_ids, id)) {
       // TODO assert that the index is correct ?
-      update_window(db, id, info);
+      update_window(id, info);
 
     } else {
-      make_new_window(db, id, info);
+      make_new_window(id, info);
 
-      // TODO is this correct ?
-      // TODO what about when reopening a closed window ?
-      db.push(["current.windows"], id);
+      db.write("current.windows", (windows) => {
+        // TODO is this correct ?
+        // TODO what about when reopening a closed window ?
+        list.push(windows, id);
+      });
     }
   };
 
   const window_open = ({ window: info }) => {
-    db.transaction((db) => {
-      const id = session.window_id(info.id);
+    const id = session.window_id(info.id);
 
-      make_new_window(db, id, info);
+    make_new_window(id, info);
 
-      db.insert(["transient.window-ids", id], info);
+    record.insert(transient_window_ids, id, info);
+
+    db.write("current.windows", (windows) => {
+      // TODO is this correct ?
+      const index = list.size(windows);
 
       // TODO is this correct ?
       // TODO what about when reopening a closed window ?
-      db.push(["current.windows"], id);
+      list.push(windows, id);
 
-      // TODO inefficient
-      const index = db.get(["current.windows"]).index_of(id).get();
-
-      tab_events.send({
+      event.send(tab_events, record.make({
         "type": "window-open",
         "window-index": index,
-        "window": serialize_window(db, id)
-      });
+        "window": serialize_window(id)
+      }));
     });
   };
 
   const window_focus = (info) => {
-    db.transaction((db) => {
-      if (info.new !== null) {
-        const id = session.window_id(info.new.id);
+    if (info.new !== null) {
+      const id = session.window_id(info.new.id);
 
-        db.assign(["current.window-ids", id, "time", "focused"], timestamp());
-      }
-    });
+      db.write("current.window-ids", (window_ids) => {
+        const window = record.get(window_ids, id);
+        update_time(window, "focused");
+      });
+    }
   };
 
   const window_close = ({ window: info }) => {
-    db.transaction((db) => {
-      const id = session.window_id(info.id);
+    const id = session.window_id(info.id);
 
-      const tabs = db.get(["current.window-ids", id, "tabs"]);
+    db.write("current.window-ids", (window_ids) => {
+      const tabs = record.get(record.get(window_ids, id), "tabs");
 
       // Removes all the unloaded tabs
       // TODO test this
       // TODO send events for these ?
       each(tabs, (tab_id) => {
-        db.remove(["current.tab-ids", tab_id]);
-        // TODO what if the tab isn't unloaded ?
-        db.remove(["transient.tab-ids", tab_id]);
+        db.write("current.tab-ids", (tab_ids) => {
+          record.remove(tab_ids, tab_id);
+          // TODO what if the tab isn't unloaded ?
+          record.remove(transient_tab_ids, tab_id);
+        });
       });
 
-      db.remove(["current.window-ids", id]);
-      db.remove(["transient.window-ids", id]);
+      record.remove(window_ids, id);
+      record.remove(transient_window_ids, id);
+    });
 
+    db.write("current.windows", (windows) => {
       // TODO can this be implemented more efficiently ?
-      const index = db.get(["current.windows"]).index_of(id).get();
+      const index = list.index_of(windows, id);
 
-      db.remove(["current.windows", index]);
+      list.remove(windows, index);
 
-      tab_events.send({
+      event.send(tab_events, record.make({
         "type": "window-close",
         "window-id": id,
         "window-index": index
-      });
+      }));
     });
   };
 
-  const tab_open = ({ window, tab: info, index }) => {
-    db.transaction((db) => {
-      const window_id = session.window_id(window.id);
-      const tab_id = session.tab_id(info.id);
+  const tab_open = ({ window, tab: transient, index }) => {
+    const window_id = session.window_id(window.id);
+    const tab_id = session.tab_id(transient.id);
 
-      make_new_tab(db, window_id, tab_id, info);
+    record.insert(transient_tab_ids, tab_id, transient);
 
-      db.insert(["transient.tab-ids", tab_id], info);
+    make_new_tab(window_id, tab_id, transient);
 
-      // TODO a tiny bit inefficient ?
-      const tab = db.get(["current.tab-ids", tab_id]);
-      const transient = db.get(["transient.tab-ids", tab_id]);
+    // TODO a tiny bit inefficient ?
+    const tab = record.get(db.get("current.tab-ids"), tab_id);
 
-      const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+    db.write("current.window-ids", (window_ids) => {
+      const tabs = record.get(record.get(window_ids, window_id), "tabs");
 
       const session_index = find_left_index(tabs, window, index);
 
-      db.insert(["current.window-ids", window_id, "tabs", session_index], tab_id);
+      list.insert(tabs, session_index, tab_id);
 
-      tab_events.send({
+      event.send(tab_events, record.make({
         "type": "tab-open",
         "window-id": window_id,
         "tab-index": session_index,
-        "tab": serialize_tab(db, tab_id)
-      });
-
-      _on_tab_open.send({ tab, transient });
+        "tab": serialize_tab(tab_id)
+      }));
     });
+
+    event.send(on_tab_open, { tab, transient });
   };
 
   const tab_focus = (info) => {
-    db.transaction((db) => {
-      if (info.old !== null) {
-        const tab_id = session.tab_id(info.old.id);
+    if (info.old !== null) {
+      const tab_id = session.tab_id(info.old.id);
 
-        tab_events.send({
-          "type": "tab-unfocus",
-          "tab-id": tab_id
-        });
-      }
+      event.send(tab_events, record.make({
+        "type": "tab-unfocus",
+        "tab-id": tab_id
+      }));
+    }
 
-      if (info.new !== null) {
-        const tab_id = session.tab_id(info.new.id);
+    if (info.new !== null) {
+      const tab_id = session.tab_id(info.new.id);
 
-        const new_timestamp = timestamp();
+      const new_timestamp = timestamp();
 
-        db.assign(["current.tab-ids", tab_id, "time", "focused"], new_timestamp);
+      db.write("current.tab-ids", (tab_ids) => {
+        // TODO code duplication with update_time
+        const time = record.get(record.get(tab_ids, tab_id), "time");
+        record.assign(time, "focused", new_timestamp);
+      });
 
-        tab_events.send({
-          "type": "tab-focus",
-          "tab-id": tab_id,
-          "tab-time-focused": new_timestamp
-        });
-      }
-    });
+      event.send(tab_events, record.make({
+        "type": "tab-focus",
+        "tab-id": tab_id,
+        "tab-time-focused": new_timestamp
+      }));
+    }
   };
 
   const tab_update = ({ tab }) => {
-    db.transaction((db) => {
-      const tab_id = session.tab_id(tab.id);
+    const tab_id = session.tab_id(tab.id);
 
-      // TODO a little hacky
-      const old_tab = db.get(["current.tab-ids", tab_id]);
-
-      update_tab(db, tab_id, tab);
-
-      // TODO a little hacky
-      const new_tab = db.get(["current.tab-ids", tab_id]);
-
-      // TODO is there a better way ?
-      if (old_tab !== new_tab) {
-        tab_events.send({
-          "type": "tab-update",
-          "tab-id": tab_id,
-          "tab": serialize_tab(db, tab_id)
-        });
-      }
-    });
+    update_tab(tab_id, tab, true);
   };
 
   // TODO test this
   const tab_move = ({ tab, old_window, new_window, old_index, new_index }) => {
-    db.transaction((db) => {
-      const tab_id = session.tab_id(tab.id);
+    const tab_id = session.tab_id(tab.id);
 
-      const old_window_id = session.window_id(old_window.id);
-      const new_window_id = session.window_id(new_window.id);
+    const old_window_id = session.window_id(old_window.id);
+    const new_window_id = session.window_id(new_window.id);
 
 
-      db.update(["current.tab-ids", tab_id, "window"], new_window_id);
+    db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
+
+      record.update(tab, "window", new_window_id);
 
       // TODO what if it wasn't moved ?
-      db.assign(["current.tab-ids", tab_id, "time", "moved"], timestamp());
+      update_time(tab, "moved");
+    });
 
 
-      const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
+    db.write("current.window-ids", (window_ids) => {
+      const old_window = record.get(window_ids, old_window_id);
+      const old_tabs = record.get(old_window, "tabs");
 
-      const session_old_index = old_tabs.index_of(tab_id).get();
+      const new_window = record.get(window_ids, new_window_id);
+      const new_tabs = record.get(new_window, "tabs");
 
-      db.remove(["current.window-ids", old_window_id, "tabs", session_old_index]);
+      const session_old_index = list.index_of(old_tabs, tab_id);
 
+      list.remove(old_tabs, session_old_index);
 
-      const new_tabs = db.get(["current.window-ids", new_window_id, "tabs"]);
 
       // TODO a little bit inefficient
+      // This has to come after removing the tab from old_tabs, in case
+      // old_window and new_window are the same
       const session_new_index = (() => {
         // TODO is this check correct ?
         if (old_window === new_window) {
@@ -572,115 +596,115 @@ export const init = async([init_db,
         }
       })();
 
-      db.insert(["current.window-ids", new_window_id, "tabs", session_new_index],
-                tab_id);
+      list.insert(new_tabs, session_new_index, tab_id);
 
 
-      tab_events.send({
+      // TODO send along the new "moved" timestamp as well ?
+      event.send(tab_events, record.make({
         "type": "tab-move",
         "tab-id": tab_id,
         "window-old-id": old_window_id,
         "window-new-id": new_window_id,
         "tab-old-index": session_old_index,
         "tab-new-index": session_new_index
-      });
+      }));
     });
   };
 
   const tab_close = (info) => {
-    db.transaction((db) => {
-      // Delay by 10 seconds, so that when Chrome closes,
-      // it doesn't remove the tabs / windows
-      // TODO is this place correct ?
-      if (info.window_closing) {
-        delay(10000);
-      }
+    // Delay by 10 seconds, so that when Chrome closes,
+    // it doesn't remove the tabs / windows
+    // TODO is this place correct ?
+    if (info.window_closing) {
+      delay(10000);
+    }
 
-      const window_id = session.window_id(info.window.id);
-      const tab_id = session.tab_id(info.tab.id);
+    const window_id = session.window_id(info.window.id);
+    const tab_id = session.tab_id(info.tab.id);
 
-      const tab = db.get(["current.tab-ids", tab_id]);
-      const transient = db.get(["transient.tab-ids", tab_id]);
+    db.write("current.tab-ids", (tab_ids) => {
+      db.write("current.window-ids", (window_ids) => {
+        const tab = record.get(tab_ids, tab_id);
+        const transient = record.get(transient_tab_ids, tab_id);
 
-      db.remove(["current.tab-ids", tab_id]);
-      db.remove(["transient.tab-ids", tab_id]);
+        record.remove(tab_ids, tab_id);
+        record.remove(transient_tab_ids, tab_id);
 
-      const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+        const tabs = record.get(record.get(window_ids, window_id), "tabs");
 
-      // TODO can this be implemented more efficiently ?
-      const index = tabs.index_of(tab_id).get();
+        // TODO can this be implemented more efficiently ?
+        const index = list.index_of(tabs, tab_id);
 
-      db.remove(["current.window-ids", window_id, "tabs", index]);
+        list.remove(tabs, index);
 
-      tab_events.send({
-        "type": "tab-close",
-        "window-id": window_id,
-        "tab-id": tab_id,
-        "tab-index": index
+        event.send(tab_events, record.make({
+          "type": "tab-close",
+          "window-id": window_id,
+          "tab-id": tab_id,
+          "tab-index": index
+        }));
+
+        event.send(on_tab_close, { tab, transient });
       });
-
-      _on_tab_close.send({ tab, transient });
     });
   };
 
 
   // This must go before `window_init`
-  session.init(windows.get());
+  session.init(windows.get_all());
 
 
   check_integrity();
 
   // TODO time this
-  db.transaction((db) => {
-    each(windows.get(), (info) => {
-      window_init(db, info);
-    });
+  each(windows.get_all(), (info) => {
+    window_init(info);
   });
 
   check_integrity();
 
 
-  windows.on_open((info) => {
+  event.on_receive(windows.on_open, (info) => {
     session.window_open(info);
     window_open(info);
   });
 
-  windows.on_close((info) => {
+  event.on_receive(windows.on_close, (info) => {
     window_close(info);
     // This must be after `window_close`
     session.window_close(info);
   });
 
-  windows.on_focus((info) => {
+  event.on_receive(windows.on_focus, (info) => {
     window_focus(info);
   });
 
-  tabs.on_open((info) => {
+  event.on_receive(tabs.on_open, (info) => {
     session.tab_open(info);
     tab_open(info);
   });
 
-  tabs.on_close((info) => {
+  event.on_receive(tabs.on_close, (info) => {
     tab_close(info);
     // This must be after `tab_close`
     session.tab_close(info);
   });
 
-  tabs.on_focus((info) => {
+  event.on_receive(tabs.on_focus, (info) => {
     tab_focus(info);
   });
 
-  tabs.on_move((info) => {
+  event.on_receive(tabs.on_move, (info) => {
     session.tab_move(info);
     tab_move(info);
   });
 
-  tabs.on_update((info) => {
+  event.on_receive(tabs.on_update, (info) => {
     session.tab_update(info);
     tab_update(info);
   });
 
-  tabs.on_replace((info) => {
+  event.on_receive(tabs.on_replace, (info) => {
     session.tab_replace(info);
   });
 
@@ -703,18 +727,13 @@ export const init = async([init_db,
   console.log(yield window.close());*/
 
   const get_all_tabs = () => {
-    const transients = db.get(["transient.tab-ids"]);
-
-    return map(db.get(["current.tab-ids"]), ([id, tab]) => {
-      const transient = (transients.has(id)
-                          ? transients.get(id)
+    return map(entries(db.get("current.tab-ids")), ([id, tab]) => {
+      const transient = (record.has(transient_tab_ids, id)
+                          ? record.get(transient_tab_ids, id)
                           : null);
       return { tab, transient };
     });
   };
-
-  const on_tab_open = _on_tab_open.receive;
-  const on_tab_close = _on_tab_close.receive;
 
   return { get_all_tabs, on_tab_open, on_tab_close };
 });

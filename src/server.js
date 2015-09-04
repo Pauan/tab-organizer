@@ -1,4 +1,4 @@
-import * as timer from "./util/time";
+import * as timer from "./util/timer";
 import { init as init_windows } from "./server/windows";
 import { init as init_popup } from "./server/popup";
 import { init as init_cache } from "./server/cache";
