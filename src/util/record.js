@@ -60,11 +60,19 @@ export const assign = (obj, key, value) => {
 };
 
 // TODO maybe change this to accept a thunk rather than a value ?
-export const default = (obj, key, value) => {
+export const include = (obj, key, value) => {
   check_key(key);
 
   if (!(key in obj)) {
     obj[key] = value;
+  }
+};
+
+export const exclude = (obj, key) => {
+  check_key(key);
+
+  if (key in obj) {
+    delete obj[key];
   }
 };
 

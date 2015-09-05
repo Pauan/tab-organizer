@@ -1,16 +1,17 @@
+import * as ref from "../../util/ref";
+import * as event from "../../util/event";
 import { chrome } from "../../common/globals";
-import { Event } from "../../util/event";
 import { assert } from "../../util/assert";
 import { throw_error } from "../common/util";
 
 
 // TODO test this
-const _on_click = Event({
+export const on_click = event.make({
   start: (e) => {
     const onClicked = () => {
       throw_error();
 
-      e.send(undefined);
+      event.send(e, undefined);
     };
 
     chrome["browserAction"]["onClicked"]["addListener"](onClicked);
@@ -21,8 +22,6 @@ const _on_click = Event({
     chrome["browserAction"]["onClicked"]["removeListener"](onClicked);
   }
 });
-
-export const on_click = _on_click.receive;
 
 
 export const set_tooltip = (ref) =>
@@ -62,9 +61,7 @@ export const set_text = (ref) =>
   });
 
 export const set_color = (ref) =>
-  ref.each((x) => {
-    const { red, green, blue, alpha } = x;
-
+  ref.each(({ red, green, blue, alpha }) => {
     assert(typeof red === "number");
     assert(typeof green === "number");
     assert(typeof blue === "number");

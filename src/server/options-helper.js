@@ -28,6 +28,7 @@ export const make_options = (uuid, default_options) =>
       // TODO handle stop somehow ?
       ref.on_change(x, (value) => {
         if (value === record.get(default_options, key)) {
+          // TODO use `exclude` instead ?
           record.remove(current_options, key);
 
         } else {

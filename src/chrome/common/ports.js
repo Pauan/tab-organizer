@@ -1,15 +1,18 @@
-import { Event } from "../../util/event";
+import * as event from "../../util/event";
 import { throw_error } from "./util";
 
 
-export class Port {
-  constructor(port) {
-    const on_receive = Event({
+export const make = (port) => {
+  const o = {
+    _name: port["name"],
+    _port: port,
+
+    _on_receive: event.make({
       start: (e) => {
         const onMessage = (x) => {
           throw_error();
 
-          e.send(x);
+          event.send(e, x);
         };
 
         port["onMessage"]["addListener"](onMessage);
@@ -19,37 +22,46 @@ export class Port {
       stop: (e, { onMessage }) => {
         port["onMessage"]["removeListener"](onMessage);
       }
-    });
+    }),
+
+    _on_close: event.make()
+  };
 
 
-    const on_disconnect = Event();
+  // TODO test this
+  const onDisconnect = () => {
+    // TODO do we need to remove the onMessage listener ?
+    port["onDisconnect"]["removeListener"](onDisconnect);
 
-    // TODO test this
-    const onDisconnect = () => {
-      throw_error();
+    throw_error();
 
-      this._port = null;
-      this.on_receive = null;
-      this.on_disconnect = null;
+    const on_receive = o._on_receive;
+    const on_close = o._on_close;
 
-      port["onDisconnect"]["removeListener"](onDisconnect);
+    o._name = null;
+    o._port = null;
+    o._on_receive = null;
+    o._on_close = null;
 
-      on_disconnect.send(undefined);
+    event.send(on_close, undefined);
 
-      on_receive.close();
-      on_disconnect.close();
-    };
+    event.close(on_receive);
+    event.close(on_close);
+  };
 
-    port["onDisconnect"]["addListener"](onDisconnect);
+  port["onDisconnect"]["addListener"](onDisconnect);
+
+  return o;
+};
 
 
-    this.name          = port["name"];
-    this._port         = port;
-    this.on_receive    = on_receive.receive;
-    this.on_disconnect = on_disconnect.receive;
-  }
+export const on_receive = (port, f) =>
+  event.on_receive(port._on_receive, f);
 
-  send(value) {
-    this._port["postMessage"](value);
-  }
-}
+// TODO test this
+export const on_close = (port, f) =>
+  event.on_receive(port._on_close, f);
+
+export const send = (port, value) => {
+  port._port["postMessage"](value);
+};

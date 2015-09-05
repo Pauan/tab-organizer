@@ -1,15 +1,16 @@
+import * as event from "../../util/event";
+import * as ports from "../common/ports";
 import { chrome } from "../../common/globals";
-import { Event } from "../../util/event";
-import { Port } from "../common/ports";
 import { throw_error } from "../common/util";
+export { on_receive, on_close, send } from "../common/ports";
 
 
-const _events = Event({
+const _events = event.make({
   start: (e) => {
     const onConnect = (x) => {
       throw_error();
 
-      e.send(new Port(x));
+      event.send(e, ports.make(x));
     };
 
     chrome["runtime"]["onConnect"]["addListener"](onConnect);
@@ -22,9 +23,9 @@ const _events = Event({
 });
 
 // TODO test this
-export const on_connect = (name, f) =>
-  _events.receive((port) => {
-    if (port.name === name) {
+export const on_open = (name, f) =>
+  event.on_receive(_events, (port) => {
+    if (port._name === name) {
       f(port);
     }
   });

@@ -1,65 +1,9 @@
+import * as record from "../../util/record";
+import * as timer from "../../util/timer";
 import { chrome } from "../../common/globals";
-import { Timer } from "../../util/time";
-import { Set } from "../../util/mutable/set";
-import { Record } from "../../util/mutable/record";
-import { Table } from "../../util/table";
-import { to_json, from_json } from "../../util/json";
-import { async, run_async } from "../../util/async";
-import { async_chrome } from "../common/util";
+import { async } from "../../util/async";
+import { async_chrome, throw_error } from "../common/util";
 import { each, entries } from "../../util/iterator";
-
-
-const delaying = new Record();
-
-const with_delay = (key, f) => {
-  if (delaying.has(key)) {
-    delaying.get(key).thunk = f;
-  } else {
-    f();
-  }
-};
-
-
-const transients = new Set();
-
-class DB extends Table {
-  // TODO check that the key exists in the db ?
-  delay(key, ms) {
-    if (delaying.has(key)) {
-      const info = delaying.get(key);
-
-      // Only delay if `ms` is greater than `info.ms`
-      if (ms <= info.ms) {
-        return;
-      }
-    }
-
-    const o = {
-      thunk: null,
-      ms: ms
-    };
-
-    delaying.assign(key, o);
-
-    setTimeout(() => {
-      // TODO is this correct ?
-      if (delaying.get(key) === o) {
-        delaying.remove(key);
-      }
-
-      o.thunk();
-    }, ms);
-  }
-
-  transient(key, value) {
-    transients.insert(key);
-
-    // TODO hacky, this should be a part of Transaction or something
-    this.transaction((db) => {
-      db.insert([key], value);
-    });
-  }
-}
 
 
 const chrome_get_all = () =>
@@ -67,96 +11,152 @@ const chrome_get_all = () =>
     chrome["storage"]["local"]["get"](null, callback);
   });
 
-const chrome_remove = (key) =>
-  async_chrome((callback) => {
-    chrome["storage"]["local"]["remove"](key, callback);
+const chrome_remove = (key, f) => {
+  chrome["storage"]["local"]["remove"](key, () => {
+    throw_error();
+    f();
   });
+};
 
-const chrome_set = (key, value) =>
-  async_chrome((callback) => {
-    chrome["storage"]["local"]["set"]({ [key]: value }, callback);
+const chrome_set = (key, value, f) => {
+  chrome["storage"]["local"]["set"]({ [key]: value }, () => {
+    throw_error();
+    f();
   });
+};
 
 
-export const init = async([chrome_get_all()], (chrome_json) => {
-  const db = new DB();
+const duration = timer.make();
 
-  const timer = new Timer();
-
-  const json = from_json(chrome_json);
-
-  db.transaction((db) => {
-    db.set_all(json);
-  });
-
-  timer.done();
+export const init = async([chrome_get_all()], (db) => {
+  const delaying = record.make();
 
 
-  db.on_commit((transaction) => {
-    each(transaction, (x) => {
-      const type = x.get("type");
+  // TODO test this
+  const _touch = (key) => {
+    delay(key, 1000);
 
-      if (type === "default") {
-        // Do nothing
+    const info = record.get(delaying, key);
 
-      } else {
-        const keys = x.get("keys");
-        const key  = keys.get(0);
+    info.touched = true;
+  };
 
-        if (!transients.has(key)) {
-          // TODO this doesn't seem like quite the right spot for this, but I don't know any better spots...
-          db.delay(key, 1000);
+  // TODO test this
+  const _commit = (key) => {
+    const duration = timer.make();
 
+    if (record.has(db, key)) {
+      chrome_set(key, record.get(db, key), () => {
+        timer.done(duration);
 
-          // TODO test this
-          if (type === "remove" && keys.size === 1) {
-            with_delay(key, () => {
-              const timer = new Timer();
-
-              // TODO a tiny bit hacky
-              run_async([chrome_remove(key)], () => {
-                timer.done();
-
-                console["debug"]("db.remove: \"" +
-                                 key +
-                                 "\" (" +
-                                 timer.diff() +
-                                 "ms)");
-              });
-            });
+        console["debug"]("db.set: \"" +
+                         key +
+                         "\" (" +
+                         timer.diff(duration) +
+                         "ms)");
+      });
 
 
-          } else {
-            const table = x.get("table");
-            const value = table.get(key);
+    } else {
+      chrome_remove(key, () => {
+        timer.done(duration);
 
-            with_delay(key, () => {
-              const timer_serialize = new Timer();
-              const s_value = to_json(value);
-              timer_serialize.done();
+        console["debug"]("db.remove: \"" +
+                         key +
+                         "\" (" +
+                         timer.diff(duration) +
+                         "ms)");
+      });
+    }
+  };
 
-              const timer = new Timer();
+  // TODO test this
+  const set_timer = (info, ms, key) => {
+    info.ms = ms;
 
-              // TODO a tiny bit hacky
-              run_async([chrome_set(key, s_value)], () => {
-                timer.done();
+    info.timer = setTimeout(() => {
+      assert(record.get(delaying, key) === info);
 
-                /*console["debug"]("db.set: \"" +
-                                 key +
-                                 "\" (serialize " +
-                                 timer_serialize.diff() +
-                                 "ms) (commit " +
-                                 timer.diff() +
-                                 "ms)");*/
-              });
-            });
-          }
-        }
+      record.remove(delaying, key);
+
+      if (info.touched) {
+        _commit(key);
+      }
+    }, ms);
+  };
+
+  // TODO check that the key exists in the db ?
+  // TODO test this
+  const delay = (key, ms) => {
+    if (record.has(delaying, key)) {
+      const info = record.get(delaying, key);
+
+      // Only delay if `ms` is greater than `info.ms`
+      if (ms > info.ms) {
+        clearTimeout(info.timer);
+
+        set_timer(info, ms, key);
+      }
+
+    } else {
+      const info = {
+        touched: false,
+        ms: null,
+        timer: null
+      };
+
+      set_timer(info, ms, key);
+
+      record.insert(delaying, key, info);
+    }
+  };
+
+
+  const modify = (key, f) => {
+    record.modify(db, key, f);
+
+    _touch(key);
+  };
+
+  // TODO is this correct ?
+  const write = (key, f) => {
+    f(get(key));
+
+    _touch(key);
+  };
+
+  const include = (key, value) => {
+    record.include(db, key, value);
+  };
+
+  const get = (key) =>
+    record.get(db, key);
+
+  const get_all = () =>
+    db;
+
+  // TODO test this
+  // TODO how should this interact with `include` ?
+  const set_all = (new_db) => {
+    // TODO is this inefficient ?
+    each(entries(db), ([key]) => {
+      if (!record.has(new_db, key)) {
+        // TODO this removes a key while looping over the object, does that cause any issues ?
+        record.remove(db, key);
+        _touch(key);
       }
     });
-  });
 
-  console["debug"]("db: initialized (" + timer.diff() + "ms)", to_json(db.get_all()));
+    // TODO is this inefficient ?
+    each(entries(new_db), ([key, value]) => {
+      record.assign(db, key, value);
+      _touch(key);
+    });
+  };
 
-  return db;
+
+  timer.done(duration);
+  console["debug"]("db: initialized (" + timer.diff(duration) + "ms)", get_all());
+
+  return { modify, write, include, get, get_all, set_all, delay };
 });

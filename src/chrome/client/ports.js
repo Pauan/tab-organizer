@@ -1,7 +1,8 @@
 import { chrome } from "../../common/globals";
-import { Port } from "../common/ports";
+import { make } from "../common/ports";
+export { send, on_receive, on_close } from "../common/ports";
 
 
 // TODO test this
-export const connect = (name) =>
-  new Port(chrome["runtime"]["connect"]({ "name": name }));
+export const open = (name) =>
+  make(chrome["runtime"]["connect"]({ "name": name }));

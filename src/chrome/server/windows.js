@@ -1,12 +1,8 @@
 import { chrome } from "../../common/globals";
 import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
-import { async, async_callback } from "../../util/async";
+import { async, async_callback, success } from "../../util/async";
 import { each } from "../../util/iterator";
-import { make_window, remove_window, focus_window } from "./windows/windows";
-import { make_popup, remove_popup, focus_popup } from "./windows/popups";
-import { make_tab, remove_tab, focus_tab, replace_tab,
-         attach_tab, move_tab, update_tab } from "./windows/tabs";
 
 // Exports
 import * as windows from "./windows/windows";
@@ -23,74 +19,74 @@ chrome["windows"]["onCreated"]["addListener"]((info) => {
     assert(info["tabs"]["length"] === 0);
   }
 
-  make_window(info, true);
-  make_popup(info, true);
+  windows.make_window(info, true);
+  popups.make_popup(info, true);
 });
 
 chrome["windows"]["onRemoved"]["addListener"]((id) => {
   throw_error();
 
-  remove_window(id);
-  remove_popup(id);
+  windows.remove_window(id);
+  popups.remove_popup(id);
 });
 
 chrome["windows"]["onFocusChanged"]["addListener"]((id) => {
   throw_error();
 
-  focus_window(id);
-  focus_popup(id);
+  windows.focus_window(id);
+  popups.focus_popup(id);
 });
 
 chrome["tabs"]["onCreated"]["addListener"]((info) => {
   throw_error();
 
-  make_tab(info, true);
+  tabs.make_tab(info, true);
 });
 
 chrome["tabs"]["onRemoved"]["addListener"]((id, info) => {
   throw_error();
 
-  remove_tab(id, info);
+  tabs.remove_tab(id, info);
 });
 
 chrome["tabs"]["onActivated"]["addListener"]((info) => {
   throw_error();
 
-  focus_tab(info);
+  tabs.focus_tab(info);
 });
 
 chrome["tabs"]["onReplaced"]["addListener"]((new_id, old_id) => {
   throw_error();
 
-  replace_tab(new_id, old_id);
+  tabs.replace_tab(new_id, old_id);
 });
 
 chrome["tabs"]["onAttached"]["addListener"]((id, info) => {
   throw_error();
 
-  attach_tab(id, info);
+  tabs.attach_tab(id, info);
 });
 
 chrome["tabs"]["onMoved"]["addListener"]((id, info) => {
   throw_error();
 
-  move_tab(id, info);
+  tabs.move_tab(id, info);
 });
 
 chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
   throw_error();
 
-  update_tab(id, tab);
+  tabs.update_tab(id, tab);
 });
 
 
-const ready = async_callback((success, error) => {
+const ready = async_callback((out) => {
   if (document["readyState"] === "complete") {
-    success(undefined);
+    success(out, undefined);
 
   } else {
     addEventListener("load", () => {
-      success(undefined);
+      success(out, undefined);
     }, true);
   }
 });
@@ -104,14 +100,20 @@ const chrome_get_all = () =>
 export const init = async([chrome_get_all(), ready], (a) => {
 
   each(a, (info) => {
-    make_window(info, false);
-    make_popup(info, false);
+    windows.make_window(info, false);
+    popups.make_popup(info, false);
   });
 
   return {
     windows: {
-      get: windows.get,
+      get_all: windows.get_all,
+
       open: windows.open,
+      focus: windows.focus,
+      close: windows.close,
+      move: windows.move,
+      maximize: windows.maximize,
+
       on_open: windows.on_open,
       on_close: windows.on_close,
       on_focus: windows.on_focus
@@ -119,6 +121,12 @@ export const init = async([chrome_get_all(), ready], (a) => {
 
     tabs: {
       open: tabs.open,
+      pin: tabs.pin,
+      unpin: tabs.unpin,
+      move: tabs.move,
+      focus: tabs.focus,
+      close: tabs.close,
+
       on_open: tabs.on_open,
       on_close: tabs.on_close,
       on_update: tabs.on_update,
@@ -129,6 +137,12 @@ export const init = async([chrome_get_all(), ready], (a) => {
 
     popups: {
       open: popups.open,
+      focus: popups.focus,
+      close: popups.close,
+      move: popups.move,
+      maximize: popups.maximize,
+      get_size: popups.get_size,
+
       on_close: popups.on_close
     }
   };

@@ -20,9 +20,9 @@ export const init = async([init_db,
                            { windows, tabs, ports },
                            session) => {
 
-  db.default("current.windows", list.make());
-  db.default("current.window-ids", record.make());
-  db.default("current.tab-ids", record.make());
+  db.include("current.windows", list.make());
+  db.include("current.window-ids", record.make());
+  db.include("current.tab-ids", record.make());
 
   const transient_window_ids = record.make();
   const transient_tab_ids = record.make();

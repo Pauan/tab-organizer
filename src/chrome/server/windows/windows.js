@@ -62,36 +62,32 @@
  *
  * windows.onCreated
  */
+import * as event from "../../../util/event";
+import * as list from "../../../util/list";
+import * as record from "../../../util/record";
 import { chrome } from "../../../common/globals";
-import { Event } from "../../../util/event";
-import { List } from "../../../util/mutable/list";
-import { Dict } from "../../../util/mutable/dict";
 import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
-import { Popup } from "./popups";
+export { focus, close, move, maximize } from "./popups";
 
 
-const _on_open  = Event();
-const _on_close = Event();
-const _on_focus = Event();
+export const on_open  = event.make();
+export const on_close = event.make();
+export const on_focus = event.make();
 
-export const on_open  = _on_open.receive;
-export const on_close = _on_close.receive;
-export const on_focus = _on_focus.receive;
-
-export const windows    = new List();
-export const window_ids = new Dict();
+export const windows    = list.make();
+export const window_ids = record.make();
 
 
 // TODO maybe make a copy ?
-export const get = () => windows;
+export const get_all = () => windows;
 
 
 let _focused = null;
 
-const focus = (window, events) => {
+const _focus = (window, events) => {
   const old = _focused;
 
   if (window === old) {
@@ -109,7 +105,7 @@ const focus = (window, events) => {
     _focused = window;
 
     if (events) {
-      _on_focus.send({
+      event.send(on_focus, {
         old: old,
         new: window
       });
@@ -117,7 +113,7 @@ const focus = (window, events) => {
   }
 };
 
-const unfocus = () => {
+const _unfocus = () => {
   const old = _focused;
 
   if (old !== null) {
@@ -126,16 +122,16 @@ const unfocus = () => {
 
     _focused = null;
 
-    _on_focus.send({
+    event.send(on_focus, {
       old: old,
       new: null
     });
   }
 };
 
-const defocus = (window) => {
+const _defocus = (window) => {
   if (window === _focused) {
-    unfocus();
+    _unfocus();
   }
 };
 
@@ -147,7 +143,7 @@ export const open = ({ focused = true }, f) => {
   }, (window) => {
     throw_error();
     // TODO test this
-    f(window_ids.get(window["id"]));
+    f(record.get(window_ids, window["id"]));
   });
 };
 
@@ -157,15 +153,17 @@ export const open = ({ focused = true }, f) => {
     chrome["windows"]["get"](window.id, { "populate": false }, callback);
   });*/
 
-class Window extends Popup {
-  constructor(info) {
-    super(info);
-
-    this.focused = false;
-    this.focused_tab = null;
-    this.index = windows.size;
-    this.tabs = new List();
-  }
+const make = (info) => {
+  return {
+    id: info["id"],
+    focused: false,
+    focused_tab: null,
+    // TODO a bit hacky
+    // TODO is this correct ?
+    index: list.size(windows),
+    tabs: list.make()
+  };
+};
 
   /*get_state() {
     const self = this;
@@ -200,26 +198,25 @@ class Window extends Popup {
   set_dimensions(info) {
     return update_window(this, dimensions(info));
   }*/
-}
 
 export const make_window = (info, events) => {
   if (info["type"] === "normal") {
-    const window = new Window(info);
+    const window = make(info);
 
-    window_ids.insert(window.id, window);
+    record.insert(window_ids, window.id, window);
 
     // TODO assertions that `window` is not in `windows` ?
-    windows.push(window);
+    list.push(windows, window);
 
     if (events) {
-      _on_open.send({
+      event.send(on_open, {
         window: window,
         index: window.index
       });
     }
 
     if (info["focused"]) {
-      focus(window, events);
+      _focus(window, events);
     }
 
     if (info["tabs"]) {
@@ -231,25 +228,25 @@ export const make_window = (info, events) => {
 };
 
 export const remove_window = (id) => {
-  if (window_ids.has(id)) {
-    const window = window_ids.get(id);
+  if (record.has(window_ids, id)) {
+    const window = record.get(window_ids, id);
     const index = window.index;
 
     assert(window.id === id);
-    assert(window.tabs.size === 0);
+    assert(list.size(window.tabs) === 0);
 
-    defocus(window);
+    _defocus(window);
 
-    assert(windows.get(index) === window);
+    assert(list.get(windows, index) === window);
     // TODO assertions that `window` is no longer in `windows` ?
-    windows.remove(index);
+    list.remove(windows, index);
     update_indexes(windows);
 
-    window_ids.remove(window.id);
+    record.remove(window_ids, window.id);
 
     window.index = null;
 
-    _on_close.send({
+    event.send(on_close, {
       window: window,
       index: index
     });
@@ -257,13 +254,13 @@ export const remove_window = (id) => {
 };
 
 export const focus_window = (id) => {
-  if (window_ids.has(id)) {
-    const window = window_ids.get(id);
+  if (record.has(window_ids, id)) {
+    const window = record.get(window_ids, id);
     assert(window.id === id);
 
-    focus(window, true);
+    _focus(window, true);
 
   } else {
-    unfocus();
+    _unfocus();
   }
 };

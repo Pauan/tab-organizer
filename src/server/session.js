@@ -18,7 +18,7 @@ export const init = async([init_db], (db) => {
     db.delay(namespace, ms);
   };
 
-  db.default(namespace, list.make());
+  db.include(namespace, list.make());
 
 
   const window_ids = record.make();

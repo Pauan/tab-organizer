@@ -1,37 +1,35 @@
+import * as record from "../../../util/record";
+import * as event from "../../../util/event";
 import { chrome } from "../../../common/globals";
 import { throw_error, round } from "../../common/util";
-import { Event } from "../../../util/event";
-import { Dict } from "../../../util/mutable/dict";
 import { assert } from "../../../util/assert";
 
 
-const _on_close = Event();
+export const on_close = event.make();
 
-export const on_close = _on_close.receive;
-
-const popup_ids = new Dict();
+const popup_ids = record.make();
 
 
 export const make_popup = (info, events) => {
   const type = info["type"];
 
   if (type === "popup" || type === "panel") {
-    const popup = new Popup(info);
+    const popup = make(info);
 
-    popup_ids.insert(popup.id, popup);
+    record.insert(popup_ids, popup.id, popup);
   }
 };
 
 
 export const remove_popup = (id) => {
-  if (popup_ids.has(id)) {
-    const popup = popup_ids.get(id);
+  if (record.has(popup_ids, id)) {
+    const popup = record.get(popup_ids, id);
 
     assert(popup.id === id);
 
-    popup_ids.remove(popup.id);
+    record.remove(popup_ids, popup.id);
 
-    _on_close.send(popup);
+    event.send(on_close, popup);
   }
 };
 
@@ -49,46 +47,46 @@ const get_popup = (popup, f) => {
   chrome["windows"]["get"](popup.id, { "populate": false }, f);
 };
 
-export class Popup {
-  constructor(info) {
-    this.id = info["id"];
-  }
+const make = (info) => {
+  return {
+    id: info["id"]
+  };
+};
 
-  focus() {
-    update_popup(this, { "focused": true });
-  }
+export const focus = (popup) => {
+  update_popup(popup, { "focused": true });
+};
 
-  close() {
-    chrome["windows"]["remove"](this.id, () => {
-      throw_error();
+export const close = (popup) => {
+  chrome["windows"]["remove"](popup.id, () => {
+    throw_error();
+  });
+};
+
+export const move = (popup, { left, top, width, height }) => {
+  update_popup(popup, {
+    "state": "normal",
+    "left": round(left),
+    "top": round(top),
+    "width": round(width),
+    "height": round(height)
+  });
+};
+
+export const maximize = (popup) => {
+  update_popup(popup, { "state": "maximized" });
+};
+
+export const get_size = (popup, f) => {
+  get_popup(popup, (info) => {
+    f({
+      left: info["left"],
+      top: info["top"],
+      width: info["width"],
+      height: info["height"],
     });
-  }
-
-  move({ left, top, width, height }) {
-    update_popup(this, {
-      "state": "normal",
-      "left": round(left),
-      "top": round(top),
-      "width": round(width),
-      "height": round(height)
-    });
-  }
-
-  maximize() {
-    update_popup(this, { "state": "maximized" });
-  }
-
-  get_size(f) {
-    get_popup(this, (info) => {
-      f({
-        left: info["left"],
-        top: info["top"],
-        width: info["width"],
-        height: info["height"],
-      });
-    });
-  }
-}
+  });
+};
 
 
 export const open = ({ type = "popup",
@@ -108,6 +106,6 @@ export const open = ({ type = "popup",
     "height": round(height)
   }, (info) => {
     throw_error();
-    f(popup_ids.get(info["id"]));
+    f(record.get(popup_ids, info["id"]));
   });
 };
