@@ -8,7 +8,6 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, entries, map, indexed } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 import { async } from "../util/async";
@@ -54,14 +53,14 @@ export const init = async([init_db,
     return record.make({
       "id": record.get(window, "id"),
       "name": record.get(window, "name"),
-      "tabs": list.make(map(record.get(window, "tabs"), serialize_tab))
+      "tabs": list.map(record.get(window, "tabs"), serialize_tab)
     });
   };
 
   const serialize_windows = () => {
     const windows = db.get("current.windows");
 
-    return list.make(map(windows, serialize_window));
+    return list.map(windows, serialize_window);
   };
 
   // TODO test this
@@ -103,7 +102,7 @@ export const init = async([init_db,
 
       const move_tabs = list.make();
 
-      each(indexed(_tabs), ([i, tab_id]) => {
+      list.each(_tabs, (tab_id, i) => {
         /*const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
         const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
         const old_index = old_tabs.index_of(tab_id).get();
@@ -128,7 +127,7 @@ export const init = async([init_db,
       });
 
 
-      each(indexed(move_tabs), ([i, tab]) => {
+      list.each(move_tabs, (tab, i) => {
         if (chrome_tab !== null && chrome_tab.pinned) {
           tabs.pin(tab);
         } else {
@@ -163,7 +162,7 @@ export const init = async([init_db,
     "close-tabs": (x) => {
       const _tabs = record.get(x, "tabs");
 
-      each(_tabs, (tab_id) => {
+      list.each(_tabs, (tab_id) => {
         // TODO it should work even if the tab is unloaded
         const chrome_tab = record.get(transient_tab_ids, tab_id);
 
@@ -221,24 +220,24 @@ export const init = async([init_db,
 
     let amount = 0;
 
-    each(windows, (id) => {
+    list.each(windows, (id) => {
       assert(record.has(window_ids, id));
       set.insert(seen, id);
     });
 
-    each(entries(window_ids), ([id, window]) => {
+    record.each(window_ids, (id, window) => {
       assert(record.get(window, "id") === id);
       list.index_of(windows, id);
 
       const seen = set.make();
 
-      each(record.get(window, "tabs"), (id) => {
+      list.each(record.get(window, "tabs"), (id) => {
         assert(record.get(tab_ids, id));
         set.insert(seen, id);
       });
     });
 
-    each(entries(tab_ids), ([id, tab]) => {
+    record.each(tab_ids, (id, tab) => {
       assert(record.get(tab, "id") === id);
 
       const window = record.get(window_ids, record.get(tab, "window"));
@@ -314,7 +313,7 @@ export const init = async([init_db,
   const update_window = (window_id, info) => {
     const tab_ids = db.get("current.tab-ids");
 
-    each(info.tabs, (info) => {
+    list.each(info.tabs, (info) => {
       const tab_id = session.tab_id(info.id);
 
       record.insert(transient_tab_ids, tab_id, info);
@@ -341,7 +340,7 @@ export const init = async([init_db,
       "id": window_id,
       "name": null,
 
-      "tabs": list.make(map(info.tabs, (tab) => {
+      "tabs": list.map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
 
         make_new_tab(window_id, tab_id, tab);
@@ -349,7 +348,7 @@ export const init = async([init_db,
         record.insert(transient_tab_ids, tab_id, tab);
 
         return tab_id;
-      })),
+      }),
 
       "time": record.make({
         "created": timestamp()
@@ -454,7 +453,7 @@ export const init = async([init_db,
       // Removes all the unloaded tabs
       // TODO test this
       // TODO send events for these ?
-      each(tabs, (tab_id) => {
+      list.each(tabs, (tab_id) => {
         db.write("current.tab-ids", (tab_ids) => {
           record.remove(tab_ids, tab_id);
           // TODO what if the tab isn't unloaded ?
@@ -659,7 +658,7 @@ export const init = async([init_db,
   check_integrity();
 
   // TODO time this
-  each(windows.get_all(), (info) => {
+  list.each(windows.get_all(), (info) => {
     window_init(info);
   });
 
@@ -729,12 +728,16 @@ export const init = async([init_db,
   console.log(yield window.close());*/
 
   const get_all_tabs = () => {
-    return map(entries(db.get("current.tab-ids")), ([id, tab]) => {
+    const out = list.make();
+
+    record.each(db.get("current.tab-ids"), (id, tab) => {
       const transient = (record.has(transient_tab_ids, id)
                           ? record.get(transient_tab_ids, id)
                           : null);
-      return { tab, transient };
+      list.push(out, { tab, transient });
     });
+
+    return out;
   };
 
   return { get_all_tabs, on_tab_open, on_tab_close };

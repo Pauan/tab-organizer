@@ -2,7 +2,6 @@ import * as record from "../util/record";
 import * as list from "../util/list";
 import * as timer from "../util/timer";
 import { init as init_chrome } from "../chrome/server";
-import { each } from "../util/iterator";
 import { fail } from "../util/assert";
 import { async } from "../util/async";
 
@@ -38,7 +37,7 @@ export const migrate = (db) => {
   const old_version = get_version(db);
 
   if (old_version < version) {
-    each(migrators, (db, f) => {
+    list.each(migrators, (db, f) => {
       f(old_version, db);
     });
 

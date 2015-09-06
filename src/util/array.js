@@ -1,4 +1,4 @@
-import { Some, None } from "./maybe";
+import * as maybe from "./maybe";
 import { assert, fail } from "./assert";
 
 
@@ -17,7 +17,7 @@ export const get_sorted = (array, key, sort) => {
     if (order === 0) {
       return {
         index: pivot,
-        value: Some(array[pivot])
+        value: maybe.Some(array[pivot])
       };
 
     } else if (order < 0) {
@@ -30,7 +30,7 @@ export const get_sorted = (array, key, sort) => {
 
   return {
     index: start,
-    value: None
+    value: maybe.None
   };
 };
 
@@ -141,3 +141,101 @@ export const remove = (array, index) => {
     array["splice"](index, 1);
   }
 };
+
+
+export const each = (array, f) => {
+  for (let i = 0; i < array["length"]; ++i) {
+    f(array[i], i);
+  }
+};
+
+export const map = (array, f) => {
+  const out = new Array(array["length"]);
+
+  for (let i = 0; i < array["length"]; ++i) {
+    out[i] = f(array[i], i);
+  }
+
+  return out;
+};
+
+/*export const keep = (array, f) => {
+  const out = [];
+
+  for (let i = 0; i < array["length"]; ++i) {
+    if (f(array[i], i)) {
+      out["push"](array[i]);
+    }
+  }
+
+  return out;
+};*/
+
+/*
+// This is significantly faster than using Array.prototype.reverse
+// http://jsperf.com/array-reverse-function
+export const reverse = (array) => {
+  let left  = 0;
+  let right = array["length"] - 1;
+  while (left <= right) {
+    const tmp = array[left];
+    array[left] = array[right];
+    array[right] = tmp;
+
+    ++left;
+    --right;
+  }
+};*/
+
+export const find_first = (array, f) => {
+  for (let i = 0; i < array["length"]; ++i) {
+    if (f(array[i], i)) {
+      return maybe.Some(array[i]);
+    }
+  }
+
+  return maybe.None;
+};
+
+export const find_last = (array, f) => {
+  for (let i = array["length"] - 1; i >= 0; --i) {
+    if (f(array[i], i)) {
+      return maybe.Some(array[i]);
+    }
+  }
+
+  return maybe.None;
+};
+
+export const any = (array, f) =>
+  maybe.has(find_first(array, f));
+
+export const all = (array, f) =>
+  !any(array, (x, i) => !f(x, i));
+
+/*export const zip = (...array) => {
+  const out = [];
+
+  let index = 0;
+
+  for (;;) {
+    const a = new Array(array["length"]);
+
+    for (let i = 0; i < array["length"]; ++i) {
+      const x = array[i];
+
+      if (index < x["length"]) {
+        a[i] = x[index];
+
+      } else {
+        return out;
+      }
+    }
+
+    out["push"](a);
+    ++index;
+  }
+};*/
+
+export const join = (x, s = "") =>
+  x["join"](s);

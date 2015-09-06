@@ -1,7 +1,6 @@
 import * as set from "./set";
 import * as maybe from "./maybe";
 import * as running from "./running";
-import { each } from "./iterator";
 import { assert } from "./assert";
 
 
@@ -30,7 +29,7 @@ const stop = (event) => {
 };
 
 export const send = (event, value) => {
-  each(event._listeners, (f) => {
+  set.each(event._listeners, (f) => {
     f(value);
   });
 };
@@ -50,7 +49,7 @@ export const on_receive = (event, f) => {
     if (set.size(event._listeners) === 0) {
       stop(event);
     }
-  };
+  });
 };
 
 export const close = (event) => {

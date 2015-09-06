@@ -1,8 +1,8 @@
+import * as list from "../../util/list";
 import { chrome } from "../../common/globals";
 import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
 import { async, async_callback, success } from "../../util/async";
-import { each } from "../../util/iterator";
 
 // Exports
 import * as windows from "./windows/windows";
@@ -99,7 +99,7 @@ const chrome_get_all = () =>
 // TODO do we need `ready` ?
 export const init = async([chrome_get_all(), ready], (a) => {
 
-  each(a, (info) => {
+  list.each(a, (info) => {
     windows.make_window(info, false);
     popups.make_popup(info, false);
   });

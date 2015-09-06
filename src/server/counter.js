@@ -1,9 +1,9 @@
+import * as list from "../util/list";
 import * as ref from "../util/ref";
 import * as event from "../util/event";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_windows } from "./windows";
 import { init as init_options } from "./options";
-import { each } from "../util/iterator";
 import { assert, fail } from "../util/assert";
 import { async } from "../util/async";
 
@@ -28,7 +28,7 @@ export const init = async([init_chrome,
           ? x
           : x + y));
 
-  each(get_all_tabs(), ({ transient }) => {
+  list.each(get_all_tabs(), ({ transient }) => {
     if (transient !== null) {
       ref.modify(loaded, add1);
     } else {

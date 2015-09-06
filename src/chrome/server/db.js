@@ -3,7 +3,6 @@ import * as timer from "../../util/timer";
 import { chrome } from "../../common/globals";
 import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
-import { each, entries } from "../../util/iterator";
 import { assert } from "../../util/assert";
 
 
@@ -140,7 +139,7 @@ export const init = async([chrome_get_all()], (db) => {
   // TODO how should this interact with `include` ?
   const set_all = (new_db) => {
     // TODO is this inefficient ?
-    each(entries(db), ([key]) => {
+    record.each(db, (key) => {
       if (!record.has(new_db, key)) {
         // TODO this removes a key while looping over the object, does that cause any issues ?
         record.remove(db, key);
@@ -149,7 +148,7 @@ export const init = async([chrome_get_all()], (db) => {
     });
 
     // TODO is this inefficient ?
-    each(entries(new_db), ([key, value]) => {
+    record.each(new_db, (key, value) => {
       record.assign(db, key, value);
       _touch(key);
     });

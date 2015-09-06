@@ -5,7 +5,6 @@ import * as maybe from "./maybe";
 import { insert as _insert, remove as _remove,
          index_of, size, index_in_range, get_sorted,
          is_sorted, clear as _clear } from "./array";
-import { map, iterator } from "./iterator";
 import { assert, fail } from "./assert";
 
 
@@ -189,7 +188,7 @@ export const on_change = (stream, f) => {
         f(record.make({
           "type": type,
           // TODO a tiny bit hacky
-          "value": record.get(x, "value")["map"]((x) => stream._fn(x))
+          "value": list.map(record.get(x, "value"), (x) => stream._fn(x))
         }));
         break;
 

@@ -1,5 +1,5 @@
+import * as list from "./list";
 import { assert, fail } from "./assert";
-import { each, entries } from "./iterator";
 
 
 const check_key = (key) => {
@@ -14,7 +14,7 @@ export const make = (obj = {}) =>
 export const copy = (obj) => {
   const out = {};
 
-  each(entries(obj), ([key, value]) => {
+  each(obj, (key, value) => {
     out[key] = value;
   });
 
@@ -97,4 +97,10 @@ export const remove = (obj, key) => {
   } else {
     fail(new Error("Key not found: " + key));
   }
+};
+
+export const each = (obj, f) => {
+  list.each(Object["keys"](obj), (key) => {
+    f(key, obj[key]);
+  });
 };

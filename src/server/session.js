@@ -2,7 +2,6 @@ import * as record from "../util/record";
 import * as timer from "../util/timer";
 import * as list from "../util/list";
 import { init as init_db } from "./migrate";
-import { map, each, all, zip, indexed } from "../util/iterator";
 import { async } from "../util/async";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
@@ -38,7 +37,7 @@ export const init = async([init_db], (db) => {
 
     return record.make({
       "id": id,
-      "tabs": list.make(tabs)
+      "tabs": tabs
     });
   };
 
@@ -48,7 +47,7 @@ export const init = async([init_db], (db) => {
   const make_new_window = (window) => {
     const id = new_id();
 
-    const x = make_window(id, window, map(window.tabs, make_new_tab));
+    const x = make_window(id, window, list.map(window.tabs, make_new_tab));
 
     console["debug"]("session: created new window " +
                      id +
@@ -185,21 +184,29 @@ export const init = async([init_db], (db) => {
     } else if (list.size(old_tabs) >= 1 && list.size(new_tabs) >= 1) {
       // Check that all the old tabs match with the new tabs
       // TODO test this
-      return all(zip(old_tabs, indexed(new_tabs)), ([old_tab, [index, new_tab]]) => {
-        if (tab_matches(old_tab, new_tab) ||
-            is_new_tab(new_tabs, index, new_tab)) {
-          return true;
+      return list.all(new_tabs, (new_tab, index) => {
+        if (list.has(old_tabs, index)) {
+          const old_tab = list.get(old_tabs, index);
 
+          if (tab_matches(old_tab, new_tab) ||
+              is_new_tab(new_tabs, index, new_tab)) {
+            return true;
+
+          } else {
+            const old_url = record.get(old_tab, "url");
+            const new_url = new_tab.url;
+
+            console["debug"]("session: old URL \"" +
+                             old_url +
+                             "\" does not match with new URL \"" +
+                             new_url
+                             + "\"");
+            return false;
+          }
+
+        // TODO a tiny bit inefficient: it should stop as soon as it exhausts `old_tabs`
         } else {
-          const old_url = record.get(old_tab, "url");
-          const new_url = new_tab.url;
-
-          console["debug"]("session: old URL \"" +
-                           old_url +
-                           "\" does not match with new URL \"" +
-                           new_url
-                           + "\"");
-          return false;
+          return true;
         }
       });
 
@@ -218,7 +225,7 @@ export const init = async([init_db], (db) => {
 
     const x = make_window(old_id, new_window,
       // TODO test this
-      map(indexed(new_tabs), ([index, new_tab]) => {
+      list.map(new_tabs, (new_tab, index) => {
         // Merge with existing tab
         if (list.has(old_tabs, index)) {
           const old_tab = list.get(old_tabs, index);
@@ -252,7 +259,7 @@ export const init = async([init_db], (db) => {
 
   // TODO test this
   const merge = (old_windows, new_windows) =>
-    list.make(map(indexed(new_windows), ([i, new_window]) => {
+    list.map(new_windows, (new_window, i) => {
       if (list.has(old_windows, i)) {
         const old_window = list.get(old_windows, i);
 
@@ -265,7 +272,7 @@ export const init = async([init_db], (db) => {
       } else {
         return make_new_window(new_window);
       }
-    }));
+    });
 
   const init = (new_windows) => {
     const timer_merge = timer.make();

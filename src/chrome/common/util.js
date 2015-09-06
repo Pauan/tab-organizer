@@ -1,12 +1,12 @@
+import * as list from "../../util/list";
 import { chrome } from "../../common/globals";
 import { async_callback, success, error } from "../../util/async";
-import { each, indexed } from "../../util/iterator";
 import { fail } from "../../util/assert";
 
 
 // TODO this can be made faster if it was given an index to start at
-export const update_indexes = (list) => {
-  each(indexed(list), ([index, x]) => {
+export const update_indexes = (x) => {
+  list.each(x, (x, index) => {
     x.index = index;
   });
 };

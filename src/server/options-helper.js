@@ -4,7 +4,6 @@ import * as record from "../util/record";
 import * as ref from "../util/ref";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
-import { each, entries } from "../util/iterator";
 import { async } from "../util/async";
 import { fail } from "../util/assert";
 
@@ -21,7 +20,7 @@ export const make_options = (uuid, default_options) =>
     const current_options = record.make();
     const refs            = record.make();
 
-    const make_ref = ([key, value]) => {
+    const make_ref = (key, value) => {
       const x = ref.make(value);
 
       record.insert(refs, key, x);
@@ -45,7 +44,7 @@ export const make_options = (uuid, default_options) =>
     };
 
 
-    each(entries(default_options), make_ref);
+    record.each(default_options, make_ref);
 
 
     const get = (s) =>

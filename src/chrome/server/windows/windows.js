@@ -68,7 +68,6 @@ import * as record from "../../../util/record";
 import { chrome } from "../../../common/globals";
 import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
-import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
 import { focus, close, move, maximize } from "./popups";
 export { focus, close, move, maximize } from "./popups";
@@ -221,7 +220,7 @@ export const make_window = (info, events) => {
     }
 
     if (info["tabs"]) {
-      each(info["tabs"], (tab) => {
+      list.each(info["tabs"], (tab) => {
         make_tab(tab, events);
       });
     }

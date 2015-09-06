@@ -1,3 +1,4 @@
+import * as list from "../util/list";
 import * as ref from "../util/ref";
 import * as event from "../util/event";
 import * as record from "../util/record";
@@ -5,7 +6,6 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { uuid_port_popup } from "../common/uuid";
 import { async } from "../util/async";
-import { each } from "../util/iterator";
 import { assert, fail } from "../util/assert";
 
 
@@ -144,12 +144,12 @@ export const init = async([init_chrome,
   const resize_windows = () => {
     assert(popup.windows !== null);
 
-    each(windows.get_all(), resize_window);
+    list.each(windows.get_all(), resize_window);
   };
 
   const unresize_windows = () => {
     if (popup.windows !== null) {
-      each(windows.get_all(), unresize_window);
+      list.each(windows.get_all(), unresize_window);
 
       popup.windows = null;
     }
