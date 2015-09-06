@@ -4,6 +4,7 @@ import { chrome } from "../../common/globals";
 import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { each, entries } from "../../util/iterator";
+import { assert } from "../../util/assert";
 
 
 const chrome_get_all = () =>
@@ -156,7 +157,7 @@ export const init = async([chrome_get_all()], (db) => {
 
 
   timer.done(duration);
-  console["debug"]("db: initialized (" + timer.diff(duration) + "ms)", get_all());
+  console["debug"]("db: initialized (" + timer.diff(duration) + "ms)", db);
 
   return { modify, write, include, get, get_all, set_all, delay };
 });

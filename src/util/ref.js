@@ -1,6 +1,6 @@
 import * as event from "./event";
 import { noop, not as _not, and as _and, or as _or } from "./function";
-import { assert } from "../assert";
+import { assert, fail } from "./assert";
 
 
 const stop = {

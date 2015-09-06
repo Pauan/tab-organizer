@@ -2,7 +2,7 @@ import * as record from "../util/record";
 import * as list from "../util/list";
 import * as timer from "../util/timer";
 import { init as init_chrome } from "../chrome/server";
-import { foldl } from "../util/iterator";
+import { each } from "../util/iterator";
 import { fail } from "../util/assert";
 import { async } from "../util/async";
 
@@ -70,15 +70,17 @@ migrate_to(1435820160244, (db) => {
 
 
 export const init = async([init_chrome], ({ db }) => {
-  const old_db = db.get_all();
+  // TODO hacky
+  const new_db = record.copy(db.get_all());
 
   const duration = timer.make();
 
-  const migrated = migrate(old_db);
+  const migrated = migrate(new_db);
 
   timer.done(duration);
 
   if (migrated) {
+    // TODO a bit hacky
     db.set_all(new_db);
 
     console["debug"]("migrate: upgraded to version " +

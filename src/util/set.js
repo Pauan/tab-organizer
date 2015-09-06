@@ -1,5 +1,5 @@
 import { fail } from "./assert";
-import { remove as _remove } from "./array";
+import { remove as _remove, size } from "./array";
 export { size } from "./array";
 
 

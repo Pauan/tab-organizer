@@ -15,7 +15,7 @@ export const make = (info = {}) => {
 const start = (event) => {
   const f = event._info.start;
   if (f) {
-    assert(!maybe.has(state));
+    assert(!maybe.has(event._state));
     event._state = maybe.Some(f(event));
   }
 };

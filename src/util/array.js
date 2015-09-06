@@ -1,5 +1,5 @@
 import { Some, None } from "./maybe";
-import { assert } from "./assert";
+import { assert, fail } from "./assert";
 
 
 // TODO is this correct ?

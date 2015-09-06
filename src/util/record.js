@@ -1,4 +1,5 @@
 import { assert, fail } from "./assert";
+import { each, entries } from "./iterator";
 
 
 const check_key = (key) => {
@@ -8,6 +9,17 @@ const check_key = (key) => {
 
 export const make = (obj = {}) =>
   obj;
+
+// TODO is this inefficient ?
+export const copy = (obj) => {
+  const out = {};
+
+  each(entries(obj), ([key, value]) => {
+    out[key] = value;
+  });
+
+  return out;
+};
 
 export const has = (obj, key) => {
   check_key(key);

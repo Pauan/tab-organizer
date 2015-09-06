@@ -73,7 +73,7 @@ export const init = async([init_db], (db) => {
     const windows = db.get(namespace);
     const tabs = record.get(list.get(windows, window.index), "tabs");
 
-    assert(record.get(list.get(tabs, index), "id")) ===
+    assert(record.get(list.get(tabs, index), "id") ===
            record.get(tab_ids, tab.id));
   };
 
@@ -93,7 +93,7 @@ export const init = async([init_db], (db) => {
   };
 
   const window_close = ({ window, index }) => {
-    assert(size(window.tabs) === 0);
+    assert(list.size(window.tabs) === 0);
 
     check_window(index, window);
 

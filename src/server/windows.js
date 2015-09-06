@@ -7,7 +7,7 @@ import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
-import { each, map, indexed } from "../util/iterator";
+import { each, entries, map, indexed } from "../util/iterator";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 import { async } from "../util/async";
@@ -208,6 +208,7 @@ export const init = async([init_db,
 
   // TODO this can be removed for the final release, it's only for development
   // TODO more checks (e.g. that the indexes are correct)
+  // TODO rather than putting this here, this should instead be in `migrate.js`
   const check_integrity = () => {
     const duration = timer.make();
 
@@ -224,7 +225,7 @@ export const init = async([init_db,
       set.insert(seen, id);
     });
 
-    each(window_ids, ([id, window]) => {
+    each(entries(window_ids), ([id, window]) => {
       assert(record.get(window, "id") === id);
       list.index_of(windows, id);
 
@@ -236,7 +237,7 @@ export const init = async([init_db,
       });
     });
 
-    each(tab_ids, ([id, tab]) => {
+    each(entries(tab_ids), ([id, tab]) => {
       assert(record.get(tab, "id") === id);
 
       const window = record.get(window_ids, record.get(tab, "window"));

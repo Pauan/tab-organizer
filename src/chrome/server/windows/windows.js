@@ -70,6 +70,7 @@ import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { each } from "../../../util/iterator";
 import { make_tab } from "./tabs";
+import { focus, close, move, maximize } from "./popups";
 export { focus, close, move, maximize } from "./popups";
 
 
