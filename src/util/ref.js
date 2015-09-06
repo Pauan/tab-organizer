@@ -1,11 +1,10 @@
 import * as event from "./event";
+import * as running from "./running";
 import { noop, not as _not, and as _and, or as _or } from "./function";
 import { assert, fail } from "./assert";
 
 
-const stop = {
-  stop: noop
-};
+const stop = running.make(noop);
 
 
 export const make = (value) => {
@@ -104,14 +103,12 @@ const listen_latest = (x, initial, change) => {
   assert(stops["length"] === x._args["length"]);
   assert(pending === 0);
 
-  return {
-    stop: () => {
-      // TODO test this
-      for (let i = 0; i < stops["length"]; ++i) {
-        stops[i].stop();
-      }
+  return running.make(() => {
+    // TODO test this
+    for (let i = 0; i < stops["length"]; ++i) {
+      running.stop(stops[i]);
     }
-  };
+  });
 };
 
 const listen = (x, initial, change) => {
@@ -133,9 +130,9 @@ const listen = (x, initial, change) => {
   // TODO does this leak ?
   } else if (x._type === 3) {
     // TODO assert that `noop` is never called ?
-    const stopper = listen(x._parent, initial, noop);
+    const runner = listen(x._parent, initial, noop);
 
-    stopper.stop();
+    running.stop(runner);
 
     return stop;
 

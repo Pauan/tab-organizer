@@ -1,5 +1,6 @@
 import * as set from "./set";
 import * as maybe from "./maybe";
+import * as running from "./running";
 import { each } from "./iterator";
 import { assert } from "./assert";
 
@@ -42,14 +43,12 @@ export const on_receive = (event, f) => {
     start(event);
   }
 
-  return {
-    stop: () => {
-      set.remove(event._listeners, f);
+  return running.make(() => {
+    set.remove(event._listeners, f);
 
-      // TODO test this
-      if (set.size(event._listeners) === 0) {
-        stop(event);
-      }
+    // TODO test this
+    if (set.size(event._listeners) === 0) {
+      stop(event);
     }
   };
 };

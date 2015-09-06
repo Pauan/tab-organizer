@@ -1,4 +1,5 @@
 import * as event from "../util/event";
+import * as running from "../util/running";
 import * as record from "../util/record";
 import * as ref from "../util/ref";
 import { init as init_chrome } from "../chrome/server";
@@ -79,7 +80,7 @@ export const make_options = (uuid, default_options) =>
       // When the port closes, stop listening for `events`
       // TODO test this
       ports.on_close(port, () => {
-        x.stop();
+        running.stop(x);
       });
     });
 

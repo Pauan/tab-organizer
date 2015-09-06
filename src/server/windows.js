@@ -1,6 +1,7 @@
 import * as event from "../util/event";
 import * as list from "../util/list";
 import * as record from "../util/record";
+import * as running from "../util/running";
 import * as set from "../util/set"; // TODO this is only needed for development
 import * as timer from "../util/timer";
 import { uuid_port_tab } from "../common/uuid";
@@ -194,7 +195,7 @@ export const init = async([init_db,
     // When the port closes, stop listening for `tab_events`
     // TODO test this
     ports.on_close(port, () => {
-      x.stop();
+      running.stop(x);
     });
   });
 
