@@ -1,3 +1,4 @@
+import * as functions from "./functions";
 import { fail } from "./assert";
 
 
@@ -19,3 +20,5 @@ export const stop = (runner) => {
     fail(new Error("Runner is already stopped!"));
   }
 };
+
+export const noop = make(functions.noop);

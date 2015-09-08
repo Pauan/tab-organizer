@@ -1,8 +1,9 @@
 import { assert, fail } from "./assert";
 import { insert as _insert, remove as _remove,
          check_index, size, index_in_range, get_index,
-         index_of, clear } from "./array";
-export { size, index_of, clear } from "./array";
+         index_of, clear, each, map, all, join } from "./array";
+export { size, index_of, clear, each, map, all,
+         join } from "./array";
 
 
 export const make = (...x) =>

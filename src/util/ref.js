@@ -1,24 +1,26 @@
+import * as record from "./record";
 import * as event from "./event";
 import * as running from "./running";
-import { noop, not as _not, and as _and, or as _or } from "./function";
+import * as functions from "./functions";
 import { assert, fail } from "./assert";
 
 
-const stop = running.make(noop);
+export const uuid_initial = "6ae5c093-0508-4274-80af-426db24ffcc9";
+export const uuid_change  = "445eb523-f7a2-49d2-bd8d-cef5d98a19aa";
 
-
-export const make = (value) => {
-  return {
-    _type: 0,
-    _value: value,
-    _event: event.make()
-  };
-};
 
 export const always = (value) => {
   return {
-    _type: 1,
+    _type: 0,
     _value: value
+  };
+};
+
+export const make = (value) => {
+  return {
+    _type: 1,
+    _value: value,
+    _event: event.make()
   };
 };
 
@@ -48,10 +50,14 @@ export const get = (x) => {
 };
 
 export const set = (x, value) => {
-  if (x._type === 0) {
+  if (x._type === 1) {
     if (x._value !== value) {
       x._value = value;
-      event.send(x._event, value);
+
+      event.send(x._event, record.make({
+        "type": uuid_change,
+        "value": value
+      }));
     }
 
   } else {
@@ -64,77 +70,104 @@ export const modify = (x, f) => {
 };
 
 
-const listen_latest = (x, initial, change) => {
-  const values = new Array(x._args["length"]);
-
+const listen_latest = (ref, f) => {
   let old_value = null;
-  let pending = values["length"];
+  let pending   = list.size(ref._args);
 
-  assert(pending === x._args["length"]);
+  const values = new Array(pending);
 
-  const stops = [];
+  const stops = list.map(ref._args, (x, i) =>
+    listen(x, (info) => {
+      const type = record.get(info, "type");
 
-  for (let i = 0; i < x._args["length"]; ++i) {
-    stops["push"](listen(x._args[i], (value) => {
-      values[i] = value;
-
-      --pending;
-
-      if (pending === 0) {
+      switch (type) {
+      case uuid_initial:
+        assert(pending !== 0);
         assert(old_value === null);
-        old_value = x._fn(...values);
-        initial(old_value);
-      }
 
-    }, (value) => {
-      values[i] = value;
+        values[i] = record.get(info, "value");
 
-      assert(pending === 0);
+        --pending;
 
-      const new_value = x._fn(...values);
+        if (pending === 0) {
+          old_value = ref._fn(...values);
 
-      if (old_value !== new_value) {
-        old_value = new_value;
-        change(old_value);
+          f(record.make({
+            "type": type,
+            "value": old_value
+          }));
+        }
+        break;
+
+      case uuid_change:
+        assert(pending === 0);
+
+        values[i] = record.get(info, "value");
+
+        const new_value = ref._fn(...values);
+
+        if (old_value !== new_value) {
+          old_value = new_value;
+
+          f(record.make({
+            "type": type,
+            "value": old_value
+          }));
+        }
+        break;
+
+      default:
+        fail();
+        break;
       }
     }));
-  }
 
-  assert(stops["length"] === x._args["length"]);
   assert(pending === 0);
 
+  // TODO test this
   return running.make(() => {
-    // TODO test this
-    for (let i = 0; i < stops["length"]; ++i) {
-      running.stop(stops[i]);
-    }
+    list.each(stops, running.stop);
   });
 };
 
-const listen = (x, initial, change) => {
+export const listen = (x, f) => {
   if (x._type === 0) {
-    initial(x._value);
-    return event.on_receive(x._event, change);
+    f(record.make({
+      "type": uuid_initial,
+      "value": x._value
+    }));
+
+    return running.noop;
 
 
   } else if (x._type === 1) {
-    initial(x._value);
-    return stop;
+    f(record.make({
+      "type": uuid_initial,
+      "value": x._value
+    }));
+
+    return event.on_receive(x._event, f);
 
 
   } else if (x._type === 2) {
-    return listen_latest(x, initial, change);
+    return listen_latest(x, f);
 
 
   // TODO is this correct ?
   // TODO does this leak ?
   } else if (x._type === 3) {
-    // TODO assert that `noop` is never called ?
-    const runner = listen(x._parent, initial, noop);
+    // TODO assert that this function is not called twice ?
+    const runner = listen(x._parent, (x) => {
+      if (record.get(x, "type") === uuid_initial) {
+        running.stop(runner);
+        f(x);
 
-    running.stop(runner);
+      } else {
+        fail();
+      }
+    });
 
-    return stop;
+    return running.noop;
 
 
   } else {
@@ -152,18 +185,12 @@ export const map_null = (x, f) =>
       ? null
       : f(x)));
 
-export const each = (x, f) =>
-  listen(x, f, f);
-
-export const on_change = (x, f) =>
-  listen(x, noop, f);
-
 
 export const not = (x) =>
-  map(x, _not);
+  map(x, functions.not);
 
 export const and = (args) =>
-  latest(args, _and);
+  latest(args, functions.and);
 
 export const or = (args) =>
-  latest(args, _or);
+  latest(args, functions.or);

@@ -2,9 +2,7 @@ import * as list from "./list";
 import * as record from "./record";
 import * as event from "./event";
 import * as maybe from "./maybe";
-import { insert as _insert, remove as _remove,
-         index_of, size, index_in_range, get_sorted,
-         is_sorted, clear as _clear } from "./array";
+import * as array from "./array";
 import { assert, fail } from "./assert";
 
 
@@ -15,15 +13,15 @@ export const uuid_update  = "e51c3816-c859-47d0-a93c-e49c9e7e5be4";
 export const uuid_clear   = "91e20a2a-55c1-4b7f-b2ca-d82d543f5a6c";
 
 
-export const make = () => {
+export const make_list = (...x) => {
   return {
     _type: 0,
-    _list: list.make(),
+    _list: list.make(...x),
     _events: event.make()
   };
 };
 
-export const sorted_make = (sort) => {
+export const make_sorted_list = (sort) => {
   return {
     _type: 1,
     _list: [],
@@ -38,105 +36,6 @@ export const map = (parent, fn) => {
     _parent: parent,
     _fn: fn
   };
-};
-
-
-export const insert = (stream, index, x) => {
-  if (stream._type === 0) {
-    list.insert(stream._list, index, x);
-    event_insert(stream, index, x);
-
-  } else {
-    fail();
-  }
-};
-
-export const push = (stream, x) => {
-  if (stream._type === 0) {
-    list.push(stream._list, x);
-    // TODO is this correct ?
-    event_insert(stream, size(stream._list) - 1, x);
-
-  } else {
-    fail();
-  }
-};
-
-export const remove = (stream, index) => {
-  if (stream._type === 0) {
-    list.remove(stream._list, index);
-    event_remove(stream, index);
-
-  } else {
-    fail();
-  }
-};
-
-
-export const sorted_has = (stream, x) => {
-  if (stream._type === 1) {
-    const { value } = get_sorted(stream._list, x, stream._sort);
-    return maybe.has(value);
-
-  } else {
-    fail();
-  }
-};
-
-export const sorted_insert = (stream, x) => {
-  if (stream._type === 1) {
-    const { index, value } = get_sorted(stream._list, x, stream._sort);
-
-    assert(!maybe.has(value));
-
-    _insert(stream._list, index, x);
-    event_insert(stream, index, x);
-
-    // TODO inefficient
-    assert(is_all_sorted(stream._list, stream._sort));
-
-  } else {
-    fail();
-  }
-};
-
-export const sorted_remove = (stream, x) => {
-  if (stream._type === 1) {
-    const { index, value } = get_sorted(stream._list, x, stream._sort);
-
-    assert(maybe.get(value) === x);
-
-    _remove(stream._list, index);
-    event_remove(stream, index);
-
-    // TODO inefficient
-    assert(is_all_sorted(stream._list, stream._sort));
-
-  } else {
-    fail();
-  }
-};
-
-export const sorted_update = (stream, x) => {
-  if (stream._type === 1) {
-    const index = index_of(stream._list, x);
-    const len   = size(stream._list);
-
-    assert(index_in_range(index, len));
-
-    // TODO is this correct ?
-    if (!is_sorted(stream._list, index, len, stream._sort)) {
-      _remove(stream._list, index);
-      event_remove(stream, index);
-      sorted_insert(stream, x);
-    }
-
-    // TODO inefficient
-    assert(is_all_sorted(stream._list, stream._sort));
-
-  } else {
-    fail();
-  }
 };
 
 
@@ -155,22 +54,138 @@ const event_remove = (stream, index) => {
   }));
 };
 
+const event_clear = (stream) => {
+  event.send(stream._events, record.make({
+    "type": uuid_clear
+  }));
+};
 
-export const clear = (stream) => {
+
+export const current = (stream) => {
   if (stream._type === 0 || stream._type === 1) {
-    _clear(stream._list);
-
-    event.send(stream._events, record.make({
-      "type": uuid_clear
-    }));
+    return stream._list;
 
   } else {
     fail();
   }
 };
 
-export const on_change = (stream, f) => {
-  if (stream._type === 0 || stream._type === 1) {
+
+export const insert = (stream, index, x) => {
+  if (stream._type === 0) {
+    list.insert(stream._list, index, x);
+    event_insert(stream, index, x);
+
+  } else {
+    fail();
+  }
+};
+
+export const push = (stream, x) => {
+  if (stream._type === 0) {
+    list.push(stream._list, x);
+    // TODO is this correct ?
+    event_insert(stream, list.size(stream._list) - 1, x);
+
+  } else {
+    fail();
+  }
+};
+
+export const remove = (stream, index) => {
+  if (stream._type === 0) {
+    list.remove(stream._list, index);
+    event_remove(stream, index);
+
+  } else {
+    fail();
+  }
+};
+
+export const clear = (stream) => {
+  if (stream._type === 0) {
+    list.clear(stream._list);
+    event_clear(stream);
+
+  } else {
+    fail();
+  }
+};
+
+
+/*export const sorted_has = (stream, x) => {
+  if (stream._type === 1) {
+    const { value } = array.get_sorted(stream._list, x, stream._sort);
+    return maybe.has(value);
+
+  } else {
+    fail();
+  }
+};*/
+
+export const sorted_insert = (stream, x) => {
+  if (stream._type === 1) {
+    const { index, value } = array.get_sorted(stream._list, x, stream._sort);
+
+    assert(!maybe.has(value));
+
+    array.insert(stream._list, index, x);
+    event_insert(stream, index, x);
+
+    // TODO inefficient
+    assert(array.is_all_sorted(stream._list, stream._sort));
+
+  } else {
+    fail();
+  }
+};
+
+export const sorted_remove = (stream, x) => {
+  if (stream._type === 1) {
+    const { index, value } = array.get_sorted(stream._list, x, stream._sort);
+
+    assert(maybe.get(value) === x);
+
+    array.remove(stream._list, index);
+    event_remove(stream, index);
+
+    // TODO inefficient
+    assert(array.is_all_sorted(stream._list, stream._sort));
+
+  } else {
+    fail();
+  }
+};
+
+// TODO test this
+export const sorted_update = (stream, x) => {
+  if (stream._type === 1) {
+    const index = array.index_of(stream._list, x);
+    const len   = array.size(stream._list);
+
+    assert(array.index_in_range(index, len));
+
+    // TODO is this correct ?
+    if (!array.is_sorted(stream._list, index, len, stream._sort)) {
+      array.remove(stream._list, index);
+      event_remove(stream, index);
+      sorted_insert(stream, x);
+
+    } else {
+      // TODO inefficient
+      assert(array.is_all_sorted(stream._list, stream._sort));
+    }
+
+  } else {
+    fail();
+  }
+};
+
+
+export const listen = (stream, f) => {
+  if (stream._type === 0 ||
+      stream._type === 1) {
+
     f(record.make({
       "type": uuid_initial,
       "value": stream._list
@@ -180,15 +195,18 @@ export const on_change = (stream, f) => {
 
 
   } else if (stream._type === 2) {
-    return on_change(stream._parent, (x) => {
+    return listen(stream._parent, (x) => {
       const type = record.get(x, "type");
 
       switch (type) {
       case uuid_initial:
+        const fn = stream._fn;
+        const value = record.get(x, "value");
+
         f(record.make({
           "type": type,
-          // TODO a tiny bit hacky
-          "value": list.map(record.get(x, "value"), (x) => stream._fn(x))
+          // We don't want to pass the index to `fn`
+          "value": array.map(value, (x) => fn(x))
         }));
         break;
 

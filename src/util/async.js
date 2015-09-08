@@ -1,5 +1,5 @@
 import { assert, fail } from "./assert";
-import { noop } from "./function";
+import { noop } from "./functions";
 
 
 const PENDING = 0;
