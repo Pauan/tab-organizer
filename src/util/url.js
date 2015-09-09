@@ -11,7 +11,7 @@ const re_uri = /^([a-zA-Z][a-zA-Z0-9\+\.\-]*:)(?:(\/\/)([^\@]+\@)?([^\/\?\#\:]*)
 // TODO test this
 export const parse = (x) => {
   const a = match(x, re_uri);
-  if (a) {
+  if (a !== null) {
     return {
       protocol:  lowercase(a[1]),
       separator: a[2] || "",

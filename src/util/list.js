@@ -1,9 +1,10 @@
 import { assert, fail } from "./assert";
 import { insert as _insert, remove as _remove,
          check_index, size, index_in_range, get_index,
-         index_of, clear, each, map, all, join } from "./array";
+         index_of, clear, each, map, all, join,
+         push } from "./array";
 export { size, index_of, clear, each, map, all,
-         join } from "./array";
+         join, push } from "./array";
 
 
 export const make = (...x) =>
@@ -48,10 +49,6 @@ export const remove = (x, i) => {
   const index = get_index(i, size(x));
 
   _remove(x, index);
-};
-
-export const push = (x, value) => {
-  x["push"](value);
 };
 
 export const modify = (x, index, f) => {

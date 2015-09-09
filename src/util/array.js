@@ -17,7 +17,7 @@ export const get_sorted = (array, key, sort) => {
     if (order === 0) {
       return {
         index: pivot,
-        value: maybe.Some(array[pivot])
+        value: maybe.some(array[pivot])
       };
 
     } else if (order < 0) {
@@ -30,7 +30,7 @@ export const get_sorted = (array, key, sort) => {
 
   return {
     index: start,
-    value: maybe.None
+    value: maybe.none
   };
 };
 
@@ -142,6 +142,10 @@ export const remove = (array, index) => {
   }
 };
 
+export const push = (array, value) => {
+  array["push"](value);
+};
+
 
 export const each = (array, f) => {
   for (let i = 0; i < array["length"]; ++i) {
@@ -190,21 +194,21 @@ export const reverse = (array) => {
 export const find_first = (array, f) => {
   for (let i = 0; i < array["length"]; ++i) {
     if (f(array[i], i)) {
-      return maybe.Some(array[i]);
+      return maybe.some(array[i]);
     }
   }
 
-  return maybe.None;
+  return maybe.none;
 };
 
 export const find_last = (array, f) => {
   for (let i = array["length"] - 1; i >= 0; --i) {
     if (f(array[i], i)) {
-      return maybe.Some(array[i]);
+      return maybe.some(array[i]);
     }
   }
 
-  return maybe.None;
+  return maybe.none;
 };
 
 export const any = (array, f) =>

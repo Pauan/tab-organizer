@@ -160,6 +160,7 @@ export const sorted_remove = (stream, x) => {
 // TODO test this
 export const sorted_update = (stream, x) => {
   if (stream._type === 1) {
+    // TODO is there a more efficient way to do this ?
     const index = array.index_of(stream._list, x);
     const len   = array.size(stream._list);
 

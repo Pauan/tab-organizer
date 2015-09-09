@@ -1,17 +1,17 @@
 import { fail } from "./assert";
 
 
-export const None = [];
+export const none = [];
 
-export const Some = (x) => [x];
+export const some = (x) => [x];
 
 export const has = (x) =>
-  x["length"] !== 0;
+  x["length"] === 1;
 
 export const get = (x) => {
-  if (x["length"]) {
+  if (x["length"] === 1) {
     return x[0];
   } else {
-    fail(new Error("Cannot get from None"));
+    fail(new Error("Cannot get from none"));
   }
 };

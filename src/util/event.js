@@ -8,7 +8,7 @@ export const make = (info = {}) => {
   return {
     _listeners: set.make(),
     _info: info,
-    _state: maybe.None
+    _state: maybe.none
   };
 };
 
@@ -16,7 +16,7 @@ const start = (event) => {
   const f = event._info.start;
   if (f) {
     assert(!maybe.has(event._state));
-    event._state = maybe.Some(f(event));
+    event._state = maybe.some(f(event));
   }
 };
 
@@ -24,7 +24,7 @@ const stop = (event) => {
   const f = event._info.stop;
   if (f) {
     f(event, maybe.get(event._state));
-    event._state = maybe.None;
+    event._state = maybe.none;
   }
 };
 

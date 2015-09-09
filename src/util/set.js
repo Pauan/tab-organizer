@@ -1,5 +1,5 @@
 import { fail } from "./assert";
-import { remove as _remove, size, each } from "./array";
+import { remove as _remove, size, each, push } from "./array";
 export { size, each } from "./array";
 
 
@@ -13,7 +13,7 @@ export const insert = (array, value) => {
   const index = array["indexOf"](value);
 
   if (index === -1) {
-    array["push"](value);
+    push(array, value);
 
   } else {
     fail(new Error("Value already exists in set: " + value));

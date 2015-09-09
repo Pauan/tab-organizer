@@ -1,3 +1,4 @@
+import * as list from "./list";
 import { assert, fail } from "./assert";
 import { noop } from "./functions";
 
@@ -29,7 +30,7 @@ export const async_callback = (f) => {
   const obj = {
     _state: PENDING,
     _value: null,
-    _waiting: []
+    _waiting: list.make()
   };
 
   f(obj);
@@ -45,9 +46,9 @@ export const success = (obj, value) => {
     obj._value = value;
     obj._waiting = null;
 
-    for (let i = 0; i < a["length"]; ++i) {
-      a[i].success(value);
-    }
+    list.each(a, (x) => {
+      x.success(value);
+    });
   }
 };
 
@@ -59,15 +60,15 @@ export const error = (obj, error) => {
     obj._value = error;
     obj._waiting = null;
 
-    for (let i = 0; i < a["length"]; ++i) {
-      a[i].error(error);
-    }
+    list.each(a, (x) => {
+      x.error(error);
+    });
   }
 };
 
 const run = (obj, success, error) => {
   if (obj._state === PENDING) {
-    obj._waiting["push"]({ success, error });
+    list.push(obj._waiting, { success, error });
 
   } else if (obj._state === SUCCESS) {
     success(obj._value);
@@ -83,16 +84,16 @@ const run = (obj, success, error) => {
 // TODO test this
 export const async = (a, f) =>
   async_callback((out) => {
-    let pending = a["length"];
+    let pending = list.size(a);
 
     if (pending === 0) {
       success(out, f());
 
     } else {
-      const values = new Array(a["length"]);
+      const values = new Array(pending);
 
-      for (let i = 0; i < a["length"]; ++i) {
-        run(a[i], (value) => {
+      list.each(a, (x, i) => {
+        run(x, (value) => {
           values[i] = value;
 
           --pending;
@@ -104,7 +105,7 @@ export const async = (a, f) =>
         }, (e) => {
           error(out, e);
         });
-      }
+      });
     }
   });
 
