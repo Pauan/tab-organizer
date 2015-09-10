@@ -170,7 +170,7 @@ export const init = async([init_db], (db) => {
   // because Chrome will automatically create a New Tab for the user.
   const is_new_tab = (new_tabs, index, new_tab) =>
     // Don't match empty windows
-    list.size(new_tabs) >= 2 &&
+    list.size(new_tabs) > 1 &&
     index === list.size(new_tabs) - 1 &&
     new_tab.url === "chrome://newtab/";
 

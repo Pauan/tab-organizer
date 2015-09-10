@@ -14,8 +14,7 @@ export const make_options = (uuid, default_options) =>
         (db,
          { ports }) => {
 
-    const events = event.make();
-
+    const events          = event.make();
 
     const current_options = record.make();
     const refs            = record.make();
@@ -52,7 +51,7 @@ export const make_options = (uuid, default_options) =>
 
 
     const handle_event = record.make({
-      "set": (x) => {
+      "set": (port, x) => {
         const key   = record.get(x, "key");
         const value = record.get(x, "value");
         // TODO this shouldn't send out a message to the port that made the change
@@ -73,7 +72,7 @@ export const make_options = (uuid, default_options) =>
       });
 
       ports.on_receive(port, (x) => {
-        record.get(handle_event, record.get(x, "type"))(x);
+        record.get(handle_event, record.get(x, "type"))(port, x);
       });
 
       // When the port closes, stop listening for `events`

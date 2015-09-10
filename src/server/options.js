@@ -44,6 +44,6 @@ export const init = make_options(uuid_port_options, record.make({
   "screen.available.checked"  : false,
   "screen.available.left"     : 0,
   "screen.available.top"      : 0,
-  "screen.available.width"    : screen["width"], // TODO ew
-  "screen.available.height"   : screen["height"], // TODO ew
+  "screen.available.width"    : record.get(screen, "width"), // TODO ew
+  "screen.available.height"   : record.get(screen, "height"), // TODO ew
 }));

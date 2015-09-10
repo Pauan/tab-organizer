@@ -69,7 +69,7 @@ migrate_to(1435820160244, (db) => {
 
 
 export const init = async([init_chrome], ({ db }) => {
-  // TODO hacky
+  // TODO hacky and inefficient
   const new_db = record.copy(db.get_all());
 
   const duration = timer.make();

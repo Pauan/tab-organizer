@@ -102,6 +102,7 @@ export const init = async([init_db,
 
       const move_tabs = list.make();
 
+      // TODO replace with `keep_map` ?
       list.each(_tabs, (tab_id, i) => {
         /*const old_window_id = db.get(["current.tab-ids", tab_id, "window"]);
         const old_tabs = db.get(["current.window-ids", old_window_id, "tabs"]);
@@ -232,7 +233,7 @@ export const init = async([init_db,
       const seen = set.make();
 
       list.each(record.get(window, "tabs"), (id) => {
-        assert(record.get(tab_ids, id));
+        assert(record.has(tab_ids, id));
         set.insert(seen, id);
       });
     });
@@ -487,9 +488,6 @@ export const init = async([init_db,
 
     make_new_tab(window_id, tab_id, transient);
 
-    // TODO a tiny bit inefficient ?
-    const tab = record.get(db.get("current.tab-ids"), tab_id);
-
     db.write("current.window-ids", (window_ids) => {
       const tabs = record.get(record.get(window_ids, window_id), "tabs");
 
@@ -505,9 +503,13 @@ export const init = async([init_db,
       }));
     });
 
+    // TODO a tiny bit inefficient ?
+    const tab = record.get(db.get("current.tab-ids"), tab_id);
+
     event.send(on_tab_open, { tab, transient });
   };
 
+  // TODO send a single tab-focus event, and get rid of tab-unfocus event ?
   const tab_focus = (info) => {
     if (info.old !== null) {
       const tab_id = session.tab_id(info.old.id);
@@ -624,13 +626,13 @@ export const init = async([init_db,
     const tab_id = session.tab_id(info.tab.id);
 
     db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
+      const transient = record.get(transient_tab_ids, tab_id);
+
+      record.remove(tab_ids, tab_id);
+      record.remove(transient_tab_ids, tab_id);
+
       db.write("current.window-ids", (window_ids) => {
-        const tab = record.get(tab_ids, tab_id);
-        const transient = record.get(transient_tab_ids, tab_id);
-
-        record.remove(tab_ids, tab_id);
-        record.remove(transient_tab_ids, tab_id);
-
         const tabs = record.get(record.get(window_ids, window_id), "tabs");
 
         // TODO can this be implemented more efficiently ?
@@ -644,9 +646,9 @@ export const init = async([init_db,
           "tab-id": tab_id,
           "tab-index": index
         }));
-
-        event.send(on_tab_close, { tab, transient });
       });
+
+      event.send(on_tab_close, { tab, transient });
     });
   };
 

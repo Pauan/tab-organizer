@@ -57,7 +57,7 @@ export const init = async([init_chrome,
 
   const close_popup = () => {
     if (popup.value !== null) {
-      popup.value.close();
+      popups.close(popup.value);
     }
 
     cleanup_popup();
@@ -65,7 +65,7 @@ export const init = async([init_chrome,
 
   const close_panel = () => {
     if (panel.value !== null) {
-      panel.value.close();
+      popups.close(panel.value);
     }
 
     cleanup_panel();
@@ -73,7 +73,7 @@ export const init = async([init_chrome,
 
   const close_tab = () => {
     if (tab.value !== null) {
-      tab.value.close();
+      tabs.close(tab.value);
     }
 
     cleanup_tab();

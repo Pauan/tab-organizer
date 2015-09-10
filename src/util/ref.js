@@ -1,5 +1,4 @@
 import * as list from "./list";
-import * as maybe from "./maybe";
 import * as event from "./event";
 import * as running from "./running";
 import * as functions from "./functions";
