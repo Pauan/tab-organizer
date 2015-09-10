@@ -97,7 +97,7 @@ const chrome_get_all = () =>
   });
 
 // TODO do we need `ready` ?
-export const init = async([chrome_get_all(), ready], (a) => {
+export const init = async([chrome_get_all(), ready], (a, _) => {
 
   list.each(a, (info) => {
     windows.make_window(info, false);

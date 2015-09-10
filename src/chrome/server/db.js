@@ -28,6 +28,7 @@ const chrome_set = (key, value, f) => {
 
 const duration = timer.make();
 
+// TODO add in transaction support, so that a bug/error rolls back the transaction
 export const init = async([chrome_get_all()], (db) => {
   const delaying = record.make();
 
