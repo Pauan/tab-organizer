@@ -13,6 +13,8 @@ export const fail = (message = null) => {
   throw e;
 };
 
+// TODO should accept a second argument for the error message
+// TODO replace some uses of fail with assert + error mesage
 export const assert = (x) => {
   if (!x) {
     fail(new Error("Assertion failed"));

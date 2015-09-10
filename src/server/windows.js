@@ -4,21 +4,21 @@ import * as record from "../util/record";
 import * as running from "../util/running";
 import * as set from "../util/set"; // TODO this is only needed for development
 import * as timer from "../util/timer";
+import * as async from "../util/async";
 import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
-import { async } from "../util/async";
 
 
-export const init = async([init_db,
-                           init_chrome,
-                           init_session],
-                          (db,
-                           { windows, tabs, ports },
-                           session) => {
+export const init = async.all([init_db,
+                               init_chrome,
+                               init_session],
+                              (db,
+                               { windows, tabs, ports },
+                               session) => {
 
   db.include("current.windows", list.make());
   db.include("current.window-ids", record.make());
@@ -740,5 +740,5 @@ export const init = async([init_db,
     return out;
   };
 
-  return { get_all_tabs, on_tab_open, on_tab_close };
+  return async.done({ get_all_tabs, on_tab_open, on_tab_close });
 });

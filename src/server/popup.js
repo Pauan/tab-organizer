@@ -2,17 +2,18 @@ import * as list from "../util/list";
 import * as ref from "../util/ref";
 import * as event from "../util/event";
 import * as record from "../util/record";
+import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { uuid_port_popup } from "../common/uuid";
-import { async } from "../util/async";
 import { assert, fail } from "../util/assert";
 
 
-export const init = async([init_chrome,
-                           init_options],
-                          ({ manifest, button, popups, tabs, windows, ports },
-                           { get: opt }) => {
+export const init = async.all([init_chrome,
+                               init_options],
+                              ({ manifest, button, popups,
+                                 tabs, windows, ports },
+                               { get: opt }) => {
 
   button.set_tooltip(ref.always(record.get(manifest, "name")));
 
@@ -423,4 +424,7 @@ export const init = async([init_chrome,
                           (type === "bubble"
                             ? panel_url
                             : null)));
+
+
+  return async.done({});
 });

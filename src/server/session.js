@@ -1,8 +1,8 @@
 import * as record from "../util/record";
 import * as timer from "../util/timer";
 import * as list from "../util/list";
+import * as async from "../util/async";
 import { init as init_db } from "./migrate";
-import { async } from "../util/async";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
 
@@ -10,7 +10,7 @@ import { assert, fail } from "../util/assert";
 const new_id = () => "" + timestamp();
 
 
-export const init = async([init_db], (db) => {
+export const init = async.all([init_db], (db) => {
   const namespace = "session.windows";
 
   const delay = (ms) => {
@@ -287,7 +287,7 @@ export const init = async([init_db], (db) => {
   };
 
 
-  return {
+  return async.done({
     window_id,
     tab_id,
 
@@ -299,5 +299,5 @@ export const init = async([init_db], (db) => {
     tab_update,
     tab_move,
     tab_replace
-  };
+  });
 });

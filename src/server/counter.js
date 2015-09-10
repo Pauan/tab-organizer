@@ -1,19 +1,19 @@
 import * as list from "../util/list";
 import * as ref from "../util/ref";
 import * as event from "../util/event";
+import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_windows } from "./windows";
 import { init as init_options } from "./options";
 import { assert, fail } from "../util/assert";
-import { async } from "../util/async";
 
 
-export const init = async([init_chrome,
-                           init_windows,
-                           init_options],
-                          ({ button },
-                           { get_all_tabs, on_tab_open, on_tab_close },
-                           { get: opt }) => {
+export const init = async.all([init_chrome,
+                               init_windows,
+                               init_options],
+                              ({ button },
+                               { get_all_tabs, on_tab_open, on_tab_close },
+                               { get: opt }) => {
 
   const loaded   = ref.make(0);
   const unloaded = ref.make(0);
@@ -77,4 +77,7 @@ export const init = async([init_chrome,
     blue: 0,
     alpha: 0.9
   }));
+
+
+  return async.done({});
 });

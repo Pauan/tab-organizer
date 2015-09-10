@@ -2,17 +2,17 @@ import * as event from "../util/event";
 import * as running from "../util/running";
 import * as record from "../util/record";
 import * as ref from "../util/ref";
+import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
-import { async } from "../util/async";
 import { fail } from "../util/assert";
 
 
 export const make_options = (uuid, default_options) =>
-  async([init_db,
-         init_chrome],
-        (db,
-         { ports }) => {
+  async.all([init_db,
+             init_chrome],
+            (db,
+             { ports }) => {
 
     const events          = event.make();
 
@@ -83,5 +83,5 @@ export const make_options = (uuid, default_options) =>
     });
 
 
-    return { get };
+    return async.done({ get });
   });

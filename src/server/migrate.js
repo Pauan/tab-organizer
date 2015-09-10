@@ -1,9 +1,9 @@
 import * as record from "../util/record";
 import * as list from "../util/list";
 import * as timer from "../util/timer";
+import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { fail } from "../util/assert";
-import { async } from "../util/async";
 
 
 const version = 1435820160244;
@@ -68,7 +68,7 @@ migrate_to(1435820160244, (db) => {
 });
 
 
-export const init = async([init_chrome], ({ db }) => {
+export const init = async.all([init_chrome], ({ db }) => {
   // TODO hacky and inefficient
   const new_db = record.copy(db.get_all());
 
@@ -92,5 +92,5 @@ export const init = async([init_chrome], ({ db }) => {
     console["debug"]("migrate: already at version " + version);
   }
 
-  return db;
+  return async.done(db);
 });
