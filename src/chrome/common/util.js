@@ -1,6 +1,6 @@
 import * as list from "../../util/list";
+import * as async from "../../util/async";
 import { chrome } from "../../common/globals";
-import { async_callback, success, error } from "../../util/async";
 import { fail } from "../../util/assert";
 
 
@@ -33,18 +33,23 @@ export const throw_error = () => {
   }
 };
 
-export const async_chrome = (f) =>
-  async_callback((out) => {
-    f((...value) => {
-      const err = check_error();
-      if (err === null) {
-        if (value["length"] === 1) {
-          success(out, value[0]);
-        } else {
-          success(out, value);
-        }
+export const async_chrome = (f) => {
+  const out = async.make();
+
+  f((...value) => {
+    const err = check_error();
+
+    if (err === null) {
+      if (value["length"] === 1) {
+        async.success(out, value[0]);
       } else {
-        error(out, err);
+        async.success(out, value);
       }
-    });
+
+    } else {
+      async.error(out, err);
+    }
   });
+
+  return out;
+};

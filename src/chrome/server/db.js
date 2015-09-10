@@ -1,7 +1,7 @@
 import * as record from "../../util/record";
 import * as timer from "../../util/timer";
+import * as async from "../../util/async";
 import { chrome } from "../../common/globals";
-import { async } from "../../util/async";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
 
@@ -11,25 +11,21 @@ const chrome_get_all = () =>
     chrome["storage"]["local"]["get"](null, callback);
   });
 
-const chrome_remove = (key, f) => {
-  chrome["storage"]["local"]["remove"](key, () => {
-    throw_error();
-    f();
+const chrome_remove = (key) =>
+  async_chrome((callback) => {
+    chrome["storage"]["local"]["remove"](key, callback);
   });
-};
 
-const chrome_set = (key, value, f) => {
-  chrome["storage"]["local"]["set"]({ [key]: value }, () => {
-    throw_error();
-    f();
+const chrome_set = (key, value) =>
+  async_chrome((callback) => {
+    chrome["storage"]["local"]["set"]({ [key]: value }, callback);
   });
-};
 
 
 const duration = timer.make();
 
 // TODO add in transaction support, so that a bug/error rolls back the transaction
-export const init = async([chrome_get_all()], (db) => {
+export const init = async.wait(chrome_get_all(), (db) => {
   const delaying = record.make();
 
 
@@ -47,7 +43,7 @@ export const init = async([chrome_get_all()], (db) => {
     const duration = timer.make();
 
     if (record.has(db, key)) {
-      chrome_set(key, record.get(db, key), () => {
+      async.run(chrome_set(key, record.get(db, key)), () => {
         timer.done(duration);
 
         console["debug"]("db.set: \"" +
@@ -59,7 +55,7 @@ export const init = async([chrome_get_all()], (db) => {
 
 
     } else {
-      chrome_remove(key, () => {
+      async.run(chrome_remove(key), () => {
         timer.done(duration);
 
         console["debug"]("db.remove: \"" +
@@ -159,5 +155,5 @@ export const init = async([chrome_get_all()], (db) => {
   timer.done(duration);
   console["debug"]("db: initialized (" + timer.diff(duration) + "ms)", db);
 
-  return { modify, write, include, get, get_all, set_all, delay };
+  return async.done({ modify, write, include, get, get_all, set_all, delay });
 });

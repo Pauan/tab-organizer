@@ -1,8 +1,8 @@
 import * as list from "../../util/list";
+import * as async from "../../util/async";
 import { chrome } from "../../common/globals";
 import { throw_error, async_chrome } from "../common/util";
 import { assert } from "../../util/assert";
-import { async, async_callback, success } from "../../util/async";
 
 // Exports
 import * as windows from "./windows/windows";
@@ -80,70 +80,72 @@ chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
 });
 
 
-const ready = async_callback((out) => {
-  if (document["readyState"] === "complete") {
-    success(out, undefined);
+const ready = async.make();
 
-  } else {
-    addEventListener("load", () => {
-      success(out, undefined);
-    }, true);
-  }
-});
+if (document["readyState"] === "complete") {
+  async.success(ready, undefined);
+
+} else {
+  addEventListener("load", () => {
+    async.success(ready, undefined);
+  }, true);
+}
+
 
 const chrome_get_all = () =>
   async_chrome((callback) => {
     chrome["windows"]["getAll"]({ "populate": true }, callback);
   });
 
+
 // TODO do we need `ready` ?
-export const init = async([chrome_get_all(), ready], (a, _) => {
+export const init = async.wait(ready, (_) =>
+  async.wait(chrome_get_all(), (a) => {
+    list.each(a, (info) => {
+      windows.make_window(info, false);
+      popups.make_popup(info, false);
+    });
 
-  list.each(a, (info) => {
-    windows.make_window(info, false);
-    popups.make_popup(info, false);
-  });
+    return async.done({
+      windows: {
+        get_all: windows.get_all,
 
-  return {
-    windows: {
-      get_all: windows.get_all,
+        open: windows.open,
+        focus: windows.focus,
+        close: windows.close,
+        move: windows.move,
+        maximize: windows.maximize,
 
-      open: windows.open,
-      focus: windows.focus,
-      close: windows.close,
-      move: windows.move,
-      maximize: windows.maximize,
+        on_open: windows.on_open,
+        on_close: windows.on_close,
+        on_focus: windows.on_focus
+      },
 
-      on_open: windows.on_open,
-      on_close: windows.on_close,
-      on_focus: windows.on_focus
-    },
+      tabs: {
+        open: tabs.open,
+        pin: tabs.pin,
+        unpin: tabs.unpin,
+        move: tabs.move,
+        focus: tabs.focus,
+        close: tabs.close,
 
-    tabs: {
-      open: tabs.open,
-      pin: tabs.pin,
-      unpin: tabs.unpin,
-      move: tabs.move,
-      focus: tabs.focus,
-      close: tabs.close,
+        on_open: tabs.on_open,
+        on_close: tabs.on_close,
+        on_update: tabs.on_update,
+        on_focus: tabs.on_focus,
+        on_move: tabs.on_move,
+        on_replace: tabs.on_replace
+      },
 
-      on_open: tabs.on_open,
-      on_close: tabs.on_close,
-      on_update: tabs.on_update,
-      on_focus: tabs.on_focus,
-      on_move: tabs.on_move,
-      on_replace: tabs.on_replace
-    },
+      popups: {
+        open: popups.open,
+        focus: popups.focus,
+        close: popups.close,
+        move: popups.move,
+        maximize: popups.maximize,
+        get_size: popups.get_size,
 
-    popups: {
-      open: popups.open,
-      focus: popups.focus,
-      close: popups.close,
-      move: popups.move,
-      maximize: popups.maximize,
-      get_size: popups.get_size,
-
-      on_close: popups.on_close
-    }
-  };
-});
+        on_close: popups.on_close
+      }
+    });
+  }));
