@@ -260,7 +260,9 @@ export const init = async([init_db,
     record.get(tab, "pinned")  !== info.pinned;
 
   const update_time = (x, name) => {
-    record.assign(record.get(x, "time"), name, timestamp());
+    const time = timestamp();
+    record.assign(record.get(x, "time"), name, time);
+    return time;
   };
 
   const update_tab = (tab_id, info, events) => {
@@ -309,6 +311,8 @@ export const init = async([init_db,
     db.write("current.tab-ids", (tab_ids) => {
       record.insert(tab_ids, tab_id, tab);
     });
+
+    return tab;
   };
 
   const update_window = (window_id, info) => {
@@ -434,6 +438,7 @@ export const init = async([init_db,
     });
   };
 
+  // TODO send event ?
   const window_focus = (info) => {
     if (info.new !== null) {
       const id = session.window_id(info.new.id);
@@ -486,7 +491,7 @@ export const init = async([init_db,
 
     record.insert(transient_tab_ids, tab_id, transient);
 
-    make_new_tab(window_id, tab_id, transient);
+    const tab = make_new_tab(window_id, tab_id, transient);
 
     db.write("current.window-ids", (window_ids) => {
       const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -502,9 +507,6 @@ export const init = async([init_db,
         "tab": serialize_tab(tab_id)
       }));
     });
-
-    // TODO a tiny bit inefficient ?
-    const tab = record.get(db.get("current.tab-ids"), tab_id);
 
     event.send(on_tab_open, { tab, transient });
   };
@@ -523,19 +525,16 @@ export const init = async([init_db,
     if (info.new !== null) {
       const tab_id = session.tab_id(info.new.id);
 
-      const new_timestamp = timestamp();
-
       db.write("current.tab-ids", (tab_ids) => {
-        // TODO code duplication with update_time
-        const time = record.get(record.get(tab_ids, tab_id), "time");
-        record.assign(time, "focused", new_timestamp);
-      });
+        const tab = record.get(tab_ids, tab_id);
+        const new_timestamp = update_time(tab, "focused");
 
-      event.send(tab_events, record.make({
-        "type": "tab-focus",
-        "tab-id": tab_id,
-        "tab-time-focused": new_timestamp
-      }));
+        event.send(tab_events, record.make({
+          "type": "tab-focus",
+          "tab-id": tab_id,
+          "tab-time-focused": new_timestamp
+        }));
+      });
     }
   };
 
@@ -551,16 +550,6 @@ export const init = async([init_db,
 
     const old_window_id = session.window_id(old_window.id);
     const new_window_id = session.window_id(new_window.id);
-
-
-    db.write("current.tab-ids", (tab_ids) => {
-      const tab = record.get(tab_ids, tab_id);
-
-      record.update(tab, "window", new_window_id);
-
-      // TODO what if it wasn't moved ?
-      update_time(tab, "moved");
-    });
 
 
     db.write("current.window-ids", (window_ids) => {
@@ -602,15 +591,24 @@ export const init = async([init_db,
       list.insert(new_tabs, session_new_index, tab_id);
 
 
-      // TODO send along the new "moved" timestamp as well ?
-      event.send(tab_events, record.make({
-        "type": "tab-move",
-        "tab-id": tab_id,
-        "window-old-id": old_window_id,
-        "window-new-id": new_window_id,
-        "tab-old-index": session_old_index,
-        "tab-new-index": session_new_index
-      }));
+      db.write("current.tab-ids", (tab_ids) => {
+        const tab = record.get(tab_ids, tab_id);
+
+        record.update(tab, "window", new_window_id);
+
+        // TODO what if it wasn't moved ?
+        const time = update_time(tab, "moved");
+
+        event.send(tab_events, record.make({
+          "type": "tab-move",
+          "tab-id": tab_id,
+          "window-old-id": old_window_id,
+          "window-new-id": new_window_id,
+          "tab-old-index": session_old_index,
+          "tab-new-index": session_new_index,
+          "tab-time-moved": time
+        }));
+      });
     });
   };
 
