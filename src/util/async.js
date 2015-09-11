@@ -31,8 +31,8 @@ export const success = (obj, value) => {
     obj._value = value;
     obj._waiting = null;
 
-    list.each(a, (x) => {
-      x.success(value);
+    list.each(a, ({ out, success }) => {
+      success(out, value);
     });
 
   } else {
@@ -40,16 +40,16 @@ export const success = (obj, value) => {
   }
 };
 
-export const error = (obj, error) => {
+export const error = (obj, value) => {
   if (obj._state === PENDING) {
     const a = obj._waiting;
 
     obj._state = ERROR;
-    obj._value = error;
+    obj._value = value;
     obj._waiting = null;
 
-    list.each(a, (x) => {
-      x.error(error);
+    list.each(a, ({ out, error }) => {
+      error(out, value);
     });
 
   } else {
@@ -57,51 +57,45 @@ export const error = (obj, error) => {
   }
 };
 
-const _run = (obj, success, error) => {
+const _run = (obj, out, success, error) => {
   if (obj._state === PENDING) {
-    list.push(obj._waiting, { success, error });
+    list.push(obj._waiting, { out, success, error });
 
   } else if (obj._state === SUCCESS) {
-    success(obj._value);
+    success(out, obj._value);
 
   } else if (obj._state === ERROR) {
-    error(obj._value);
+    error(out, obj._value);
 
   } else {
     fail();
   }
 };
 
+// TODO cancel the other asyncs when an error occurs ?
 export const all = (a, f) => {
   const out = make();
-
-  const on_success = (x) => {
-    success(out, x);
-  };
-
-  // TODO cancel all the other ones, or something ?
-  const on_error = (x) => {
-    error(out, x);
-  };
 
   let pending = list.size(a);
 
   if (pending === 0) {
-    _run(f(), on_success, on_error);
+    // TODO this probably isn't tail-recursive
+    _run(f(), out, success, error);
 
   } else {
     const values = new Array(pending);
 
     list.each(a, (x, i) => {
-      _run(x, (value) => {
+      _run(x, out, (out, value) => {
         values[i] = value;
 
         --pending;
 
         if (pending === 0) {
-          _run(f(...values), on_success, on_error);
+          // TODO this probably isn't tail-recursive
+          _run(f(...values), out, success, error);
         }
-      }, on_error);
+      }, error);
     });
   }
 
@@ -111,31 +105,30 @@ export const all = (a, f) => {
 export const wait = (x, f) => {
   const out = make();
 
-  const on_success = (x) => {
-    success(out, x);
-  };
-
-  const on_error = (x) => {
-    error(out, x);
-  };
-
-  _run(x, (value) => {
+  _run(x, out, (out, value) => {
     // TODO this probably isn't tail-recursive
-    _run(f(value), on_success, on_error);
-  }, on_error);
+    _run(f(value), out, success, error);
+  }, error);
 
   return out;
+};
+
+const on_fail = (out, x) => {
+  assert(out === null);
+  fail(x);
 };
 
 const run_fail = (x) => {
   const err = new Error("async must return undefined");
 
-  _run(x, (x) => {
+  _run(x, null, (out, x) => {
+    assert(out === null);
+
     if (x !== undefined) {
       // TODO test this
       fail(err);
     }
-  }, fail);
+  }, on_fail);
 };
 
 // TODO implement more efficiently ?
@@ -150,5 +143,8 @@ export const run_all = (x, f) => {
   run_fail(all(x, (...value) => done(f(...value))));
 };
 
+const _ignore = (_) =>
+  done(undefined);
+
 export const ignore = (x) =>
-  wait(x, (_) => done(undefined));
+  wait(x, _ignore);
