@@ -541,6 +541,7 @@ export const set_scroll = (dom, { x, y }) =>
     }
   });
 
+// TODO could use a better name
 export const scroll_to = (dom, { initial = ref.always(false),
                                  insert  = ref.always(false) }) =>
   // TODO does this leak memory ?
@@ -686,9 +687,10 @@ const _get_animations = (dom, fill, f) => {
   return out;
 };
 
-export const visible = (dom, x) =>
+export const toggle_visible = (dom, x) =>
   ref.listen(x, (x) => {
     if (x) {
+      // TODO handle first ?
       assert(dom._visible === false);
       dom._visible = true;
       set_style_value(dom._dom["style"], "display", null);
@@ -701,7 +703,7 @@ export const visible = (dom, x) =>
   });
 
 // TODO does this trigger a relayout ?
-export const tooltip = (dom, x) =>
+export const set_tooltip = (dom, x) =>
   ref.listen(x, (x) => {
     if (x === null) {
       dom._dom["title"] = "";
@@ -750,7 +752,7 @@ export const style = (dom, o) => {
 
 
 // TODO does this trigger a relayout ?
-export const alt = (dom, x) => {
+export const set_alt = (dom, x) => {
   if (dom._type === "img") {
     return ref.listen(x, (x) => {
       if (x === null) {
@@ -768,7 +770,7 @@ export const alt = (dom, x) => {
 };
 
 // TODO does this trigger a relayout ?
-export const url = (dom, x) => {
+export const set_url = (dom, x) => {
   if (dom._type === "img" || dom._type === "iframe") {
     return ref.listen(x, (x) => {
       if (x === null) {
@@ -797,7 +799,7 @@ export const url = (dom, x) => {
 };
 
 // TODO does this trigger a relayout ?
-export const target = (dom, x) => {
+export const set_target = (dom, x) => {
   if (dom._type === "a") {
     return ref.listen(x, (x) => {
       if (x === null) {
@@ -815,7 +817,7 @@ export const target = (dom, x) => {
 };
 
 // TODO does this trigger a relayout ?
-export const value = (dom, x) => {
+export const set_value = (dom, x) => {
   if (dom._type === "text" || dom._type === "a") {
     return ref.listen(x, (x) => {
       if (x === null) {
@@ -920,7 +922,7 @@ export const on_change = (dom, send) => {
 };
 
 // TODO does this trigger a relayout ?
-export const checked = (dom, x) => {
+export const toggle_checked = (dom, x) => {
   if (dom._type === "checkbox" ||
       dom._type === "radio") {
 
@@ -946,7 +948,7 @@ export const checked = (dom, x) => {
 };
 
 // TODO does this trigger a relayout ?
-export const name = (dom, x) => {
+export const set_name = (dom, x) => {
   if (dom._type === "radio") {
     return ref.listen(x, (x) => {
       if (x === null) {
@@ -1082,7 +1084,6 @@ export const stream = (dom, x) =>
 
 
 // TODO does this trigger a relayout ?
-// TODO I'm not really liking the name of this
 export const set_label = (dom, x) => {
   if (dom._type === "optgroup" || dom._type === "option") {
     return ref.listen(x, (x) => {
@@ -1269,7 +1270,7 @@ export const push_root = (x) => {
 };
 
 // TODO does this trigger a relayout ?
-export const title = (x) =>
+export const set_title = (x) =>
   ref.listen(x, (x) => {
     if (x === null) {
       document["title"] = "";

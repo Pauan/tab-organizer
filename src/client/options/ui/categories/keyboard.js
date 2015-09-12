@@ -35,9 +35,9 @@ export const init = async.all([], () => {
         // TODO a little bit hacky
         dom.add_style(e, style_link),
 
-        dom.target(e, ref.always("_blank")),
-        dom.value(e, ref.always("here")),
-        dom.url(e, ref.always(keyboard_shortcut_url)),
+        dom.set_target(e, ref.always("_blank")),
+        dom.set_value(e, ref.always("here")),
+        dom.set_url(e, ref.always(keyboard_shortcut_url)),
 
         // TODO hacky, but needed to work around a security restriction in Chrome
         dom.on_left_click(e, open_keyboard_url),

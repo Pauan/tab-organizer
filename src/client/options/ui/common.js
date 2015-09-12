@@ -44,7 +44,7 @@ const category_header = (name) =>
   dom.text((e) => [
     dom.add_style(e, style_category_header),
 
-    dom.value(e, ref.always(name))
+    dom.set_value(e, ref.always(name))
   ]);
 
 const category_separator = () =>
@@ -95,7 +95,7 @@ export const row = (a) =>
 
 export const text = (s) =>
   dom.text((e) => [
-    dom.value(e, ref.always(s))
+    dom.set_value(e, ref.always(s))
   ]);
 
 
@@ -122,7 +122,7 @@ const style_header = dom.make_style({
 export const header = (s) =>
   dom.text((e) => [
     dom.add_style(e, style_header),
-    dom.value(e, ref.always(s))
+    dom.set_value(e, ref.always(s))
   ]);
 
 

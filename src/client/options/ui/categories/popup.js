@@ -444,9 +444,9 @@ export const init = async.all([init_textbox,
 
               dom.children(e, [
                 dom.text((e) => [
-                  dom.value(e, ref.map(opt("popup.type"), (x) =>
-                                 // TODO function for this
-                                 string.uppercase(x[0]) + string.slice(x, 1)))
+                  dom.set_value(e, ref.map(opt("popup.type"), (x) =>
+                                     // TODO function for this
+                                     string.uppercase(x[0]) + string.slice(x, 1)))
                 ])
               ])
             ]),
@@ -454,7 +454,7 @@ export const init = async.all([init_textbox,
             dom.text((e) => [
               dom.add_style(e, style_popup_text),
 
-              dom.value(e, ref.latest([
+              dom.set_value(e, ref.latest([
                 opt("screen.available.width"),
                 opt("screen.available.height")
               ], (width, height) =>
@@ -523,7 +523,7 @@ export const init = async.all([init_textbox,
     dom.text((e) => [
       dom.add_style(e, dom.stretch),
       dom.add_style(e, style_controls_text),
-      dom.value(e, ref.always(text))
+      dom.set_value(e, ref.always(text))
     ]);
 
   const ui_textbox = (left, right, name, info) =>

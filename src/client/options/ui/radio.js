@@ -33,9 +33,9 @@ export const init = async.all([init_options],
         dom.radio((e) => [
           dom.add_style(e, style_icon),
 
-          dom.name(e, ref.always(radio_name)),
+          dom.set_name(e, ref.always(radio_name)),
 
-          dom.checked(e, ref.map(opt, (x) => x === value)),
+          dom.toggle_checked(e, ref.map(opt, (x) => x === value)),
 
           dom.on_change(e, (checked) => {
             if (checked) {
@@ -45,7 +45,7 @@ export const init = async.all([init_options],
         ]),
 
         dom.text((e) => [
-          dom.value(e, ref.always(name))
+          dom.set_value(e, ref.always(name))
         ])
       ])
     ]);
@@ -67,7 +67,7 @@ export const init = async.all([init_options],
       dom.add_style(e, style_radio),
       dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-      dom.tooltip(e, ref.always("Default: " + record.get(values, def))),
+      dom.set_tooltip(e, ref.always("Default: " + record.get(values, def))),
 
       // TODO a little hacky
       dom.children(e, list.map(items, (x) => radio_item(radio_name, opt, x)))

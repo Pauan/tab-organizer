@@ -34,13 +34,13 @@ export const init = async.all([init_options],
           dom.add_style(e, style_label),
           dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-          dom.tooltip(e, ref.always("Default: " + def)),
+          dom.set_tooltip(e, ref.always("Default: " + def)),
 
           dom.children(e, [
             dom.checkbox((e) => [
               dom.add_style(e, style_icon),
 
-              dom.checked(e, opt),
+              dom.toggle_checked(e, opt),
 
               dom.on_change(e, (checked) => {
                 // TODO this causes the DOM node to be updated twice
@@ -49,7 +49,7 @@ export const init = async.all([init_options],
             ]),
 
             dom.text((e) => [
-              dom.value(e, ref.always(text))
+              dom.set_value(e, ref.always(text))
             ])
           ])
         ])

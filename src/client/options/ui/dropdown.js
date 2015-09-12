@@ -41,7 +41,7 @@ export const init = async.all([init_options],
                 dom.children(e, dropdown_children(info.children))
               ])
             : dom.option((e) => [
-                dom.value(e, ref.always(info.value)),
+                dom.set_value(e, ref.always(info.value)),
                 dom.set_label(e, ref.always(info.name))
               ]))));
 
@@ -55,12 +55,12 @@ export const init = async.all([init_options],
       dom.add_style(e, style_dropdown),
       dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-      dom.tooltip(e, ref.always("Default: " + record.get(values, def))),
+      dom.set_tooltip(e, ref.always("Default: " + record.get(values, def))),
 
       // TODO a little hacky
       dom.children(e, dropdown_children(children)),
 
-      dom.value(e, opt),
+      dom.set_value(e, opt),
 
       dom.on_change(e, (value) => {
         // TODO this causes the DOM node to be updated twice

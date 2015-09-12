@@ -28,9 +28,9 @@ export const init = async.all([init_options], (options) => {
         "width": ref.always(width)
       }),
 
-      dom.tooltip(e, ref.always("Default: " + get_value(def))),
+      dom.set_tooltip(e, ref.always("Default: " + get_value(def))),
 
-      dom.value(e, ref.map(opt, get_value)),
+      dom.set_value(e, ref.map(opt, get_value)),
 
       dom.on_change(e, (value) => {
         // TODO this isn't quite right

@@ -18,9 +18,9 @@ export const init = async.all([init_radio,
         text("Show the "),
 
         dom.image((e) => [
-          dom.alt(e, ref.always("close")),
-          dom.tooltip(e, ref.always("close")),
-          dom.url(e, ref.always("data/images/button-close.png"))
+          dom.set_alt(e, ref.always("close")),
+          dom.set_tooltip(e, ref.always("close")),
+          dom.set_url(e, ref.always("data/images/button-close.png"))
         ]),
 
         text(" button on the "),
