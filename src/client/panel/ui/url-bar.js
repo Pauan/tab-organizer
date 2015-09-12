@@ -6,6 +6,8 @@ import { parse, minify } from "../../../util/url";
 export const url_bar = ref.make(null);
 
 const top_style = dom.make_style({
+  "pointer-events": ref.always("none"),
+
   "left": ref.always("0px"),
   "bottom": ref.always("0px"),
 
@@ -60,7 +62,7 @@ const hash_style = dom.make_style({
   "color": ref.always("darkblue") // TODO replace with hsl
 });
 
-const parsed_url = ref.map_null(url_bar, ({ url }) => minify(parse(url)));
+const parsed_url = ref.map_null(url_bar, (url) => minify(parse(url)));
 
 const make = (style, f) => {
   const x = ref.map_null(parsed_url, f);

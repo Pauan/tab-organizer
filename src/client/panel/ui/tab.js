@@ -707,11 +707,7 @@ export const init = async.all([init_options,
           record.get(tab, "url")
         ], (hover, dragging, url) => {
           if (hover && !dragging && url) {
-            return {
-              x: hover.x,
-              y: hover.y,
-              url: url
-            };
+            return url;
 
           } else {
             return null;
