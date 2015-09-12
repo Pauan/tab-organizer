@@ -151,13 +151,13 @@ const listen_first = (x, f) => {
 
   running.stop(runner);
 
-  return running.noop;
+  return running.noop();
 };
 
 export const listen = (x, f) => {
   if (x._type === 0) {
     f(x._value);
-    return running.noop;
+    return running.noop();
 
   } else if (x._type === 1) {
     f(x._value);

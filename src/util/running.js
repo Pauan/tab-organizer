@@ -21,4 +21,5 @@ export const stop = (runner) => {
   }
 };
 
-export const noop = make(functions.noop);
+export const noop = () =>
+  make(functions.noop);

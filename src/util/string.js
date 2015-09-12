@@ -26,12 +26,5 @@ export const plural = (x, s) => {
 export const slice = (x, from, to) =>
   x["slice"](from, to);
 
-export const sort = (x, y) => {
-  if (x === y) {
-    return 0;
-  } else if (x < y) {
-    return -1;
-  } else {
-    return 1;
-  }
-};
+export const sort = (x, y) =>
+  x["localeCompare"](y);

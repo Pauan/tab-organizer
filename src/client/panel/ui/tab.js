@@ -456,7 +456,7 @@ export const init = async.all([init_options,
 
         // TODO a tiny bit hacky
         (index === 0
-          ? dom.noop
+          ? dom.noop()
           : dom.animate(e, (index < 5
                              ? animation_dragging
                              : animation_dragging_hidden), {

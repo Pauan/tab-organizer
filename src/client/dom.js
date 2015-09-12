@@ -160,9 +160,6 @@ const _on_remove = (dom, parent, animate, done) => {
       }
     };
 
-    // TODO is this in the right order ?
-    _on_remove1(dom, parent, animate, done2);
-
     // TODO this is a bit broken;
     //      e.g. try setting the "tab remove" animation to 5000ms,
     //      then remove tabs 1 by 1 until the group is removed,
@@ -171,6 +168,9 @@ const _on_remove = (dom, parent, animate, done) => {
       // TODO a bit hacky
       _on_remove(x, dom, animate && x._visible, done2);
     });
+
+    // TODO is this in the right order ?
+    _on_remove1(dom, parent, animate, done2);
   }
 };
 
@@ -486,7 +486,7 @@ export const add_style = (dom, style) => {
   assert(!dom._dom["classList"]["contains"](style._name));
   dom._dom["classList"]["add"](style._name);
 
-  return running.noop;
+  return running.noop();
 };
 
 export const toggle_style = (dom, style, x) => {
@@ -1037,7 +1037,7 @@ export const children = (dom, x) => {
       _push(dom, x);
     });
 
-    return running.noop;
+    return running.noop();
 
   } else {
     return ref.listen(x, (x) => {
