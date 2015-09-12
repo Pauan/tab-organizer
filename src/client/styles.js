@@ -1,56 +1,56 @@
 import * as dom from "./dom";
-import { always } from "../util/ref";
+import * as ref from "../util/ref";
 
 
-dom.stylesheet("*", {
-  "text-overflow": always("ellipsis"),
+dom.make_stylesheet("*", {
+  "text-overflow": ref.always("ellipsis"),
 
-  "vertical-align": always("middle"), /* TODO I can probably get rid of this */
+  "vertical-align": ref.always("middle"), /* TODO I can probably get rid of this */
 
   /* TODO is this correct ?*/
-  "background-repeat": always("no-repeat"),
-  "background-size": always("100% 100%"),
-  "cursor": always("inherit"),
-  "position": always("relative"),
+  "background-repeat": ref.always("no-repeat"),
+  "background-size": ref.always("100% 100%"),
+  "cursor": ref.always("inherit"),
+  "position": ref.always("relative"),
 
-  "box-sizing": always("border-box"),
+  "box-sizing": ref.always("border-box"),
 
   /* TODO are these a good idea ? */
-  "outline-width": always("0px"),
-  "outline-color": always("transparent"),
-  "outline-style": always("solid"),
+  "outline-width": ref.always("0px"),
+  "outline-color": ref.always("transparent"),
+  "outline-style": ref.always("solid"),
 
-  "border-width": always("0px"),
-  "border-color": always("transparent"),
-  "border-style": always("solid"),
+  "border-width": ref.always("0px"),
+  "border-color": ref.always("transparent"),
+  "border-style": ref.always("solid"),
 
-  "margin": always("0px"),
-  "padding": always("0px"),
+  "margin": ref.always("0px"),
+  "padding": ref.always("0px"),
 
-  "background-color": always("transparent"),
+  "background-color": ref.always("transparent"),
 
-  "flex-shrink": always("0"), /* 1 */
-  "flex-grow": always("0"), /* 1 */
-  "flex-basis": always("auto"), /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
+  "flex-shrink": ref.always("0"), /* 1 */
+  "flex-grow": ref.always("0"), /* 1 */
+  "flex-basis": ref.always("auto"), /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
 });
 
 /* Can't set this for all elements, or it will break badly */
-dom.stylesheet("body > *", {
-  "white-space": always("pre"),
+dom.make_stylesheet("body > *", {
+  "white-space": ref.always("pre"),
 });
 
-dom.stylesheet("html, body", {
-  "-webkit-user-select": always("none"), /* TODO this is hacky, use JS instead ? */
-  "cursor": always("default"),
-  "width": always("100%"),
-  "height": always("100%"),
+dom.make_stylesheet("html, body", {
+  "-webkit-user-select": ref.always("none"), /* TODO this is hacky, use JS instead ? */
+  "cursor": ref.always("default"),
+  "width": ref.always("100%"),
+  "height": ref.always("100%"),
 });
 
 /* Overwriting Webkit's silly user agent style */
-dom.stylesheet("input, textarea, keygen, select, button", {
-  "font": always("inherit")
+dom.make_stylesheet("input, textarea, keygen, select, button", {
+  "font": ref.always("inherit")
 });
 
-dom.stylesheet("table", {
-  "border-spacing": always("0px")
+dom.make_stylesheet("table", {
+  "border-spacing": ref.always("0px")
 });

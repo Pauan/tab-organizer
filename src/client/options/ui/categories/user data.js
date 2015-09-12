@@ -1,9 +1,8 @@
-import * as dom from "../../../dom";
-import { async } from "../../../../util/async";
+import * as async from "../../../../util/async";
 import { category, row, button, horizontal_space } from "../common";
 
 
-export const init = async([], () => {
+export const init = async.all([], () => {
 
   const ui = () =>
     category("User Data", [
@@ -33,5 +32,5 @@ export const init = async([], () => {
     ]);
 
 
-  return { ui };
+  return async.done({ ui });
 });

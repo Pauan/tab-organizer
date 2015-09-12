@@ -17,3 +17,8 @@ export const plural = (x, s) => {
     return x + s + "s";
   }
 };
+
+// TODO test this
+// TODO better implementation, with error checking
+export const slice = (x, from, to) =>
+  x["slice"](from, to);

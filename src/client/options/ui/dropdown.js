@@ -1,17 +1,17 @@
 import * as dom from "../../dom";
-import { map, each } from "../../../util/iterator";
-import { Record } from "../../../util/mutable/record";
-import { always } from "../../../util/ref";
-import { async } from "../../../util/async";
+import * as list from "../../../util/list";
+import * as async from "../../../util/async";
+import * as record from "../../../util/record";
+import * as ref from "../../../util/ref";
 import { style_changed, style_dropdown } from "./common";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_options],
-                          ({ get, get_default }) => {
+export const init = async.all([init_options],
+                              ({ get, get_default }) => {
 
   const get_values1 = (out, children) => {
-    each(children, (child) => {
+    list.each(children, (child) => {
       if (child.separator) {
         // Do nothing
 
@@ -19,56 +19,56 @@ export const init = async([init_options],
         get_values1(out, child.children);
 
       } else {
-        out.insert(child.value, child.name);
+        record.insert(out, child.value, child.name);
       }
     });
   };
 
   const get_values = (children) => {
-    const out = new Record();
+    const out = record.make();
     get_values1(out, children);
     return out;
   };
 
   const dropdown_children = (children) =>
     // TODO a little hacky
-    always(map(children, (info) =>
+    list.map(children, (info) =>
       (info.separator
         ? dom.optgroup((e) => [])
         : (info.group != null
             ? dom.optgroup((e) => [
-                e.label(always(info.group)),
-                e.children(dropdown_children(info.children))
+                dom.set_label(e, ref.always(info.group)),
+                dom.children(e, dropdown_children(info.children))
               ])
             : dom.option((e) => [
-                e.value(always(info.value)),
-                e.label(always(info.name))
-              ])))));
+                dom.value(e, ref.always(info.value)),
+                dom.set_label(e, ref.always(info.name))
+              ]))));
 
   const dropdown = (name, children) => {
-    const ref = get(name);
+    const opt = get(name);
     const def = get_default(name);
 
     const values = get_values(children);
 
     return dom.select((e) => [
-      e.set_style(style_dropdown, always(true)),
-      e.set_style(style_changed, ref.map((x) => x !== def)),
+      dom.add_style(e, style_dropdown),
+      dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-      e.tooltip(always("Default: " + values.get(def))),
+      dom.tooltip(e, ref.always("Default: " + record.get(values, def))),
 
       // TODO a little hacky
-      e.children(dropdown_children(children)),
+      dom.children(e, dropdown_children(children)),
 
-      e.value(ref),
+      dom.value(e, opt),
 
-      e.on_change((value) => {
+      dom.on_change(e, (value) => {
         // TODO this causes the DOM node to be updated twice
-        ref.set(value);
+        ref.set(opt, value);
       })
     ]);
   };
 
 
-  return { dropdown };
+  return async.done({ dropdown });
 });

@@ -1,42 +1,42 @@
 import * as dom from "../../dom";
-import { always, Ref } from "../../../util/ref";
-import { async } from "../../../util/async";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
+import * as functions from "../../../util/functions";
 import { style_changed, style_icon,
          style_textbox, style_invalid } from "./common";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_options], (options) => {
+export const init = async.all([init_options], (options) => {
 
   const textbox = (name, { width = "3em",
                            type = "text",
-                           // TODO
-                           get_value = (x) => x,
-                           set_value = (x) => x }) => {
+                           get_value = functions.self,
+                           set_value = functions.self }) => {
 
-    const ref = options.get(name);
+    const opt = options.get(name);
     const def = options.get_default(name);
 
-    const invalid = new Ref(false);
+    const invalid = ref.make(false);
 
     return dom.textbox((e) => [
-      e.set_style(style_textbox, always(true)),
-      e.set_style(style_changed, ref.map((x) => x !== def)),
-      e.set_style(style_invalid, invalid),
+      dom.add_style(e, style_textbox),
+      dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
+      dom.toggle_style(e, style_invalid, invalid),
 
-      e.style({
-        "width": always(width)
+      dom.style(e, {
+        "width": ref.always(width)
       }),
 
-      e.tooltip(always("Default: " + get_value(def))),
+      dom.tooltip(e, ref.always("Default: " + get_value(def))),
 
-      e.value(ref.map(get_value)),
+      dom.value(e, ref.map(opt, get_value)),
 
-      e.on_change((value) => {
+      dom.on_change(e, (value) => {
         // TODO this isn't quite right
         if (value === "") {
           invalid.set(false);
-          ref.set(def);
+          ref.set(opt, def);
 
 
         } else if (type === "number") {
@@ -48,18 +48,18 @@ export const init = async([init_options], (options) => {
 
           } else {
             invalid.set(false);
-            ref.set(set_value(value));
+            ref.set(opt, set_value(value));
           }
 
 
         } else {
           invalid.set(false);
-          ref.set(set_value(value));
+          ref.set(opt, set_value(value));
         }
       })
     ])
   };
 
 
-  return { textbox };
+  return async.done({ textbox });
 });

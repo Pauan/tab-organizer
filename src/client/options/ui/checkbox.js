@@ -1,55 +1,55 @@
 import * as dom from "../../dom";
-import { always } from "../../../util/ref";
-import { async } from "../../../util/async";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
 import { style_changed, style_icon } from "./common";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_options],
-                          ({ get, get_default }) => {
+export const init = async.all([init_options],
+                              ({ get, get_default }) => {
 
-  const style_wrapper = dom.style({
-    "display": always("inline-block"),
-    "margin-top": always("1px"),
-    "margin-bottom": always("1px")
+  const style_wrapper = dom.make_style({
+    "display": ref.always("inline-block"),
+    "margin-top": ref.always("1px"),
+    "margin-bottom": ref.always("1px")
   });
 
-  const style_label = dom.style({
-    "cursor": always("pointer"),
-    "padding": always("1px 4px"),
-    "border-width": always("1px"),
-    "border-radius": always("5px"),
+  const style_label = dom.make_style({
+    "cursor": ref.always("pointer"),
+    "padding": ref.always("1px 4px"),
+    "border-width": ref.always("1px"),
+    "border-radius": ref.always("5px"),
   });
 
   const checkbox = (name, text) => {
-    const ref = get(name);
+    const opt = get(name);
     const def = get_default(name);
 
     return dom.parent((e) => [
-      e.set_style(style_wrapper, always(true)),
+      dom.add_style(e, style_wrapper),
 
-      e.children([
+      dom.children(e, [
         dom.label((e) => [
-          e.set_style(dom.row, always(true)),
-          e.set_style(style_label, always(true)),
-          e.set_style(style_changed, ref.map((x) => x !== def)),
+          dom.add_style(e, dom.row),
+          dom.add_style(e, style_label),
+          dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-          e.tooltip(always("Default: " + def)),
+          dom.tooltip(e, ref.always("Default: " + def)),
 
-          e.children([
+          dom.children(e, [
             dom.checkbox((e) => [
-              e.set_style(style_icon, always(true)),
+              dom.add_style(e, style_icon),
 
-              e.checked(ref),
+              dom.checked(e, opt),
 
-              e.on_change((checked) => {
+              dom.on_change(e, (checked) => {
                 // TODO this causes the DOM node to be updated twice
-                ref.set(checked);
+                ref.set(opt, checked);
               })
             ]),
 
             dom.text((e) => [
-              e.value(always(text))
+              dom.value(e, ref.always(text))
             ])
           ])
         ])
@@ -58,5 +58,5 @@ export const init = async([init_options],
   };
 
 
-  return { checkbox };
+  return async.done({ checkbox });
 });

@@ -1,15 +1,14 @@
-import { each, entries } from "../util/iterator";
-import { Set } from "../util/mutable/set";
-import { Ref, always, latest } from "../util/ref";
-import { noop } from "../util/function";
-import { List } from "../util/mutable/list";
-import { uuid_stream_insert,
-         uuid_stream_update,
-         uuid_stream_remove,
-         uuid_stream_clear } from "../util/mutable/stream";
-import { get_style, set_style, make_style,
-         make_animation, make_stylesheet } from "./dom/style";
+import * as set from "../util/set";
+import * as ref from "../util/ref";
+import * as list from "../util/list";
+import * as running from "../util/running";
+import * as record from "../util/record";
+import * as _stream from "../util/stream";
+import * as functions from "../util/functions";
+import { get_style_value, set_style_value,
+         make_style, make_animation, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
+export { make_style, make_animation, make_stylesheet } from "./dom/style";
 
 
 const preventDefault = (e) => {
@@ -28,16 +27,17 @@ const mouse_event = (dom, e) => {
   };
 };
 
+/*
 // TODO this triggers a relayout
 const trigger_relayout = (dom, s) => {
   // TODO is there a "faster" way to trigger relayout ?
   getComputedStyle(dom)[s];
-};
+};*/
 
 // TODO this isn't quite correct, but it will do for now
 // TODO use batch_read ?
 const wait_for_animation = (dom, a, done) => {
-  let pending = a["length"];
+  let pending = list.size(a);
 
   const cleanup = () => {
     clearTimeout(timer);
@@ -75,851 +75,82 @@ const start_animation = (dom, a, done) => {
 
   // TODO remove vendor prefix
   // TODO code duplication
-  set_style(dom["style"], "-webkit-animation", a["join"](","));
+  set_style_value(dom["style"], "-webkit-animation", list.join(a, ","));
 };
 
 
 let element_id = 0;
 
-class Element {
-  constructor(dom) {
-    this._id = ++element_id;
-    this._dom = dom;
-    this._parent = null;
-    this._running = new Set();
-    this._animations = new Set(); // TODO lazily generate this ?
-    this._visible = true;
-    this._inserted = null;
-    this._hovering = null;
-    this._holding = null;
+const make = (type, dom, children) => {
+  return {
+    _id: ++element_id,
+    _type: type,
+    _dom: dom,
+    _children: children,
+    _running: list.make(),
+    _parent: null,
+    _animations: null,
+    _visible: true,
+    _inserted: null,
+    _hovering: null,
+    _holding: null
+  };
+};
+
+const make_run = (type, tag, children, f) => {
+  const e = make(type, document["createElement"](tag), children);
+
+  list.each(f(e), (x) => {
+    _run(e, x);
+  });
+
+  return e;
+};
+
+const _on_remove1 = (dom, parent, animate, done) => {
+  assert(dom._id !== null);
+  assert(dom._dom !== null);
+  assert(dom._parent !== null);
+  assert(dom._parent === parent);
+
+  // TODO what if the child node is visible but the parent node is not ?
+  if (animate) {
+    // TODO is this the right order for this ?
+    _animate(dom, "both", (x) => x.remove, done);
+  } else {
+    done();
   }
 
-  // TODO test this
-  _on_remove(parent, animate, done) {
-    assert(this._id !== null);
-    assert(this._dom !== null);
-    assert(this._parent !== null);
-    assert(this._parent === parent);
-
-    // TODO what if the child node is visible but the parent node is not ?
-    if (animate) {
-      // TODO is this the right order for this ?
-      this._animate("both", (x) => x.remove, done);
-    } else {
-      done();
-    }
-
-    each(this._running, (x) => {
-      x.stop();
-    });
-
-    assert(this._animations.size === 0);
-
-    this._id = null;
-    this._dom = null;
-    this._parent = null;
-    this._running = null;
-    this._animations = null;
-    this._visible = null;
-    this._inserted = null; // TODO does this leak ?
-    this._hovering = null; // TODO does this leak ?
-    this._holding = null; // TODO does this leak ?
+  if (dom._animations !== null) {
+    assert(set.size(dom._animations) !== 0);
   }
 
-  _on_inserted() {
-    if (this._inserted === null) {
-      // TODO is it possible for this to run after the element is inserted ?
-      this._inserted = new Ref(null);
-    }
+  list.each(dom._running, running.stop);
 
-    return this._inserted;
+  if (dom._animations !== null) {
+    assert(set.size(dom._animations) === 0);
   }
 
-  _on_insert(parent, animate, type) {
-    assert(this._dom !== null);
-    assert(this._parent === null);
-
-    this._parent = parent;
-
-    if (this._inserted !== null) {
-      this._inserted.set(type);
-    }
-
-
-    if (type === "initial") {
-      // TODO what if the child node is visible but the parent node is not ?
-      if (animate) {
-        // TODO is this the right order for this ?
-        this._animate("none", (x) => x.initial);
-      }
-
-
-    } else if (type === "insert") {
-      // TODO what if the child node is visible but the parent node is not ?
-      if (animate) {
-        // TODO is this the right order for this ?
-        this._animate("none", (x) => x.insert);
-      }
-
-
-    } else {
-      fail();
-    }
-  }
-
-  _run(x) {
-    this._running.insert(x);
-  }
-
-  // TODO a tiny bit hacky
-  noop() {
-    return {
-      stop: noop
-    };
-  }
-
-/*
-  // TODO is this correct ?
-  copy() {
-    return new this.constructor(this._dom["cloneNode"](true));
-  }*/
-
-  // TODO use batch_read ?
-  on_mouse_hover(send) {
-    // TODO code duplication
-    const mouseover = (e) => {
-      const related = e["relatedTarget"];
-
-      // This is done to simulate "mouseenter"
-      if (related === null || !this._dom["contains"](related)) {
-        send(mouse_event(this._dom, e));
-      }
-    };
-
-    // TODO code duplication
-    const mouseout = (e) => {
-      const related = e["relatedTarget"];
-
-      // This is done to simulate "mouseleave"
-      if (related === null || !this._dom["contains"](related)) {
-        send(null);
-      }
-    };
-
-    this._dom["addEventListener"]("mouseover", mouseover, true);
-    this._dom["addEventListener"]("mouseout", mouseout, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("mouseover", mouseover, true);
-        this._dom["removeEventListener"]("mouseout", mouseout, true);
-      }
-    };
-  }
-
-  // TODO use batch_read ?
-  on_mouse_hold(send) {
-    const mousedown = (e) => {
-      // TODO is it possible for this to leak ?
-      addEventListener("mouseup", mouseup, true);
-      send(mouse_event(this._dom, e));
-    };
-
-    const mouseup = () => {
-      removeEventListener("mouseup", mouseup, true);
-      send(null);
-    };
-
-    this._dom["addEventListener"]("mousedown", mousedown, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("mousedown", mousedown, true);
-        removeEventListener("mouseup", mouseup, true);
-      }
-    };
-  }
-
-  hovering() {
-    if (this._hovering === null) {
-      this._hovering = new Ref(null);
-
-      // TODO a little hacky
-      this._run(this.on_mouse_hover((hover) => {
-        this._hovering.set(hover);
-      }));
-    }
-
-    return this._hovering;
-  }
-
-  holding() {
-    if (this._holding === null) {
-      this._holding = new Ref(null);
-
-      // TODO a little hacky
-      this._run(this.on_mouse_hold((hold) => {
-        this._holding.set(hold);
-      }));
-    }
-
-    return this._holding;
-  }
-
-  // TODO use batch_read ?
-  on_scroll(send) {
-    // TODO is this inefficient ?
-    const scroll = (e) => {
-      if (e["target"] === this._dom) {
-        // TODO does this trigger a relayout ?
-        const width  = this._dom["scrollWidth"]  - this._dom["clientWidth"];
-        const height = this._dom["scrollHeight"] - this._dom["clientHeight"];
-
-        send({
-          x: (width  === 0 ? 0 : this._dom["scrollLeft"] / width),
-          y: (height === 0 ? 0 : this._dom["scrollTop"] / height)
-        });
-      }
-    };
-
-    this._dom["addEventListener"]("scroll", scroll, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("scroll", scroll, true);
-      }
-    };
-  }
-
-  // TODO code duplication
-  // TODO use batch_read ?
-  on_left_click(send) {
-    const click = (e) => {
-      if (e["button"] === 0) {
-        preventDefault(e);
-        send(mouse_event(this._dom, e));
-      }
-    };
-
-    this._dom["addEventListener"]("click", click, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("click", click, true);
-      }
-    };
-  }
-
-  // TODO code duplication
-  // TODO use batch_read ?
-  on_middle_click(send) {
-    const click = (e) => {
-      if (e["button"] === 1) {
-        preventDefault(e);
-        send(mouse_event(this._dom, e));
-      }
-    };
-
-    this._dom["addEventListener"]("click", click, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("click", click, true);
-      }
-    };
-  }
-
-  // TODO use batch_read ?
-  on_right_click(send) {
-    const click = (e) => {
-      if (e["button"] === 2) {
-        // TODO is this correct ?
-        preventDefault(e);
-        send(mouse_event(this._dom, e));
-      }
-    };
-
-    this._dom["addEventListener"]("contextmenu", preventDefault, true);
-    this._dom["addEventListener"]("mousedown", click, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("contextmenu", preventDefault, true);
-        this._dom["removeEventListener"]("mousedown", click, true);
-      }
-    };
-  }
-
-  // TODO use batch_read ?
-  on_focus(send) {
-    this._dom["tabIndex"] = 0;
-
-    const focus = (e) => {
-      if (e["target"] === this._dom) {
-        send(true);
-      }
-    };
-
-    const blur = (e) => {
-      if (e["target"] === this._dom) {
-        send(false);
-      }
-    };
-
-    this._dom["addEventListener"]("focus", focus, true);
-    this._dom["addEventListener"]("blur", blur, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("focus", focus, true);
-        this._dom["removeEventListener"]("blur", blur, true);
-      }
-    };
-  }
-
-  /*on_mouse_move(send) {
-    const mousemove = (e) => {
-      send(mouse_event(this._dom, e));
-    };
-
-    this._dom["addEventListener"]("mousemove", mousemove, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("mousemove", mousemove, true);
-      }
-    };
-  }*/
-
-  // TODO use batch_read ?
-  draggable({ start, move, end, start_if }) {
-    let start_x = null;
-    let start_y = null;
-    let dragging = false;
-
-    const mousedown = (e) => {
-      if (e["button"] === 0) {
-        start_x = e["clientX"];
-        start_y = e["clientY"];
-
-        const o = mouse_event(this._dom, e);
-
-        if (start_if(start_x, start_y, o)) {
-          dragging = true;
-
-          start(o);
-        }
-
-        // TODO is it possible for these to leak ?
-        addEventListener("mousemove", mousemove, true);
-        addEventListener("mouseup", mouseup, true);
-      }
-    };
-
-    const mousemove = (e) => {
-      const o = mouse_event(this._dom, e);
-
-      if (dragging) {
-        move(o);
-
-      } else if (start_if(start_x, start_y, o)) {
-        dragging = true;
-
-        start(o);
-      }
-    };
-
-    const mouseup = (e) => {
-      removeEventListener("mousemove", mousemove, true);
-      removeEventListener("mouseup", mouseup, true);
-
-      start_x = null;
-      start_y = null;
-
-      if (dragging) {
-        dragging = false;
-
-        end(mouse_event(this._dom, e));
-      }
-    };
-
-    this._dom["addEventListener"]("mousedown", mousedown, true);
-
-    return {
-      // TODO is this correct ?
-      stop: () => {
-        this._dom["removeEventListener"]("mousedown", mousedown, true);
-        removeEventListener("mousemove", mousemove, true);
-        removeEventListener("mouseup", mouseup, true);
-      }
-    };
-  }
-
-  set_style(style, ref) {
-    return ref.each((x) => {
-      if (x) {
-        this._dom["classList"]["add"](style._name);
-      } else {
-        this._dom["classList"]["remove"](style._name);
-      }
-    });
-  }
-
-  // TODO test this
-  set_scroll({ x, y }) {
-    // TODO does this leak memory ?
-    return latest([
-      this._on_inserted(),
-      x,
-      y
-    ], (inserted, x, y) => {
-      if (inserted !== null) {
-        const width = this._dom["scrollWidth"] -
-                      this._dom["clientWidth"];
-
-        const height = this._dom["scrollHeight"] -
-                       this._dom["clientHeight"];
-
-        // TODO what if x is null ?
-        // TODO what if y is null ?
-        return {
-          x: x * width,
-          y: y * height
-        };
-
-      } else {
-        return null;
-      }
-
-    }).each((info) => {
-      if (info !== null) {
-        this._dom["scrollLeft"] = info.x;
-        this._dom["scrollTop"]  = info.y;
-      }
-    });
-  }
-
-  scroll_to({ initial = always(false),
-              insert  = always(false) }) {
-    // TODO does this leak memory ?
-    return latest([
-      this._on_inserted(),
-      initial,
-      insert
-    ], (inserted, initial, insert) => {
-      return (inserted === "initial" && initial) ||
-             (inserted === "insert"  && insert);
-
-    }).each((scroll) => {
-      if (scroll) {
-        this._parent._scroll_to(this);
-      }
-    });
-  }
-
-  _scroll_to(child) {
-    // TODO what if the child is visible but the parent isn't ?
-    if (child._visible) {
-      this.get_position((p) => {
-        child.get_position((c) => {
-          const scrollLeft = this._dom["scrollLeft"];
-          const scrollTop  = this._dom["scrollTop"];
-
-          // TODO test this
-          // TODO does this trigger a relayout ?
-          this._dom["scrollLeft"] = scrollLeft +
-            Math["round"]((c.left - p.left) -
-                          (p.width / 2) +
-                          (c.width / 2));
-
-          // TODO does this trigger a relayout ?
-          this._dom["scrollTop"] = scrollTop +
-            Math["round"]((c.top - p.top) -
-                          (p.height / 2) +
-                          (c.height / 2));
-        });
-      });
-    }
-  }
-
-  get_position(f) {
-    // TODO this triggers a relayout
-    const box = this._dom["getBoundingClientRect"]();
-    f({
-      left: box["left"],
-      top: box["top"],
-      right: box["right"],
-      bottom: box["bottom"],
-      width: box["width"],
-      height: box["height"]
-    });
-  }
-
-  animate(animation, info) {
-    const x = {
-      animation: animation,
-      info: info
-    };
-
-    this._animations.insert(x);
-
-    // TODO test this
-    return {
-      stop: () => {
-        this._animations.remove(x);
-      }
-    };
-  }
-
-  // TODO test this
-  _animate(fill, f, done = null) {
-    assert(this._visible);
-    assert(this._parent !== null);
-
-    const a = this._get_animations(fill, f);
-
-    if (a["length"]) {
-      const dom = this._dom;
-
-      // TODO remove vendor prefix
-      const animation = get_style(dom["style"], "-webkit-animation");
-
-      // TODO is this correct ?
-      if (animation === null) {
-        start_animation(dom, a, done);
-
-      } else {
-        // TODO is this correct ?
-        // TODO remove vendor prefix
-        set_style(dom["style"], "-webkit-animation", null);
-
-        // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
-        requestAnimationFrame(() => {
-          start_animation(dom, a, done);
-        });
-      }
-
-    // TODO should this set "-webkit-animation" to `null` ?
-    } else if (done != null) {
-      done();
-    }
-  }
-
-  // TODO test this
-  _get_animations(fill, f) {
-    const out = [];
-
-    each(this._animations, ({ animation, info }) => {
-      const type = f(info);
-
-      // TODO a tiny bit hacky
-      if (type) {
-        if (type === "play-to") {
-          out["push"](animation._name + " " +
-                      animation._duration + " " +
-                      animation._easing +
-                      " 0ms 1 normal " +
-                      fill +
-                      " running");
-
-        } else if (type === "play-from") {
-          out["push"](animation._name + " " +
-                      animation._duration + " " +
-                      animation._easing +
-                      " 0ms 1 reverse " +
-                      fill +
-                      " running");
-
-        } else {
-          fail();
-        }
-      }
-    });
-
-    return out;
-  }
-
-  /*animate_when(ref, info) {
-    return ref.each((x) => {
-      if (x) {
-        // TODO this should be stopped when the `animate_when` is stopped
-        this.animate(info);
-      }
-    });
-  }*/
-
-  visible(ref) {
-    return ref.each((x) => {
-      if (x) {
-        this._visible = true;
-        set_style(this._dom["style"], "display", null);
-
-      } else {
-        this._visible = false;
-        set_style(this._dom["style"], "display", "none");
-      }
-    });
-  }
-
-  // TODO does this trigger a relayout ?
-  tooltip(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        this._dom["title"] = "";
-      } else {
-        this._dom["title"] = x;
-      }
-    });
-  }
-
-  // TODO test this
-  style(o) {
-    // TODO replace with `Set` ?
-    const stops = [];
-
-    // TODO is this inefficient ?
-    each(entries(o), ([key, ref]) => {
-      /*
-      // TODO can this be made more efficient ?
-      if (key === "transform") {
-        const keys = [];
-        const refs = [];
-
-        each(entries(ref), ([key, ref]) => {
-          keys["push"](key);
-          refs["push"](ref);
-        });
-
-        // TODO a little hacky ?
-        ref = latest(refs, (...values) => {
-          // TODO use a consistent order for the keys ?
-          const value = keys["map"]((key, i) => key + "(" + values[i] + ")");
-          return value["join"](" ");
-        });
-      }*/
-
-      // TODO a little hacky
-      stops["push"](ref.each((x) => {
-        // TODO test this
-        set_style(this._dom["style"], key, x);
-      }));
-    });
-
-    return {
-      stop: () => {
-        // TODO a little hacky
-        // TODO test this
-        stops["forEach"]((x) => {
-          x.stop();
-        });
-      }
-    };
-  }
-}
-
-
-class Image extends Element {
-  // TODO does this trigger a relayout ?
-  alt(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["alt"] = "";
-
-      } else {
-        this._dom["alt"] = x;
-      }
-    });
-  }
-
-  // TODO does this trigger a relayout ?
-  url(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["src"] = "";
-
-      } else {
-        this._dom["src"] = x;
-      }
-    });
-  }
-}
-
-
-class Iframe extends Element {
-  // TODO code duplication
-  // TODO does this trigger a relayout ?
-  url(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["src"] = "";
-
-      } else {
-        this._dom["src"] = x;
-      }
-    });
-  }
-}
-
-
-class Text extends Element {
-  // TODO does this trigger a relayout ?
-  value(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        this._dom["textContent"] = "";
-
-      } else {
-        this._dom["textContent"] = x;
-      }
-    });
-  }
-}
-
-
-class Link extends Text {
-  // TODO does this trigger a relayout ?
-  url(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["href"] = "";
-
-      } else {
-        this._dom["href"] = x;
-      }
-    });
-  }
-
-  // TODO does this trigger a relayout ?
-  target(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["target"] = "";
-
-      } else {
-        this._dom["target"] = x;
-      }
-    });
-  }
-}
-
-
-class TextBox extends Element {
-  // TODO does this trigger a relayout ?
-  value(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        this._dom["value"] = "";
-
-      } else {
-        this._dom["value"] = x;
-      }
-    });
-  }
-
-  // TODO use batch_read ?
-  on_change(send) {
-    let timer = null;
-
-    const input = () => {
-      if (timer !== null) {
-        clearTimeout(timer);
-      }
-
-      timer = setTimeout(() => {
-        timer = null;
-
-        send(this._dom["value"]);
-      }, 300);
-    };
-
-    this._dom["addEventListener"]("input", input, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("input", input, true);
-      }
-    };
-  }
-}
-
-
-class SearchBox extends TextBox {
-  // TODO use batch_read ?
-  on_change(send) {
-    const search = () => {
-      send(this._dom["value"]);
-    };
-
-    this._dom["addEventListener"]("search", search, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("search", search, true);
-      }
-    };
-  }
-}
-
-
-class Checkbox extends Element {
-  // TODO does this trigger a relayout ?
-  checked(ref) {
-    return ref.each((x) => {
-      if (x) {
-        this._dom["checked"] = true;
-      } else {
-        this._dom["checked"] = false;
-      }
-    });
-  }
-
-  // TODO use batch_read ?
-  on_change(send) {
-    const change = () => {
-      send(this._dom["checked"]);
-    };
-
-    this._dom["addEventListener"]("change", change, true);
-
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("change", change, true);
-      }
-    };
-  }
-}
-
-
-class Radio extends Checkbox {
-  // TODO does this trigger a relayout ?
-  name(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        // TODO is this correct ?
-        this._dom["name"] = "";
-
-      } else {
-        this._dom["name"] = x;
-      }
-    });
-  }
-}
-
-
-class Parent extends Element {
-  constructor(dom) {
-    super(dom);
-
-    this._children = new List();
-  }
-
-  _on_remove(parent, animate, done) {
-    let pending = this._children.size + 1;
+  dom._id = null;
+  dom._type = null;
+  dom._dom = null;
+  dom._children = null;
+  dom._running = null;
+  dom._parent = null;
+  dom._animations = null;
+  dom._visible = null;
+  dom._inserted = null; // TODO does this leak ?
+  dom._hovering = null; // TODO does this leak ?
+  dom._holding = null; // TODO does this leak ?
+};
+
+// TODO test this
+const _on_remove = (dom, parent, animate, done) => {
+  if (dom._children === null) {
+    _on_remove1(dom, parent, animate, done);
+
+  } else {
+    let pending = list.size(dom._children) + 1;
 
     const done2 = () => {
       --pending;
@@ -930,263 +161,983 @@ class Parent extends Element {
     };
 
     // TODO is this in the right order ?
-    super._on_remove(parent, animate, done2);
+    _on_remove1(dom, parent, animate, done2);
 
     // TODO this is a bit broken;
     //      e.g. try setting the "tab remove" animation to 5000ms,
     //      then remove tabs 1 by 1 until the group is removed,
     //      then look in console and wait 10 seconds
-    each(this._children, (x) => {
+    list.each(dom._children, (x) => {
       // TODO a bit hacky
-      x._on_remove(this, animate && x._visible, done2);
+      _on_remove(x, dom, animate && x._visible, done2);
     });
   }
+};
+
+const _on_insert = (dom, parent, animate, type) => {
+  assert(dom._dom !== null);
+  assert(dom._parent === null);
+  assert(parent !== null);
+
+  dom._parent = parent;
+
+  if (dom._inserted !== null) {
+    ref.set(dom._inserted, type);
+  }
+
+
+  if (type === "initial") {
+    // TODO what if the child node is visible but the parent node is not ?
+    if (animate) {
+      // TODO is this the right order for this ?
+      _animate(dom, "none", (x) => x.initial);
+    }
+
+
+  } else if (type === "insert") {
+    // TODO what if the child node is visible but the parent node is not ?
+    if (animate) {
+      // TODO is this the right order for this ?
+      _animate(dom, "none", (x) => x.insert);
+    }
+
+
+  } else {
+    fail();
+  }
+
 
   // TODO test this
   // TODO this doesn't seem quite right: it gets called multiple times when the element is initially pushed
-  _on_insert(parent, animate, type) {
-    // TODO is this in the right order ?
-    super._on_insert(parent, animate, type);
-
+  // TODO is this in the right order ?
+  if (dom._children !== null) {
     // TODO is this correct ?
-    each(this._children, (x) => {
+    list.each(dom._children, (x) => {
       // TODO a bit hacky
-      x._on_insert(this, animate && x._visible, type);
+      _on_insert(x, dom, animate && x._visible, type);
     });
   }
+};
 
-  // TODO test this
-  _clear() {
-    if (this._children.size) {
-      each(this._children, (x) => {
-        // TODO test this
-        x._on_remove(this, x._visible, noop);
+const _run = (dom, x) => {
+  list.push(dom._running, x);
+};
+
+
+const _on_inserted = (dom) => {
+  if (dom._inserted === null) {
+    // TODO is it possible for this to run after the element is inserted ?
+    dom._inserted = ref.make(null);
+  }
+
+  return dom._inserted;
+};
+
+// TODO a tiny bit hacky
+export const noop = running.noop;
+
+
+// TODO use batch_read ?
+// TODO handle blur ?
+export const on_mouse_hover = (dom, send) => {
+  // TODO code duplication
+  const mouseover = (e) => {
+    const related = e["relatedTarget"];
+
+    // This is done to simulate "mouseenter"
+    if (related === null || !dom._dom["contains"](related)) {
+      send(mouse_event(dom._dom, e));
+    }
+  };
+
+  // TODO code duplication
+  const mouseout = (e) => {
+    const related = e["relatedTarget"];
+
+    // This is done to simulate "mouseleave"
+    if (related === null || !dom._dom["contains"](related)) {
+      send(null);
+    }
+  };
+
+  dom._dom["addEventListener"]("mouseover", mouseover, true);
+  dom._dom["addEventListener"]("mouseout", mouseout, true);
+
+  return running.make(() => {
+    dom._dom["removeEventListener"]("mouseover", mouseover, true);
+    dom._dom["removeEventListener"]("mouseout", mouseout, true);
+  });
+};
+
+// TODO use batch_read ?
+export const on_mouse_hold = (dom, send) => {
+  const mousedown = (e) => {
+    // TODO is it possible for this to leak ?
+    addEventListener("mouseup", mouseup, true);
+    send(mouse_event(dom._dom, e));
+  };
+
+  const mouseup = () => {
+    removeEventListener("mouseup", mouseup, true);
+    send(null);
+  };
+
+  dom._dom["addEventListener"]("mousedown", mousedown, true);
+
+  return running.make(() => {
+    dom._dom["removeEventListener"]("mousedown", mousedown, true);
+    removeEventListener("mouseup", mouseup, true);
+  });
+};
+
+export const hovering = (dom) => {
+  if (dom._hovering === null) {
+    dom._hovering = ref.make(null);
+
+    // TODO a little hacky
+    _run(dom, on_mouse_hover(dom, (hover) => {
+      ref.set(dom._hovering, hover);
+    }));
+  }
+
+  return dom._hovering;
+};
+
+export const holding = (dom) => {
+  if (dom._holding === null) {
+    dom._holding = ref.make(null);
+
+    // TODO a little hacky
+    _run(dom, on_mouse_hold(dom, (hold) => {
+      ref.set(dom._holding, hold);
+    }));
+  }
+
+  return dom._holding;
+};
+
+// TODO use batch_read ?
+export const on_scroll = (dom, send) => {
+  // TODO is this inefficient ?
+  const scroll = (e) => {
+    if (e["target"] === dom._dom) {
+      // TODO does this trigger a relayout ?
+      const width  = dom._dom["scrollWidth"]  - dom._dom["clientWidth"];
+      const height = dom._dom["scrollHeight"] - dom._dom["clientHeight"];
+
+      send({
+        x: (width  === 0 ? 0 : dom._dom["scrollLeft"] / width),
+        y: (height === 0 ? 0 : dom._dom["scrollTop"] / height)
       });
-
-      this._children.clear();
-      this._dom["innerHTML"] = "";
     }
-  }
+  };
 
-  _remove(index) {
-    const child = this._children.get(index);
-    this._children.remove(index);
+  dom._dom["addEventListener"]("scroll", scroll, true);
 
-    const child_dom = child._dom;
+  return running.make(() => {
+    dom._dom["removeEventListener"]("scroll", scroll, true);
+  });
+};
 
-    child._on_remove(this, child._visible, () => {
-      this._dom["removeChild"](child_dom);
-    });
-  }
-
-  // TODO test this
-  _update(index, x) {
-    this._remove(index);
-    this._insert(index, x);
-  }
-
-  _insert(index, x) {
-    // TODO is this correct ?
-    if (this._children.has(index)) {
-      const child = this._children.get(index);
-      this._dom["insertBefore"](x._dom, child._dom);
-
-    } else {
-      this._dom["appendChild"](x._dom);
+// TODO code duplication
+// TODO use batch_read ?
+export const on_left_click = (dom, send) => {
+  const click = (e) => {
+    if (e["button"] === 0) {
+      preventDefault(e);
+      send(mouse_event(dom._dom, e));
     }
+  };
 
-    this._children.insert(index, x);
+  dom._dom["addEventListener"]("click", click, true);
 
-    if (this._parent !== null) {
-      x._on_insert(this, x._visible, "insert");
+  return running.make(() => {
+    dom._dom["removeEventListener"]("click", click, true);
+  });
+};
+
+// TODO code duplication
+// TODO use batch_read ?
+export const on_middle_click = (dom, send) => {
+  const click = (e) => {
+    if (e["button"] === 1) {
+      preventDefault(e);
+      send(mouse_event(dom._dom, e));
     }
-  }
+  };
 
-  _push(x) {
-    this._dom["appendChild"](x._dom);
+  dom._dom["addEventListener"]("click", click, true);
 
-    this._children.push(x);
+  return running.make(() => {
+    dom._dom["removeEventListener"]("click", click, true);
+  });
+};
 
-    if (this._parent !== null) {
-      x._on_insert(this, x._visible, "initial");
+// TODO use batch_read ?
+export const on_right_click = (dom, send) => {
+  const click = (e) => {
+    if (e["button"] === 2) {
+      // TODO is this correct ?
+      preventDefault(e);
+      send(mouse_event(dom._dom, e));
     }
-  }
+  };
+
+  dom._dom["addEventListener"]("contextmenu", preventDefault, true);
+  dom._dom["addEventListener"]("mousedown", click, true);
+
+  return running.make(() => {
+    dom._dom["removeEventListener"]("contextmenu", preventDefault, true);
+    dom._dom["removeEventListener"]("mousedown", click, true);
+  });
+};
+
+// TODO use batch_read ?
+export const on_focus = (dom, send) => {
+  dom._dom["tabIndex"] = 0;
+
+  const focus = (e) => {
+    if (e["target"] === dom._dom) {
+      send(true);
+    }
+  };
 
   // TODO is this correct ?
-  children(x) {
-    // TODO a tiny bit hacky
-    if (Array["isArray"](x)) {
-      each(x, (x) => {
-        this._push(x);
-      });
+  const blur = (e) => {
+    if (e["target"] === dom._dom) {
+      send(false);
+    }
+  };
 
+  dom._dom["addEventListener"]("focus", focus, true);
+  dom._dom["addEventListener"]("blur", blur, true);
+
+  return running.make(() => {
+    dom._dom["removeEventListener"]("focus", focus, true);
+    dom._dom["removeEventListener"]("blur", blur, true);
+  });
+};
+
+// TODO use batch_read ?
+export const draggable = (dom, { start, move, end, start_if }) => {
+  let start_x = null;
+  let start_y = null;
+  let dragging = false;
+
+  const mousedown = (e) => {
+    if (e["button"] === 0) {
+      start_x = e["clientX"];
+      start_y = e["clientY"];
+
+      const o = mouse_event(dom._dom, e);
+
+      if (start_if(start_x, start_y, o)) {
+        dragging = true;
+
+        start(o);
+      }
+
+      // TODO is it possible for these to leak ?
+      addEventListener("mousemove", mousemove, true);
+      addEventListener("mouseup", mouseup, true);
+    }
+  };
+
+  const mousemove = (e) => {
+    const o = mouse_event(dom._dom, e);
+
+    if (dragging) {
+      move(o);
+
+    } else if (start_if(start_x, start_y, o)) {
+      dragging = true;
+
+      start(o);
+    }
+  };
+
+  const mouseup = (e) => {
+    removeEventListener("mousemove", mousemove, true);
+    removeEventListener("mouseup", mouseup, true);
+
+    start_x = null;
+    start_y = null;
+
+    if (dragging) {
+      dragging = false;
+
+      end(mouse_event(dom._dom, e));
+    }
+  };
+
+  dom._dom["addEventListener"]("mousedown", mousedown, true);
+
+  // TODO is this correct ?
+  return running.make(() => {
+    dom._dom["removeEventListener"]("mousedown", mousedown, true);
+    removeEventListener("mousemove", mousemove, true);
+    removeEventListener("mouseup", mouseup, true);
+  });
+};
+
+export const add_style = (dom, style) => {
+  assert(style._type === 0);
+
+  assert(!dom._dom["classList"]["contains"](style._name));
+  dom._dom["classList"]["add"](style._name);
+
+  return running.noop;
+};
+
+export const toggle_style = (dom, style, x) => {
+  assert(style._type === 0);
+
+  let first = true;
+
+  return ref.listen(x, (x) => {
+    if (x) {
+      assert(!dom._dom["classList"]["contains"](style._name));
+      dom._dom["classList"]["add"](style._name);
+
+    } else {
+      assert(first || dom._dom["classList"]["contains"](style._name));
+      dom._dom["classList"]["remove"](style._name);
+    }
+
+    first = false;
+  });
+};
+
+// TODO test this
+export const set_scroll = (dom, { x, y }) =>
+    // TODO does this leak memory ?
+  ref.listen(ref.latest([
+    _on_inserted(dom),
+    x,
+    y
+  ], (inserted, x, y) => {
+    if (inserted !== null) {
+      const width = dom._dom["scrollWidth"] -
+                    dom._dom["clientWidth"];
+
+      const height = dom._dom["scrollHeight"] -
+                     dom._dom["clientHeight"];
+
+      // TODO what if x is null ?
+      // TODO what if y is null ?
       return {
-        stop: noop
+        x: x * width,
+        y: y * height
       };
 
     } else {
-      return x.each((x) => {
-        this._clear();
+      return null;
+    }
 
-        if (x !== null) {
-          each(x, (x) => {
-            this._push(x);
-          });
-        }
+  }), (info) => {
+    if (info !== null) {
+      dom._dom["scrollLeft"] = info.x;
+      dom._dom["scrollTop"]  = info.y;
+    }
+  });
+
+export const scroll_to = (dom, { initial = ref.always(false),
+                                 insert  = ref.always(false) }) =>
+  // TODO does this leak memory ?
+  ref.listen(ref.latest([
+    _on_inserted(dom),
+    initial,
+    insert
+  ], (inserted, initial, insert) => {
+    return (inserted === "initial" && initial) ||
+           (inserted === "insert"  && insert);
+
+  }), (scroll) => {
+    if (scroll) {
+      _scroll_to(dom._parent, dom);
+    }
+  });
+
+export const get_position = (dom, f) => {
+  // TODO this triggers a relayout
+  const box = dom._dom["getBoundingClientRect"]();
+  f({
+    left: box["left"],
+    top: box["top"],
+    right: box["right"],
+    bottom: box["bottom"],
+    width: box["width"],
+    height: box["height"]
+  });
+};
+
+export const animate = (dom, animation, info) => {
+  assert(animation._type === 1);
+
+  const x = {
+    animation: animation,
+    info: info
+  };
+
+  if (dom._animations === null) {
+    dom._animations = set.make();
+  }
+
+  set.insert(dom._animations, x);
+
+  // TODO test this
+  return running.make(() => {
+    set.remove(dom._animations, x);
+  });
+};
+
+const _scroll_to = (parent, child) => {
+  // TODO what if the child is visible but the parent isn't ?
+  if (child._visible) {
+    get_position(parent, (p) => {
+      get_position(child, (c) => {
+        const scrollLeft = parent._dom["scrollLeft"];
+        const scrollTop  = parent._dom["scrollTop"];
+
+        // TODO test this
+        // TODO does this trigger a relayout ?
+        parent._dom["scrollLeft"] = scrollLeft +
+          Math["round"]((c.left - p.left) -
+                        (p.width / 2) +
+                        (c.width / 2));
+
+        // TODO does this trigger a relayout ?
+        parent._dom["scrollTop"] = scrollTop +
+          Math["round"]((c.top - p.top) -
+                        (p.height / 2) +
+                        (c.height / 2));
+      });
+    });
+  }
+};
+
+// TODO test this
+const _animate = (dom, fill, f, done = null) => {
+  assert(dom._visible);
+  assert(dom._parent !== null);
+
+  const a = _get_animations(dom, fill, f);
+
+  if (list.size(a)) {
+    const _dom = dom._dom;
+
+    // TODO remove vendor prefix
+    const animation = get_style_value(_dom["style"], "-webkit-animation");
+
+    // TODO is this correct ?
+    if (animation === null) {
+      start_animation(_dom, a, done);
+
+    } else {
+      // TODO is this correct ?
+      // TODO remove vendor prefix
+      set_style_value(_dom["style"], "-webkit-animation", null);
+
+      // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
+      requestAnimationFrame(() => {
+        start_animation(_dom, a, done);
       });
     }
+
+  // TODO should this set "-webkit-animation" to `null` ?
+  } else if (done != null) {
+    done();
   }
+};
 
-  stream(x) {
-    each(x, (x) => {
-      this._push(x);
-    });
+// TODO test this
+const _get_animations = (dom, fill, f) => {
+  const out = list.make();
 
-    return x.on_change((x) => {
-      switch (x.type) {
-      case uuid_stream_insert:
-        this._insert(x.index, x.value);
-        break;
+  if (dom._animations !== null) {
+    set.each(dom._animations, ({ animation, info }) => {
+      const type = f(info);
 
-      case uuid_stream_update:
-        this._update(x.index, x.value);
-        break;
+      // TODO a tiny bit hacky
+      if (type) {
+        if (type === "play-to") {
+          list.push(out, animation._name + " " +
+                         animation._duration + " " +
+                         animation._easing +
+                         " 0ms 1 normal " +
+                         fill +
+                         " running");
 
-      case uuid_stream_remove:
-        this._remove(x.index);
-        break;
+        } else if (type === "play-from") {
+          list.push(out, animation._name + " " +
+                         animation._duration + " " +
+                         animation._easing +
+                         " 0ms 1 reverse " +
+                         fill +
+                         " running");
 
-      case uuid_stream_clear:
-        this._clear();
-        break;
-
-      default:
-        fail();
-        break;
+        } else {
+          fail();
+        }
       }
     });
   }
-}
+
+  return out;
+};
+
+export const visible = (dom, x) =>
+  ref.listen(x, (x) => {
+    if (x) {
+      assert(dom._visible === false);
+      dom._visible = true;
+      set_style_value(dom._dom["style"], "display", null);
+
+    } else {
+      assert(dom._visible === true);
+      dom._visible = false;
+      set_style_value(dom._dom["style"], "display", "none");
+    }
+  });
+
+// TODO does this trigger a relayout ?
+export const tooltip = (dom, x) =>
+  ref.listen(x, (x) => {
+    if (x === null) {
+      dom._dom["title"] = "";
+    } else {
+      dom._dom["title"] = x;
+    }
+  });
+
+// TODO test this
+export const style = (dom, o) => {
+  const stops = set.make();
+
+  record.each(o, (key, x) => {
+    /*
+    // TODO can this be made more efficient ?
+    if (key === "transform") {
+      const keys = [];
+      const refs = [];
+
+      record.each(ref, (key, ref) => {
+        keys["push"](key);
+        refs["push"](ref);
+      });
+
+      // TODO a little hacky ?
+      ref = latest(refs, (...values) => {
+        // TODO use a consistent order for the keys ?
+        const value = list.map(keys, (key, i) => key + "(" + values[i] + ")");
+        return list.join(value, " ");
+      });
+    }*/
+
+    // TODO a little hacky
+    set.insert(stops, ref.listen(x, (x) => {
+      // TODO test this
+      set_style_value(dom._dom["style"], key, x);
+    }));
+  });
+
+  return running.make(() => {
+    // TODO a little hacky
+    // TODO test this
+    set.each(stops, running.stop);
+  });
+};
 
 
-class Select extends Parent {
-  // TODO does this trigger a relayout ?
-  value(ref) {
-    return ref.each((x) => {
+// TODO does this trigger a relayout ?
+export const alt = (dom, x) => {
+  if (dom._type === "img") {
+    return ref.listen(x, (x) => {
       if (x === null) {
-        this._dom["selectedIndex"] = -1;
+        // TODO is this correct ?
+        dom._dom["alt"] = "";
 
       } else {
-        this._dom["value"] = x;
+        dom._dom["alt"] = x;
       }
     });
-  }
 
-  // TODO use batch_read ?
-  on_change(send) {
+  } else {
+    fail();
+  }
+};
+
+// TODO does this trigger a relayout ?
+export const url = (dom, x) => {
+  if (dom._type === "img" || dom._type === "iframe") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        dom._dom["src"] = "";
+
+      } else {
+        dom._dom["src"] = x;
+      }
+    });
+
+  } else if (dom._type === "a") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        dom._dom["href"] = "";
+
+      } else {
+        dom._dom["href"] = x;
+      }
+    });
+
+  } else {
+    fail();
+  }
+};
+
+// TODO does this trigger a relayout ?
+export const target = (dom, x) => {
+  if (dom._type === "a") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        dom._dom["target"] = "";
+
+      } else {
+        dom._dom["target"] = x;
+      }
+    });
+
+  } else {
+    fail();
+  }
+};
+
+// TODO does this trigger a relayout ?
+export const value = (dom, x) => {
+  if (dom._type === "text" || dom._type === "a") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        dom._dom["textContent"] = "";
+
+      } else {
+        dom._dom["textContent"] = x;
+      }
+    });
+
+  } else if (dom._type === "textbox" ||
+             dom._type === "option" ||
+             dom._type === "search") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        dom._dom["value"] = "";
+
+      } else {
+        dom._dom["value"] = x;
+      }
+    });
+
+  } else if (dom._type === "select") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        dom._dom["selectedIndex"] = -1;
+
+      } else {
+        dom._dom["value"] = x;
+      }
+    });
+
+  } else {
+    fail();
+  }
+};
+
+// TODO use batch_read ?
+export const on_change = (dom, send) => {
+  if (dom._type === "textbox") {
+    let timer = null;
+
+    const input = () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+
+      timer = setTimeout(() => {
+        timer = null;
+
+        send(dom._dom["value"]);
+      }, 300);
+    };
+
+    dom._dom["addEventListener"]("input", input, true);
+
+    return running.make(() => {
+      dom._dom["removeEventListener"]("input", input, true);
+    });
+
+
+  } else if (dom._type === "search") {
+    const search = () => {
+      send(dom._dom["value"]);
+    };
+
+    dom._dom["addEventListener"]("search", search, true);
+
+    return running.make(() => {
+      dom._dom["removeEventListener"]("search", search, true);
+    });
+
+
+  } else if (dom._type === "checkbox" ||
+             dom._type === "radio") {
     const change = () => {
-      send(this._dom["value"]);
+      send(dom._dom["checked"]);
     };
 
-    this._dom["addEventListener"]("change", change, true);
+    dom._dom["addEventListener"]("change", change, true);
 
-    return {
-      stop: () => {
-        this._dom["removeEventListener"]("change", change, true);
-      }
+    return running.make(() => {
+      dom._dom["removeEventListener"]("change", change, true);
+    });
+
+
+  } else if (dom._type === "select") {
+    const change = () => {
+      send(dom._dom["value"]);
     };
-  }
-}
 
-class Optgroup extends Parent {
-  // TODO does this trigger a relayout ?
-  label(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        this._dom["label"] = "";
+    dom._dom["addEventListener"]("change", change, true);
+
+    return running.make(() => {
+      dom._dom["removeEventListener"]("change", change, true);
+    });
+
+
+  } else {
+    fail();
+  }
+};
+
+// TODO does this trigger a relayout ?
+export const checked = (dom, x) => {
+  if (dom._type === "checkbox" ||
+      dom._type === "radio") {
+
+    let first = true;
+
+    // TODO handle indeterminate state
+    return ref.listen(x, (x) => {
+      if (x) {
+        assert(!dom._dom["checked"]);
+        dom._dom["checked"] = true;
 
       } else {
-        this._dom["label"] = x;
+        assert(first || dom._dom["checked"]);
+        dom._dom["checked"] = false;
+      }
+
+      first = false;
+    });
+
+  } else {
+    fail();
+  }
+};
+
+// TODO does this trigger a relayout ?
+export const name = (dom, x) => {
+  if (dom._type === "radio") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        // TODO is this correct ?
+        dom._dom["name"] = "";
+
+      } else {
+        dom._dom["name"] = x;
+      }
+    });
+
+  } else {
+    fail();
+  }
+};
+
+
+// TODO test this
+// TODO what about animations ?
+const _clear = (dom) => {
+  if (list.size(dom._children)) {
+    list.each(dom._children, (x) => {
+      // TODO test this
+      _on_remove(x, dom, x._visible, functions.noop);
+    });
+
+    list.clear(dom._children);
+    dom._dom["innerHTML"] = "";
+  }
+};
+
+const _remove = (dom, index) => {
+  const child = list.get(dom._children, index);
+  list.remove(dom._children, index);
+
+  const child_dom = child._dom;
+
+  _on_remove(child, dom, child._visible, () => {
+    dom._dom["removeChild"](child_dom);
+  });
+};
+
+// TODO test this
+const _update = (dom, index, x) => {
+  _remove(dom, index);
+  _insert(dom, index, x);
+};
+
+const _insert = (dom, index, x) => {
+  // TODO is this correct ?
+  // TODO test this
+  if (list.has(dom._children, index)) {
+    const child = list.get(dom._children, index);
+    dom._dom["insertBefore"](x._dom, child._dom);
+
+  } else {
+    dom._dom["appendChild"](x._dom);
+  }
+
+  list.insert(dom._children, index, x);
+
+  if (dom._parent !== null) {
+    _on_insert(x, dom, x._visible, "insert");
+  }
+};
+
+const _push = (dom, x) => {
+  dom._dom["appendChild"](x._dom);
+
+  list.push(dom._children, x);
+
+  if (dom._parent !== null) {
+    _on_insert(x, dom, x._visible, "initial");
+  }
+};
+
+// TODO is this correct ?
+export const children = (dom, x) => {
+  // TODO a tiny bit hacky
+  if (Array["isArray"](x)) {
+    list.each(x, (x) => {
+      _push(dom, x);
+    });
+
+    return running.noop;
+
+  } else {
+    return ref.listen(x, (x) => {
+      _clear(dom);
+
+      if (x !== null) {
+        // TODO a tiny bit hacky
+        assert(Array["isArray"](x));
+
+        list.each(x, (x) => {
+          _push(dom, x);
+        });
       }
     });
   }
-}
+};
 
-class Option extends Element {
-  // TODO code duplication
-  // TODO does this trigger a relayout ?
-  label(ref) {
-    return ref.each((x) => {
+export const stream = (dom, x) =>
+  _stream.listen(x, (x) => {
+    switch (record.get(x, "type")) {
+    case _stream.uuid_initial:
+      list.each(record.get(x, "value"), (x) => {
+        _push(dom, x);
+      });
+      break;
+
+    case _stream.uuid_insert:
+      _insert(dom, record.get(x, "index"), record.get(x, "value"));
+      break;
+
+    case _stream.uuid_update:
+      _update(dom, record.get(x, "index"), record.get(x, "value"));
+      break;
+
+    case _stream.uuid_remove:
+      _remove(dom, record.get(x, "index"));
+      break;
+
+    case _stream.uuid_clear:
+      _clear(dom);
+      break;
+
+    default:
+      fail();
+      break;
+    }
+  });
+
+
+// TODO does this trigger a relayout ?
+// TODO I'm not really liking the name of this
+export const set_label = (dom, x) => {
+  if (dom._type === "optgroup" || dom._type === "option") {
+    return ref.listen(x, (x) => {
       if (x === null) {
-        this._dom["label"] = "";
+        dom._dom["label"] = "";
 
       } else {
-        this._dom["label"] = x;
+        dom._dom["label"] = x;
       }
     });
+
+  } else {
+    fail();
   }
+};
 
-  // TODO does this trigger a relayout ?
-  value(ref) {
-    return ref.each((x) => {
-      if (x === null) {
-        this._dom["value"] = "";
-
-      } else {
-        this._dom["value"] = x;
-      }
-    });
-  }
-}
-
-
-export const style = (o) => make_style(o);
-
-export const animation = (o) => make_animation(o);
-
-export const stylesheet = (n, o) => make_stylesheet(n, o);
-
-export const calc = (...args) =>
-  "calc(" + args["join"](" ") + ")";
 
 // TODO code duplication
 export const gradient = (x, ...args) => {
-  const r = [x];
+  const r = list.make(x);
 
-  each(args, ([x, y]) => {
-    r["push"](y + " " + x);
+  list.each(args, ([x, y]) => {
+    list.push(r, y + " " + x);
   });
 
-  return "linear-gradient(" + r["join"](",") + ")"
+  return "linear-gradient(" + list.join(r, ",") + ")";
 };
 
 // TODO code duplication
 export const radial_gradient = (x, ...args) => {
-  const r = [x];
+  const r = list.make(x);
 
-  each(args, ([x, y]) => {
-    r["push"](y + " " + x);
+  list.each(args, ([x, y]) => {
+    list.push(r, y + " " + x);
   });
 
-  return "radial-gradient(" + r["join"](",") + ")"
+  return "radial-gradient(" + list.join(r, ",") + ")";
 };
 
 // TODO code duplication
 export const repeating_gradient = (x, ...args) => {
-  const r = [x];
+  const r = list.make(x);
 
-  each(args, ([x, y]) => {
-    r["push"](y + " " + x);
+  list.each(args, ([x, y]) => {
+    list.push(r, y + " " + x);
   });
 
-  return "repeating-linear-gradient(" + r["join"](",") + ")"
+  return "repeating-linear-gradient(" + list.join(r, ",") + ")";
 };
 
 export const hsl = (hue, sat, light, alpha = 1) => {
   if (alpha === 1) {
-    return "hsl(" + hue + ", " + sat + "%, " + light + "%)"
+    return "hsl(" + hue + ", " + sat + "%, " + light + "%)";
   } else {
-    return "hsla(" + hue + ", " + sat + "%, " + light + "%, " + alpha + ")"
+    return "hsla(" + hue + ", " + sat + "%, " + light + "%, " + alpha + ")";
   }
 };
 
@@ -1196,261 +1147,134 @@ export const text_stroke = (color, blur) =>
   " 1px -1px " + blur + " " + color + "," +
   " 1px  1px " + blur + " " + color;
 
-export const transition = (o) => {
-  const out = [];
 
-  each(entries(o), ([key, { duration, easing }]) => {
-    out["push"](key + " " + duration + " " + easing);
-  });
-
-  return out["join"](", ");
-};
-
-export const floating = style({
-  "position": always("fixed"),
-  "z-index": always("2147483647") // 32-bit signed int
+export const floating = make_style({
+  "position": ref.always("fixed"),
+  "z-index": ref.always("2147483647") // 32-bit signed int
 });
 
-export const row = style({
-  "display": always("flex"),
-  "flex-direction": always("row"),
-  "align-items": always("center"), // TODO get rid of this ?
+export const row = make_style({
+  "display": ref.always("flex"),
+  "flex-direction": ref.always("row"),
+  "align-items": ref.always("center"), // TODO get rid of this ?
 });
 
-export const col = style({
-  "display": always("flex"),
-  "flex-direction": always("column"),
+export const col = make_style({
+  "display": ref.always("flex"),
+  "flex-direction": ref.always("column"),
 });
 
-export const stretch = style({
-  "flex-shrink": always("1"),
-  "flex-grow": always("1"),
-  "flex-basis": always("0%"),
+export const stretch = make_style({
+  "flex-shrink": ref.always("1"),
+  "flex-grow": ref.always("1"),
+  "flex-basis": ref.always("0%"),
 });
 
-export const child = (f) => {
-  const e = new Element(document["createElement"]("div"));
 
-  each(f(e), (x) => {
-    e._run(x);
-  });
+export const child = (f) =>
+  make_run("div", "div", null, f);
 
-  return e;
-};
+export const parent = (f) =>
+  make_run("div", "div", list.make(), f);
 
-export const parent = (f) => {
-  const e = new Parent(document["createElement"]("div"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const label = (f) => {
-  const e = new Parent(document["createElement"]("label"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
+export const label = (f) =>
+  make_run("label", "label", list.make(), f);
 
 // TODO is this correct ?
-export const text = (f) => {
-  const e = new Text(document["createElement"]("div"));
+export const text = (f) =>
+  make_run("text", "div", null, f);
 
-  each(f(e), (x) => {
-    e._run(x);
-  });
+export const select = (f) =>
+  make_run("select", "select", list.make(), f);
 
-  return e;
-};
+export const optgroup = (f) =>
+  make_run("optgroup", "optgroup", list.make(), f);
 
-export const select = (f) => {
-  const e = new Select(document["createElement"]("select"));
+export const option = (f) =>
+  make_run("option", "option", null, f);
 
-  each(f(e), (x) => {
-    e._run(x);
-  });
+export const image = (f) =>
+  make_run("img", "img", null, f);
 
-  return e;
-};
+export const iframe = (f) =>
+  make_run("iframe", "iframe", null, f);
 
-export const optgroup = (f) => {
-  const e = new Optgroup(document["createElement"]("optgroup"));
+export const button = (f) =>
+  make_run("button", "button", list.make(), f);
 
-  each(f(e), (x) => {
-    e._run(x);
-  });
+export const link = (f) =>
+  make_run("a", "a", null, f);
 
-  return e;
-};
+export const table = (f) =>
+  make_run("table", "table", list.make(), f);
 
-export const option = (f) => {
-  const e = new Option(document["createElement"]("option"));
+export const table_row = (f) =>
+  make_run("tr", "tr", list.make(), f);
 
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const image = (f) => {
-  const e = new Image(document["createElement"]("img"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const iframe = (f) => {
-  const e = new Iframe(document["createElement"]("iframe"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
+export const table_cell = (f) =>
+  make_run("td", "td", list.make(), f);
 
 export const checkbox = (f) => {
-  const x = document["createElement"]("input");
+  const e = make_run("checkbox", "input", null, f);
 
-  x["type"] = "checkbox";
-
-  const e = new Checkbox(x);
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
+  // TODO should this run before `f` ?
+  e._dom["type"] = "checkbox";
 
   return e;
 };
 
 export const radio = (f) => {
-  const x = document["createElement"]("input");
+  const e = make_run("radio", "input", null, f);
 
-  x["type"] = "radio";
-
-  const e = new Radio(x);
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const button = (f) => {
-  const e = new Parent(document["createElement"]("button"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
+  // TODO should this run before `f` ?
+  e._dom["type"] = "radio";
 
   return e;
 };
 
 export const search = (f) => {
-  const x = document["createElement"]("input");
+  const e = make_run("search", "input", null, f);
 
+  // TODO should this run before `f` ?
   // TODO a bit hacky, this should probably be configurable
-  x["autofocus"] = true;
+  e._dom["autofocus"] = true;
 
   // TODO test these
-  x["type"] = "search";
-  x["incremental"] = true;
-  x["autocomplete"] = "off";
-  x["placeholder"] = "Search";
-  x["setAttribute"]("results", "");
-
-  const e = new SearchBox(x);
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
+  e._dom["type"] = "search";
+  e._dom["incremental"] = true;
+  e._dom["autocomplete"] = "off";
+  e._dom["placeholder"] = "Search";
+  e._dom["setAttribute"]("results", "");
 
   return e;
 };
 
 export const textbox = (f) => {
-  const x = document["createElement"]("input");
+  const e = make_run("textbox", "input", null, f);
 
-  x["type"] = "text";
-
-  const e = new TextBox(x);
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const link = (f) => {
-  const e = new Link(document["createElement"]("a"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-
-export const table = (f) => {
-  const e = new Parent(document["createElement"]("table"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const table_row = (f) => {
-  const e = new Parent(document["createElement"]("tr"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
-
-  return e;
-};
-
-export const table_cell = (f) => {
-  const e = new Parent(document["createElement"]("td"));
-
-  each(f(e), (x) => {
-    e._run(x);
-  });
+  e._dom["type"] = "text";
 
   return e;
 };
 
 
 // TODO should we use `pointer-events: none` while scrolling, to make it smoother ?
-const body = new Parent(document["body"]);
+const body = make("body", document["body"], list.make());
 
 // TODO a tiny bit hacky
-body._parent = new Parent(document["body"]["parentNode"]);
+body._parent = make("html", document["body"]["parentNode"], null);
 
-export const main = (x) => {
-  //requestAnimationFrame(() => {
-    // TODO test this
-    body._push(x);
-  //});
+export const push_root = (x) => {
+  _push(body, x);
 };
 
 // TODO does this trigger a relayout ?
-export const title = (ref) => {
-  return ref.each((x) => {
-    document["title"] = x;
+export const title = (x) =>
+  ref.listen(x, (x) => {
+    if (x === null) {
+      document["title"] = "";
+
+    } else {
+      document["title"] = x;
+    }
   });
-};

@@ -1,61 +1,62 @@
+import * as async from "../../util/async";
+import * as record from "../../util/record";
+import * as ref from "../../util/ref";
 import { ports } from "../../chrome/client";
-import { Record } from "../../util/mutable/record";
-import { each, entries } from "../../util/iterator";
 import { fail } from "../../util/assert";
-import { Ref } from "../../util/ref";
-import { async_callback } from "../../util/async";
 
 
 // TODO rather than syncing with the background page, maybe instead use `chrome.storage.local` ?
-export const make_options = (uuid) =>
-  async_callback((success, error) => {
-    const port = ports.connect(uuid);
+export const make_options = (uuid) => {
+  const out = async.make();
 
-    const options = new Record();
+  const port = ports.open(uuid);
 
-    const get = (s) =>
-      options.get(s);
+  const options = record.make();
 
-    const types = {
-      "init": ({ "default": _default,
-                 "current": _current }) => {
+  const get = (s) =>
+    record.get(options, s);
 
-        const make_ref = ([key, value]) => {
-          // TODO use `options.default` somehow ?
-          if (!options.has(key)) {
-            const x = new Ref(value);
+  const types = record.make({
+    "init": (info) => {
+      const current  = record.get(info, "current");
+      const defaults = record.get(info, "default");
 
-            options.insert(key, x);
+      const make_ref = (key, value) => {
+        // TODO use `options.default` somehow ?
+        if (!record.has(options, key)) {
+          const x = ref.make(value);
 
-            x.on_change((value) => {
-              port.send({
-                "type": "set",
-                "key": key,
-                "value": value
-              });
-            });
-          }
-        };
+          record.insert(options, key, x);
 
-        each(entries(_current), make_ref);
-        each(entries(_default), make_ref);
+          // TODO test this
+          ref.on_change(x, (value) => {
+            ports.send(port, record.make({
+              "type": "set",
+              "key": key,
+              "value": value
+            }));
+          });
+        }
+      };
 
-        const defaults = new Record(_default);
+      record.each(current,  make_ref);
+      record.each(defaults, make_ref);
 
-        const get_default = (s) =>
-          defaults.get(s);
+      const get_default = (s) =>
+        record.get(defaults, s);
 
-        success({ get, get_default });
-      },
+      async.success(out, { get, get_default });
+    },
 
-      "set": ({ "key":   key,
-                "value": value }) => {
-        // TODO this shouldn't send out a message
-        get(key).set(value);
-      }
-    };
-
-    port.on_receive((x) => {
-      types[x["type"]](x);
-    });
+    "set": (info) => {
+      // TODO this shouldn't send out a message
+      ref.set(get(record.get(info, "key")), record.get(info, "value"));
+    }
   });
+
+  ports.on_receive(port, (x) => {
+    record.get(types, record.get(x, "type"))(x);
+  });
+
+  return out;
+};

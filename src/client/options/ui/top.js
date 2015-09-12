@@ -1,6 +1,6 @@
 import * as dom from "../../dom";
-import { always } from "../../../util/ref";
-import { async } from "../../../util/async";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
 import { init as init_appearance } from "./categories/appearance";
 import { init as init_groups } from "./categories/groups";
 import { init as init_tabs } from "./categories/tabs";
@@ -10,56 +10,56 @@ import { init as init_popup } from "./categories/popup";
 import { init as init_user_data } from "./categories/user data";
 
 
-export const init = async([init_appearance,
-                           init_groups,
-                           init_tabs,
-                           init_button,
-                           init_keyboard,
-                           init_popup,
-                           init_user_data],
-                          ({ ui: ui_appearance },
-                           { ui: ui_groups },
-                           { ui: ui_tabs },
-                           { ui: ui_button },
-                           { ui: ui_keyboard },
-                           { ui: ui_popup },
-                           { ui: ui_user_data }) => {
+export const init = async.all([init_appearance,
+                               init_groups,
+                               init_tabs,
+                               init_button,
+                               init_keyboard,
+                               init_popup,
+                               init_user_data],
+                              ({ ui: ui_appearance },
+                               { ui: ui_groups },
+                               { ui: ui_tabs },
+                               { ui: ui_button },
+                               { ui: ui_keyboard },
+                               { ui: ui_popup },
+                               { ui: ui_user_data }) => {
 
-  const style_top = dom.style({
+  const style_top = dom.make_style({
     // TODO code duplication
-    "font-family": always("sans-serif"),
-    "font-size": always("13px"),
-    "width": always("100%"),
-    "height": always("100%"),
+    "font-family": ref.always("sans-serif"),
+    "font-size": ref.always("13px"),
+    "width": ref.always("100%"),
+    "height": ref.always("100%"),
 
-    //"white-space": always("pre-wrap"),
+    //"white-space": ref.always("pre-wrap"),
 
-    "padding-top": always("29px"),
+    "padding-top": ref.always("29px"),
 
-    "background-attachment": always("fixed"),
-    "background-color": always(dom.hsl(211, 13, 35)),
+    "background-attachment": ref.always("fixed"),
+    "background-color": ref.always(dom.hsl(211, 13, 35)),
 
-    "background-image": always(dom.gradient("to bottom",
-                                 ["0%",   "transparent"],
-                                 ["100%", dom.hsl(0, 0, 0, 0.1)]) + "," +
-                               dom.repeating_gradient("0deg",
-                                 ["0px", "transparent"],
-                                 ["2px", dom.hsl(0, 0, 0, 0.05)],
-                                 ["3px", dom.hsl(0, 0, 0, 0.05)])),
+    "background-image": ref.always(dom.gradient("to bottom",
+                                     ["0%",   "transparent"],
+                                     ["100%", dom.hsl(0, 0, 0, 0.1)]) + "," +
+                                   dom.repeating_gradient("0deg",
+                                     ["0px", "transparent"],
+                                     ["2px", dom.hsl(0, 0, 0, 0.05)],
+                                     ["3px", dom.hsl(0, 0, 0, 0.05)])),
 
-    "overflow": always("auto"),
+    "overflow": ref.always("auto"),
   });
 
-  const style_inner = dom.style({
-    "margin-left": always("auto"),
-    "margin-right": always("auto")
+  const style_inner = dom.make_style({
+    "margin-left": ref.always("auto"),
+    "margin-right": ref.always("auto")
   });
 
   const inner = () =>
     dom.parent((e) => [
-      e.set_style(style_inner, always(true)),
+      dom.add_style(e, style_inner),
 
-      e.children([
+      dom.children(e, [
         ui_appearance(),
         ui_groups(),
         ui_tabs(),
@@ -72,14 +72,14 @@ export const init = async([init_appearance,
 
   const top = () =>
     dom.parent((e) => [
-      e.set_style(dom.col, always(true)),
-      e.set_style(style_top, always(true)),
+      dom.add_style(e, dom.col),
+      dom.add_style(e, style_top),
 
-      e.children([
+      dom.children(e, [
         inner()
       ])
     ]);
 
 
-  return { top };
+  return async.done({ top });
 });

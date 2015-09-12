@@ -1,11 +1,13 @@
-import { each, entries } from "../../util/iterator";
+import * as record from "../../util/record";
+import * as list from "../../util/list";
+import * as ref from "../../util/ref";
 import { fail } from "../../util/assert";
 
 
-export const get_style = (style, key) =>
+export const get_style_value = (style, key) =>
   style["getPropertyValue"](key);
 
-export const set_style = (() => {
+export const set_style_value = (() => {
   const prefixes = {
     // TODO it's a bit hacky to use the prefix system for this purpose...
     //"width": ["width", "min-width", "max-width"],
@@ -33,9 +35,9 @@ export const set_style = (() => {
                    ? prefixes[key]
                    : [key]);
 
-    const old_values = keys["map"]((key) => style["getPropertyValue"](key));
+    const old_values = list.map(keys, (key) => get_style_value(style, key));
 
-    const new_values = keys["map"]((key) => {
+    const new_values = list.map(keys, (key) => {
       // TODO test this
       if (value === null) {
         style["removeProperty"](key);
@@ -46,11 +48,12 @@ export const set_style = (() => {
         style["setProperty"](key, value, (important ? "important" : ""));
       }
 
-      return style["getPropertyValue"](key);
+      return get_style_value(style, key);
     });
 
-    const every = new_values["every"]((new_value, i) => {
-      const old_value = old_values[i];
+    // TODO test this
+    const every = list.all(new_values, (new_value, i) => {
+      const old_value = list.get(old_values, i);
       // TODO is this correct ?
       return (new_value === old_value) &&
              (old_value !== value);
@@ -61,21 +64,6 @@ export const set_style = (() => {
     }
   };
 })();
-
-
-class Style {
-  constructor(name) {
-    this._name = name;
-  }
-}
-
-class Animation {
-  constructor(name) {
-    this._name = name;
-    this._duration = "0ms";
-    this._easing = "linear";
-  }
-}
 
 
 let style_id = 0;
@@ -94,9 +82,20 @@ export const make_style = (rules) => {
 
   make_stylesheet("." + class_name, rules);
 
-  return new Style(class_name);
+  return {
+    _type: 0,
+    _name: class_name
+  };
 };
 
+
+const set_rules = (style, rules) => {
+  record.each(rules, (key, value) => {
+    ref.listen(value, (value) => {
+      set_style_value(style, key, value);
+    });
+  });
+};
 
 export const make_stylesheet = (name, rules) => {
   // TODO does this trigger a relayout ?
@@ -106,18 +105,19 @@ export const make_stylesheet = (name, rules) => {
 
   const style = cssRules[index]["style"];
 
-  each(entries(rules), ([key, value]) => {
-    value.each((value) => {
-      set_style(style, key, value);
-    });
-  });
+  set_rules(style, rules);
 };
 
 
 export const make_animation = ({ from, to, duration, easing }) => {
   const class_name = "__animation_" + (++style_id) + "__";
 
-  const animation = new Animation(class_name);
+  const animation = {
+    _type: 1,
+    _name: class_name,
+    _duration: "0ms",
+    _easing: "linear"
+  };
 
   // TODO does this trigger a relayout ?
   // TODO this may not work in all browsers
@@ -135,32 +135,24 @@ export const make_animation = ({ from, to, duration, easing }) => {
 
   // TODO is this less efficient than specifying the values ?
   if (from) {
-    each(entries(from), ([key, value]) => {
-      value.each((value) => {
-        // TODO does this throw an error on un-animatable values ?
-        set_style(from_style, key, value);
-      });
-    });
+    // TODO does this throw an error on un-animatable values ?
+    set_rules(from_style, from);
   }
 
   // TODO is this less efficient than specifying the values ?
   if (to) {
-    each(entries(to), ([key, value]) => {
-      value.each((value) => {
-        // TODO does this throw an error on un-animatable values ?
-        set_style(to_style, key, value);
-      });
-    });
+    // TODO does this throw an error on un-animatable values ?
+    set_rules(to_style, to);
   }
 
   if (easing) {
-    easing.each((easing) => {
+    ref.listen(easing, (easing) => {
       animation._easing = easing;
     });
   }
 
   if (duration) {
-    duration.each((duration) => {
+    ref.listen(duration, (duration) => {
       animation._duration = duration;
     });
   }

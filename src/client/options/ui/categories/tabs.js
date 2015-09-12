@@ -1,19 +1,16 @@
 import * as dom from "../../../dom";
-import { always } from "../../../../util/ref";
-import { async } from "../../../../util/async";
+import * as async from "../../../../util/async";
+import * as ref from "../../../../util/ref";
 import { category, header, indent,
          row, text, separator } from "../common";
 import { init as init_radio } from "../radio";
-import { init as init_checkbox } from "../checkbox";
 import { init as init_dropdown } from "../dropdown";
 
 
-export const init = async([init_radio,
-                           init_checkbox,
-                           init_dropdown],
-                          ({ radio },
-                           { checkbox },
-                           { dropdown }) => {
+export const init = async.all([init_radio,
+                               init_dropdown],
+                              ({ radio },
+                               { dropdown }) => {
 
   const ui = () =>
     category("Tabs", [
@@ -21,9 +18,9 @@ export const init = async([init_radio,
         text("Show the "),
 
         dom.image((e) => [
-          e.alt(always("close")),
-          e.tooltip(always("close")),
-          e.url(always("data/images/button-close.png"))
+          dom.alt(e, ref.always("close")),
+          dom.tooltip(e, ref.always("close")),
+          dom.url(e, ref.always("data/images/button-close.png"))
         ]),
 
         text(" button on the "),
@@ -73,5 +70,5 @@ export const init = async([init_radio,
     ]);
 
 
-  return { ui };
+  return async.done({ ui });
 });

@@ -740,5 +740,6 @@ export const init = async.all([init_db,
     return out;
   };
 
+
   return async.done({ get_all_tabs, on_tab_open, on_tab_close });
 });

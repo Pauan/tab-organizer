@@ -1,51 +1,51 @@
 import * as dom from "../../dom";
-import { map, each } from "../../../util/iterator";
-import { Record } from "../../../util/mutable/record";
-import { always } from "../../../util/ref";
-import { async } from "../../../util/async";
+import * as list from "../../../util/list";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
+import * as record from "../../../util/record";
 import { style_changed, style_icon } from "./common";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_options],
-                          ({ get, get_default }) => {
+export const init = async.all([init_options],
+                              ({ get, get_default }) => {
 
-  const style_radio = dom.style({
-    "display": always("inline-block"),
-    "border-width": always("1px"),
-    "border-radius": always("5px"),
-    "padding": always("1px 0px"),
+  const style_radio = dom.make_style({
+    "display": ref.always("inline-block"),
+    "border-width": ref.always("1px"),
+    "border-radius": ref.always("5px"),
+    "padding": ref.always("1px 0px"),
   });
 
-  const style_label = dom.style({
-    "cursor": always("pointer"),
-    "padding": always("1px 4px"),
+  const style_label = dom.make_style({
+    "cursor": ref.always("pointer"),
+    "padding": ref.always("1px 4px"),
   });
 
   let radio_id = 0;
 
-  const radio_item = (radio_name, ref, { name, value }) =>
+  const radio_item = (radio_name, opt, { name, value }) =>
     dom.label((e) => [
-      e.set_style(dom.row, always(true)),
-      e.set_style(style_label, always(true)),
+      dom.add_style(e, dom.row),
+      dom.add_style(e, style_label),
 
-      e.children([
+      dom.children(e, [
         dom.radio((e) => [
-          e.set_style(style_icon, always(true)),
+          dom.add_style(e, style_icon),
 
-          e.name(always(radio_name)),
+          dom.name(e, ref.always(radio_name)),
 
-          e.checked(ref.map((x) => x === value)),
+          dom.checked(e, ref.map(opt, (x) => x === value)),
 
-          e.on_change((checked) => {
+          dom.on_change(e, (checked) => {
             if (checked) {
-              ref.set(value);
+              ref.set(opt, value);
             }
           })
         ]),
 
         dom.text((e) => [
-          e.value(always(name))
+          dom.value(e, ref.always(name))
         ])
       ])
     ]);
@@ -54,26 +54,26 @@ export const init = async([init_options],
   const radio = (name, items) => {
     const radio_name = "__radio" + (++radio_id);
 
-    const ref = get(name);
+    const opt = get(name);
     const def = get_default(name);
 
-    const values = new Record();
+    const values = record.make();
 
-    each(items, ({ name, value }) => {
-      values.insert(value, name);
+    list.each(items, ({ name, value }) => {
+      record.insert(values, value, name);
     });
 
     return dom.parent((e) => [
-      e.set_style(style_radio, always(true)),
-      e.set_style(style_changed, ref.map((x) => x !== def)),
+      dom.add_style(e, style_radio),
+      dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
 
-      e.tooltip(always("Default: " + values.get(def))),
+      dom.tooltip(e, ref.always("Default: " + record.get(values, def))),
 
       // TODO a little hacky
-      e.children(always(map(items, (x) => radio_item(radio_name, ref, x))))
+      dom.children(e, list.map(items, (x) => radio_item(radio_name, opt, x)))
     ]);
   };
 
 
-  return { radio };
+  return async.done({ radio });
 });

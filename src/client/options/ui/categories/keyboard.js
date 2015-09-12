@@ -1,11 +1,11 @@
 import * as dom from "../../../dom";
-import { async } from "../../../../util/async";
-import { always } from "../../../../util/ref";
+import * as async from "../../../../util/async";
+import * as ref from "../../../../util/ref";
 import { chrome } from "../../../../common/globals";
 import { category, row, text } from "../common";
 
 
-export const init = async([], () => {
+export const init = async.all([], () => {
 
   // TODO it's gross to hardcode this
   // TODO can I rely on this URL not changing ?
@@ -23,8 +23,8 @@ export const init = async([], () => {
     });
   };
 
-  const style_link = dom.style({
-    "cursor": always("auto"),
+  const style_link = dom.make_style({
+    "cursor": ref.always("auto"),
   });
 
   const ui_keyboard = () =>
@@ -33,15 +33,15 @@ export const init = async([], () => {
 
       dom.link((e) => [
         // TODO a little bit hacky
-        e.set_style(style_link, always(true)),
+        dom.add_style(e, style_link),
 
-        e.target(always("_blank")),
-        e.value(always("here")),
-        e.url(always(keyboard_shortcut_url)),
+        dom.target(e, ref.always("_blank")),
+        dom.value(e, ref.always("here")),
+        dom.url(e, ref.always(keyboard_shortcut_url)),
 
         // TODO hacky, but needed to work around a security restriction in Chrome
-        e.on_left_click(open_keyboard_url),
-        e.on_middle_click(open_keyboard_url)
+        dom.on_left_click(e, open_keyboard_url),
+        dom.on_middle_click(e, open_keyboard_url)
       ]),
 
       text(" to configure a keyboard shortcut for opening the popup"),
@@ -54,5 +54,5 @@ export const init = async([], () => {
     ]);
 
 
-  return { ui };
+  return async.done({ ui });
 });

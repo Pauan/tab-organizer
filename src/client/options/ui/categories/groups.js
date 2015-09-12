@@ -1,5 +1,4 @@
-import * as dom from "../../../dom";
-import { async } from "../../../../util/async";
+import * as async from "../../../../util/async";
 import { category, header, indent,
          row, text, separator } from "../common";
 import { init as init_radio } from "../radio";
@@ -7,12 +6,12 @@ import { init as init_textbox } from "../textbox";
 import { init as init_dropdown } from "../dropdown";
 
 
-export const init = async([init_radio,
-                           init_textbox,
-                           init_dropdown],
-                          ({ radio },
-                           { textbox },
-                           { dropdown }) => {
+export const init = async.all([init_radio,
+                               init_textbox,
+                               init_dropdown],
+                              ({ radio },
+                               { textbox },
+                               { dropdown }) => {
 
   const ui = () =>
     category("Groups", [
@@ -64,5 +63,5 @@ export const init = async([init_radio,
     ]);
 
 
-  return { ui };
+  return async.done({ ui });
 });
