@@ -1,21 +1,22 @@
 import * as dom from "../../dom";
-import { async } from "../../../util/async";
-import { always } from "../../../util/ref";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
+import * as stream from "../../../util/stream";
 import { init as init_group } from "./group";
 import { init as init_options } from "../../sync/options";
 
 
-export const init = async([init_group,
-                           init_options],
-                          ({ group: ui_group },
-                           { get: opt }) => {
+export const init = async.all([init_group,
+                               init_options],
+                              ({ group: ui_group },
+                               { get: opt }) => {
 
-  const style_group_list = dom.style({
+  const style_group_list = dom.make_style({
     // TODO really hacky
     // This has to match with the height of the search bar
-    "height": always("calc(100% - 24px)"),
+    "height": ref.always("calc(100% - 24px)"),
 
-    "padding": opt("groups.layout").map((x) => {
+    "padding": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "9px 9px 9px 9px";
@@ -27,11 +28,11 @@ export const init = async([init_group,
       }
     }),
 
-    "overflow": always("auto"),
+    "overflow": ref.always("auto"),
   });
 
-  const style_group_children = dom.style({
-    "overflow": opt("groups.layout").map((x) => {
+  const style_group_children = dom.make_style({
+    "overflow": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
       case "horizontal":
@@ -41,9 +42,9 @@ export const init = async([init_group,
       }
     }),
 
-    "width": always("100%"),
+    "width": ref.always("100%"),
 
-    "height": opt("groups.layout").map((x) => {
+    "height": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
       case "horizontal":
@@ -53,7 +54,7 @@ export const init = async([init_group,
       }
     }),
 
-    "padding": opt("groups.layout").map((x) => {
+    "padding": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "0px 190px 0px 0px"
@@ -62,7 +63,7 @@ export const init = async([init_group,
       }
     }),
 
-    "justify-content": opt("groups.layout").map((x) => {
+    "justify-content": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         // TODO the animation when inserting a new group is slightly janky
@@ -82,38 +83,39 @@ export const init = async([init_group,
 
   // "grid" layout is neither horizontal nor vertical,
   // because it uses "float: left"
-  const is_horizontal = opt("groups.layout").map((x) => x === "horizontal");
+  const is_horizontal = ref.map(opt("groups.layout"), (x) =>
+                          (x === "horizontal"));
 
 
   const group_list = (groups) =>
     dom.parent((e) => [
-      //e.set_style(dom.stretch, always(true)),
-      e.set_style(style_group_list, always(true)),
+      //dom.add_style(e, dom.stretch),
+      dom.add_style(e, style_group_list),
 
-      e.set_scroll({
+      dom.set_scroll(e, {
         // TODO a little hacky
-        x: always(scroll_x),
+        x: ref.always(scroll_x),
         // TODO a little hacky
-        y: always(scroll_y)
+        y: ref.always(scroll_y)
       }),
 
       // TODO should it also save the current scroll after using the search box ?
-      e.on_scroll(({ x, y }) => {
+      dom.on_scroll(e, ({ x, y }) => {
         localStorage["popup.scroll.x"] = "" + x;
         localStorage["popup.scroll.y"] = "" + y;
       }),
 
       // TODO this is pretty hacky, but I don't know a better way to make it work
-      e.children([
+      dom.children(e, [
         dom.parent((e) => [
-          e.set_style(dom.row, is_horizontal),
-          e.set_style(style_group_children, always(true)),
+          dom.toggle_style(e, dom.row, is_horizontal),
+          dom.add_style(e, style_group_children),
 
-          e.stream(groups.map(ui_group))
+          dom.stream(e, stream.map(groups, ui_group))
         ])
       ])
     ]);
 
 
-  return { group_list };
+  return async.done({ group_list });
 });

@@ -687,11 +687,12 @@ const _get_animations = (dom, fill, f) => {
   return out;
 };
 
-export const toggle_visible = (dom, x) =>
-  ref.listen(x, (x) => {
+export const toggle_visible = (dom, x) => {
+  let first = true;
+
+  return ref.listen(x, (x) => {
     if (x) {
-      // TODO handle first ?
-      assert(dom._visible === false);
+      assert(first || dom._visible === false);
       dom._visible = true;
       set_style_value(dom._dom["style"], "display", null);
 
@@ -700,7 +701,10 @@ export const toggle_visible = (dom, x) =>
       dom._visible = false;
       set_style_value(dom._dom["style"], "display", "none");
     }
+
+    first = false;
   });
+};
 
 // TODO does this trigger a relayout ?
 export const set_tooltip = (dom, x) =>
@@ -714,7 +718,7 @@ export const set_tooltip = (dom, x) =>
 
 // TODO test this
 export const style = (dom, o) => {
-  const stops = set.make();
+  const stops = list.make();
 
   record.each(o, (key, x) => {
     /*
@@ -737,7 +741,7 @@ export const style = (dom, o) => {
     }*/
 
     // TODO a little hacky
-    set.insert(stops, ref.listen(x, (x) => {
+    list.push(stops, ref.listen(x, (x) => {
       // TODO test this
       set_style_value(dom._dom["style"], key, x);
     }));
@@ -746,7 +750,7 @@ export const style = (dom, o) => {
   return running.make(() => {
     // TODO a little hacky
     // TODO test this
-    set.each(stops, running.stop);
+    list.each(stops, running.stop);
   });
 };
 
@@ -1040,9 +1044,6 @@ export const children = (dom, x) => {
       _clear(dom);
 
       if (x !== null) {
-        // TODO a tiny bit hacky
-        assert(Array["isArray"](x));
-
         list.each(x, (x) => {
           _push(dom, x);
         });

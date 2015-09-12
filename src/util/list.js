@@ -1,9 +1,9 @@
 import { assert, fail } from "./assert";
 import { insert as _insert, remove as _remove,
-         check_index, size, index_in_range, get_index,
+         check_index, size as _size, index_in_range, get_index,
          index_of, clear, each, map, all, join,
-         push } from "./array";
-export { size, index_of, clear, each, map, all,
+         push, check_array } from "./array";
+export { index_of, clear, each, map, all,
          join, push } from "./array";
 
 
@@ -21,6 +21,11 @@ export const has = (x, index) => {
   }
 
   return index_in_range(index, len);
+};
+
+export const size = (x) => {
+  check_array(x);
+  return _size(x);
 };
 
 export const get = (x, i) => {

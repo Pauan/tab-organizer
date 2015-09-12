@@ -1,14 +1,15 @@
+import * as record from "../../../util/record";
 import { make } from "../logic/sorted";
 import { get_group_name, get_group_time } from "../logic/time";
 
 
 const get_time = (tab) => {
-  const time = tab.get("time");
+  const time = record.get(tab, "time");
 
-  if (time.has("focused")) {
-    return time.get("focused");
+  if (record.has(time, "focused")) {
+    return record.get(time, "focused");
   } else {
-    return time.get("created");
+    return record.get(time, "created");
   }
 };
 
@@ -24,9 +25,11 @@ export const init = make({
 
   get_group_name: get_group_name,
 
+  // TODO replace with numeric sort function
   sort_groups: (x, y) =>
     y - x,
 
+  // TODO replace with numeric sort function
   sort_tabs: (x, y) =>
     get_time(y) - get_time(x)
 });

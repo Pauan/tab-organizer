@@ -1,28 +1,19 @@
+import * as record from "../../../util/record";
+import * as ref from "../../../util/ref";
+import * as functions from "../../../util/functions";
 import { make } from "../logic/sorted";
-import { lowercase } from "../../../util/string";
+import { lowercase, sort } from "../../../util/string";
 import { simplify, parse } from "../../../util/url";
 
-
-// TODO code duplication
-// TODO move this into another module
-const sort = (x, y) => {
-  if (x === y) {
-    return 0;
-  } else if (x < y) {
-    return -1;
-  } else {
-    return 1;
-  }
-};
 
 const get_url = (tab) =>
   // TODO is this correct? maybe it shouldn't lowercase ?
   // TODO this should probably sort based upon the minified URL
-  lowercase(tab.get("url").get());
+  lowercase(ref.get(record.get(tab, "url")));
 
 // TODO code duplication
 const get_time = (tab) =>
-  tab.get("time").get("created");
+  record.get(record.get(tab, "time"), "created");
 
 const get_name = (parsed) => {
   if (parsed !== null) {
@@ -30,7 +21,8 @@ const get_name = (parsed) => {
       return "chrome://";
 
     } else {
-      return parsed.protocol + parsed.separator + parsed.authority + parsed.domain + parsed.port;
+      return parsed.protocol + parsed.separator + parsed.authority +
+             parsed.domain + parsed.port;
     }
 
   } else {
@@ -40,7 +32,7 @@ const get_name = (parsed) => {
 
 export const init = make({
   get_group_data: (tab) => {
-    const url = tab.get("url");
+    const url = record.get(tab, "url");
 
     const parsed = (url !== null
                        // TODO this should use the same function that "url-bar.js" uses, but it's faster to use `simplify`
@@ -55,8 +47,7 @@ export const init = make({
     };
   },
 
-  // TODO code duplication
-  get_group_name: (data) => data,
+  get_group_name: functions.self,
 
   sort_groups: (x, y) =>
     (x === "chrome://"
@@ -67,5 +58,7 @@ export const init = make({
 
   sort_tabs: (x, y) =>
     // TODO test this
-    sort(get_url(x), get_url(y)) || get_time(x) - get_time(y)
+    sort(get_url(x), get_url(y)) ||
+    // TODO use numeric sort function
+    get_time(x) - get_time(y)
 });

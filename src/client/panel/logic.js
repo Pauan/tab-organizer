@@ -1,6 +1,9 @@
-import { async } from "../../util/async";
-import { Ref } from "../../util/ref";
-import { each, indexed, first, reverse } from "../../util/iterator";
+import * as list from "../../util/list";
+import * as record from "../../util/record";
+import * as stream from "../../util/stream";
+import * as async from "../../util/async";
+import * as maybe from "../../util/maybe";
+import * as ref from "../../util/ref";
 import { assert, fail } from "../../util/assert";
 import { init as init_tabs } from "../sync/tabs";
 import { init as init_options } from "../sync/options";
@@ -11,27 +14,27 @@ import { init as init_sort_by_title } from "./sort/title";
 import { init as init_sort_by_url } from "./sort/url";
 
 
-export const init = async([init_tabs,
-                           init_options,
-                           init_sort_by_window,
-                           init_sort_by_created,
-                           init_sort_by_focused,
-                           init_sort_by_title,
-                           init_sort_by_url],
-                          (tabs,
-                           { get: opt },
-                           { make: make_sort_by_window },
-                           { make: make_sort_by_created },
-                           { make: make_sort_by_focused },
-                           { make: make_sort_by_title },
-                           { make: make_sort_by_url }) => {
+export const init = async.all([init_tabs,
+                               init_options,
+                               init_sort_by_window,
+                               init_sort_by_created,
+                               init_sort_by_focused,
+                               init_sort_by_title,
+                               init_sort_by_url],
+                              (tabs,
+                               { get: opt },
+                               { make: make_sort_by_window },
+                               { make: make_sort_by_created },
+                               { make: make_sort_by_focused },
+                               { make: make_sort_by_title },
+                               { make: make_sort_by_url }) => {
 
-  /*const get_groups = new Ref((tab) => {
+  /*const get_groups = ref.make((tab) => {
     const title = tab.get("title").value;
     return [title ? title[0] : ""];
   });*/
 
-  /*const sort_tab = new Ref((tab1, tab2) => {
+  /*const sort_tab = ref.make((tab1, tab2) => {
     const title1 = tab1.get("title").value;
     const title2 = tab2.get("title").value;
 
@@ -49,9 +52,9 @@ export const init = async([init_tabs,
 
   const click_tab = (group, tab) => {
     // TODO ew
-    switch (opt("tabs.click.type").get()) {
+    switch (ref.get(opt("tabs.click.type"))) {
     case "select-focus":
-      if (tab.get("selected").get()) {
+      if (ref.get(record.get(tab, "selected"))) {
         focus_tab(tab);
 
       } else {
@@ -61,7 +64,7 @@ export const init = async([init_tabs,
       break;
 
     case "focus":
-      if (!tab.get("selected").get()) {
+      if (!ref.get(record.get(tab, "selected"))) {
         deselect_group(group);
       }
 
@@ -75,47 +78,47 @@ export const init = async([init_tabs,
 
 
   const deselect_group = (group) => {
-    group.update("first-selected-tab", null);
+    record.update(group, "first-selected-tab", null);
 
-    each(group.get("tabs"), (tab) => {
-      tab.get("selected").set(false);
+    list.each(stream.current(record.get(group, "tabs")), (tab) => {
+      ref.set(record.get(tab, "selected"), false);
     });
   };
 
   const select_tab = (group, tab) => {
-    assert(group.get("first-selected-tab") === null);
-    assert(tab.get("selected").get() === false);
+    assert(record.get(group, "first-selected-tab") === null);
+    assert(ref.get(record.get(tab, "selected")) === false);
 
-    group.update("first-selected-tab", tab);
+    record.update(group, "first-selected-tab", tab);
 
-    tab.get("selected").set(true);
+    ref.set(record.get(tab, "selected"), true);
   };
 
   const ctrl_select_tab = (group, tab) => {
-    tab.get("selected").modify((selected) => {
+    ref.modify(record.get(tab, "selected"), (selected) => {
       if (selected) {
-        group.update("first-selected-tab", null);
+        record.update(group, "first-selected-tab", null);
         return false;
 
       } else {
-        group.update("first-selected-tab", tab);
+        record.update(group, "first-selected-tab", tab);
         return true;
       }
     });
   };
 
   const shift_select_tab = (group, tab) => {
-    const selected_tab = group.get("first-selected-tab");
+    const selected_tab = record.get(group, "first-selected-tab");
 
     if (selected_tab === null) {
-      group.update("first-selected-tab", tab);
+      record.update(group, "first-selected-tab", tab);
 
-      tab.get("selected").set(true);
+      ref.set(record.get(tab, "selected"), true);
 
 
     } else if (tab === selected_tab) {
-      each(group.get("tabs"), (x) => {
-        x.get("selected").set(x === tab);
+      list.each(stream.current(record.get(group, "tabs")), (x) => {
+        ref.set(record.get(x, "selected"), x === tab);
       });
 
 
@@ -123,16 +126,16 @@ export const init = async([init_tabs,
     } else {
       let seen = 0;
 
-      each(group.get("tabs"), (x) => {
+      list.each(stream.current(record.get(group, "tabs")), (x) => {
         if (x === tab || x === selected_tab) {
-          x.get("selected").set(true);
+          ref.set(record.get(x, "selected"), true);
           ++seen;
 
         } else if (seen === 1) {
-          x.get("selected").set(true);
+          ref.set(record.get(x, "selected"), true);
 
         } else {
-          x.get("selected").set(false);
+          ref.set(record.get(x, "selected"), false);
         }
       });
     }
@@ -148,8 +151,8 @@ export const init = async([init_tabs,
 
   const get_direction_group = (group) => {
     // TODO is there a better way than using indexes ?
-    const old_index = drag_info.group.get("index");
-    const new_index = group.get("index");
+    const old_index = record.get(drag_info.group, "index");
+    const new_index = record.get(group, "index");
 
     assert(old_index !== null);
     assert(new_index !== null);
@@ -159,8 +162,8 @@ export const init = async([init_tabs,
 
   const get_direction_tab = (tab) => {
     // TODO is there a better way than using indexes ?
-    const old_index = drag_info.tab.get("index");
-    const new_index = tab.get("index");
+    const old_index = record.get(drag_info.tab, "index");
+    const new_index = record.get(tab, "index");
 
     assert(old_index !== null);
     assert(new_index !== null);
@@ -181,29 +184,30 @@ export const init = async([init_tabs,
   };
 
   const find_first = (group) => {
-    const tabs = group.get("tabs");
+    const tabs = record.get(group, "tabs");
 
-    const m = first(tabs, (tab) => tab.get("visible").get());
+    const m = list.find_first(stream.current(tabs), (tab) =>
+                ref.get(record.get(tab, "visible")));
 
-    if (m.has()) {
-      return m.get();
+    if (maybe.has(m)) {
+      return maybe.get(m);
     } else {
       // TODO is it guaranteed that the group has tabs in it ?
-      return tabs.get(0);
+      return list.get(stream.current(tabs), 0);
     }
   };
 
   const find_last = (group) => {
-    const tabs = group.get("tabs");
+    const tabs = record.get(group, "tabs");
 
-    // TODO inefficient
-    const m = first(reverse(tabs), (tab) => tab.get("visible").get());
+    const m = list.find_last(stream.current(tabs), (tab) =>
+                ref.get(record.get(tab, "visible")));
 
-    if (m.has()) {
-      return m.get();
+    if (maybe.has(m)) {
+      return maybe.get(m);
     } else {
       // TODO is it guaranteed that the group has tabs in it ?
-      return tabs.get(-1);
+      return list.get(stream.current(tabs), -1);
     }
   };
 
@@ -212,16 +216,16 @@ export const init = async([init_tabs,
     let top   = 0;
     let empty = true;
 
-    each(group.get("tabs"), (x) => {
+    list.each(stream.current(record.get(group, "tabs")), (x) => {
       // TODO a bit hacky
       if (drag_info.tab === x && drag_info.direction === "up") {
         top += drag_info.height;
       }
 
       // TODO a little bit hacky
-      if (x.get("visible").get()) {
-        x.get("animate").set(drag_info.animate);
-        x.get("top").set(top + "px");
+      if (ref.get(record.get(x, "visible"))) {
+        ref.set(record.get(x, "animate"), drag_info.animate);
+        ref.set(record.get(x, "top"), top + "px");
 
         top += 20; // TODO gross
         empty = false;
@@ -237,16 +241,16 @@ export const init = async([init_tabs,
       top += 20; // TODO gross
     }
 
-    group.get("height").set(top + "px");
+    ref.set(record.get(group, "height"), top + "px");
   };
 
   const stop_dragging = (group) => {
-    each(group.get("tabs"), (x) => {
-      x.get("animate").set(false);
-      x.get("top").set(null);
+    list.each(stream.current(record.get(group, "tabs")), (x) => {
+      ref.set(record.get(x, "animate"), false);
+      ref.set(record.get(x, "top"), null);
     });
 
-    group.get("height").set(null);
+    ref.set(record.get(group, "height"), null);
   };
 
   const drag_onto_tab = (new_group, new_tab) => {
@@ -301,7 +305,7 @@ export const init = async([init_tabs,
     };
 
     // TODO hacky
-    each(group_type.get().groups, (group) => {
+    list.each(stream.current(ref.get(group_type).groups), (group) => {
       update_dragging(group);
     });
   };
@@ -313,12 +317,12 @@ export const init = async([init_tabs,
     drag_info = null;
 
     // TODO hacky
-    each(group_type.get().groups, (group) => {
+    list.each(stream.current(ref.get(group_type).groups), (group) => {
       stop_dragging(group);
     });
 
 
-    const index1 = info.tab.get("index");
+    const index1 = record.get(info.tab, "index");
 
     assert(index1 !== null);
 
@@ -326,23 +330,23 @@ export const init = async([init_tabs,
                      ? index1 + 1
                      : index1);
 
-    /*const tabs = info.group.get("tabs");
+    /*const tabs = record.get(info.group, "tabs");
 
-    each(indexed(selected), ([i, x]) => {
+    list.each(selected, (x, i) => {
       // TODO hacky
-      const old_window = x.get("window");
-      const old_index = x.get("index");
-      const old_tabs = old_window.get("tabs");
+      const old_window = record.get(x, "window");
+      const old_index = record.get(x, "index");
+      const old_tabs = record.get(old_window, "tabs");
 
       // TODO hacky
-      x.update("window", info.group);
+      record.update(x, "window", info.group);
 
-      old_tabs.remove(old_index);
+      stream.remove(old_tabs, old_index);
 
       if (old_tabs === tabs && old_index < index2) {
-        tabs.insert(index2 - 1, x);
+        stream.insert(tabs, index2 - 1, x);
       } else {
-        tabs.insert(index2 + i, x);
+        stream.insert(tabs, index2 + i, x);
       }
 
       // TODO inefficient
@@ -352,13 +356,13 @@ export const init = async([init_tabs,
     update_tabs(tabs, false);*/
 
 
-    /*port.send({
+    /*ports.send(port, record.make({
       "type": "move-tabs",
       // TODO hacky
-      "window": info.group.get("id"),
-      "tabs": to_array(map(selected, (tab) => tab.get("id"))),
+      "window": record.get(info.group, "id"),
+      "tabs": list.map(selected, (tab) => record.get(tab, "id")),
       "index": index2
-    });*/
+    }));*/
   };
 
 
@@ -368,11 +372,11 @@ export const init = async([init_tabs,
 
 
   // TODO a little bit hacky
-  const group_type = new Ref(null);
+  const group_type = ref.make(null);
 
   // TODO handle stop somehow ?
-  opt("group.sort.type").each((type) => {
-    const x = group_type.get();
+  ref.listen(opt("group.sort.type"), (type) => {
+    const x = ref.get(group_type);
 
     // TODO test this
     if (x !== null) {
@@ -380,19 +384,19 @@ export const init = async([init_tabs,
     }
 
     if (type === "window") {
-      group_type.set(make_sort_by_window());
+      ref.set(group_type, make_sort_by_window());
 
     } else if (type === "created") {
-      group_type.set(make_sort_by_created());
+      ref.set(group_type, make_sort_by_created());
 
     } else if (type === "focused") {
-      group_type.set(make_sort_by_focused());
+      ref.set(group_type, make_sort_by_focused());
 
     } else if (type === "title") {
-      group_type.set(make_sort_by_title());
+      ref.set(group_type, make_sort_by_title());
 
     } else if (type === "url") {
-      group_type.set(make_sort_by_url());
+      ref.set(group_type, make_sort_by_url());
 
     } else {
       fail();
@@ -400,7 +404,7 @@ export const init = async([init_tabs,
   });
 
 
-  return { group_type, close_tabs, click_tab, drag_start, drag_end,
-           focus_tab, shift_select_tab, ctrl_select_tab,
-           drag_onto_tab, drag_onto_group };
+  return async.done({ group_type, close_tabs, click_tab, drag_start, drag_end,
+                      focus_tab, shift_select_tab, ctrl_select_tab,
+                      drag_onto_tab, drag_onto_group });
 });

@@ -1,3 +1,4 @@
+import * as list from "../../../util/list";
 import { difference, round_to_hour, current_time } from "../../../util/time";
 import { plural } from "../../../util/string";
 
@@ -9,25 +10,25 @@ const diff_to_text = ({ year, week, day, hour }) => {
     return "Less than an hour ago";
 
   } else {
-    const out = [];
+    const out = list.make();
 
     if (year > 0) {
-      out["push"](plural(year, " year"));
+      list.push(out, plural(year, " year"));
     }
 
     if (week > 0) {
-      out["push"](plural(week, " week"));
+      list.push(out, plural(week, " week"));
     }
 
     if (day > 0) {
-      out["push"](plural(day, " day"));
+      list.push(out, plural(day, " day"));
     }
 
     if (hour > 0) {
-      out["push"](plural(hour, " hour"));
+      list.push(out, plural(hour, " hour"));
     }
 
-    return out["join"](" ") + " ago";
+    return list.join(out, " ") + " ago";
   }
 };
 

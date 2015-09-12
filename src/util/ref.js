@@ -144,11 +144,12 @@ const listen_first = (x, f) => {
 
     first = false;
 
-    running.stop(runner);
     f(value);
   });
 
   assert(!first);
+
+  running.stop(runner);
 
   return running.noop;
 };

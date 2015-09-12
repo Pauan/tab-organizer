@@ -85,7 +85,7 @@ const types = record.make({
     timer.done(duration);
     console["debug"]("tabs: initialized (" + timer.diff(duration) + "ms)");
 
-    async.success(out, { windows, events, focus_tab, close_tabs });
+    async.success(init, { windows, events, focus_tab, close_tabs });
   },
 
   "tab-open": (json) => {
@@ -102,12 +102,12 @@ const types = record.make({
 
     list.insert(tabs, index, tab);
 
-    event.send(events, record.make({
-      "type": "tab-open",
-      "window": window,
-      "tab": tab,
-      "index": index
-    }));
+    event.send(events, {
+      type: "tab-open",
+      window,
+      tab,
+      index
+    });
   },
 
   "tab-focus": (json) => {
@@ -120,10 +120,10 @@ const types = record.make({
     // TODO test this
     record.assign(record.get(tab, "time"), "focused", time_focused);
 
-    event.send(events, record.make({
-      "type": "tab-focus",
-      "tab": tab
-    }));
+    event.send(events, {
+      type: "tab-focus",
+      tab
+    });
   },
 
   "tab-unfocus": (json) => {
@@ -133,10 +133,10 @@ const types = record.make({
 
     record.update(tab, "focused", false);
 
-    event.send(events, record.make({
-      "type": "tab-unfocus",
-      "tab": tab
-    }));
+    event.send(events, {
+      type: "tab-unfocus",
+      tab
+    });
   },
 
   "tab-update": (json) => {
@@ -166,11 +166,11 @@ const types = record.make({
     record.update(tab, "pinned", pinned);
     record.update(tab, "time", record.make(time));
 
-    event.send(events, record.make({
-      "type": "tab-update",
-      "tab": tab,
-      "old": old
-    }));
+    event.send(events, {
+      type: "tab-update",
+      tab,
+      old
+    });
   },
 
   "tab-move": (json) => {
@@ -197,14 +197,14 @@ const types = record.make({
     list.remove(old_tabs, old_index);
     list.insert(new_tabs, new_index, tab);
 
-    event.send(events, record.make({
-      "type": "tab-move",
-      "tab": tab,
-      "old_window": old_window,
-      "new_window": new_window,
-      "old_index": old_index,
-      "new_index": new_index
-    }));
+    event.send(events, {
+      type: "tab-move",
+      tab,
+      old_window,
+      new_window,
+      old_index,
+      new_index
+    });
   },
 
   "tab-close": (json) => {
@@ -224,12 +224,12 @@ const types = record.make({
 
     list.remove(tabs, index);
 
-    event.send(events, record.make({
-      "type": "tab-close",
-      "window": window,
-      "tab": tab,
-      "index": index
-    }));
+    event.send(events, {
+      type: "tab-close",
+      window,
+      tab,
+      index
+    });
   },
 
   "window-open": (json) => {
@@ -244,11 +244,11 @@ const types = record.make({
 
     list.insert(windows, index, window);
 
-    event.send(events, record.make({
-      "type": "window-open",
-      "window": window,
-      "index": index
-    }));
+    event.send(events, {
+      type: "window-open",
+      window,
+      index
+    });
   },
 
   "window-close": (json) => {
@@ -265,11 +265,11 @@ const types = record.make({
 
     list.remove(windows, index);
 
-    event.send(events, record.make({
-      "type": "window-close",
-      "window": window,
-      "index": index
-    }));
+    event.send(events, {
+      type: "window-close",
+      window,
+      index
+    });
   }
 });
 

@@ -5,7 +5,7 @@ import { assert, fail } from "./assert";
 // TODO is this correct ?
 export const get_sorted = (array, key, sort) => {
   let start = 0;
-  let end   = array["length"];
+  let end   = size(array);
 
   while (start < end) {
     // TODO is this faster/slower than using Math.floor ?
@@ -48,7 +48,7 @@ export const is_sorted = (list, index, len, sort) => {
 
 // TODO is this correct ?
 export const is_all_sorted = (list, sort) => {
-  const len = list["length"] - 1;
+  const len = size(list) - 1;
 
   let index = 0;
 
@@ -71,6 +71,8 @@ export const is_all_sorted = (list, sort) => {
 
 
 export const index_of = (array, value) => {
+  check_array(array);
+
   const index = array["indexOf"](value);
 
   if (index === -1) {
@@ -85,6 +87,7 @@ export const size = (array) =>
   array["length"];
 
 export const clear = (array) => {
+  check_array(array);
   array["length"] = 0;
 };
 
@@ -94,6 +97,10 @@ export const index_in_range = (index, len) =>
 
 export const check_index = (index) => {
   assert(typeof index === "number");
+};
+
+export const check_array = (x) => {
+  assert(Array["isArray"](x));
 };
 
 export const get_index = (index, len) => {
@@ -143,20 +150,26 @@ export const remove = (array, index) => {
 };
 
 export const push = (array, value) => {
+  check_array(array);
+
   array["push"](value);
 };
 
 
 export const each = (array, f) => {
-  for (let i = 0; i < array["length"]; ++i) {
+  check_array(array);
+
+  for (let i = 0; i < size(array); ++i) {
     f(array[i], i);
   }
 };
 
 export const map = (array, f) => {
-  const out = new Array(array["length"]);
+  check_array(array);
 
-  for (let i = 0; i < array["length"]; ++i) {
+  const out = new Array(size(array));
+
+  for (let i = 0; i < size(array); ++i) {
     out[i] = f(array[i], i);
   }
 
@@ -166,7 +179,7 @@ export const map = (array, f) => {
 /*export const keep = (array, f) => {
   const out = [];
 
-  for (let i = 0; i < array["length"]; ++i) {
+  for (let i = 0; i < size(array); ++i) {
     if (f(array[i], i)) {
       out["push"](array[i]);
     }
@@ -180,7 +193,7 @@ export const map = (array, f) => {
 // http://jsperf.com/array-reverse-function
 export const reverse = (array) => {
   let left  = 0;
-  let right = array["length"] - 1;
+  let right = size(array) - 1;
   while (left <= right) {
     const tmp = array[left];
     array[left] = array[right];
@@ -192,7 +205,9 @@ export const reverse = (array) => {
 };*/
 
 export const find_first = (array, f) => {
-  for (let i = 0; i < array["length"]; ++i) {
+  check_array(array);
+
+  for (let i = 0; i < size(array); ++i) {
     if (f(array[i], i)) {
       return maybe.some(array[i]);
     }
@@ -202,7 +217,9 @@ export const find_first = (array, f) => {
 };
 
 export const find_last = (array, f) => {
-  for (let i = array["length"] - 1; i >= 0; --i) {
+  check_array(array);
+
+  for (let i = size(array) - 1; i >= 0; --i) {
     if (f(array[i], i)) {
       return maybe.some(array[i]);
     }
@@ -223,12 +240,12 @@ export const all = (array, f) =>
   let index = 0;
 
   for (;;) {
-    const a = new Array(array["length"]);
+    const a = new Array(size(array));
 
-    for (let i = 0; i < array["length"]; ++i) {
+    for (let i = 0; i < size(array); ++i) {
       const x = array[i];
 
-      if (index < x["length"]) {
+      if (index < size(x)) {
         a[i] = x[index];
 
       } else {
@@ -241,5 +258,7 @@ export const all = (array, f) =>
   }
 };*/
 
-export const join = (x, s = "") =>
-  x["join"](s);
+export const join = (x, s = "") => {
+  check_array(x);
+  return x["join"](s);
+};

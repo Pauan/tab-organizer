@@ -37,7 +37,7 @@ export const migrate = (db) => {
   const old_version = get_version(db);
 
   if (old_version < version) {
-    list.each(migrators, (db, f) => {
+    list.each(migrators, (f) => {
       f(old_version, db);
     });
 

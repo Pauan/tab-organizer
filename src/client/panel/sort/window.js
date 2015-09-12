@@ -1,104 +1,73 @@
+import * as list from "../../../util/list";
+import * as stream from "../../../util/stream";
+import * as record from "../../../util/record";
+import * as running from "../../../util/running";
+import * as async from "../../../util/async";
+import * as ref from "../../../util/ref";
+import * as event from "../../../util/event";
 import { init as init_tabs } from "../../sync/tabs";
-import { async } from "../../../util/async";
-import { ListStream } from "../../../util/mutable/stream";
-import { Record } from "../../../util/mutable/record";
-import { Ref } from "../../../util/ref";
-import { each, indexed } from "../../../util/iterator";
 import { assert } from "../../../util/assert";
 import { search, value, matches } from "../search/search";
-import { update_groups, update_tabs } from "../logic/general";
+import { make_group, make_tab,
+         update_groups, update_tabs } from "../logic/general";
 
-
-const make_group = (window) =>
-  new Record({
-    // Standard properties
-    "tabs": new ListStream(),
-    "header-name": new Ref(window.get("name")),
-    "focused": new Ref(false),
-    // TODO a little hacky
-    "first-selected-tab": null,
-    "visible": new Ref(true), // TODO is this correct ?
-    "height": new Ref(null),
-    "index": null, // TODO a little bit hacky
-
-    // Non-standard properties
-    "id": window.get("id"),
-    "name": window.get("name"),
-  });
-
-const make_tab = (tab) =>
-  new Record({
-    // Standard properties
-    "url": new Ref(tab.get("url")),
-    "title": new Ref(tab.get("title")),
-    "favicon": new Ref(tab.get("favicon")),
-
-    "focused": new Ref(tab.get("focused")),
-    "unloaded": new Ref(tab.get("unloaded")),
-
-    "selected": new Ref(false),
-    "visible": new Ref(true), // TODO use `matches(tab)` ?
-    "animate": new Ref(false),
-    "top": new Ref(null),
-    "index": null, // TODO a little bit hacky
-
-    // Non-standard properties
-    "id": tab.get("id"),
-  });
 
 // TODO this can be more efficient if it's given a starting index
 // TODO inefficient; this should be combined with `update_groups` in some way
 const update_group_names = (groups) => {
   update_groups(groups);
 
-  each(indexed(groups), ([i, group]) => {
-    if (group.get("name") === null) {
-      group.get("header-name").set("" + (i + 1));
+  list.each(stream.current(groups), (group, i) => {
+    if (record.get(group, "info") === null) {
+      ref.set(record.get(group, "header-name"), "" + (i + 1));
     }
   });
 };
 
 
-export const init = async([init_tabs], ({ windows, on_change }) => {
+export const init = async.all([init_tabs], ({ windows, events }) => {
 
   const make = () => {
-    const groups = new ListStream();
-    const group_ids = new Record();
-    const tab_ids = new Record();
+    const groups = stream.make_list();
+    const group_ids = record.make();
+    const tab_ids = record.make();
 
 
     const new_group = (window) => {
-      const group = make_group(window);
+      const group = make_group(record.get(window, "id"),
+                               record.get(window, "name"),
+                               stream.make_list(),
+                               record.get(window, "name"));
 
-      const tabs = group.get("tabs");
+      const tabs = record.get(group, "tabs");
 
-      each(window.get("tabs"), (tab) => {
-        const x = new_tab(tab);
-        tabs.push(x);
+      list.each(record.get(window, "tabs"), (tab) => {
+        const x = new_tab(group, tab);
+        stream.push(tabs, x);
       });
 
       update_tabs(group);
 
-      group_ids.insert(group.get("id"), group);
+      record.insert(group_ids, record.get(group, "id"), group);
 
       return group;
     };
 
-    const new_tab = (tab) => {
-      const x = make_tab(tab);
+    const new_tab = (group, tab) => {
+      const x = make_tab(group, tab);
 
-      tab_ids.insert(x.get("id"), x);
+      record.insert(tab_ids, record.get(x, "id"), x);
 
       return x;
     };
 
 
-    const types = {
+    const types = record.make({
       "tab-open": ({ tab, window, index }) => {
-        const group = group_ids.get(window.get("id"));
+        const group = record.get(group_ids, record.get(window, "id"));
 
-        const x = new_tab(tab);
-        group.get("tabs").insert(index, x);
+        const x = new_tab(group, tab);
+        stream.insert(record.get(group, "tabs"), index, x);
 
         update_tabs(group);
 
@@ -107,41 +76,41 @@ export const init = async([init_tabs], ({ windows, on_change }) => {
 
 
       "tab-focus": ({ tab }) => {
-        const x = tab_ids.get(tab.get("id"));
+        const x = record.get(tab_ids, record.get(tab, "id"));
 
-        x.get("focused").set(true);
+        ref.set(record.get(x, "focused"), true);
       },
 
 
       "tab-unfocus": ({ tab }) => {
-        const x = tab_ids.get(tab.get("id"));
+        const x = record.get(tab_ids, record.get(tab, "id"));
 
-        x.get("focused").set(false);
+        ref.set(record.get(x, "focused"), false);
       },
 
 
       "tab-update": ({ tab }) => {
-        const x = tab_ids.get(tab.get("id"));
+        const x = record.get(tab_ids, record.get(tab, "id"));
 
-        x.get("url").set(tab.get("url"));
-        x.get("title").set(tab.get("title"));
-        x.get("favicon").set(tab.get("favicon"));
+        ref.set(record.get(x, "url"), record.get(tab, "url"));
+        ref.set(record.get(x, "title"), record.get(tab, "title"));
+        ref.set(record.get(x, "favicon"), record.get(tab, "favicon"));
 
         search(groups);
       },
 
 
       "tab-move": ({ tab, old_window, new_window, old_index, new_index }) => {
-        const old_group = group_ids.get(old_window.get("id"));
-        const new_group = group_ids.get(new_window.get("id"));
-        const old_tabs = old_group.get("tabs");
-        const new_tabs = new_group.get("tabs");
-        const x = tab_ids.get(tab.get("id"));
+        const old_group = record.get(group_ids, record.get(old_window, "id"));
+        const new_group = record.get(group_ids, record.get(new_window, "id"));
+        const old_tabs = record.get(old_group, "tabs");
+        const new_tabs = record.get(new_group, "tabs");
+        const x = record.get(tab_ids, record.get(tab, "id"));
 
-        assert(old_tabs.get(old_index) === x);
+        assert(list.get(stream.current(old_tabs), old_index) === x);
 
-        old_tabs.remove(old_index);
-        new_tabs.insert(new_index, x);
+        stream.remove(old_tabs, old_index);
+        stream.insert(new_tabs, new_index, x);
 
         // TODO test this
         if (old_group === new_group) {
@@ -152,30 +121,37 @@ export const init = async([init_tabs], ({ windows, on_change }) => {
           update_tabs(new_group);
         }
 
+        record.update(x, "group", new_group);
+
         // TODO is this needed ?
         search(groups);
       },
 
 
       "tab-close": ({ tab, window, index }) => {
-        const group = group_ids.get(window.get("id"));
-        const tabs = group.get("tabs");
-        const x = tab_ids.get(tab.get("id"));
+        const group = record.get(group_ids, record.get(window, "id"));
+        const tabs = record.get(group, "tabs");
+        const x = record.get(tab_ids, record.get(tab, "id"));
 
-        tab_ids.remove(x.get("id"));
+        record.update(x, "group", null);
+        record.remove(tab_ids, record.get(x, "id"));
 
-        assert(tabs.get(index) === x);
-        tabs.remove(index);
+        assert(list.get(stream.current(tabs), index) === x);
+        stream.remove(tabs, index);
 
         // TODO what if `tabs.size` is 0 ?
         update_tabs(group);
 
         // This is needed in order for animations to
         // properly play when removing a group
-        if (tabs.size === 0) {
-          group_ids.remove(group.get("id"));
-          // TODO can this be made more efficient ?
-          groups.remove(groups.index_of(group).get());
+        if (list.size(stream.current(tabs)) === 0) {
+          record.remove(group_ids, record.get(group, "id"));
+
+          assert(list.index_of(stream.current(groups), group) ===
+                 record.get(group, "index"));
+
+          stream.remove(groups, record.get(group, "index"));
+
           update_group_names(groups);
         }
 
@@ -187,7 +163,7 @@ export const init = async([init_tabs], ({ windows, on_change }) => {
       "window-open": ({ window, index }) => {
         const group = new_group(window);
 
-        groups.insert(index, group);
+        stream.insert(groups, index, group);
         update_group_names(groups);
 
         search(groups);
@@ -195,34 +171,35 @@ export const init = async([init_tabs], ({ windows, on_change }) => {
 
 
       "window-close": ({ window, index }) => {
-        const id = window.get("id");
+        const id = record.get(window, "id");
 
-        if (group_ids.has(id)) {
-          const group = group_ids.get(id);
+        if (record.has(group_ids, id)) {
+          const group = record.get(group_ids, id);
 
-          group_ids.remove(group.get("id"));
+          record.remove(group_ids, record.get(group, "id"));
 
-          assert(groups.get(index) === group);
-          groups.remove(index);
+          assert(list.get(stream.current(groups), index) === group);
+          stream.remove(groups, index);
 
           update_group_names(groups);
         }
       }
-    };
-
-
-    const stop1 = on_change((x) => {
-      types[x.type](x);
     });
 
-    const stop2 = value.on_change(() => {
+
+    const stop1 = event.on_receive(events, (x) => {
+      record.get(types, x.type)(x);
+    });
+
+    // TODO test this
+    const stop2 = ref.on_change(value, () => {
       search(groups);
     });
 
 
-    each(windows, (window) => {
+    list.each(windows, (window) => {
       const group = new_group(window);
-      groups.push(group);
+      stream.push(groups, group);
     });
 
     update_group_names(groups);
@@ -231,13 +208,13 @@ export const init = async([init_tabs], ({ windows, on_change }) => {
 
     // TODO test this
     const stop = () => {
-      stop1.stop();
-      stop2.stop();
+      running.stop(stop1);
+      running.stop(stop2);
     };
 
     return { groups, stop };
   };
 
 
-  return { make };
+  return async.done({ make });
 });

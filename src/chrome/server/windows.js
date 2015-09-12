@@ -16,7 +16,7 @@ chrome["windows"]["onCreated"]["addListener"]((info) => {
   assert(info["focused"] === false);
 
   if (info["tabs"]) {
-    assert(info["tabs"]["length"] === 0);
+    assert(list.size(info["tabs"]) === 0);
   }
 
   windows.make_window(info, true);

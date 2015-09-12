@@ -8,7 +8,7 @@
     "webpack": "^1.11.0"
   },
   "scripts": {
-    "build": "npm install && webpack --progress -p",
-    "watch": "npm install && webpack --progress --watch"
+    "build": "npm install && webpack -p",
+    "watch": "npm install && webpack --watch"
   }
 }
