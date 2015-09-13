@@ -21,6 +21,7 @@ export const init = async.all([init_db,
                                session) => {
 
   db.include("current.windows", list.make());
+  db.include("current.tag-ids", record.make());
   db.include("current.window-ids", record.make());
   db.include("current.tab-ids", record.make());
 
@@ -168,6 +169,7 @@ export const init = async.all([init_db,
       "current.windows": db.get("current.windows"),
       "current.window-ids": db.get("current.window-ids"),
       "current.tab-ids": db.get("current.tab-ids"),
+      "current.tag-ids": db.get("current.tag-ids"),
       "transient.tab-ids": serialize_transients()
     }));
 
@@ -203,37 +205,52 @@ export const init = async.all([init_db,
     const windows    = db.get("current.windows");
     const window_ids = db.get("current.window-ids");
     const tab_ids    = db.get("current.tab-ids");
+    const tag_ids    = db.get("current.tag-ids");
 
-    const seen = set.make();
 
-    let amount = 0;
+    const windows_seen = set.make();
 
     list.each(windows, (id) => {
       assert(record.has(window_ids, id));
-      set.insert(seen, id);
+      set.insert(windows_seen, id);
     });
+
+
+    const window_tabs_seen = set.make();
 
     record.each(window_ids, (id, window) => {
       assert(record.get(window, "id") === id);
-      list.index_of(windows, id);
-
-      const seen = set.make();
+      assert(set.has(windows_seen, id));
 
       list.each(record.get(window, "tabs"), (id) => {
         assert(record.has(tab_ids, id));
-        set.insert(seen, id);
+        set.insert(window_tabs_seen, id);
       });
     });
 
+
+    const tag_tabs_seen = set.make();
+
+    record.each(tag_ids, (id, tag) => {
+      assert(record.get(tag, "id") === id);
+
+      list.each(record.get(tag, "tabs"), (id) => {
+        assert(record.has(tab_ids, id));
+        set.include(tag_tabs_seen, id);
+      });
+    });
+
+
+    let amount = 0;
+
     record.each(tab_ids, (id, tab) => {
       assert(record.get(tab, "id") === id);
-
-      const window = record.get(window_ids, record.get(tab, "window"));
-
-      list.index_of(record.get(window, "tabs"), id);
+      assert(set.has(window_tabs_seen, id));
+      assert(set.has(tag_tabs_seen, id));
 
       ++amount;
     });
+
 
     timer.done(duration);
     console["debug"]("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
@@ -278,10 +295,9 @@ export const init = async.all([init_db,
     });
   };
 
-  const make_new_tab = (window_id, tab_id, info) => {
+  const make_new_tab = (tab_id, info) => {
     const tab = record.make({
       "id": tab_id,
-      "window": window_id,
       "url": info.url,
       "title": info.title,
       "favicon": info.favicon,
@@ -319,7 +335,7 @@ export const init = async.all([init_db,
         update_tab(tab_id, info, false);
 
       } else {
-        make_new_tab(window_id, tab_id, info);
+        make_new_tab(tab_id, info);
 
         db.write("current.window-ids", (window_ids) => {
           const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -339,7 +355,7 @@ export const init = async.all([init_db,
       "tabs": list.map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
 
-        make_new_tab(window_id, tab_id, tab);
+        make_new_tab(tab_id, tab);
 
         record.insert(transient_tab_ids, tab_id, tab);
 
@@ -484,7 +500,7 @@ export const init = async.all([init_db,
 
     record.insert(transient_tab_ids, tab_id, transient);
 
-    const tab = make_new_tab(window_id, tab_id, transient);
+    const tab = make_new_tab(tab_id, transient);
 
     db.write("current.window-ids", (window_ids) => {
       const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -587,8 +603,6 @@ export const init = async.all([init_db,
 
       db.write("current.tab-ids", (tab_ids) => {
         const tab = record.get(tab_ids, tab_id);
-
-        record.update(tab, "window", new_window_id);
 
         // TODO what if it wasn't moved ?
         const time = update_time(tab, "moved");

@@ -20,6 +20,14 @@ export const insert = (array, value) => {
   }
 };
 
+export const include = (array, value) => {
+  const index = array["indexOf"](value);
+
+  if (index === -1) {
+    push(array, value);
+  }
+};
+
 export const remove = (array, value) => {
   const index = array["indexOf"](value);
 
@@ -27,6 +35,14 @@ export const remove = (array, value) => {
     fail(new Error("Value does not exist in set: " + value));
 
   } else {
+    _remove(array, index);
+  }
+};
+
+export const exclude = (array, value) => {
+  const index = array["indexOf"](value);
+
+  if (index !== -1) {
     _remove(array, index);
   }
 };
