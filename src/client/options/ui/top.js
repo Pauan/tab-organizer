@@ -7,7 +7,7 @@ import { init as init_tabs } from "./categories/tabs";
 import { init as init_button } from "./categories/button";
 import { init as init_keyboard } from "./categories/keyboard";
 import { init as init_popup } from "./categories/popup";
-import { init as init_user_data } from "./categories/user data";
+import { init as init_user_data } from "./categories/user-data";
 
 
 export const init = async.all([init_appearance,
