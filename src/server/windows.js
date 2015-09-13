@@ -417,8 +417,6 @@ export const init = async.all([init_db,
       record.insert(tab_ids, tab_id, tab);
     });
 
-    add_tag_to_tab(tab_id, "", false);
-
     return tab;
   };
 
@@ -436,6 +434,8 @@ export const init = async.all([init_db,
 
       } else {
         make_new_tab(tab_id, info);
+        // TODO is this correct ?
+        add_tag_to_tab(tab_id, "", false);
 
         db.write("current.window-ids", (window_ids) => {
           const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -456,6 +456,8 @@ export const init = async.all([init_db,
         const tab_id = session.tab_id(tab.id);
 
         make_new_tab(tab_id, tab);
+        // TODO is this correct ?
+        add_tag_to_tab(tab_id, "", false);
 
         record.insert(transient_tab_ids, tab_id, tab);
 
@@ -619,6 +621,8 @@ export const init = async.all([init_db,
         "tab": tab,
         "tab-transient": serialize_transient(transient)
       }));
+
+      add_tag_to_tab(tab_id, "", true);
     });
 
     event.send(on_tab_open, { tab, transient });
