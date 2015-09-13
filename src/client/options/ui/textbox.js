@@ -35,7 +35,7 @@ export const init = async.all([init_options], (options) => {
       dom.on_change(e, (value) => {
         // TODO this isn't quite right
         if (value === "") {
-          invalid.set(false);
+          ref.set(invalid, false);
           ref.set(opt, def);
 
 
@@ -44,16 +44,16 @@ export const init = async.all([init_options], (options) => {
 
           // TODO better test for this ?
           if (isNaN(value)) {
-            invalid.set(true);
+            ref.set(invalid, true);
 
           } else {
-            invalid.set(false);
+            ref.set(invalid, false);
             ref.set(opt, set_value(value));
           }
 
 
         } else {
-          invalid.set(false);
+          ref.set(invalid, false);
           ref.set(opt, set_value(value));
         }
       })
