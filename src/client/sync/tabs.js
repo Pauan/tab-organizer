@@ -19,10 +19,11 @@ const window_ids = record.make();
 const tab_ids    = record.make();
 const events     = event.make();
 
-const make_tag = (info, tabs) =>
+const make_tag = (info) =>
   record.make({
     "id": record.get(info, "id"),
-    "tabs": tabs
+    "tabs": list.map(record.get(info, "tabs"), (id) =>
+              record.get(tab_ids, id))
   });
 
 const make_window = (info, tabs) =>
@@ -38,7 +39,7 @@ const make_tab = (info, transient) => {
 
   return record.make({
     "id": record.get(info, "id"),
-    "time": record.make(record.get(info, "time")),
+    "time": record.get(info, "time"),
 
     "url": url,
     // TODO maybe this should be server-side ?
@@ -100,10 +101,7 @@ const types = record.make({
     });
 
     record.each(_tag_ids, (id, info) => {
-      const tabs = record.get(info, "tabs");
-
-      const tag = make_tag(info, list.map(tabs, (id) =>
-                                   record.get(tab_ids, id)));
+      const tag = make_tag(info);
 
       record.insert(tags, record.get(tag, "id"), tag);
     });
@@ -282,6 +280,71 @@ const types = record.make({
       type: "window-close",
       window,
       index
+    });
+  },
+
+  "tag-create": (json) => {
+    const info = record.get(json, "tag");
+
+    const tag = make_tag(info);
+
+    record.insert(tags, record.get(tag, "id"), tag);
+
+    event.send(events, {
+      type: "tag-create",
+      tag
+    });
+  },
+
+  "tag-insert-tab": (json) => {
+    const tag_id = record.get(json, "tag-id");
+    const tab_id = record.get(json, "tab-id");
+
+    const tab = record.get(tab_ids, tab_id);
+    const tag = record.get(tags, tag_id);
+    const tabs = record.get(tag, "tabs");
+
+    list.push(tabs, tab);
+
+    event.send(events, {
+      type: "tag-insert-tab",
+      tag,
+      tab
+    });
+  },
+
+  "tag-remove-tab": (json) => {
+    const tab_id = record.get(json, "tab-id");
+    const tag_id = record.get(json, "tag-id");
+    const index = record.get(json, "tab-index");
+
+    const tab = record.get(tab_ids, tab_id);
+    const tag = record.get(tags, tag_id);
+    const tabs = record.get(tag, "tabs");
+
+    assert(list.get(index) === tab);
+    list.remove(tabs, index);
+
+    assert(list.size(tabs) > 0);
+
+    event.send(events, {
+      type: "tag-remove-tab",
+      tag,
+      tab,
+      index
+    });
+  },
+
+  "tag-remove": (json) => {
+    const tag_id = record.get(json, "tag-id");
+
+    const tag = record.get(tags, tag_id);
+
+    record.remove(tags, tag_id);
+
+    event.send(events, {
+      type: "tag-remove",
+      tag
     });
   }
 });

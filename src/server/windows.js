@@ -314,22 +314,29 @@ export const init = async.all([init_db,
 
           list.push(record.get(tag, "tabs"), tab_id);
 
+          if (events) {
+            event.send(tab_events, record.make({
+              "type": "tag-insert-tab",
+              "tag-id": tag_id,
+              "tab-id": tab_id
+            }));
+          }
+
+
         } else {
-          record.insert(tag_ids, tag_id, record.make({
+          const tag = record.make({
             "id": tag_id,
             "tabs": list.make(tab_id)
-          }));
-        }
+          });
 
+          record.insert(tag_ids, tag_id, tag);
 
-        if (events) {
-          // TODO send the index as well ?
-          event.send(tab_events, record.make({
-            "type": "tab-add-tag",
-            "tab-id": tab_id,
-            "tag-id": tag_id,
-            "tab-tag-time": time
-          }));
+          if (events) {
+            event.send(tab_events, record.make({
+              "type": "tag-create",
+              "tag": tag
+            }));
+          }
         }
       });
     });
@@ -354,15 +361,23 @@ export const init = async.all([init_db,
       // TODO test this
       if (list.size(tabs) === 0) {
         record.remove(tag_ids, tag_id);
-      }
 
-      if (events) {
-        event.send(tab_events, record.make({
-          "type": "tab-remove-tag",
-          "tab-id": tab_id,
-          "tag-id": tag_id,
-          "tag-index": index
-        }));
+        if (events) {
+          event.send(tab_events, record.make({
+            "type": "tag-remove",
+            "tag-id": tag_id
+          }));
+        }
+
+      } else {
+        if (events) {
+          event.send(tab_events, record.make({
+            "type": "tag-remove-tab",
+            "tag-id": tag_id,
+            "tab-id": tab_id,
+            "tab-index": index
+          }));
+        }
       }
     });
   };
