@@ -6,10 +6,18 @@ import { lowercase, sort } from "../../../util/string";
 import { simplify, parse } from "../../../util/url";
 
 
-const get_url = (tab) =>
-  // TODO is this correct? maybe it shouldn't lowercase ?
-  // TODO this should probably sort based upon the minified URL
-  lowercase(ref.get(record.get(tab, "url")));
+const get_url = (tab) => {
+  const url = ref.get(record.get(tab, "url"));
+
+  if (url === null) {
+    return "";
+
+  } else {
+    // TODO is this correct? maybe it shouldn't lowercase ?
+    // TODO this should probably sort based upon the minified URL
+    return lowercase(url);
+  }
+};
 
 // TODO code duplication
 const get_time = (tab) =>

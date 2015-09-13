@@ -14,8 +14,12 @@ const parse_search = (value) => {
   const re = new RegExp(escape_regexp(value), "i");
 
   return (tab) => {
-    return string.test(ref.get(record.get(tab, "title")), re) ||
-           string.test(ref.get(record.get(tab, "url")), re);
+    // TODO is this correct ?
+    const title = ref.get(record.get(tab, "title")) || "";
+    const url   = ref.get(record.get(tab, "url"))   || "";
+
+    return string.test(title, re) ||
+           string.test(url, re);
   };
 };
 

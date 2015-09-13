@@ -5,8 +5,16 @@ import { make } from "../logic/sorted";
 import { uppercase, sort } from "../../../util/string";
 
 
-const get_title = (tab) =>
-  uppercase(ref.get(record.get(tab, "title")));
+const get_title = (tab) => {
+  const title = ref.get(record.get(tab, "title"));
+
+  if (title === null) {
+    return "";
+
+  } else {
+    return uppercase(title);
+  }
+};
 
 const get_time = (tab) =>
   record.get(record.get(tab, "time"), "created");
@@ -15,8 +23,8 @@ export const init = make({
   get_group_data: (tab) => {
     const title = record.get(tab, "title");
 
-    const first = (title === ""
-                    ? title
+    const first = (title === null
+                    ? ""
                     : uppercase(title[0]));
 
     return {

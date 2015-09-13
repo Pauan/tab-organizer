@@ -25,7 +25,7 @@ const make_window = (info) =>
     "tabs": list.make(),
   });
 
-const make_tab = (info, window) => {
+const make_tab = (info, transient, window) => {
   const url   = record.get(info, "url");
   const title = record.get(info, "title");
 
@@ -35,12 +35,13 @@ const make_tab = (info, window) => {
     "time": record.make(record.get(info, "time")),
 
     "url": url,
-    "title": title || url || "",
+    // TODO maybe this should be server-side ?
+    "title": title || url,
     "favicon": record.get(info, "favicon"),
     "pinned": record.get(info, "pinned"),
 
-    "focused": record.get(info, "focused"),
-    "unloaded": record.get(info, "unloaded"),
+    "focused": (transient !== null && record.get(transient, "focused")),
+    "unloaded": (transient === null),
   });
 };
 
@@ -62,15 +63,27 @@ const focus_tab = (tab) => {
 
 const types = record.make({
   "init": (info) => {
-    const _windows = record.get(info, "windows");
+    const _windows = record.get(info, "current.windows");
+    const _window_ids = record.get(info, "current.window-ids");
+    const _tab_ids = record.get(info, "current.tab-ids");
+    const _transient_tab_ids = record.get(info, "transient.tab-ids");
 
-    list.each(_windows, (info) => {
+    list.each(_windows, (id) => {
+      const info = record.get(_window_ids, id);
+
       const window = make_window(info);
 
       const tabs = record.get(window, "tabs");
 
-      list.each(record.get(info, "tabs"), (info) => {
-        const tab = make_tab(info, window);
+      list.each(record.get(info, "tabs"), (id) => {
+        const info = record.get(_tab_ids, id);
+
+        /*const transient = (record.has(_transient_tab_ids, id)
+                            ? record.get(_transient_tab_ids, id)
+                            : null);*/
+        const transient = record.get(_transient_tab_ids, id);
+
+        const tab = make_tab(info, transient, window);
 
         record.insert(tab_ids, record.get(tab, "id"), tab);
 
@@ -92,11 +105,12 @@ const types = record.make({
     const info      = record.get(json, "tab");
     const window_id = record.get(json, "window-id");
     const index     = record.get(json, "tab-index");
+    const transient = record.get(json, "tab-transient");
 
     const window = record.get(window_ids, window_id);
     const tabs   = record.get(window, "tabs");
 
-    const tab = make_tab(info, window);
+    const tab = make_tab(info, transient, window);
 
     record.insert(tab_ids, record.get(tab, "id"), tab);
 
@@ -141,35 +155,25 @@ const types = record.make({
 
   "tab-update": (json) => {
     const id = record.get(json, "tab-id");
-    const info = record.get(json, "tab");
-
-    const url = record.get(info, "url");
-    const title = record.get(info, "title");
-    const favicon = record.get(info, "favicon");
-    const pinned = record.get(info, "pinned");
-    const time = record.get(info, "time");
+    const url = record.get(json, "tab-url");
+    const title = record.get(json, "tab-title");
+    const favicon = record.get(json, "tab-favicon");
+    const pinned = record.get(json, "tab-pinned");
+    const time = record.get(json, "tab-time-updated");
 
     const tab = record.get(tab_ids, id);
 
-    const old = record.make({
-      "url": record.get(tab, "url"),
-      "title": record.get(tab, "title"),
-      "favicon": record.get(tab, "favicon"),
-      "pinned": record.get(tab, "pinned"),
-      "time": record.get(tab, "time")
-    });
-
     // TODO code duplication
     record.update(tab, "url", url);
-    record.update(tab, "title", title || url || "");
+    // TODO maybe this should be server-side ?
+    record.update(tab, "title", title || url);
     record.update(tab, "favicon", favicon);
     record.update(tab, "pinned", pinned);
-    record.update(tab, "time", record.make(time));
+    record.assign(record.get(tab, "time"), "updated", time);
 
     event.send(events, {
       type: "tab-update",
-      tab,
-      old
+      tab
     });
   },
 

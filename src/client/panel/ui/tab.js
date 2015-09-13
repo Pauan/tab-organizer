@@ -348,7 +348,12 @@ export const init = async.all([init_options,
         record.get(tab, "unloaded")
       ], (title, unloaded) => {
         if (unloaded) {
-          return "➔ " + title;
+          if (title === null) {
+            return "➔";
+          } else {
+            return "➔ " + title;
+          }
+
         } else {
           return title;
         }

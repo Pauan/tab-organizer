@@ -31,38 +31,6 @@ export const init = async.all([init_db,
   const on_tab_close = event.make();
   const tab_events = event.make();
 
-  const serialize_tab = (id) => {
-    const tab = record.get(db.get("current.tab-ids"), id);
-
-    return record.make({
-      "id": record.get(tab, "id"),
-      "time": record.get(tab, "time"),
-      "url": record.get(tab, "url"),
-      "title": record.get(tab, "title"),
-      "favicon": record.get(tab, "favicon"),
-      "pinned": record.get(tab, "pinned"),
-      "focused": record.has(transient_tab_ids, id) &&
-                 record.get(transient_tab_ids, id).focused,
-      "unloaded": !record.has(transient_tab_ids, id)
-    });
-  };
-
-  const serialize_window = (id) => {
-    const window = record.get(db.get("current.window-ids"), id);
-
-    return record.make({
-      "id": record.get(window, "id"),
-      "name": record.get(window, "name"),
-      "tabs": list.map(record.get(window, "tabs"), serialize_tab)
-    });
-  };
-
-  const serialize_windows = () => {
-    const windows = db.get("current.windows");
-
-    return list.map(windows, serialize_window);
-  };
-
   // TODO test this
   const find_chrome_tab = (window_id, index) => {
     const window = record.get(db.get("current.window-ids"), window_id);
@@ -82,6 +50,22 @@ export const init = async.all([init_db,
     }
 
     return null;
+  };
+
+
+  const serialize_transient = (transient) =>
+    record.make({
+      "focused": transient.focused
+    });
+
+  const serialize_transients = () => {
+    const out = record.make();
+
+    record.each(transient_tab_ids, (key, value) => {
+      record.insert(out, key, serialize_transient(value));
+    });
+
+    return out;
   };
 
   const handle_event = record.make({
@@ -181,7 +165,10 @@ export const init = async.all([init_db,
   ports.on_open(uuid_port_tab, (port) => {
     ports.send(port, record.make({
       "type": "init",
-      "windows": serialize_windows()
+      "current.windows": db.get("current.windows"),
+      "current.window-ids": db.get("current.window-ids"),
+      "current.tab-ids": db.get("current.tab-ids"),
+      "transient.tab-ids": serialize_transients()
     }));
 
     const x = event.on_receive(tab_events, (x) => {
@@ -274,13 +261,17 @@ export const init = async.all([init_db,
         record.update(tab, "title", info.title);
         record.update(tab, "favicon", info.favicon);
         record.update(tab, "pinned", info.pinned);
-        update_time(tab, "updated");
+        const time = update_time(tab, "updated");
 
         if (events) {
           event.send(tab_events, record.make({
             "type": "tab-update",
             "tab-id": tab_id,
-            "tab": serialize_tab(tab_id)
+            "tab-url": info.url,
+            "tab-title": info.title,
+            "tab-favicon": info.favicon,
+            "tab-pinned": info.pinned,
+            "tab-time-updated": time
           }));
         }
       }
@@ -365,6 +356,8 @@ export const init = async.all([init_db,
     db.write("current.window-ids", (window_ids) => {
       record.insert(window_ids, window_id, window);
     });
+
+    return window;
   };
 
   const find_right_index = (tabs, window, index) => {
@@ -418,7 +411,7 @@ export const init = async.all([init_db,
   const window_open = ({ window: info }) => {
     const id = session.window_id(info.id);
 
-    make_new_window(id, info);
+    const window = make_new_window(id, info);
 
     record.insert(transient_window_ids, id, info);
 
@@ -433,7 +426,7 @@ export const init = async.all([init_db,
       event.send(tab_events, record.make({
         "type": "window-open",
         "window-index": index,
-        "window": serialize_window(id)
+        "window": window
       }));
     });
   };
@@ -504,7 +497,8 @@ export const init = async.all([init_db,
         "type": "tab-open",
         "window-id": window_id,
         "tab-index": session_index,
-        "tab": serialize_tab(tab_id)
+        "tab": tab,
+        "tab-transient": serialize_transient(transient)
       }));
     });
 

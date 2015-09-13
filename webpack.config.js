@@ -28,8 +28,6 @@ cp(path.join("node_modules", "babel-core", "external-helpers.min.js"),
 
 
 module.exports = {
-  bail: true,
-
   "devtool": "source-map",
   // TODO use this, and maybe `source-map-loader` plugin as well
   //devtool: "cheap-module-source-map",

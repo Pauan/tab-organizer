@@ -169,6 +169,7 @@ export const init = async.all([init_db], (db) => {
   // This is needed in the situation where the user restarts Chrome,
   // because Chrome will automatically create a New Tab for the user.
   const is_new_tab = (new_tabs, index, new_tab) =>
+    // TODO what about restoring crashed sessions ?
     // Don't match empty windows
     list.size(new_tabs) > 1 &&
     index === list.size(new_tabs) - 1 &&
