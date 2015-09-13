@@ -299,29 +299,43 @@ export const init = async.all([init_db,
   };
 
 
-  const add_tag_to_tab = (tab_id, tag_id) => {
-    db.write("current.tag-ids", (tag_ids) => {
-      if (record.has(tag_ids, tag_id)) {
-        const tag = record.get(tag_ids, tag_id);
-
-        list.push(record.get(tag, "tabs"), tab_id);
-
-      } else {
-        record.insert(tag_ids, tag_id, record.make({
-          "id": tag_id,
-          "tabs": list.make(tab_id)
-        }));
-      }
-    });
-
+  const add_tag_to_tab = (tab_id, tag_id, events) => {
     db.write("current.tab-ids", (tab_ids) => {
       const tab = record.get(tab_ids, tab_id);
 
-      record.insert(record.get(tab, "tags"), tag_id, timestamp());
+      const time = timestamp();
+
+      record.insert(record.get(tab, "tags"), tag_id, time);
+
+
+      db.write("current.tag-ids", (tag_ids) => {
+        if (record.has(tag_ids, tag_id)) {
+          const tag = record.get(tag_ids, tag_id);
+
+          list.push(record.get(tag, "tabs"), tab_id);
+
+        } else {
+          record.insert(tag_ids, tag_id, record.make({
+            "id": tag_id,
+            "tabs": list.make(tab_id)
+          }));
+        }
+
+
+        if (events) {
+          // TODO send the index as well ?
+          event.send(tab_events, record.make({
+            "type": "tab-add-tag",
+            "tab-id": tab_id,
+            "tag-id": tag_id,
+            "tab-tag-time": time
+          }));
+        }
+      });
     });
   };
 
-  const remove_tag_from_tab = (tab_id, tag_id) => {
+  const remove_tag_from_tab = (tab_id, tag_id, events) => {
     db.write("current.tab-ids", (tab_ids) => {
       const tab = record.get(tab_ids, tab_id);
 
@@ -332,23 +346,34 @@ export const init = async.all([init_db,
       const tag = record.get(tag_ids, tag_id);
       const tabs = record.get(tag, "tabs");
 
+      const index = list.index_of(tabs, tab_id);
+
       // TODO test this
-      list.remove(tabs, list.index_of(tabs, tab_id));
+      list.remove(tabs, index);
 
       // TODO test this
       if (list.size(tabs) === 0) {
         record.remove(tag_ids, tag_id);
       }
+
+      if (events) {
+        event.send(tab_events, record.make({
+          "type": "tab-remove-tag",
+          "tab-id": tab_id,
+          "tag-id": tag_id,
+          "tag-index": index
+        }));
+      }
     });
   };
 
   // TODO faster implementation of this ?
-  const remove_all_tags_from_tab = (tab_id) => {
+  const remove_all_tags_from_tab = (tab_id, events) => {
     const tab = record.get(db.get("current.tab-ids"), tab_id);
 
     record.each(record.get(tab, "tags"), (tag_id) => {
       // TODO this removes the property while it's looping, is that okay ?
-      remove_tag_from_tab(tab_id, tag_id);
+      remove_tag_from_tab(tab_id, tag_id, events);
     });
   };
 
@@ -377,7 +402,7 @@ export const init = async.all([init_db,
       record.insert(tab_ids, tab_id, tab);
     });
 
-    add_tag_to_tab(tab_id, "");
+    add_tag_to_tab(tab_id, "", false);
 
     return tab;
   };
@@ -695,7 +720,7 @@ export const init = async.all([init_db,
     const tab_id = session.tab_id(info.tab.id);
 
     // TODO test this
-    remove_all_tags_from_tab(tab_id);
+    remove_all_tags_from_tab(tab_id, true);
 
     db.write("current.tab-ids", (tab_ids) => {
       const tab = record.get(tab_ids, tab_id);
