@@ -78,10 +78,9 @@ const types = record.make({
       list.each(record.get(info, "tabs"), (id) => {
         const info = record.get(_tab_ids, id);
 
-        /*const transient = (record.has(_transient_tab_ids, id)
+        const transient = (record.has(_transient_tab_ids, id)
                             ? record.get(_transient_tab_ids, id)
-                            : null);*/
-        const transient = record.get(_transient_tab_ids, id);
+                            : null);
 
         const tab = make_tab(info, transient, window);
 
