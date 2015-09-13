@@ -21,15 +21,17 @@ export const init = async.all([init_db,
                                session) => {
 
   db.include("current.windows", list.make());
-  db.include("current.tag-ids", record.make());
   db.include("current.window-ids", record.make());
   db.include("current.tab-ids", record.make());
+  db.include("current.tag-ids", record.make());
 
   const transient_window_ids = record.make();
   const transient_tab_ids = record.make();
 
+  // TODO just use `tab_events` instead ?
   const on_tab_open = event.make();
   const on_tab_close = event.make();
+
   const tab_events = event.make();
 
   // TODO test this
@@ -193,6 +195,7 @@ export const init = async.all([init_db,
     db.delay("current.windows", ms);
     db.delay("current.window-ids", ms);
     db.delay("current.tab-ids", ms);
+    db.delay("current.tag-ids", ms);
   };
 
 
@@ -295,6 +298,61 @@ export const init = async.all([init_db,
     });
   };
 
+
+  const add_tag_to_tab = (tab_id, tag_id) => {
+    db.write("current.tag-ids", (tag_ids) => {
+      if (record.has(tag_ids, tag_id)) {
+        const tag = record.get(tag_ids, tag_id);
+
+        list.push(record.get(tag, "tabs"), tab_id);
+
+      } else {
+        record.insert(tag_ids, tag_id, record.make({
+          "id": tag_id,
+          "tabs": list.make(tab_id)
+        }));
+      }
+    });
+
+    db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
+
+      record.insert(record.get(tab, "tags"), tag_id, timestamp());
+    });
+  };
+
+  const remove_tag_from_tab = (tab_id, tag_id) => {
+    db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
+
+      record.remove(record.get(tab, "tags"), tag_id);
+    });
+
+    db.write("current.tag-ids", (tag_ids) => {
+      const tag = record.get(tag_ids, tag_id);
+      const tabs = record.get(tag, "tabs");
+
+      // TODO test this
+      list.remove(tabs, list.index_of(tabs, tab_id));
+
+      // TODO test this
+      if (list.size(tabs) === 0) {
+        record.remove(tag_ids, tag_id);
+      }
+    });
+  };
+
+  // TODO faster implementation of this ?
+  const remove_all_tags_from_tab = (tab_id) => {
+    const tab = record.get(db.get("current.tab-ids"), tab_id);
+
+    record.each(record.get(tab, "tags"), (tag_id) => {
+      // TODO this removes the property while it's looping, is that okay ?
+      remove_tag_from_tab(tab_id, tag_id);
+    });
+  };
+
+
   const make_new_tab = (tab_id, info) => {
     const tab = record.make({
       "id": tab_id,
@@ -318,6 +376,8 @@ export const init = async.all([init_db,
     db.write("current.tab-ids", (tab_ids) => {
       record.insert(tab_ids, tab_id, tab);
     });
+
+    add_tag_to_tab(tab_id, "");
 
     return tab;
   };
@@ -469,6 +529,9 @@ export const init = async.all([init_db,
       // TODO test this
       // TODO send events for these ?
       list.each(tabs, (tab_id) => {
+        // TODO is this correct ?
+        remove_all_tags_from_tab(tab_id);
+
         db.write("current.tab-ids", (tab_ids) => {
           record.remove(tab_ids, tab_id);
           // TODO what if the tab isn't unloaded ?
@@ -631,6 +694,9 @@ export const init = async.all([init_db,
     const window_id = session.window_id(info.window.id);
     const tab_id = session.tab_id(info.tab.id);
 
+    // TODO test this
+    remove_all_tags_from_tab(tab_id);
+
     db.write("current.tab-ids", (tab_ids) => {
       const tab = record.get(tab_ids, tab_id);
       const transient = record.get(transient_tab_ids, tab_id);
@@ -654,6 +720,7 @@ export const init = async.all([init_db,
         }));
       });
 
+      // TODO should this include the tags ?
       event.send(on_tab_close, { tab, transient });
     });
   };
