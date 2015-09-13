@@ -14,24 +14,30 @@ export const init = async.make();
 
 const port       = ports.open(uuid_port_tab);
 const windows    = list.make();
+const tags       = record.make();
 const window_ids = record.make();
 const tab_ids    = record.make();
 const events     = event.make();
 
-const make_window = (info) =>
+const make_tag = (info, tabs) =>
+  record.make({
+    "id": record.get(info, "id"),
+    "tabs": tabs
+  });
+
+const make_window = (info, tabs) =>
   record.make({
     "id": record.get(info, "id"),
     "name": record.get(info, "name"),
-    "tabs": list.make(),
+    "tabs": tabs,
   });
 
-const make_tab = (info, transient, window) => {
+const make_tab = (info, transient) => {
   const url   = record.get(info, "url");
   const title = record.get(info, "title");
 
   return record.make({
     "id": record.get(info, "id"),
-    "window": window,
     "time": record.make(record.get(info, "time")),
 
     "url": url,
@@ -67,37 +73,45 @@ const types = record.make({
     const _window_ids = record.get(info, "current.window-ids");
     const _tab_ids = record.get(info, "current.tab-ids");
     const _transient_tab_ids = record.get(info, "transient.tab-ids");
+    const _tag_ids = record.get(info, "current.tag-ids");
 
     list.each(_windows, (id) => {
       const info = record.get(_window_ids, id);
 
-      const window = make_window(info);
+      const tabs = record.get(info, "tabs");
 
-      const tabs = record.get(window, "tabs");
-
-      list.each(record.get(info, "tabs"), (id) => {
+      const window = make_window(info, list.map(tabs, (id) => {
         const info = record.get(_tab_ids, id);
 
         const transient = (record.has(_transient_tab_ids, id)
                             ? record.get(_transient_tab_ids, id)
                             : null);
 
-        const tab = make_tab(info, transient, window);
+        const tab = make_tab(info, transient);
 
         record.insert(tab_ids, record.get(tab, "id"), tab);
 
-        list.push(tabs, tab);
-      });
+        return tab;
+      }));
 
       record.insert(window_ids, record.get(window, "id"), window);
 
       list.push(windows, window);
     });
 
+    record.each(_tag_ids, (id, info) => {
+      const tabs = record.get(info, "tabs");
+
+      const tag = make_tag(info, list.map(tabs, (id) =>
+                                   record.get(tab_ids, id)));
+
+      record.insert(tags, record.get(tag, "id"), tag);
+    });
+
     timer.done(duration);
     console["debug"]("tabs: initialized (" + timer.diff(duration) + "ms)");
 
-    async.success(init, { windows, events, focus_tab, close_tabs });
+    async.success(init, { windows, tags, events, focus_tab, close_tabs });
   },
 
   "tab-open": (json) => {
@@ -109,7 +123,7 @@ const types = record.make({
     const window = record.get(window_ids, window_id);
     const tabs   = record.get(window, "tabs");
 
-    const tab = make_tab(info, transient, window);
+    const tab = make_tab(info, transient);
 
     record.insert(tab_ids, record.get(tab, "id"), tab);
 
@@ -190,8 +204,6 @@ const types = record.make({
     const new_tabs = record.get(new_window, "tabs");
     const tab = record.get(tab_ids, tab_id);
 
-    assert(record.get(tab, "window") === old_window);
-    record.update(tab, "window", new_window);
     // TODO test this
     record.assign(record.get(tab, "time"), "moved", time_moved);
 
@@ -219,8 +231,6 @@ const types = record.make({
     const tab = record.get(tab_ids, tab_id);
     const tabs = record.get(window, "tabs");
 
-    record.update(tab, "window", null);
-
     record.remove(tab_ids, record.get(tab, "id"));
 
     assert(list.get(tabs, index) === tab);
@@ -239,9 +249,9 @@ const types = record.make({
     const info = record.get(json, "window");
     const index = record.get(json, "window-index");
 
-    const window = make_window(info);
-
     assert(list.size(record.get(info, "tabs")) === 0);
+
+    const window = make_window(info, list.make());
 
     record.insert(window_ids, record.get(window, "id"), window);
 
