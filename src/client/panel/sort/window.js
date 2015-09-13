@@ -1,6 +1,7 @@
 import * as list from "../../../util/list";
 import * as stream from "../../../util/stream";
 import * as record from "../../../util/record";
+import * as functions from "../../../util/functions";
 import * as running from "../../../util/running";
 import * as async from "../../../util/async";
 import * as ref from "../../../util/ref";
@@ -183,7 +184,14 @@ export const init = async.all([init_tabs], ({ windows, events }) => {
 
           update_group_names(groups);
         }
-      }
+      },
+
+
+      // TODO test these
+      "tag-create": functions.noop,
+      "tag-insert-tab": functions.noop,
+      "tag-remove-tab": functions.noop,
+      "tag-remove": functions.noop
     });
 
 

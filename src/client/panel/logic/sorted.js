@@ -124,9 +124,6 @@ export const make = ({ get_group_data,
         },
 
 
-        "tab-unfocus": () => {},
-
-
         // TODO code duplication
         "tab-update": ({ tab }) => {
           const x = record.get(tab_ids, record.get(tab, "id"));
@@ -146,9 +143,6 @@ export const make = ({ get_group_data,
         },
 
 
-        "tab-move": () => {},
-
-
         "tab-close": ({ tab }) => {
           const x = record.get(tab_ids, record.get(tab, "id"));
           const group = record.get(x, "group");
@@ -164,8 +158,15 @@ export const make = ({ get_group_data,
         },
 
 
-        "window-open": () => {},
-        "window-close": () => {}
+        // TODO test these
+        "tab-unfocus": functions.noop,
+        "tab-move": functions.noop,
+        "window-open": functions.noop,
+        "window-close": functions.noop,
+        "tag-create": functions.noop,
+        "tag-insert-tab": functions.noop,
+        "tag-remove-tab": functions.noop,
+        "tag-remove": functions.noop
       });
 
 
