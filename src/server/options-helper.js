@@ -8,31 +8,42 @@ import { init as init_db } from "./migrate";
 import { fail } from "../util/assert";
 
 
-export const make_options = (uuid, default_options) =>
+export const make_options = (uuid, db_name, default_options) =>
   async.all([init_db,
              init_chrome],
             (db,
              { ports }) => {
 
-    const events          = event.make();
+    db.include(db_name, record.make());
 
-    const current_options = record.make();
-    const refs            = record.make();
 
-    const make_ref = (key, value) => {
-      const x = ref.make(value);
+    const events = event.make();
+
+    const refs = record.make();
+
+
+    const current_options = db.get(db_name);
+
+    record.each(default_options, (key, default_value) => {
+      // TODO what if the default and the current are the same ?
+      const x = ref.make((record.has(current_options, key)
+                           ? record.get(current_options, key)
+                           : default_value));
 
       record.insert(refs, key, x);
 
       // TODO handle stop somehow ?
       ref.on_change(x, (value) => {
-        if (value === record.get(default_options, key)) {
-          // TODO use `exclude` instead ?
-          record.remove(current_options, key);
+        db.write(db_name, (current_options) => {
+          // TODO test this
+          if (value === default_value) {
+            // TODO use `exclude` instead ?
+            record.remove(current_options, key);
 
-        } else {
-          record.assign(current_options, key, value);
-        }
+          } else {
+            record.assign(current_options, key, value);
+          }
+        });
 
         event.send(events, record.make({
           "type": "set",
@@ -40,10 +51,7 @@ export const make_options = (uuid, default_options) =>
           "value": value
         }));
       });
-    };
-
-
-    record.each(default_options, make_ref);
+    });
 
 
     const get = (s) =>
@@ -64,7 +72,7 @@ export const make_options = (uuid, default_options) =>
       ports.send(port, record.make({
         "type": "init",
         "default": default_options,
-        "current": current_options
+        "current": db.get(db_name)
       }));
 
       const x = event.on_receive(events, (x) => {

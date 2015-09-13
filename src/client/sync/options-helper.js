@@ -21,26 +21,22 @@ export const make_options = (uuid) => {
       const current  = record.get(info, "current");
       const defaults = record.get(info, "default");
 
-      const make_ref = (key, value) => {
-        // TODO use `options.default` somehow ?
-        if (!record.has(options, key)) {
-          const x = ref.make(value);
+      record.each(defaults, (key, value) => {
+        const x = ref.make((record.has(current, key)
+                             ? record.get(current, key)
+                             : value));
 
-          record.insert(options, key, x);
+        record.insert(options, key, x);
 
-          // TODO test this
-          ref.on_change(x, (value) => {
-            ports.send(port, record.make({
-              "type": "set",
-              "key": key,
-              "value": value
-            }));
-          });
-        }
-      };
-
-      record.each(current,  make_ref);
-      record.each(defaults, make_ref);
+        // TODO test this
+        ref.on_change(x, (value) => {
+          ports.send(port, record.make({
+            "type": "set",
+            "key": key,
+            "value": value
+          }));
+        });
+      });
 
       const get_default = (s) =>
         record.get(defaults, s);
@@ -49,8 +45,10 @@ export const make_options = (uuid) => {
     },
 
     "set": (info) => {
+      const key   = record.get(info, "key");
+      const value = record.get(info, "value");
       // TODO this shouldn't send out a message
-      ref.set(get(record.get(info, "key")), record.get(info, "value"));
+      ref.set(get(key), value);
     }
   });
 
