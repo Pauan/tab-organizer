@@ -204,7 +204,10 @@ export const init = async.all([init_options,
                                dom.hsl(30, 70, 57)),
 
     // TODO a bit hacky
-    "transition-duration": ref.always("0ms"),
+    "transition-duration": ref.map(logic.dragging_animate, (dragging_animate) =>
+                             (dragging_animate
+                               ? null
+                               : "0ms")),
   });
 
   const style_tab_focused_hover = dom.make_style({
