@@ -369,14 +369,19 @@ export const init = async.all([init_options,
       }))
     ]);
 
-  const close = (tab, show) =>
+  const close = (tab, is_hovering) =>
     dom.image((e) => [
       dom.set_url(e, ref.always("data/images/button-close.png")),
 
       dom.add_style(e, style_icon),
       dom.add_style(e, style_close),
 
-      dom.toggle_visible(e, show),
+      dom.toggle_visible(e, ref.latest([
+        opt("tabs.close.display"),
+        is_hovering
+      ], (display, hover) =>
+        (display === "every") ||
+        (display === "hover" && hover))),
 
       dom.toggle_style(e, style_close_hover,
         dom.hovering(e)),
@@ -398,101 +403,6 @@ export const init = async.all([init_options,
       }),
     ]);
 
-  // TODO code duplication with `tab`
-  const ui_dragging = (tab, index) =>
-    dom.parent((e) => {
-      const is_hovering = ref.always(index === 0);
-
-      // "selected" has precedence over "focused"
-      // TODO code duplication
-      const is_focused = ref.and([
-        record.get(tab, "focused"),
-        // TODO is this correct ?
-        ref.map(opt("group.sort.type"), (x) => x === "window"),
-        ref.not(record.get(tab, "selected"))
-      ]);
-
-
-      const ui_favicon = favicon(tab);
-
-      const ui_text = text(tab);
-
-      const ui_close = close(tab, ref.latest([
-        opt("tabs.close.display"),
-        is_hovering
-      ], (display, hover) =>
-        (display === "every") ||
-        (display === "hover" && hover)));
-
-
-      // TODO code duplication with `tab`
-      return [
-        dom.add_style(e, dom.row),
-        dom.add_style(e, style_tab),
-        dom.add_style(e, style_menu_item),
-        dom.add_style(e, style_menu_item_shadow),
-
-
-        dom.toggle_style(e, style_tab_hover, is_hovering),
-        dom.toggle_style(e, style_menu_item_hover, is_hovering),
-
-
-        dom.toggle_style(e, style_tab_selected, record.get(tab, "selected")),
-
-        // TODO test this
-        dom.toggle_style(e, style_tab_selected_hover, ref.and([
-          record.get(tab, "selected"),
-          is_hovering
-        ])),
-
-
-        dom.toggle_style(e, style_tab_focused, is_focused),
-
-        dom.toggle_style(e, style_tab_focused_hover, ref.and([
-          is_focused,
-          is_hovering
-        ])),
-
-
-        // TODO test these
-        dom.toggle_style(e, style_tab_unloaded, record.get(tab, "unloaded")),
-
-        dom.toggle_style(e, style_tab_unloaded_hover, ref.and([
-          record.get(tab, "unloaded"),
-          is_hovering
-        ])),
-
-
-        dom.toggle_style(e, style_tab_dragging, ref.always(index >= 1 && index < 5)),
-
-        dom.toggle_style(e, style_tab_dragging_hidden, ref.always(index >= 5)),
-
-
-        // TODO a tiny bit hacky
-        (index === 0
-          ? dom.noop()
-          : dom.animate(e, (index < 5
-                             ? animation_dragging
-                             : animation_dragging_hidden), {
-              initial: "play-to"
-            })),
-
-        // TODO a bit hacky
-        dom.style(e, {
-          "z-index": ref.always(-index + "")
-        }),
-
-        // TODO code duplication
-        dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
-          if (x === "left") {
-            return [ui_close, ui_text, ui_favicon];
-
-          } else if (x === "right") {
-            return [ui_favicon, ui_text, ui_close];
-          }
-        })),
-      ];
-    });
 
   const dragging =
     dom.parent((e) => [
@@ -610,6 +520,102 @@ export const init = async.all([init_options,
     dragging_offset_y = null;
   };
 
+
+  const is_window = ref.map(opt("group.sort.type"), (x) =>
+                      (x === "window"));
+
+  const tab_template = (e, tab, is_hovering, f) => {
+    const is_focused = ref.and([
+      record.get(tab, "focused"),
+      // TODO is this correct ?
+      is_window,
+      // "selected" has precedence over "focused"
+      ref.not(record.get(tab, "selected"))
+    ]);
+
+    const ui_favicon = favicon(tab);
+
+    const ui_text = text(tab);
+
+    const ui_close = close(tab, is_hovering);
+
+    return list.concat(f(is_focused, ui_close), [
+      dom.add_style(e, dom.row),
+      dom.add_style(e, style_tab),
+      dom.add_style(e, style_menu_item),
+
+      dom.toggle_style(e, style_tab_hover, is_hovering),
+      dom.toggle_style(e, style_menu_item_hover, is_hovering),
+
+      dom.toggle_style(e, style_tab_selected,
+        record.get(tab, "selected")),
+
+      // TODO test this
+      dom.toggle_style(e, style_tab_selected_hover, ref.and([
+        record.get(tab, "selected"),
+        is_hovering
+      ])),
+
+      dom.toggle_style(e, style_tab_focused, is_focused),
+
+      dom.toggle_style(e, style_tab_focused_hover, ref.and([
+        is_focused,
+        is_hovering
+      ])),
+
+      // TODO test these
+      dom.toggle_style(e, style_tab_unloaded,
+        record.get(tab, "unloaded")),
+
+      dom.toggle_style(e, style_tab_unloaded_hover, ref.and([
+        record.get(tab, "unloaded"),
+        is_hovering
+      ])),
+
+      dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
+        if (x === "left") {
+          return [ui_close, ui_text, ui_favicon];
+
+        } else if (x === "right") {
+          return [ui_favicon, ui_text, ui_close];
+        }
+      }))
+    ]);
+  };
+
+
+  // TODO code duplication with `tab`
+  const ui_dragging = (tab, index) =>
+    dom.parent((e) => {
+      const is_hovering = ref.always(index === 0);
+
+      // TODO code duplication with `tab`
+      return tab_template(e, tab, is_hovering, () => [
+        dom.add_style(e, style_menu_item_shadow),
+
+        dom.toggle_style(e, style_tab_dragging,
+          ref.always(index >= 1 && index < 5)),
+
+        dom.toggle_style(e, style_tab_dragging_hidden,
+          ref.always(index >= 5)),
+
+        // TODO a tiny bit hacky
+        (index === 0
+          ? dom.noop()
+          : dom.animate(e, (index < 5
+                             ? animation_dragging
+                             : animation_dragging_hidden), {
+              initial: "play-to"
+            })),
+
+        // TODO a bit hacky
+        dom.style(e, {
+          "z-index": ref.always((-index) + "")
+        })
+      ]);
+    });
+
+
   const tab = (group, tab) =>
     dom.parent((e) => {
       const is_hovering = ref.and([
@@ -617,168 +623,104 @@ export const init = async.all([init_options,
         dom.hovering(e)
       ]);
 
-      const ui_favicon = favicon(tab);
-
-      const ui_text = text(tab);
-
-      const ui_close = close(tab, ref.latest([
-        opt("tabs.close.display"),
-        is_hovering
-      ], (display, hover) =>
-        (display === "every") ||
-        (display === "hover" && hover)));
-
-      const is_holding = ref.and([
-        is_hovering,
-        dom.holding(e),
-        // TODO a little bit hacky
-        ref.not(dom.hovering(ui_close))
-      ]);
-
-      // "selected" has precedence over "focused"
-      // TODO code duplication
-      const is_focused = ref.and([
-        record.get(tab, "focused"),
-        // TODO is this correct ?
-        ref.map(opt("group.sort.type"), (x) => x === "window"),
-        ref.not(record.get(tab, "selected"))
-      ]);
-
-      return [
-        dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
-          if (x === "left") {
-            return [ui_close, ui_text, ui_favicon];
-
-          } else if (x === "right") {
-            return [ui_favicon, ui_text, ui_close];
-          }
-        })),
-
-
-        dom.add_style(e, dom.row),
-        dom.add_style(e, style_tab),
-        dom.add_style(e, style_menu_item),
-
-
-        dom.toggle_style(e, style_tab_hover, is_hovering),
-        dom.toggle_style(e, style_menu_item_hover, is_hovering),
-
-        // TODO test this
-        // TODO a little bit hacky
-        dom.toggle_style(e, style_menu_item_shadow, ref.or([
+      return tab_template(e, tab, is_hovering, (is_focused, ui_close) => {
+        const is_holding = ref.and([
           is_hovering,
-          record.get(tab, "selected")
-        ])),
+          dom.holding(e),
+          // TODO a little bit hacky
+          ref.not(dom.hovering(ui_close))
+        ]);
 
+        return [
+          // TODO test this
+          // TODO a little bit hacky
+          dom.toggle_style(e, style_menu_item_shadow, ref.or([
+            is_hovering,
+            record.get(tab, "selected")
+          ])),
 
-        dom.toggle_style(e, style_tab_hold, is_holding),
-        dom.toggle_style(e, style_menu_item_hold, is_holding),
+          dom.toggle_style(e, style_tab_hold, is_holding),
+          dom.toggle_style(e, style_menu_item_hold, is_holding),
 
+          dom.animate(e, animation_tab, {
+            insert: "play-to",
+            remove: "play-from",
+          }),
 
-        dom.toggle_style(e, style_tab_selected, record.get(tab, "selected")),
+          dom.toggle_visible(e, record.get(tab, "visible")),
 
-        // TODO test this
-        dom.toggle_style(e, style_tab_selected_hover, ref.and([
-          record.get(tab, "selected"),
-          is_hovering
-        ])),
+          dom.scroll_to(e, {
+            // TODO maybe add `tab.get("visible")` to the definition of `is_focused` ?
+            initial: ref.first(is_focused),
+            // TODO make this work with vertical mode
+            //insert: tab.get("visible")
+          }),
 
-
-        dom.toggle_style(e, style_tab_focused, is_focused),
-
-        dom.toggle_style(e, style_tab_focused_hover, ref.and([
-          is_focused,
-          is_hovering
-        ])),
-
-
-        dom.toggle_style(e, style_tab_unloaded, record.get(tab, "unloaded")),
-
-        dom.toggle_style(e, style_tab_unloaded_hover, ref.and([
-          record.get(tab, "unloaded"),
-          is_hovering
-        ])),
-
-
-        dom.animate(e, animation_tab, {
-          insert: "play-to",
-          remove: "play-from",
-        }),
-
-
-        dom.toggle_visible(e, record.get(tab, "visible")),
-
-        dom.scroll_to(e, {
-          // TODO maybe add `tab.get("visible")` to the definition of `is_focused` ?
-          initial: ref.first(is_focused),
-          // TODO make this work with vertical mode
-          //insert: tab.get("visible")
-        }),
-
-        ref.listen(ref.latest([
-          dom.hovering(e),
-          dragging_started,
-          record.get(tab, "url")
-        ], (hover, dragging, url) => {
-          if (hover && !dragging && url) {
-            return url;
-
-          } else {
-            return null;
-          }
-        }), (x) => {
-          ref.set(url_bar, x);
-        }),
-
-        dom.on_left_click(e, ({ shift, ctrl, alt }) => {
-          // TODO a little hacky
-          if (!ref.get(dom.hovering(ui_close))) {
-            if (!shift && !ctrl && !alt) {
-              logic.click_tab(group, tab);
-
-            } else if (shift && !ctrl && !alt) {
-              logic.shift_select_tab(group, tab);
-
-            } else if (!shift && ctrl && !alt) {
-              logic.ctrl_select_tab(group, tab);
+          ref.listen(ref.latest([
+            dom.hovering(e),
+            dragging_started,
+            record.get(tab, "url")
+          ], (hover, dragging, url) => {
+            if (hover && !dragging && url) {
+              return url;
+            } else {
+              return null;
             }
-          }
-        }),
+          }), (x) => {
+            ref.set(url_bar, x);
+          }),
 
-        dom.on_middle_click(e, ({ shift, ctrl, alt }) => {
-          if (!shift && !ctrl && !alt) {
-            logic.close_tabs([tab]);
-          }
-        }),
+          dom.on_left_click(e, ({ shift, ctrl, alt }) => {
+            // TODO a little hacky
+            if (!ref.get(dom.hovering(ui_close))) {
+              if (!shift && !ctrl && !alt) {
+                logic.click_tab(group, tab);
 
-        dom.on_right_click(e, (e) => {
-          console.log("right click", e);
-        }),
+              } else if (shift && !ctrl && !alt) {
+                logic.shift_select_tab(group, tab);
 
-        dom.style(e, {
-          "position": ref.map_null(record.get(tab, "top"), (x) =>
-                        "absolute"),
+              } else if (!shift && ctrl && !alt) {
+                logic.ctrl_select_tab(group, tab);
+              }
+            }
+          }),
 
-          "transform": ref.map_null(record.get(tab, "top"), (x) =>
-                         "translate3d(0px, " + x + ", 0px)")
-        }),
+          dom.on_middle_click(e, ({ shift, ctrl, alt }) => {
+            if (!shift && !ctrl && !alt) {
+              logic.close_tabs([tab]);
+            }
+          }),
 
-        dom.on_mouse_hover(e, (hover) => {
-          if (hover) {
-            logic.drag_onto_tab(group, tab);
-          }
-        }),
+          dom.on_right_click(e, (e) => {
+            console.log("right click", e);
+          }),
 
-        dom.draggable(e, {
-          start_if: drag_start_if,
-          start: ({ x, y }) => {
-            drag_start({ group, tab, e, x, y });
-          },
-          move: drag_move,
-          end: drag_end
-        })
-      ];
+          dom.on_mouse_hover(e, (hover) => {
+            if (hover) {
+              logic.drag_onto_tab(group, tab);
+            }
+          }),
+
+          dom.style(e, {
+            "position": ref.map_null(record.get(tab, "top"), (x) =>
+                          "absolute"),
+
+            "transform": ref.map_null(record.get(tab, "top"), (x) =>
+                           "translate3d(0px, " + x + ", 0px)")
+          }),
+
+          dom.draggable(e, {
+            start_if: drag_start_if,
+            start: ({ x, y }) => {
+              drag_start({ group, tab, e, x, y });
+            },
+            move: drag_move,
+            end: drag_end
+          })
+        ];
+      });
     });
+
 
   return async.done({ tab });
 });

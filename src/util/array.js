@@ -155,11 +155,33 @@ export const push = (array, value) => {
   array["push"](value);
 };
 
+export const concat = (a1, a2) => {
+  check_array(a1);
+  check_array(a2);
+
+  const len1 = size(a1);
+  const len2 = size(a2);
+
+  const out = new Array(len1 + len2);
+
+  for (let i = 0; i < len1; ++i) {
+    out[i] = a1[i];
+  }
+
+  for (let i = 0; i < len2; ++i) {
+    out[i + len1] = a2[i];
+  }
+
+  return out;
+};
+
 
 export const each = (array, f) => {
   check_array(array);
 
-  for (let i = 0; i < size(array); ++i) {
+  const len = size(array);
+
+  for (let i = 0; i < len; ++i) {
     f(array[i], i);
   }
 };
@@ -167,9 +189,10 @@ export const each = (array, f) => {
 export const map = (array, f) => {
   check_array(array);
 
-  const out = new Array(size(array));
+  const len = size(array);
+  const out = new Array(len);
 
-  for (let i = 0; i < size(array); ++i) {
+  for (let i = 0; i < len; ++i) {
     out[i] = f(array[i], i);
   }
 
@@ -207,7 +230,9 @@ export const reverse = (array) => {
 export const find_first = (array, f) => {
   check_array(array);
 
-  for (let i = 0; i < size(array); ++i) {
+  const len = size(array);
+
+  for (let i = 0; i < len; ++i) {
     if (f(array[i], i)) {
       return maybe.some(array[i]);
     }
