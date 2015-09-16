@@ -105,10 +105,16 @@ export const init = async.all([init_options,
     "cursor": ref.always("pointer"),
     "border-width": ref.always("1px"),
 
-    "transition": ref.map(opt("theme.animation"), (animation) =>
-                    (animation
-                      ? "background-color 100ms ease-in-out"
-                      : null)),
+    "transition": ref.latest([
+      opt("theme.animation"),
+      logic.dragging_animate
+    ], (animation, dragging_animate) =>
+      (animation
+        ? (dragging_animate
+            // TODO minor code duplication
+            ? "background-color 100ms ease-in-out, transform 100ms ease-out"
+            : "background-color 100ms ease-in-out")
+        : null)),
   });
 
   const style_menu_item_shadow = dom.make_style({
@@ -747,12 +753,6 @@ export const init = async.all([init_options,
         }),
 
         dom.style(e, {
-          "transition": ref.latest([
-            opt("theme.animation"),
-            record.get(tab, "animate")
-          ], (x, y) =>
-            (x && y ? "transform 100ms ease-out" : null)),
-
           "position": ref.map_null(record.get(tab, "top"), (x) =>
                         "absolute"),
 

@@ -46,7 +46,6 @@ export const make_tab = (group, tab) =>
 
     "selected": ref.make(false),
     "visible": ref.make(true), // TODO use `matches(tab)` ?
-    "animate": ref.make(false),
 
     "top": ref.make(null),
     "index": null, // TODO a little bit hacky
