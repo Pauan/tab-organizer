@@ -19,14 +19,14 @@ export const init = async.all([init_radio,
         text("Group tabs by... "),
 
         dropdown("group.sort.type", [
-          { name: "Window",  value: "window"  },
-          { name: "Tag",     value: "tag"     },
+          { name: "Window",         value: "window"  },
+          { name: "Tag",            value: "tag"     },
           { separator: true },
           { name: "Time (Focused)", value: "focused" },
           { name: "Time (Created)", value: "created" },
           { separator: true },
-          { name: "URL",     value: "url"     },
-          { name: "Name",    value: "title"   }
+          { name: "URL",            value: "url"     },
+          { name: "Name",           value: "title"   }
         ])
       ]),
 

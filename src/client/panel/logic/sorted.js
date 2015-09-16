@@ -87,12 +87,13 @@ export const make = ({ get_group_data,
       };
 
       const new_tab = (tab) => {
+        const id    = record.get(tab, "id");
         const group = get_group(tab);
-        const x = make_tab(group, tab);
+        const tabs  = record.get(group, "tabs");
+        const x     = make_tab(group, tab);
 
-        record.insert(tab_ids, record.get(x, "id"), x);
-        stream.sorted_insert(record.get(group, "tabs"), x);
-
+        record.insert(tab_ids, id, x);
+        stream.sorted_insert(tabs, x);
         update_tabs(group);
 
         return x;
@@ -144,11 +145,12 @@ export const make = ({ get_group_data,
 
 
         "tab-close": ({ tab }) => {
-          const x = record.get(tab_ids, record.get(tab, "id"));
+          const id = record.get(tab, "id");
+          const x = record.get(tab_ids, id);
           const group = record.get(x, "group");
 
           record.update(x, "group", null);
-          record.remove(tab_ids, record.get(x, "id"));
+          record.remove(tab_ids, id);
 
           remove_tab(group, x);
 

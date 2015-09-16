@@ -382,13 +382,13 @@ export const init = async.all([init_tab,
           dom.add_style(e, style_texture),
 
           dom.toggle_style(e, style_group_focused, ref.and([
-            record.get(group, "focused"),
+            record.get(group, "selected"),
             is_horizontal
           ])),
 
           dom.on_focus(e, (focused) => {
             // TODO a little hacky, should be a part of logic
-            ref.set(record.get(group, "focused"), focused);
+            ref.set(record.get(group, "selected"), focused);
           }),
 
           dom.animate(e, animation_group, {

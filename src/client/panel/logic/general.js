@@ -23,31 +23,48 @@ export const make_group = (id, name, tabs, info) =>
     "id": id,
     "info": info,
     "tabs": tabs,
+
     "header-name": ref.make(name),
-    "focused": ref.make(false),
-    // TODO a little hacky
-    "first-selected-tab": null,
+    "selected": ref.make(false),
     "visible": ref.make(true), // TODO is this correct ?
     "height": ref.make(null),
+
+    // TODO a little hacky
+    "first-selected-tab": null,
     "index": null // TODO a little bit hacky
   });
 
 export const make_tab = (group, tab) =>
   record.make({
+    "time": record.get(tab, "time"),
+
     "url": ref.make(record.get(tab, "url")),
     "title": ref.make(record.get(tab, "title")),
     "favicon": ref.make(record.get(tab, "favicon")),
-
     "focused": ref.make(record.get(tab, "focused")),
     "unloaded": ref.make(record.get(tab, "unloaded")),
 
     "selected": ref.make(false),
     "visible": ref.make(true), // TODO use `matches(tab)` ?
     "animate": ref.make(false),
+
     "top": ref.make(null),
     "index": null, // TODO a little bit hacky
-
-    "id": record.get(tab, "id"),
-    "time": record.get(tab, "time"),
     "group": group
   });
+
+/*export const make_group_tab = (group, tab) =>
+  record.make({
+    "time": record.get(tab, "time"),
+    "url": record.get(tab, "url"),
+    "title": record.get(tab, "title"),
+    "favicon": record.get(tab, "favicon"),
+    "focused": record.get(tab, "focused"),
+    "unloaded": record.get(tab, "unloaded"),
+    "selected": record.get(tab, "selected"),
+    "visible": recrod.get(tab, "visible"),
+
+    "top": ref.make(null),
+    "index": null, // TODO a little bit hacky
+    "group": group
+  });*/

@@ -8,7 +8,7 @@ import * as ref from "../../../util/ref";
 import * as event from "../../../util/event";
 import { init as init_tabs } from "../../sync/tabs";
 import { assert } from "../../../util/assert";
-import { search, value, matches } from "../search/search";
+import { search, value } from "../search/search";
 import { make_group, make_tab,
          update_groups, update_tabs } from "../logic/general";
 
@@ -55,9 +55,10 @@ export const init = async.all([init_tabs], ({ windows, events }) => {
     };
 
     const new_tab = (group, tab) => {
+      const id = record.get(tab, "id");
       const x = make_tab(group, tab);
 
-      record.insert(tab_ids, record.get(x, "id"), x);
+      record.insert(tab_ids, id, x);
 
       return x;
     };
@@ -130,12 +131,13 @@ export const init = async.all([init_tabs], ({ windows, events }) => {
 
 
       "tab-close": ({ tab, window, index }) => {
+        const id = record.get(tab, "id");
         const group = record.get(group_ids, record.get(window, "id"));
         const tabs = record.get(group, "tabs");
-        const x = record.get(tab_ids, record.get(tab, "id"));
+        const x = record.get(tab_ids, id);
 
         record.update(x, "group", null);
-        record.remove(tab_ids, record.get(x, "id"));
+        record.remove(tab_ids, id);
 
         assert(list.get(stream.current(tabs), index) === x);
         stream.remove(tabs, index);
