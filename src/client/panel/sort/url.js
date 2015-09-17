@@ -2,20 +2,19 @@ import * as record from "../../../util/record";
 import * as ref from "../../../util/ref";
 import * as functions from "../../../util/functions";
 import { make } from "../logic/sorted";
-import { lowercase, sort } from "../../../util/string";
+import { uppercase, sort } from "../../../util/string";
 import { simplify, parse } from "../../../util/url";
 
 
-const get_url = (tab) => {
-  const url = ref.get(record.get(tab, "url"));
+// TODO code duplication
+const get_title = (tab) => {
+  const title = ref.get(record.get(tab, "title"));
 
-  if (url === null) {
+  if (title === null) {
     return "";
 
   } else {
-    // TODO is this correct? maybe it shouldn't lowercase ?
-    // TODO this should probably sort based upon the minified URL
-    return lowercase(url);
+    return uppercase(title);
   }
 };
 
@@ -59,7 +58,7 @@ export const init = make({
 
   sort_tabs: (x, y) =>
     // TODO test this
-    sort(get_url(x), get_url(y)) ||
+    sort(get_title(x), get_title(y)) ||
     // TODO use numeric sort function
     get_time(x) - get_time(y)
 });
