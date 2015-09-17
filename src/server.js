@@ -12,5 +12,5 @@ async.run_all([init_windows,
                init_options,
                init_counter], () => {
   timer.done(duration);
-  console["debug"]("server: initialized (" + timer.diff(duration) + "ms)");
+  console["info"]("server: initialized (" + timer.diff(duration) + "ms)");
 });

@@ -6,5 +6,5 @@ const duration = timer.make();
 
 async.run_all([init_ui], () => {
   timer.done(duration);
-  console["debug"]("options: initialized (" + timer.diff(duration) + "ms)");
+  console["info"]("options: initialized (" + timer.diff(duration) + "ms)");
 });

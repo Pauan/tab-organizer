@@ -7,5 +7,5 @@ const duration = timer.make();
 
 async.run_all([init_ui], () => {
   timer.done(duration);
-  console["debug"]("panel: initialized (" + timer.diff(duration) + "ms)");
+  console["info"]("panel: initialized (" + timer.diff(duration) + "ms)");
 });

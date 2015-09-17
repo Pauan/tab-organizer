@@ -49,11 +49,11 @@ export const init = async.all([init_db], (db) => {
 
     const x = make_window(id, window, list.map(window.tabs, make_new_tab));
 
-    console["debug"]("session: created new window " +
-                     id +
-                     " with " +
-                     list.size(window.tabs) +
-                     " tabs");
+    console["info"]("session: created new window " +
+                    id +
+                    " with " +
+                    list.size(window.tabs) +
+                    " tabs");
 
     return x;
   };
@@ -197,11 +197,11 @@ export const init = async.all([init_db], (db) => {
             const old_url = record.get(old_tab, "url");
             const new_url = new_tab.url;
 
-            console["debug"]("session: old URL \"" +
-                             old_url +
-                             "\" does not match with new URL \"" +
-                             new_url
-                             + "\"");
+            console["warn"]("session: old URL \"" +
+                            old_url +
+                            "\" does not match with new URL \"" +
+                            new_url
+                            + "\"");
             return false;
           }
 
@@ -250,10 +250,10 @@ export const init = async.all([init_db], (db) => {
         }
       }));
 
-    console["debug"]("session: merged " +
-                     i_new +
-                     " new tabs into window " +
-                     old_id);
+    console["info"]("session: merged " +
+                    i_new +
+                    " new tabs into window " +
+                    old_id);
 
     return x;
   };
@@ -282,9 +282,9 @@ export const init = async.all([init_db], (db) => {
       merge(old_windows, new_windows));
 
     timer.done(timer_merge);
-    console["debug"]("session: initialized (" +
-                     timer.diff(timer_merge) +
-                     "ms)");
+    console["info"]("session: initialized (" +
+                    timer.diff(timer_merge) +
+                    "ms)");
   };
 
 

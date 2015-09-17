@@ -52,7 +52,7 @@ const types = record.make({
     tag_ids       = record.get(json, "current.tag-ids");
 
     timer.done(duration);
-    console["debug"]("tabs: initialized (" + timer.diff(duration) + "ms)");
+    console["info"]("tabs: initialized (" + timer.diff(duration) + "ms)");
 
     async.success(init, { windows, window_ids, tab_ids, transient_ids,
                           tag_ids, events, focus_tab, close_tabs });

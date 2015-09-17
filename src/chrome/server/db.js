@@ -153,7 +153,7 @@ export const init = async.chain(chrome_get_all(), (db) => {
 
 
   timer.done(duration);
-  console["debug"]("db: initialized (" + timer.diff(duration) + "ms)", db);
+  console["info"]("db: initialized (" + timer.diff(duration) + "ms)", db);
 
   return async.done({ modify, write, include, get, get_all, set_all, delay });
 });

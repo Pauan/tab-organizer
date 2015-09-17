@@ -82,14 +82,14 @@ export const init = async.all([init_chrome], ({ db }) => {
     // TODO a bit hacky
     db.set_all(new_db);
 
-    console["debug"]("migrate: upgraded to version " +
-                     version +
-                     " (" +
-                     timer.diff(duration) +
-                     "ms)");
+    console["info"]("migrate: upgraded to version " +
+                    version +
+                    " (" +
+                    timer.diff(duration) +
+                    "ms)");
 
   } else {
-    console["debug"]("migrate: already at version " + version);
+    console["info"]("migrate: already at version " + version);
   }
 
   return async.done(db);

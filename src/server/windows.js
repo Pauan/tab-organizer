@@ -264,7 +264,7 @@ export const init = async.all([init_db,
 
 
     timer.done(duration);
-    console["debug"]("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
+    console["info"]("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
   };
 
 
