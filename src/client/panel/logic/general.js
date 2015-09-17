@@ -2,6 +2,22 @@ import * as list from "../../../util/list";
 import * as stream from "../../../util/stream";
 import * as record from "../../../util/record";
 import * as ref from "../../../util/ref";
+import { uppercase } from "../../../util/string";
+
+
+export const get_created = (tab) =>
+  record.get(record.get(tab, "time"), "created");
+
+export const get_title = (tab) => {
+  const title = ref.get(record.get(tab, "title"));
+
+  if (title === null) {
+    return "";
+
+  } else {
+    return uppercase(title);
+  }
+};
 
 
 // TODO this can be more efficient if it's given a starting index

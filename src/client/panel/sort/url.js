@@ -1,26 +1,10 @@
 import * as record from "../../../util/record";
-import * as ref from "../../../util/ref";
 import * as functions from "../../../util/functions";
 import { make } from "../logic/sorted";
-import { uppercase, sort } from "../../../util/string";
+import { get_title, get_created } from "../logic/general";
+import { sort } from "../../../util/string";
 import { simplify, parse } from "../../../util/url";
 
-
-// TODO code duplication
-const get_title = (tab) => {
-  const title = ref.get(record.get(tab, "title"));
-
-  if (title === null) {
-    return "";
-
-  } else {
-    return uppercase(title);
-  }
-};
-
-// TODO code duplication
-const get_time = (tab) =>
-  record.get(record.get(tab, "time"), "created");
 
 const get_name = (parsed) => {
   if (parsed.protocol === "chrome:") {
@@ -60,5 +44,5 @@ export const init = make({
     // TODO test this
     sort(get_title(x), get_title(y)) ||
     // TODO use numeric sort function
-    get_time(x) - get_time(y)
+    get_created(x) - get_created(y)
 });
