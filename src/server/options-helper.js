@@ -26,9 +26,8 @@ export const make_options = (uuid, db_name, default_options) =>
 
     record.each(default_options, (key, default_value) => {
       // TODO what if the default and the current are the same ?
-      const x = ref.make((record.has(current_options, key)
-                           ? record.get(current_options, key)
-                           : default_value));
+      const x = ref.make(record.get_default(current_options, key, () =>
+                           default_value));
 
       record.insert(refs, key, x);
 

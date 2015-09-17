@@ -6,11 +6,8 @@ import { get_group_name, get_group_time } from "../logic/time";
 const get_time = (tab) => {
   const time = record.get(tab, "time");
 
-  if (record.has(time, "focused")) {
-    return record.get(time, "focused");
-  } else {
-    return record.get(time, "created");
-  }
+  return record.get_default(time, "focused", () =>
+           record.get(time, "created"));
 };
 
 

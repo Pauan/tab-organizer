@@ -21,49 +21,56 @@ export const update_tabs = (group) => {
 export const make_group = (id, name, tabs, info) =>
   record.make({
     "id": id,
-    "info": info,
+    "name": name,
     "tabs": tabs,
+    "info": info,
 
-    "header-name": ref.make(name),
     "selected": ref.make(false),
     "visible": ref.make(true), // TODO is this correct ?
     "height": ref.make(null),
 
-    // TODO a little hacky
-    "first-selected-tab": null,
-    "index": null // TODO a little bit hacky
-  });
-
-export const make_tab = (group, tab) =>
-  record.make({
-    "time": record.get(tab, "time"),
-
-    "url": ref.make(record.get(tab, "url")),
-    "title": ref.make(record.get(tab, "title")),
-    "favicon": ref.make(record.get(tab, "favicon")),
-    "focused": ref.make(record.get(tab, "focused")),
-    "unloaded": ref.make(record.get(tab, "unloaded")),
-
-    "selected": ref.make(false),
-    "visible": ref.make(true), // TODO use `matches(tab)` ?
-
-    "top": ref.make(null),
     "index": null, // TODO a little bit hacky
-    "group": group
+    // TODO a little hacky
+    "first-selected-tab": null
   });
 
-/*export const make_group_tab = (group, tab) =>
+export const make_tab = (info, transient) => {
+  const url   = record.get(info, "url");
+  const title = record.get(info, "title");
+
+  return record.make({
+    "id": record.get(info, "id"),
+    "time": record.get(info, "time"),
+
+    "url": ref.make(url),
+    // TODO maybe this should be server-side ?
+    "title": ref.make(title || url),
+    "favicon": ref.make(record.get(info, "favicon")),
+    "pinned": ref.make(record.get(info, "pinned")),
+
+    "focused": ref.make(transient !== null &&
+                        record.get(transient, "focused")),
+    "unloaded": ref.make(transient === null),
+  });
+};
+
+export const make_group_tab = (group, tab) =>
   record.make({
+    "id": record.get(tab, "id"),
     "time": record.get(tab, "time"),
+
     "url": record.get(tab, "url"),
     "title": record.get(tab, "title"),
     "favicon": record.get(tab, "favicon"),
+    "pinned": record.get(tab, "pinned"),
+
     "focused": record.get(tab, "focused"),
     "unloaded": record.get(tab, "unloaded"),
-    "selected": record.get(tab, "selected"),
-    "visible": recrod.get(tab, "visible"),
 
+    "selected": ref.make(false),
+    "visible": ref.make(true), // TODO use `matches(tab)` ?
     "top": ref.make(null),
+
     "index": null, // TODO a little bit hacky
     "group": group
-  });*/
+  });

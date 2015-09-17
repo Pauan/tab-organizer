@@ -321,7 +321,7 @@ export const init = async.all([init_tab,
           dom.add_style(e, dom.stretch),
           dom.add_style(e, style_group_text),
 
-          dom.set_value(e, record.get(group, "header-name"))
+          dom.set_value(e, record.get(group, "name"))
         ])
       ])
     ]);

@@ -22,9 +22,8 @@ export const make_options = (uuid) => {
       const defaults = record.get(info, "default");
 
       record.each(defaults, (key, value) => {
-        const x = ref.make((record.has(current, key)
-                             ? record.get(current, key)
-                             : value));
+        const x = ref.make(record.get_default(current, key, () =>
+                             value));
 
         record.insert(options, key, x);
 

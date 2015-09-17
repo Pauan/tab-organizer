@@ -24,17 +24,12 @@ const get_time = (tab) =>
   record.get(record.get(tab, "time"), "created");
 
 const get_name = (parsed) => {
-  if (parsed !== null) {
-    if (parsed.protocol === "chrome:") {
-      return "chrome://";
-
-    } else {
-      return parsed.protocol + parsed.separator + parsed.authority +
-             parsed.domain + parsed.port;
-    }
+  if (parsed.protocol === "chrome:") {
+    return "chrome://";
 
   } else {
-    return "";
+    return parsed.protocol + parsed.separator + parsed.authority +
+           parsed.domain + parsed.port;
   }
 };
 
@@ -42,12 +37,10 @@ export const init = make({
   get_group_data: (tab) => {
     const url = record.get(tab, "url");
 
-    const parsed = (url !== null
-                       // TODO this should use the same function that "url-bar.js" uses, but it's faster to use `simplify`
-                     ? simplify(parse(url))
-                     : null);
-
-    const name = get_name(parsed);
+    const name = (url !== null
+                   // TODO this should use the same function that "url-bar.js" uses, but it's faster to use `simplify`
+                   ? get_name(simplify(parse(url)))
+                   : "");
 
     return {
       data: name,

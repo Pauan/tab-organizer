@@ -251,6 +251,14 @@ export const init = async.all([init_db,
       assert(set.has(window_tabs_seen, id));
       assert(set.has(tag_tabs_seen, id));
 
+      const window = record.get(window_ids, record.get(tab, "window"));
+      list.index_of(record.get(window, "tabs"), id);
+
+      record.each(record.get(tab, "tags"), (tag_id) => {
+        const tag = record.get(tag_ids, tag_id);
+        list.index_of(record.get(tag, "tabs"), id);
+      });
+
       ++amount;
     });
 
@@ -309,27 +317,12 @@ export const init = async.all([init_db,
 
 
       db.write("current.tag-ids", (tag_ids) => {
-        if (record.has(tag_ids, tag_id)) {
-          const tag = record.get(tag_ids, tag_id);
-
-          list.push(record.get(tag, "tabs"), tab_id);
-
-          if (events) {
-            event.send(tab_events, record.make({
-              "type": "tag-insert-tab",
-              "tag-id": tag_id,
-              "tab-id": tab_id
-            }));
-          }
-
-
-        } else {
+        // TODO test this
+        const tag = record.set_default(tag_ids, tag_id, () => {
           const tag = record.make({
             "id": tag_id,
-            "tabs": list.make(tab_id)
+            "tabs": list.make()
           });
-
-          record.insert(tag_ids, tag_id, tag);
 
           if (events) {
             event.send(tab_events, record.make({
@@ -337,6 +330,21 @@ export const init = async.all([init_db,
               "tag": tag
             }));
           }
+
+          return tag;
+        });
+
+
+        // TODO assert that the tab id isn't already in the tag ?
+        list.push(record.get(tag, "tabs"), tab_id);
+
+        if (events) {
+          event.send(tab_events, record.make({
+            "type": "tag-insert-tab",
+            "tag-id": tag_id,
+            "tab-id": tab_id,
+            "tag-time": time
+          }));
         }
       });
     });
@@ -350,13 +358,22 @@ export const init = async.all([init_db,
     });
 
     db.write("current.tag-ids", (tag_ids) => {
-      const tag = record.get(tag_ids, tag_id);
+      const tag  = record.get(tag_ids, tag_id);
       const tabs = record.get(tag, "tabs");
 
       const index = list.index_of(tabs, tab_id);
 
       // TODO test this
       list.remove(tabs, index);
+
+      if (events) {
+        event.send(tab_events, record.make({
+          "type": "tag-remove-tab",
+          "tag-id": tag_id,
+          "tab-id": tab_id,
+          "tab-index": index
+        }));
+      }
 
       // TODO test this
       if (list.size(tabs) === 0) {
@@ -366,16 +383,6 @@ export const init = async.all([init_db,
           event.send(tab_events, record.make({
             "type": "tag-remove",
             "tag-id": tag_id
-          }));
-        }
-
-      } else {
-        if (events) {
-          event.send(tab_events, record.make({
-            "type": "tag-remove-tab",
-            "tag-id": tag_id,
-            "tab-id": tab_id,
-            "tab-index": index
           }));
         }
       }
@@ -393,9 +400,11 @@ export const init = async.all([init_db,
   };
 
 
-  const make_new_tab = (tab_id, info) => {
+  const make_new_tab = (window_id, tab_id, info) => {
     const tab = record.make({
       "id": tab_id,
+      "window": window_id,
+
       "url": info.url,
       "title": info.title,
       "favicon": info.favicon,
@@ -433,7 +442,7 @@ export const init = async.all([init_db,
         update_tab(tab_id, info, false);
 
       } else {
-        make_new_tab(tab_id, info);
+        make_new_tab(window_id, tab_id, info);
         // TODO is this correct ?
         add_tag_to_tab(tab_id, "", false);
 
@@ -455,7 +464,7 @@ export const init = async.all([init_db,
       "tabs": list.map(info.tabs, (tab) => {
         const tab_id = session.tab_id(tab.id);
 
-        make_new_tab(tab_id, tab);
+        make_new_tab(window_id, tab_id, tab);
         // TODO is this correct ?
         add_tag_to_tab(tab_id, "", false);
 
@@ -605,7 +614,7 @@ export const init = async.all([init_db,
 
     record.insert(transient_tab_ids, tab_id, transient);
 
-    const tab = make_new_tab(tab_id, transient);
+    const tab = make_new_tab(window_id, tab_id, transient);
 
     db.write("current.window-ids", (window_ids) => {
       const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -671,10 +680,10 @@ export const init = async.all([init_db,
 
     db.write("current.window-ids", (window_ids) => {
       const old_window = record.get(window_ids, old_window_id);
-      const old_tabs = record.get(old_window, "tabs");
-
       const new_window = record.get(window_ids, new_window_id);
-      const new_tabs = record.get(new_window, "tabs");
+
+      const old_tabs   = record.get(old_window, "tabs");
+      const new_tabs   = record.get(new_window, "tabs");
 
       const session_old_index = list.index_of(old_tabs, tab_id);
 
@@ -710,6 +719,11 @@ export const init = async.all([init_db,
 
       db.write("current.tab-ids", (tab_ids) => {
         const tab = record.get(tab_ids, tab_id);
+
+        record.modify(tab, "window", (window_id) => {
+          assert(window_id === old_window_id);
+          return new_window_id;
+        });
 
         // TODO what if it wasn't moved ?
         const time = update_time(tab, "moved");
@@ -747,6 +761,8 @@ export const init = async.all([init_db,
 
       record.remove(tab_ids, tab_id);
       record.remove(transient_tab_ids, tab_id);
+
+      assert(record.get(tab, "window") === window_id);
 
       db.write("current.window-ids", (window_ids) => {
         const tabs = record.get(record.get(window_ids, window_id), "tabs");
@@ -850,9 +866,9 @@ export const init = async.all([init_db,
     const out = list.make();
 
     record.each(db.get("current.tab-ids"), (id, tab) => {
-      const transient = (record.has(transient_tab_ids, id)
-                          ? record.get(transient_tab_ids, id)
-                          : null);
+      const transient = record.get_default(transient_tab_ids, id, () =>
+                          null);
+
       list.push(out, { tab, transient });
     });
 

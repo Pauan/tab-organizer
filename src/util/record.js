@@ -37,6 +37,29 @@ export const get = (obj, key) => {
   }
 };
 
+export const get_default = (obj, key, f) => {
+  check_key(key);
+
+  if (key in obj) {
+    return obj[key];
+
+  } else {
+    return f();
+  }
+};
+
+// TODO test this
+export const set_default = (obj, key, f) => {
+  check_key(key);
+
+  if (key in obj) {
+    return obj[key];
+
+  } else {
+    return (obj[key] = f());
+  }
+};
+
 export const insert = (obj, key, value) => {
   check_key(key);
 
