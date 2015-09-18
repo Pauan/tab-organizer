@@ -240,8 +240,8 @@ const types = record.make({
   },
 
   "tag-remove-tab": (json) => {
-    const tab_id = record.get(json, "tab-id");
     const tag_id = record.get(json, "tag-id");
+    const tab_id = record.get(json, "tab-id");
     const index  = record.get(json, "tab-index");
 
     const tag  = record.get(tag_ids, tag_id);

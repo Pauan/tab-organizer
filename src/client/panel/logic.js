@@ -8,7 +8,7 @@ import { assert, fail } from "../../util/assert";
 import { init as init_tabs } from "../sync/tabs";
 import { init as init_options } from "../sync/options";
 import { init as init_sort_by_window } from "./sort/window";
-//import { init as init_sort_by_tag } from "./sort/tag";
+import { init as init_sort_by_tag } from "./sort/tag";
 import { init as init_sort_by_created } from "./sort/created";
 import { init as init_sort_by_focused } from "./sort/focused";
 import { init as init_sort_by_title } from "./sort/title";
@@ -18,7 +18,7 @@ import { init as init_sort_by_url } from "./sort/url";
 export const init = async.all([init_tabs,
                                init_options,
                                init_sort_by_window,
-                               //init_sort_by_tag,
+                               init_sort_by_tag,
                                init_sort_by_created,
                                init_sort_by_focused,
                                init_sort_by_title,
@@ -26,7 +26,7 @@ export const init = async.all([init_tabs,
                               (tabs,
                                { get: opt },
                                { make: make_sort_by_window },
-                               //{ make: make_sort_by_tag },
+                               { make: make_sort_by_tag },
                                { make: make_sort_by_created },
                                { make: make_sort_by_focused },
                                { make: make_sort_by_title },
@@ -395,7 +395,7 @@ export const init = async.all([init_tabs,
       ref.set(group_type, make_sort_by_window());
 
     } else if (type === "tag") {
-      //ref.set(group_type, make_sort_by_tag());
+      ref.set(group_type, make_sort_by_tag());
 
     } else if (type === "created") {
       ref.set(group_type, make_sort_by_created());
