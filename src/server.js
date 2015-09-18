@@ -1,5 +1,6 @@
 import * as timer from "./util/timer";
 import * as async from "./util/async";
+import * as console from "./util/console";
 import { init as init_windows } from "./server/windows";
 import { init as init_popup } from "./server/popup";
 import { init as init_options } from "./server/options";
@@ -12,5 +13,5 @@ async.run_all([init_windows,
                init_options,
                init_counter], () => {
   timer.done(duration);
-  console["info"]("server: initialized (" + timer.diff(duration) + "ms)");
+  console.info("server: initialized (" + timer.diff(duration) + "ms)");
 });

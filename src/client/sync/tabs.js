@@ -3,6 +3,7 @@ import * as async from "../../util/async";
 import * as event from "../../util/event";
 import * as record from "../../util/record";
 import * as timer from "../../util/timer";
+import * as console from "../../util/console";
 import { uuid_port_tab } from "../../common/uuid";
 import { ports } from "../../chrome/client";
 import { assert } from "../../util/assert";
@@ -52,7 +53,7 @@ const types = record.make({
     tag_ids       = record.get(json, "current.tag-ids");
 
     timer.done(duration);
-    console["info"]("tabs: initialized (" + timer.diff(duration) + "ms)");
+    console.info("tabs: initialized (" + timer.diff(duration) + "ms)");
 
     async.success(init, { windows, window_ids, tab_ids, transient_ids,
                           tag_ids, events, focus_tab, close_tabs });

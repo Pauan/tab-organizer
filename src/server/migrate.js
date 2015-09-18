@@ -2,6 +2,7 @@ import * as record from "../util/record";
 import * as list from "../util/list";
 import * as timer from "../util/timer";
 import * as async from "../util/async";
+import * as console from "../util/console";
 import { init as init_chrome } from "../chrome/server";
 import { fail } from "../util/assert";
 
@@ -82,14 +83,14 @@ export const init = async.all([init_chrome], ({ db }) => {
     // TODO a bit hacky
     db.set_all(new_db);
 
-    console["info"]("migrate: upgraded to version " +
-                    version +
-                    " (" +
-                    timer.diff(duration) +
-                    "ms)");
+    console.info("migrate: upgraded to version " +
+                 version +
+                 " (" +
+                 timer.diff(duration) +
+                 "ms)");
 
   } else {
-    console["info"]("migrate: already at version " + version);
+    console.info("migrate: already at version " + version);
   }
 
   return async.done(db);

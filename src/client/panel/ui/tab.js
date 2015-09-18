@@ -4,6 +4,7 @@ import * as record from "../../../util/record";
 import * as stream from "../../../util/stream";
 import * as async from "../../../util/async";
 import * as ref from "../../../util/ref";
+import * as console from "../../../util/console";
 import { url_bar } from "./url-bar";
 import { init as init_options } from "../../sync/options";
 import { init as init_logic } from "../logic";

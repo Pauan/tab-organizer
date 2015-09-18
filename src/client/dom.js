@@ -973,15 +973,15 @@ export const set_name = (dom, x) => {
 // TODO test this
 // TODO what about animations ?
 const _clear = (dom) => {
-  if (list.size(dom._children)) {
-    list.each(dom._children, (x) => {
-      // TODO test this
-      _on_remove(x, dom, x._visible, functions.noop);
-    });
+  list.each(dom._children, (x) => {
+    // TODO test this
+    // TODO this is probably wrong
+    _on_remove(x, dom, x._visible, functions.noop);
+  });
 
-    list.clear(dom._children);
-    dom._dom["innerHTML"] = "";
-  }
+  list.clear(dom._children);
+  // TODO maybe use "removeChild" rather than doing it like this ?
+  dom._dom["innerHTML"] = "";
 };
 
 const _remove = (dom, index) => {
@@ -1014,6 +1014,7 @@ const _insert = (dom, index, x) => {
 
   list.insert(dom._children, index, x);
 
+  // Only run this if the node is actually in the DOM
   if (dom._parent !== null) {
     _on_insert(x, dom, x._visible, "insert");
   }
@@ -1024,9 +1025,73 @@ const _push = (dom, x) => {
 
   list.push(dom._children, x);
 
+  // Only run this if the node is actually in the DOM
   if (dom._parent !== null) {
     _on_insert(x, dom, x._visible, "initial");
   }
+};
+
+// TODO test this
+const _children = (dom, x) => {
+  let first = true;
+
+  let old_keys = record.make();
+
+  return ref.listen(x, (x) => {
+    if (first) {
+      first = false;
+
+      if (x !== null) {
+        list.each(x, (child) => {
+          record.insert(old_keys, child._id, true);
+          _push(dom, child);
+        });
+      }
+
+    } else {
+      const new_keys = record.make();
+
+      const new_children =
+        (x === null
+          ? list.make()
+          : list.map(x, (child) => {
+              record.insert(new_keys, child._id, true);
+
+              // TODO is this correct ?
+              dom._dom["appendChild"](child._dom);
+
+              // TODO test this
+              // If the child is new...
+              if (!record.has(old_keys, child._id)) {
+                // TODO code duplication
+                // TODO test this
+                // Only run this if the node is actually in the DOM
+                if (dom._parent !== null) {
+                  // TODO is this correct ?
+                  _on_insert(child, dom, child._visible, "initial");
+                }
+              }
+
+              return child;
+            }));
+
+      list.each(dom._children, (child) => {
+        // If the child no longer exists...
+        if (!record.has(new_keys, child._id)) {
+          // TODO code duplication
+          const child_dom = child._dom;
+
+          // TODO is this correct ?
+          _on_remove(child, dom, false, () => {
+            dom._dom["removeChild"](child_dom);
+          });
+        }
+      });
+
+      old_keys = new_keys;
+      dom._children = new_children;
+    }
+  });
 };
 
 // TODO is this correct ?
@@ -1040,15 +1105,7 @@ export const children = (dom, x) => {
     return running.noop();
 
   } else {
-    return ref.listen(x, (x) => {
-      _clear(dom);
-
-      if (x !== null) {
-        list.each(x, (x) => {
-          _push(dom, x);
-        });
-      }
-    });
+    return _children(dom, x);
   }
 };
 

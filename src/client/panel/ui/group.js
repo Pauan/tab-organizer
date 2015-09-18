@@ -316,6 +316,14 @@ export const init = async.all([init_tab,
         remove: "play-from",
       }),
 
+      // TODO is this correct ?
+      dom.on_mouse_hover(e, (hover) => {
+        // TODO is this correct ?
+        if (hover && !hover.subtree) {
+          logic.drag_onto_group(group);
+        }
+      }),
+
       dom.children(e, [
         dom.text((e) => [
           dom.add_style(e, dom.stretch),

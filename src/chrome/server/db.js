@@ -1,6 +1,7 @@
 import * as record from "../../util/record";
 import * as timer from "../../util/timer";
 import * as async from "../../util/async";
+import * as console from "../../util/console";
 import { chrome } from "../../common/globals";
 import { async_chrome, throw_error } from "../common/util";
 import { assert } from "../../util/assert";
@@ -46,11 +47,11 @@ export const init = async.chain(chrome_get_all(), (db) => {
       async.run(chrome_set(key, record.get(db, key)), () => {
         timer.done(duration);
 
-        console["debug"]("db.set: \"" +
-                         key +
-                         "\" (" +
-                         timer.diff(duration) +
-                         "ms)");
+        console.debug("db.set: \"" +
+                      key +
+                      "\" (" +
+                      timer.diff(duration) +
+                      "ms)");
       });
 
 
@@ -58,11 +59,11 @@ export const init = async.chain(chrome_get_all(), (db) => {
       async.run(chrome_remove(key), () => {
         timer.done(duration);
 
-        console["debug"]("db.remove: \"" +
-                         key +
-                         "\" (" +
-                         timer.diff(duration) +
-                         "ms)");
+        console.debug("db.remove: \"" +
+                      key +
+                      "\" (" +
+                      timer.diff(duration) +
+                      "ms)");
       });
     }
   };
@@ -153,7 +154,7 @@ export const init = async.chain(chrome_get_all(), (db) => {
 
 
   timer.done(duration);
-  console["info"]("db: initialized (" + timer.diff(duration) + "ms)", db);
+  console.info("db: initialized (" + timer.diff(duration) + "ms)", db);
 
   return async.done({ modify, write, include, get, get_all, set_all, delay });
 });

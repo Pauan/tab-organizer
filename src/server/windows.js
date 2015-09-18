@@ -5,6 +5,7 @@ import * as running from "../util/running";
 import * as set from "../util/set"; // TODO this is only needed for development
 import * as timer from "../util/timer";
 import * as async from "../util/async";
+import * as console from "../util/console";
 import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
@@ -264,7 +265,7 @@ export const init = async.all([init_db,
 
 
     timer.done(duration);
-    console["info"]("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
+    console.info("windows: checked " + amount + " tabs (" + timer.diff(duration) + "ms)");
   };
 
 

@@ -2,6 +2,7 @@ import * as record from "../util/record";
 import * as timer from "../util/timer";
 import * as list from "../util/list";
 import * as async from "../util/async";
+import * as console from "../util/console";
 import { init as init_db } from "./migrate";
 import { timestamp } from "../util/time";
 import { assert, fail } from "../util/assert";
@@ -49,11 +50,11 @@ export const init = async.all([init_db], (db) => {
 
     const x = make_window(id, window, list.map(window.tabs, make_new_tab));
 
-    console["info"]("session: created new window " +
-                    id +
-                    " with " +
-                    list.size(window.tabs) +
-                    " tabs");
+    console.info("session: created new window " +
+                 id +
+                 " with " +
+                 list.size(window.tabs) +
+                 " tabs");
 
     return x;
   };
@@ -197,11 +198,11 @@ export const init = async.all([init_db], (db) => {
             const old_url = record.get(old_tab, "url");
             const new_url = new_tab.url;
 
-            console["warn"]("session: old URL \"" +
-                            old_url +
-                            "\" does not match with new URL \"" +
-                            new_url
-                            + "\"");
+            console.warn("session: old URL \"" +
+                         old_url +
+                         "\" does not match with new URL \"" +
+                         new_url +
+                         "\"");
             return false;
           }
 
@@ -250,10 +251,10 @@ export const init = async.all([init_db], (db) => {
         }
       }));
 
-    console["info"]("session: merged " +
-                    i_new +
-                    " new tabs into window " +
-                    old_id);
+    console.info("session: merged " +
+                 i_new +
+                 " new tabs into window " +
+                 old_id);
 
     return x;
   };
@@ -282,9 +283,9 @@ export const init = async.all([init_db], (db) => {
       merge(old_windows, new_windows));
 
     timer.done(timer_merge);
-    console["info"]("session: initialized (" +
-                    timer.diff(timer_merge) +
-                    "ms)");
+    console.info("session: initialized (" +
+                 timer.diff(timer_merge) +
+                 "ms)");
   };
 
 
