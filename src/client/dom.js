@@ -970,6 +970,10 @@ export const set_name = (dom, x) => {
 };
 
 
+const check_children = (dom) => {
+  assert(list.size(dom._children) === dom._dom["childNodes"]["length"]);
+};
+
 // TODO test this
 // TODO what about animations ?
 const _clear = (dom) => {
@@ -982,6 +986,8 @@ const _clear = (dom) => {
   list.clear(dom._children);
   // TODO maybe use "removeChild" rather than doing it like this ?
   dom._dom["innerHTML"] = "";
+
+  check_children(dom);
 };
 
 const _remove = (dom, index) => {
@@ -1090,6 +1096,9 @@ const _children = (dom, x) => {
 
       old_keys = new_keys;
       dom._children = new_children;
+
+      // TODO is this the correct spot for this ?
+      check_children(dom);
     }
   });
 };
