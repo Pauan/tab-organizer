@@ -50,13 +50,30 @@ export const make_group = (id, name, tabs, info) =>
     "first-selected-tab": null
   });
 
+// TODO utility function for this ?
+const copy = (from, to, key) => {
+  if (record.has(from, key)) {
+    record.insert(to, key, record.get(from, key));
+  }
+};
+
+const make_time = (time) => {
+  const out = record.make({
+    "created": record.get(time, "created")
+  });
+
+  copy(time, out, "focused");
+
+  return out;
+};
+
 export const make_tab = (info, transient) => {
   const url   = record.get(info, "url");
   const title = record.get(info, "title");
 
   return record.make({
     "id": record.get(info, "id"),
-    "time": record.get(info, "time"),
+    "time": make_time(record.get(info, "time")),
 
     "url": ref.make(url),
     // TODO maybe this should be server-side ?

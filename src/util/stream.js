@@ -157,7 +157,7 @@ export const sorted_remove = (stream, x) => {
   }
 };
 
-// TODO test this
+// TODO when the sorting is incorrect, rather than doing an `index_of` followed by `get_sorted`, it might be faster to do a `get_sorted` followed by an `index_of`
 export const sorted_update = (stream, x) => {
   if (stream._type === 1) {
     // TODO is there a more efficient way to do this ?

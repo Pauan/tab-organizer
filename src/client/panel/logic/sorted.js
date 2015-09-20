@@ -71,21 +71,19 @@ export const make = ({ get_group_data,
         if (old_group === new_group) {
           f();
 
-          // TODO test this
           stream.sorted_update(record.get(old_group, "tabs"), x);
 
-          // TODO is this needed ?
           update_tabs(old_group);
 
 
         } else {
-          // TODO a tiny bit hacky
-          // TODO maybe use `make_group_tab` instead ?
-          record.update(x, "group", new_group);
-
           remove_tab(old_group, x);
 
           f();
+
+          // TODO a tiny bit hacky
+          // TODO maybe use `make_group_tab` instead ?
+          record.update(x, "group", new_group);
 
           stream.sorted_insert(record.get(new_group, "tabs"), x);
 
@@ -123,6 +121,7 @@ export const make = ({ get_group_data,
         // TODO test this
         "tab-focus": (json) => {
           const tab_id = record.get(json, "tab-id");
+          const time   = record.get(json, "tab-time-focused");
 
           // TODO is this correct ?
           const tab = record.get(sync.tab_ids, tab_id);
@@ -130,10 +129,10 @@ export const make = ({ get_group_data,
           const x = record.get(tab_ids, tab_id);
 
           // TODO this is only needed for "focused"
-          // TODO a little bit hacky
-          // TODO update the timestamp for the tab ?
           // TODO update "focused" for the tab ?
-          update_tab(x, tab, functions.noop);
+          update_tab(x, tab, () => {
+            record.assign(record.get(x, "time"), "focused", time);
+          });
 
           // TODO is this needed ?
           // TODO can this be made more efficient ?
