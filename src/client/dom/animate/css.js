@@ -68,13 +68,13 @@ const get_animations = (dom, f) => {
 
         // TODO a tiny bit hacky
         if (type) {
-          if (type === "play-to") {
+          if (type === "end-at") {
             list.push(out, animation._name + " " +
                            animation._duration + "ms " +
                            animation._easing +
                            " normal both");
 
-          } else if (type === "play-from") {
+          } else if (type === "start-at") {
             list.push(out, animation._name + " " +
                            animation._duration + "ms " +
                            animation._easing +

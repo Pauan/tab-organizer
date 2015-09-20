@@ -328,8 +328,8 @@ export const init = async.all([init_options,
       dom.toggle_style(e, style_favicon_unloaded, record.get(tab, "unloaded")),
 
       dom.animate(e, animation_tab_favicon, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       })
     ]);
 
@@ -339,8 +339,8 @@ export const init = async.all([init_options,
       dom.add_style(e, style_text),
 
       dom.animate(e, animation_tab_text, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       }),
 
       // TODO what about dragging ?
@@ -386,8 +386,8 @@ export const init = async.all([init_options,
       ])),
 
       dom.animate(e, animation_tab_close, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       }),
 
       dom.on_left_click(e, ({ shift, ctrl, alt }) => {
@@ -599,7 +599,7 @@ export const init = async.all([init_options,
           : dom.animate(e, (index < 5
                              ? animation_dragging
                              : animation_dragging_hidden), {
-              initial: "play-from"
+              initial: "start-at"
             })),
 
         // TODO a bit hacky
@@ -637,8 +637,8 @@ export const init = async.all([init_options,
           dom.toggle_style(e, style_menu_item_hold, is_holding),
 
           dom.animate(e, animation_tab, {
-            insert: "play-from",
-            remove: "play-to"
+            insert: "start-at",
+            remove: "end-at"
           }),
 
           dom.toggle_visible(e, record.get(tab, "visible")),

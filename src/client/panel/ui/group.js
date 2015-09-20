@@ -335,8 +335,8 @@ export const init = async.all([init_tab,
       dom.add_style(e, style_group_header),
 
       dom.animate(e, animation_group_header, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       }),
 
       // TODO is this correct ?
@@ -363,8 +363,8 @@ export const init = async.all([init_tab,
       dom.add_style(e, style_group_tabs),
 
       dom.animate(e, animation_group_tabs, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       }),
 
       dom.style(e, {
@@ -408,8 +408,8 @@ export const init = async.all([init_tab,
       dom.toggle_visible(e, record.get(group, "visible")),
 
       dom.animate(e, animation_group_wrapper, {
-        insert: "play-from",
-        remove: "play-to"
+        insert: "start-at",
+        remove: "end-at"
       }),
 
       dom.children(e, [
@@ -427,8 +427,8 @@ export const init = async.all([init_tab,
           }),
 
           dom.animate(e, animation_group, {
-            insert: "play-from",
-            remove: "play-to"
+            insert: "start-at",
+            remove: "end-at"
           }),
 
           dom.children(e, [

@@ -25,10 +25,10 @@ const get_animations = (dom, f) => {
 
         // TODO a tiny bit hacky
         if (type) {
-          if (type === "play-to") {
+          if (type === "end-at") {
             list.push(out, { animation, type });
 
-          } else if (type === "play-from") {
+          } else if (type === "start-at") {
             list.push(out, { animation, type });
 
           } else {
@@ -62,10 +62,10 @@ const tween_lite = (method, _dom, animation, done) => {
 };
 
 const start_animation = (_dom, animation, type, done) => {
-  if (type === "play-to") {
+  if (type === "end-at") {
     tween_lite("to", _dom, animation, done);
 
-  } else if (type === "play-from") {
+  } else if (type === "start-at") {
     tween_lite("from", _dom, animation, done);
 
   } else {
