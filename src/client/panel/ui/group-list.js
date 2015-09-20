@@ -28,6 +28,9 @@ export const init = async.all([init_group,
       }
     }),
 
+    // TODO hack which causes Chrome to not repaint when scrolling
+    "transform": ref.always("translateZ(0)"),
+
     "overflow": ref.always("auto"),
   });
 

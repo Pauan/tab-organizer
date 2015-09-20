@@ -5,10 +5,13 @@ import * as running from "../util/running";
 import * as record from "../util/record";
 import * as _stream from "../util/stream";
 import * as functions from "../util/functions";
+import * as async from "../util/async";
 import { get_style_value, set_style_value,
          make_style, make_animation, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
+import { batch_read, batch_write } from "./dom/batch";
 export { make_style, make_animation, make_stylesheet } from "./dom/style";
+import { animate as _animate } from "./dom/animate";
 
 
 const preventDefault = (e) => {
@@ -33,50 +36,6 @@ const trigger_relayout = (dom, s) => {
   // TODO is there a "faster" way to trigger relayout ?
   getComputedStyle(dom)[s];
 };*/
-
-// TODO this isn't quite correct, but it will do for now
-// TODO use batch_read ?
-const wait_for_animation = (dom, a, done) => {
-  let pending = list.size(a);
-
-  const cleanup = () => {
-    clearTimeout(timer);
-    // TODO remove vendor prefix
-    dom["removeEventListener"]("webkitAnimationEnd", end, true);
-  };
-
-  const end = (e) => {
-    if (e["target"] === dom) {
-      --pending;
-
-      if (pending === 0) {
-        cleanup();
-        done();
-      }
-    }
-  };
-
-  const error = () => {
-    cleanup();
-    fail(new Error("Animation took too long!"));
-  };
-
-  // TODO is it possible for these to leak ?
-  // TODO remove vendor prefix
-  dom["addEventListener"]("webkitAnimationEnd", end, true);
-
-  const timer = setTimeout(error, 10000);
-};
-
-const start_animation = (dom, a, done) => {
-  if (done != null) {
-    wait_for_animation(dom, a, done);
-  }
-
-  // TODO remove vendor prefix
-  // TODO code duplication
-  set_style_value(dom["style"], "-webkit-animation", list.join(a, ","));
-};
 
 
 let element_id = 0;
@@ -116,7 +75,7 @@ const _on_remove1 = (dom, parent, animate, done) => {
   // TODO what if the child node is visible but the parent node is not ?
   if (animate) {
     // TODO is this the right order for this ?
-    _animate(dom, "both", (x) => x.remove, done);
+    _animate(dom, (x) => x.remove, done);
   } else {
     done();
   }
@@ -190,7 +149,7 @@ const _on_insert = (dom, parent, animate, type) => {
     // TODO what if the child node is visible but the parent node is not ?
     if (animate) {
       // TODO is this the right order for this ?
-      _animate(dom, "none", (x) => x.initial);
+      _animate(dom, (x) => x.initial);
     }
 
 
@@ -198,7 +157,7 @@ const _on_insert = (dom, parent, animate, type) => {
     // TODO what if the child node is visible but the parent node is not ?
     if (animate) {
       // TODO is this the right order for this ?
-      _animate(dom, "none", (x) => x.insert);
+      _animate(dom, (x) => x.insert);
     }
 
 
@@ -517,18 +476,7 @@ export const set_scroll = (dom, { x, y }) =>
     y
   ], (inserted, x, y) => {
     if (inserted !== null) {
-      const width = dom._dom["scrollWidth"] -
-                    dom._dom["clientWidth"];
-
-      const height = dom._dom["scrollHeight"] -
-                     dom._dom["clientHeight"];
-
-      // TODO what if x is null ?
-      // TODO what if y is null ?
-      return {
-        x: x * width,
-        y: y * height
-      };
+      return { x, y };
 
     } else {
       return null;
@@ -536,8 +484,22 @@ export const set_scroll = (dom, { x, y }) =>
 
   }), (info) => {
     if (info !== null) {
-      dom._dom["scrollLeft"] = info.x;
-      dom._dom["scrollTop"]  = info.y;
+      batch_read(() => {
+        // TODO does this trigger a relayout ?
+        const width = dom._dom["scrollWidth"] -
+                      dom._dom["clientWidth"];
+
+        const height = dom._dom["scrollHeight"] -
+                       dom._dom["clientHeight"];
+
+        batch_write(() => {
+          // TODO what if x is null ?
+          dom._dom["scrollLeft"] = info.x * width;
+
+          // TODO what if y is null ?
+          dom._dom["scrollTop"]  = info.y * height;
+        });
+      });
     }
   });
 
@@ -559,17 +521,28 @@ export const scroll_to = (dom, { initial = ref.always(false),
     }
   });
 
-export const get_position = (dom, f) => {
-  // TODO this triggers a relayout
+// This triggers a relayout, so you should always run it in `batch_read`
+const _get_position = (dom) => {
   const box = dom._dom["getBoundingClientRect"]();
-  f({
+
+  return {
     left: box["left"],
     top: box["top"],
     right: box["right"],
     bottom: box["bottom"],
     width: box["width"],
     height: box["height"]
+  };
+};
+
+export const get_position = (dom) => {
+  const out = async.make();
+
+  batch_read(() => {
+    async.success(out, _get_position(dom));
   });
+
+  return out;
 };
 
 export const animate = (dom, animation, info) => {
@@ -593,13 +566,18 @@ export const animate = (dom, animation, info) => {
 };
 
 const _scroll_to = (parent, child) => {
+  // TODO is this correct ?
   // TODO what if the child is visible but the parent isn't ?
+  // TODO move this check inside of the batch_read ?
   if (child._visible) {
-    get_position(parent, (p) => {
-      get_position(child, (c) => {
-        const scrollLeft = parent._dom["scrollLeft"];
-        const scrollTop  = parent._dom["scrollTop"];
+    batch_read(() => {
+      const p = _get_position(parent);
+      const c = _get_position(child);
 
+      const scrollLeft = parent._dom["scrollLeft"];
+      const scrollTop  = parent._dom["scrollTop"];
+
+      batch_write(() => {
         // TODO test this
         // TODO does this trigger a relayout ?
         parent._dom["scrollLeft"] = scrollLeft +
@@ -615,76 +593,6 @@ const _scroll_to = (parent, child) => {
       });
     });
   }
-};
-
-// TODO test this
-const _animate = (dom, fill, f, done = null) => {
-  assert(dom._visible);
-  assert(dom._parent !== null);
-
-  const a = _get_animations(dom, fill, f);
-
-  if (list.size(a)) {
-    const _dom = dom._dom;
-
-    // TODO remove vendor prefix
-    const animation = get_style_value(_dom["style"], "-webkit-animation");
-
-    // TODO is this correct ?
-    if (animation === null) {
-      start_animation(_dom, a, done);
-
-    } else {
-      // TODO is this correct ?
-      // TODO remove vendor prefix
-      set_style_value(_dom["style"], "-webkit-animation", null);
-
-      // TODO a little bit hacky, but the alternative is to intentionally trigger a relayout
-      requestAnimationFrame(() => {
-        start_animation(_dom, a, done);
-      });
-    }
-
-  // TODO should this set "-webkit-animation" to `null` ?
-  } else if (done != null) {
-    done();
-  }
-};
-
-// TODO test this
-const _get_animations = (dom, fill, f) => {
-  const out = list.make();
-
-  if (dom._animations !== null) {
-    set.each(dom._animations, ({ animation, info }) => {
-      const type = f(info);
-
-      // TODO a tiny bit hacky
-      if (type) {
-        if (type === "play-to") {
-          list.push(out, animation._name + " " +
-                         animation._duration + " " +
-                         animation._easing +
-                         " 0ms 1 normal " +
-                         fill +
-                         " running");
-
-        } else if (type === "play-from") {
-          list.push(out, animation._name + " " +
-                         animation._duration + " " +
-                         animation._easing +
-                         " 0ms 1 reverse " +
-                         fill +
-                         " running");
-
-        } else {
-          fail();
-        }
-      }
-    });
-  }
-
-  return out;
 };
 
 export const toggle_visible = (dom, x) => {
@@ -969,6 +877,23 @@ export const set_name = (dom, x) => {
   }
 };
 
+// TODO does this trigger a relayout ?
+export const set_label = (dom, x) => {
+  if (dom._type === "optgroup" || dom._type === "option") {
+    return ref.listen(x, (x) => {
+      if (x === null) {
+        dom._dom["label"] = "";
+
+      } else {
+        dom._dom["label"] = x;
+      }
+    });
+
+  } else {
+    fail();
+  }
+};
+
 
 const check_children = (dom) => {
   assert(list.size(dom._children) === dom._dom["childNodes"]["length"]);
@@ -1148,24 +1073,6 @@ export const stream = (dom, x) =>
       break;
     }
   });
-
-
-// TODO does this trigger a relayout ?
-export const set_label = (dom, x) => {
-  if (dom._type === "optgroup" || dom._type === "option") {
-    return ref.listen(x, (x) => {
-      if (x === null) {
-        dom._dom["label"] = "";
-
-      } else {
-        dom._dom["label"] = x;
-      }
-    });
-
-  } else {
-    fail();
-  }
-};
 
 
 // TODO code duplication

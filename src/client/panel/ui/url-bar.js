@@ -95,13 +95,4 @@ dom.push_root(dom.parent((e) => [
   ]),
 
   dom.toggle_visible(e, url_bar)
-/*
-  // TODO is this correct ?
-  // This makes the element visible if `url_bar` is not `null`, and then
-  // it uses `get_position` to check if the mouse is on top of the element,
-  // and if so, it will then hide the element
-  dom.toggle_visible(e, e.visible(url_bar).keep((o) => o !== null).map((o) => {
-    const box = dom.get_position(e);
-    return o.x > box.right || o.y < box.top;
-  }))*/
 ]));

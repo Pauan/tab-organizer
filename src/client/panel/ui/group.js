@@ -119,6 +119,16 @@ export const init = async.all([init_tab,
   const style_group_wrapper = dom.make_style({
     "overflow": ref.always("visible"),
 
+    // TODO hack to make it smoother when opening/closing windows
+    "transform": ref.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "horizontal":
+        return "translateZ(0)";
+      default:
+        return null;
+      }
+    }),
+
     "float": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
@@ -160,6 +170,10 @@ export const init = async.all([init_tab,
         return null;
       }
     }),
+  });
+
+  const style_group_wrapper_focused = dom.make_style({
+    "z-index": ref.always("2")
   });
 
   const style_group = dom.make_style({
@@ -260,8 +274,6 @@ export const init = async.all([init_tab,
   });
 
   const style_group_focused = dom.make_style({
-    "z-index": ref.always("2"),
-
     "box-shadow": ref.always("0px 0px 4px 1px " + dom.hsl(211, 80, 50)),
   });
 
@@ -286,6 +298,17 @@ export const init = async.all([init_tab,
       case "grid":
         // TODO this is hacky, it needs to be kept in sync with style_group_header and padding-bottom
         return "calc(100% - 16px - 3px)";
+      default:
+        return null;
+      }
+    }),
+
+    // TODO hack which causes Chrome to not repaint when scrolling
+    "transform": ref.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return "translateZ(0)";
       default:
         return null;
       }
@@ -371,9 +394,16 @@ export const init = async.all([init_tab,
   const is_horizontal = ref.map(opt("groups.layout"), (x) =>
                           (x === "horizontal"));
 
-  const group = (group) =>
-    dom.parent((e) => [
+  const group = (group) => {
+    const is_focused = ref.and([
+      record.get(group, "selected"),
+      is_horizontal
+    ]);
+
+    return dom.parent((e) => [
       dom.add_style(e, style_group_wrapper),
+
+      dom.toggle_style(e, style_group_wrapper_focused, is_focused),
 
       dom.toggle_visible(e, record.get(group, "visible")),
 
@@ -389,10 +419,7 @@ export const init = async.all([init_tab,
           dom.add_style(e, style_group),
           dom.add_style(e, style_texture),
 
-          dom.toggle_style(e, style_group_focused, ref.and([
-            record.get(group, "selected"),
-            is_horizontal
-          ])),
+          dom.toggle_style(e, style_group_focused, is_focused),
 
           dom.on_focus(e, (focused) => {
             // TODO a little hacky, should be a part of logic
@@ -411,6 +438,7 @@ export const init = async.all([init_tab,
         ])
       ])
     ]);
+  };
 
 
   return async.done({ group });

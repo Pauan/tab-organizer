@@ -174,9 +174,6 @@ const types = record.make({
 
     list.remove(tabs, index);
 
-    // TODO is this correct ?
-    assert(list.size(tabs) > 0);
-
     event.send(events, json);
   },
 
@@ -253,9 +250,6 @@ const types = record.make({
 
     assert(list.get(tabs, index) === tab_id);
     list.remove(tabs, index);
-
-    // TODO is this correct ?
-    assert(list.size(tabs) > 0);
 
     event.send(events, json);
   },

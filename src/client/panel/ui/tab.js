@@ -439,7 +439,7 @@ export const init = async.all([init_options,
 
   // TODO this should be a part of logic and stuff
   const drag_start = ({ group, tab, e, x, y }) => {
-    dom.get_position(e, (tab_box) => {
+    async.run(dom.get_position(e), (tab_box) => {
       const tabs = record.get(group, "tabs");
 
       const selected = list.make();
