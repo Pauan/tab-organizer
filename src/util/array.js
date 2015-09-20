@@ -41,9 +41,9 @@ export const is_sorted = (list, index, len, sort) => {
 
   // TODO code duplication
   return (!index_in_range(prev, len) ||
-          sort(list[prev], list[index]) < 0) &&
+          sort(list[index], list[prev]) > 0) &&
          (!index_in_range(next, len) ||
-          sort(list[index], list[next]) > 0);
+          sort(list[index], list[next]) < 0);
 };
 
 // TODO is this correct ?

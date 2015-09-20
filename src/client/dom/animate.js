@@ -88,7 +88,7 @@ const get_animations = (dom, f) => {
 };
 
 
-// TODO test this
+// TODO implement custom JS animations
 export const animate = (dom, f, done = null) => {
   assert(dom._visible);
   assert(dom._parent !== null);
