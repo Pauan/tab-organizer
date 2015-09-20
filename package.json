@@ -7,6 +7,9 @@
     "babel-loader": "^5.3.2",
     "webpack": "^1.11.0"
   },
+  "dependencies": {
+    "gsap": "^1.18.0"
+  },
   "scripts": {
     "build": "npm install && webpack --bail -p",
     "watch": "npm install && webpack --watch"

@@ -7,11 +7,13 @@ import * as _stream from "../util/stream";
 import * as functions from "../util/functions";
 import * as async from "../util/async";
 import { get_style_value, set_style_value,
-         make_style, make_animation, make_stylesheet } from "./dom/style";
+         make_style, make_stylesheet } from "./dom/style";
 import { assert, fail } from "../util/assert";
 import { batch_read, batch_write } from "./dom/batch";
-export { make_style, make_animation, make_stylesheet } from "./dom/style";
-import { animate as _animate } from "./dom/animate";
+import { animate as _animate, make_animation } from "./dom/animate/css";
+
+export { make_style, make_stylesheet } from "./dom/style";
+export { make_animation } from "./dom/animate/css";
 
 
 const preventDefault = (e) => {

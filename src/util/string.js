@@ -13,6 +13,9 @@ export const match = (s, re) =>
 export const test = (s, re) =>
   re["test"](s);
 
+export const split = (s, re) =>
+  s["split"](re);
+
 export const plural = (x, s) => {
   if (x === 1) {
     return x + s;

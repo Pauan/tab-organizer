@@ -26,6 +26,12 @@ mkdir(path.join("build", "lib"));
 cp(path.join("node_modules", "babel-core", "external-helpers.min.js"),
    path.join("build", "lib", "external-helpers.min.js"));
 
+cp(path.join("node_modules", "gsap", "src", "minified", "TweenLite.min.js"),
+   path.join("build", "lib", "TweenLite.min.js"));
+
+cp(path.join("node_modules", "gsap", "src", "minified", "plugins", "CSSPlugin.min.js"),
+   path.join("build", "lib", "CSSPlugin.min.js"));
+
 
 module.exports = {
   "devtool": "source-map",

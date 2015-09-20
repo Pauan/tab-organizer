@@ -32,9 +32,9 @@ export const init = async.all([init_options,
 
   const animation_tab = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       /*"transform": {
         "rotationX": "-90deg", // 120deg
         "rotationY": "5deg", // 20deg
@@ -55,27 +55,27 @@ export const init = async.all([init_options,
 
   const animation_tab_favicon = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "height": ref.always("0px")
     }
   });
 
   const animation_tab_text = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "transform": ref.always("rotateX(-90deg)"),
     }
   });
 
   const animation_tab_close = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "height": ref.always("0px"),
       "border-top-width": ref.always("0px"),
       "border-bottom-width": ref.always("0px"),
@@ -287,38 +287,31 @@ export const init = async.all([init_options,
   });
 
 
+  // TODO remove this animation
   const animation_dragging = dom.make_animation({
     easing: ref.always("ease-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "300ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 300 : null)),
+    style: {
       "margin-top": ref.always("0px")
-    },
-    to: {
-      "margin-top": ref.always("-18px")
     }
   });
 
+  // TODO remove this animation
   const animation_dragging_hidden = dom.make_animation({
     easing: ref.always("ease-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "300ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 300 : null)),
+    style: {
       "margin-top": ref.always("0px"),
       "opacity": ref.always("1")
-    },
-    to: {
-      "margin-top": ref.always("-" + tab_height + "px"),
-      "opacity": ref.always("0")
     }
   });
 
-  // TODO code duplication
   const style_tab_dragging = dom.make_style({
-    "margin-top": ref.always("-18px")
+    "margin-top": ref.always("-" + (tab_height - 2) + "px")
   });
 
-  // TODO code duplication
   const style_tab_dragging_hidden = dom.make_style({
     "margin-top": ref.always("-" + tab_height + "px"),
     "opacity": ref.always("0")
@@ -335,9 +328,9 @@ export const init = async.all([init_options,
       dom.toggle_style(e, style_favicon_unloaded, record.get(tab, "unloaded")),
 
       dom.animate(e, animation_tab_favicon, {
-        insert: "play-to",
-        remove: "play-from",
-      }),
+        insert: "play-from",
+        remove: "play-to"
+      })
     ]);
 
   const text = (tab) =>
@@ -346,8 +339,8 @@ export const init = async.all([init_options,
       dom.add_style(e, style_text),
 
       dom.animate(e, animation_tab_text, {
-        insert: "play-to",
-        remove: "play-from",
+        insert: "play-from",
+        remove: "play-to"
       }),
 
       // TODO what about dragging ?
@@ -393,8 +386,8 @@ export const init = async.all([init_options,
       ])),
 
       dom.animate(e, animation_tab_close, {
-        insert: "play-to",
-        remove: "play-from",
+        insert: "play-from",
+        remove: "play-to"
       }),
 
       dom.on_left_click(e, ({ shift, ctrl, alt }) => {
@@ -468,7 +461,7 @@ export const init = async.all([init_options,
 
       dragging_should_x = (ref.get(opt("groups.layout")) !== "vertical");
       dragging_offset_x = (x - tab_box.left);
-      dragging_offset_y = (height / 2);
+      dragging_offset_y = (tab_height / 2) + 1;
 
       ref.set(dragging_dimensions, {
         x: (x - dragging_offset_x),
@@ -606,7 +599,7 @@ export const init = async.all([init_options,
           : dom.animate(e, (index < 5
                              ? animation_dragging
                              : animation_dragging_hidden), {
-              initial: "play-to"
+              initial: "play-from"
             })),
 
         // TODO a bit hacky
@@ -644,8 +637,8 @@ export const init = async.all([init_options,
           dom.toggle_style(e, style_menu_item_hold, is_holding),
 
           dom.animate(e, animation_tab, {
-            insert: "play-to",
-            remove: "play-from",
+            insert: "play-from",
+            remove: "play-to"
           }),
 
           dom.toggle_visible(e, record.get(tab, "visible")),

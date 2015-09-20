@@ -66,8 +66,6 @@ export const set_style_value = (() => {
 })();
 
 
-let style_id = 0;
-
 const e = document["createElement"]("style");
 e["type"] = "text/css";
 // TODO does this trigger a relayout ?
@@ -76,6 +74,17 @@ document["head"]["appendChild"](e);
 const sheet = e["sheet"];
 const cssRules = sheet["cssRules"];
 
+export const insert_rule = (rule) => {
+  // TODO does this trigger a relayout ?
+  // TODO this may not work in all browsers
+  // TODO sheet.addRule(s)
+  const index = sheet["insertRule"](rule + " {}", cssRules["length"]);
+
+  return cssRules[index];
+};
+
+
+let style_id = 0;
 
 export const make_style = (rules) => {
   const class_name = "__style_" + (++style_id) + "__";
@@ -89,7 +98,7 @@ export const make_style = (rules) => {
 };
 
 
-const set_rules = (style, rules) => {
+export const set_rules = (style, rules) => {
   record.each(rules, (key, value) => {
     ref.listen(value, (value) => {
       set_style_value(style, key, value);
@@ -98,64 +107,7 @@ const set_rules = (style, rules) => {
 };
 
 export const make_stylesheet = (name, rules) => {
-  // TODO does this trigger a relayout ?
-  // TODO this may not work in all browsers
-  // TODO sheet.addRule(s)
-  const index = sheet["insertRule"](name + " {}", cssRules["length"]);
-
-  const style = cssRules[index]["style"];
+  const style = insert_rule(name)["style"];
 
   set_rules(style, rules);
-};
-
-
-export const make_animation = ({ from, to, duration, easing }) => {
-  const class_name = "__animation_" + (++style_id) + "__";
-
-  const animation = {
-    _type: 1,
-    _name: class_name,
-    _duration: "0ms",
-    _easing: "linear"
-  };
-
-  // TODO does this trigger a relayout ?
-  // TODO this may not work in all browsers
-  // TODO remove vendor prefix
-  const index = sheet["insertRule"]("@-webkit-keyframes " + class_name + " {}",
-                                    cssRules["length"]);
-
-  const keyframe = cssRules[index];
-
-  keyframe["appendRule"]("0% {}");
-  keyframe["appendRule"]("100% {}");
-
-  const from_style = keyframe["cssRules"][0]["style"];
-  const to_style   = keyframe["cssRules"][1]["style"];
-
-  // TODO is this less efficient than specifying the values ?
-  if (from) {
-    // TODO does this throw an error on un-animatable values ?
-    set_rules(from_style, from);
-  }
-
-  // TODO is this less efficient than specifying the values ?
-  if (to) {
-    // TODO does this throw an error on un-animatable values ?
-    set_rules(to_style, to);
-  }
-
-  if (easing) {
-    ref.listen(easing, (easing) => {
-      animation._easing = easing;
-    });
-  }
-
-  if (duration) {
-    ref.listen(duration, (duration) => {
-      animation._duration = duration;
-    });
-  }
-
-  return animation;
 };

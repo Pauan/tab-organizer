@@ -1,7 +1,9 @@
-import * as list from "../../util/list";
-import * as set from "../../util/set";
-import { assert, fail } from "../../util/assert";
-import { get_style_value, set_style_value } from "./style";
+import * as list from "../../../util/list";
+import * as ref from "../../../util/ref";
+import * as set from "../../../util/set";
+import { get_style_value, set_style_value,
+         insert_rule, set_rules } from "../style";
+import { assert, fail } from "../../../util/assert";
 
 
 // TODO this isn't quite correct, but it will do for now
@@ -28,7 +30,7 @@ const wait_for_animation = (dom, a, done) => {
 
   const error = () => {
     cleanup();
-    fail(new Error("Animation took too long!"));
+    fail(new Error("Animation took too long"));
   };
 
   // TODO is it possible for these to leak ?
@@ -61,24 +63,26 @@ const get_animations = (dom, f) => {
 
   if (dom._animations !== null) {
     set.each(dom._animations, ({ animation, info }) => {
-      const type = f(info);
+      if (animation._duration !== null) {
+        const type = f(info);
 
-      // TODO a tiny bit hacky
-      if (type) {
-        if (type === "play-to") {
-          list.push(out, animation._name + " " +
-                         animation._duration + " " +
-                         animation._easing +
-                         " normal both");
+        // TODO a tiny bit hacky
+        if (type) {
+          if (type === "play-to") {
+            list.push(out, animation._name + " " +
+                           animation._duration + "ms " +
+                           animation._easing +
+                           " normal both");
 
-        } else if (type === "play-from") {
-          list.push(out, animation._name + " " +
-                         animation._duration + " " +
-                         animation._easing +
-                         " reverse both");
+          } else if (type === "play-from") {
+            list.push(out, animation._name + " " +
+                           animation._duration + "ms " +
+                           animation._easing +
+                           " reverse both");
 
-        } else {
-          fail();
+          } else {
+            fail();
+          }
         }
       }
     });
@@ -88,7 +92,42 @@ const get_animations = (dom, f) => {
 };
 
 
-// TODO implement custom JS animations
+let animation_id = 0;
+
+export const make_animation = ({ style, duration, easing }) => {
+  const name = "__animation_" + (++animation_id) + "__";
+
+  const animation = {
+    _type: 1,
+    _name: name,
+    _duration: null,
+    _easing: null
+  };
+
+
+  // TODO remove webkit prefix ?
+  const keyframe = insert_rule("@-webkit-keyframes " + name);
+
+  keyframe["appendRule"]("100% {}");
+
+  const to_style = keyframe["cssRules"][0]["style"];
+
+
+  // TODO does this throw an error on un-animatable values ?
+  set_rules(to_style, style);
+
+  ref.listen(easing, (easing) => {
+    animation._easing = easing;
+  });
+
+  ref.listen(duration, (duration) => {
+    animation._duration = duration;
+  });
+
+  return animation;
+};
+
+
 export const animate = (dom, f, done = null) => {
   assert(dom._visible);
   assert(dom._parent !== null);

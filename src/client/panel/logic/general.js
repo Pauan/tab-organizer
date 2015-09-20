@@ -51,12 +51,14 @@ export const make_group = (id, name, tabs, info) =>
   });
 
 // TODO utility function for this ?
+// TODO test this
 const copy = (from, to, key) => {
   if (record.has(from, key)) {
     record.insert(to, key, record.get(from, key));
   }
 };
 
+// TODO test this
 const make_time = (time) => {
   const out = record.make({
     "created": record.get(time, "created")

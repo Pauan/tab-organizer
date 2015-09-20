@@ -3,15 +3,15 @@ const writers = [];
 
 let batching = false;
 
-const loop = () => {
+const loop = (time) => {
   for (let i = 0; i < readers["length"]; ++i) {
-    readers[i]();
+    readers[i](time);
   }
 
   readers["length"] = 0;
 
   for (let i = 0; i < writers["length"]; ++i) {
-    writers[i]();
+    writers[i](time);
   }
 
   writers["length"] = 0;

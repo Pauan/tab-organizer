@@ -18,9 +18,9 @@ export const init = async.all([init_tab,
 
   const animation_group_wrapper = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a tiny bit hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "width": ref.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
@@ -46,9 +46,9 @@ export const init = async.all([init_tab,
 
   const animation_group = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a tiny bit hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "border-width": ref.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
@@ -82,9 +82,9 @@ export const init = async.all([init_tab,
 
   const animation_group_header = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "height": ref.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "vertical":
@@ -101,9 +101,9 @@ export const init = async.all([init_tab,
 
   const animation_group_tabs = dom.make_animation({
     easing: ref.always("ease-in-out"),
-    // TODO a little hacky
-    duration: ref.map(opt("theme.animation"), (x) => (x ? "500ms" : "0ms")),
-    from: {
+    duration: ref.map(opt("theme.animation"), (x) =>
+                (x ? 500 : null)),
+    style: {
       "padding-bottom": ref.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "vertical":
@@ -335,8 +335,8 @@ export const init = async.all([init_tab,
       dom.add_style(e, style_group_header),
 
       dom.animate(e, animation_group_header, {
-        insert: "play-to",
-        remove: "play-from",
+        insert: "play-from",
+        remove: "play-to"
       }),
 
       // TODO is this correct ?
@@ -363,8 +363,8 @@ export const init = async.all([init_tab,
       dom.add_style(e, style_group_tabs),
 
       dom.animate(e, animation_group_tabs, {
-        insert: "play-to",
-        remove: "play-from",
+        insert: "play-from",
+        remove: "play-to"
       }),
 
       dom.style(e, {
@@ -408,8 +408,8 @@ export const init = async.all([init_tab,
       dom.toggle_visible(e, record.get(group, "visible")),
 
       dom.animate(e, animation_group_wrapper, {
-        insert: "play-to",
-        remove: "play-from",
+        insert: "play-from",
+        remove: "play-to"
       }),
 
       dom.children(e, [
@@ -427,8 +427,8 @@ export const init = async.all([init_tab,
           }),
 
           dom.animate(e, animation_group, {
-            insert: "play-to",
-            remove: "play-from",
+            insert: "play-from",
+            remove: "play-to"
           }),
 
           dom.children(e, [
