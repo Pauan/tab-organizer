@@ -1,4 +1,4 @@
-import * as dom from "../../dom";
+import * as dom from "../../../util/dom";
 import * as async from "../../../util/async";
 import * as ref from "../../../util/ref";
 import { top_inset, top_shadow } from "./common";

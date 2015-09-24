@@ -1,9 +1,9 @@
-import * as list from "../../../util/list";
-import * as ref from "../../../util/ref";
-import * as set from "../../../util/set";
+import * as list from "../../list";
+import * as ref from "../../ref";
+import * as set from "../../set";
 import { get_style_value, set_style_value,
          insert_rule, set_rules } from "../style";
-import { assert, fail } from "../../../util/assert";
+import { assert, fail } from "../../assert";
 
 
 // TODO this isn't quite correct, but it will do for now

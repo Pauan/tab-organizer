@@ -1,4 +1,4 @@
-import * as dom from "../../dom";
+import * as dom from "../../../util/dom";
 import * as list from "../../../util/list";
 import * as async from "../../../util/async";
 import * as record from "../../../util/record";

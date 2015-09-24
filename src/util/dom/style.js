@@ -1,7 +1,7 @@
-import * as record from "../../util/record";
-import * as list from "../../util/list";
-import * as ref from "../../util/ref";
-import { assert, fail } from "../../util/assert";
+import * as record from "../record";
+import * as list from "../list";
+import * as ref from "../ref";
+import { assert, fail } from "../assert";
 
 
 export const has_style = (style, key) =>

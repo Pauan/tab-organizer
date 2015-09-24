@@ -1,4 +1,4 @@
-import * as dom from "./dom";
+import * as dom from "../util/dom";
 import * as ref from "../util/ref";
 
 

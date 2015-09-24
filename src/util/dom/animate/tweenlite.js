@@ -1,9 +1,9 @@
-import * as record from "../../../util/record";
-import * as list from "../../../util/list";
-import * as ref from "../../../util/ref";
-import * as set from "../../../util/set";
-import * as string from "../../../util/string";
-import { assert, fail } from "../../../util/assert";
+import * as record from "../../record";
+import * as list from "../../list";
+import * as ref from "../../ref";
+import * as set from "../../set";
+import * as string from "../../string";
+import { assert, fail } from "../../assert";
 
 
 const TweenLite = window["TweenLite"];

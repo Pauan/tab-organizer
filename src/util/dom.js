@@ -1,14 +1,14 @@
-import * as set from "../util/set";
-import * as ref from "../util/ref";
-import * as list from "../util/list";
-import * as running from "../util/running";
-import * as record from "../util/record";
-import * as _stream from "../util/stream";
-import * as functions from "../util/functions";
-import * as async from "../util/async";
+import * as set from "./set";
+import * as ref from "./ref";
+import * as list from "./list";
+import * as running from "./running";
+import * as record from "./record";
+import * as _stream from "./stream";
+import * as functions from "./functions";
+import * as async from "./async";
+import { assert, fail } from "./assert";
 import { get_style_value, set_style_value,
          make_style, make_stylesheet } from "./dom/style";
-import { assert, fail } from "../util/assert";
 import { batch_read, batch_write } from "./dom/batch";
 import { animate as _animate, make_animation } from "./dom/animate/css";
 
