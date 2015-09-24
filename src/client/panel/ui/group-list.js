@@ -60,23 +60,11 @@ export const init = async.all([init_group,
     "padding": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
-        return "0px 190px 0px 0px"
+        return "0px 95px 0px 95px"
       default:
         return null;
       }
-    }),
-
-    "justify-content": ref.map(opt("groups.layout"), (x) => {
-      switch (x) {
-      case "horizontal":
-        // TODO the animation when inserting a new group is slightly janky
-        //      (it's smooth when using "center", but janky when using
-        //      "space-between")
-        return "space-between";
-      default:
-        return null;
-      }
-    }),
+    })
   });
 
 

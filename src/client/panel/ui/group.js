@@ -119,11 +119,10 @@ export const init = async.all([init_tab,
   const style_group_wrapper = dom.make_style({
     "overflow": ref.always("visible"),
 
-    // TODO hack to make it smoother when opening/closing windows
-    "transform": ref.map(opt("groups.layout"), (x) => {
+    "flex-grow": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
-        return "translateZ(0)";
+        return "1";
       default:
         return null;
       }
@@ -177,6 +176,19 @@ export const init = async.all([init_tab,
   });
 
   const style_group = dom.make_style({
+    // TODO hack to make it smoother when opening/closing windows
+    "transform": ref.always("translateZ(0)"),
+
+    "left": ref.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "horizontal":
+        // width / 2
+        return "calc(-150px + 50%)";
+      default:
+        return null;
+      }
+    }),
+
     "width": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":

@@ -6,6 +6,10 @@ import { parse, minify } from "../../../util/url";
 export const url_bar = ref.make(null);
 
 const top_style = dom.make_style({
+  // TODO hack to make it smoother when showing/hiding the URL bar
+  // TODO is this unneeded? maybe setting position: fixed is enough ?
+  "transform": ref.always("translateZ(0)"),
+
   "pointer-events": ref.always("none"),
 
   "left": ref.always("0px"),
