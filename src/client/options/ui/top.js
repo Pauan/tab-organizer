@@ -26,6 +26,9 @@ export const init = async.all([init_appearance,
                                { ui: ui_user_data }) => {
 
   const style_top = dom.make_style({
+    // TODO hack which causes Chrome to not repaint when scrolling
+    "transform": ref.always("translateZ(0)"),
+
     // TODO code duplication
     "font-family": ref.always("sans-serif"),
     "font-size": ref.always("13px"),
@@ -36,7 +39,6 @@ export const init = async.all([init_appearance,
 
     "padding-top": ref.always("29px"),
 
-    "background-attachment": ref.always("fixed"),
     "background-color": ref.always(dom.hsl(211, 13, 35)),
 
     "background-image": ref.always(dom.gradient("to bottom",
