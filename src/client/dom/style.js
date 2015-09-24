@@ -1,11 +1,33 @@
 import * as record from "../../util/record";
 import * as list from "../../util/list";
 import * as ref from "../../util/ref";
-import { fail } from "../../util/assert";
+import { assert, fail } from "../../util/assert";
 
 
-export const get_style_value = (style, key) =>
-  style["getPropertyValue"](key);
+export const has_style = (style, key) =>
+  record.has(style, key);
+
+export const get_style_value = (style, key) => {
+  const value = record.get(style, key);
+
+  // TODO this may break on earlier versions of Chrome
+  assert(style["getPropertyValue"](key) === value);
+  assert(value != null);
+
+  if (value === "") {
+    return null;
+  } else {
+    return value;
+  }
+};
+
+const stringify = (x) => {
+  if (x === null) {
+    return "" + x;
+  } else {
+    return "\"" + x + "\"";
+  }
+};
 
 export const set_style_value = (() => {
   const prefixes = {
@@ -13,7 +35,7 @@ export const set_style_value = (() => {
     //"width": ["width", "min-width", "max-width"],
     //"height": ["height", "min-height", "max-height"],
     "box-sizing": ["-moz-box-sizing", "box-sizing"], // TODO get rid of this later
-    "filter": ["-webkit-filter", "filter"]
+    "filter": ["-webkit-filter"] // TODO add in "filter" later
   };
 
   return (style, key, value, important = false) => {
@@ -35,32 +57,37 @@ export const set_style_value = (() => {
                    ? prefixes[key]
                    : [key]);
 
-    const old_values = list.map(keys, (key) => get_style_value(style, key));
+    let seen = false;
 
-    const new_values = list.map(keys, (key) => {
-      // TODO test this
-      if (value === null) {
-        style["removeProperty"](key);
+    list.each(keys, (key) => {
+      if (has_style(style, key)) {
+        seen = true;
 
-      } else {
-        // TODO does this trigger a relayout ?
-        // https://drafts.csswg.org/cssom/#dom-cssstyledeclaration-setproperty
-        style["setProperty"](key, value, (important ? "important" : ""));
+        const old_value = get_style_value(style, key);
+
+        if (old_value !== value) {
+          // TODO test this
+          if (value === null) {
+            style["removeProperty"](key);
+
+          } else {
+            // TODO does this trigger a relayout ?
+            // https://drafts.csswg.org/cssom/#dom-cssstyledeclaration-setproperty
+            style["setProperty"](key, value, (important ? "important" : ""));
+          }
+
+
+          const new_value = get_style_value(style, key);
+
+          if (old_value === new_value) {
+            fail(new Error("Invalid value (\"" + key + "\": " + stringify(value) + ")"));
+          }
+        }
       }
-
-      return get_style_value(style, key);
     });
 
-    // TODO test this
-    const every = list.all(new_values, (new_value, i) => {
-      const old_value = list.get(old_values, i);
-      // TODO is this correct ?
-      return (new_value === old_value) &&
-             (old_value !== value);
-    });
-
-    if (every) {
-      fail(new Error("Invalid key or value (\"" + key + "\": \"" + value + "\")"));
+    if (!seen) {
+      fail(new Error("Invalid keys (\"" + list.join(keys, "\", \"") + "\")"));
     }
   };
 })();
