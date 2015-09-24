@@ -31,15 +31,6 @@ export const init = async.all([init_tab,
         }
       }),
 
-      "height": ref.map(opt("groups.layout"), (x) => {
-        switch (x) {
-        case "grid":
-          return "0px";
-        default:
-          return null;
-        }
-      }),
-
       "opacity": ref.always("0")
     }
   });

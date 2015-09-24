@@ -12,6 +12,8 @@ export const init = async.all([init_group,
                                { get: opt }) => {
 
   const style_group_list = dom.make_style({
+    "width": ref.always("100%"),
+
     // TODO really hacky
     // This has to match with the height of the search bar
     "height": ref.always("calc(100% - 24px)"),
