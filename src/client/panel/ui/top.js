@@ -18,6 +18,37 @@ export const init = async.all([init_group_list,
                                { toolbar: ui_toolbar },
                                { group_type }) => {
 
+  // Styling for the scrollbar
+  dom.make_stylesheet("::-webkit-scrollbar", {
+    "width": ref.always("12px"),
+    "height": ref.always("12px"),
+    "overflow": ref.always("visible")
+  });
+
+  dom.make_stylesheet("::-webkit-scrollbar-track", {
+    "border": ref.always("1px solid"),
+    "border-color": ref.always(dom.hsl(0, 0, 94)),
+    "background-color": ref.always(dom.hsl(0, 0, 96)),
+
+    //"margin-top": ref.always("1px"), // 3px
+
+    "overflow": ref.always("visible"),
+    "border-radius": ref.always("5px")
+  });
+
+  dom.make_stylesheet("::-webkit-scrollbar-thumb", {
+    "border": ref.always("2px solid"),
+    "border-color": ref.always(dom.hsl(0, 0, 97)),
+    "background-color": ref.always(dom.hsl(0, 0, 80)),
+
+    "box-shadow": ref.always("inset 0px 0px 0px 1px " + dom.hsl(0, 0, 60) + "," +
+                             "inset 0px 0px 0px 2px " + dom.hsl(0, 0, 85)),
+
+    "overflow": ref.always("visible"),
+    "border-radius": ref.always("5px")
+  });
+
+
   const style_top = dom.make_style({
     "font-family": ref.always("sans-serif"),
     "font-size": ref.always("13px"),
