@@ -198,11 +198,10 @@ export const init = async.all([init_db], (db) => {
             const old_url = record.get(old_tab, "url");
             const new_url = new_tab.url;
 
-            console.warn("session: old URL \"" +
+            console.warn("session: URLs do not match\n  old: " +
                          old_url +
-                         "\" does not match with new URL \"" +
-                         new_url +
-                         "\"");
+                         "\n  new: " +
+                         new_url);
             return false;
           }
 

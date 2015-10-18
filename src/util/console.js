@@ -25,12 +25,14 @@ export const debug = (...a) => {
   }
 };
 
-export const info = (...a) => {
-  console["info"](get_time() + "ms ", ...a);
+export const info = (s, ...a) => {
+  console["info"](get_time() + "ms ", s, ...a);
+  console["timeStamp"](s);
 };
 
-export const warn = (...a) => {
-  console["warn"](get_time() + "ms ", ...a);
+export const warn = (s, ...a) => {
+  console["warn"](get_time() + "ms ", s, ...a);
+  console["timeStamp"](s);
 };
 
 export const log = (...a) => {

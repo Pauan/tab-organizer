@@ -3,7 +3,9 @@ import { assert, fail } from "./assert";
 
 
 const check_key = (key) => {
-  assert(typeof key === "string" || typeof key === "number");
+  if (!(typeof key === "string" || typeof key === "number")) {
+    fail(new Error("Expected string or number but got: " + key));
+  }
 };
 
 

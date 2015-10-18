@@ -1,5 +1,6 @@
-var path = require("path");
-var fs   = require("fs");
+var webpack = require("webpack");
+var path    = require("path");
+var fs      = require("fs");
 
 function mkdir(path) {
   try {
@@ -49,6 +50,10 @@ module.exports = {
     filename: "[name].js",
     sourceMapFilename: path.join("..", "map", "[file].map")
   },
+
+  plugins: [
+    new webpack.optimize.CommonsChunkPlugin("common.js")
+  ],
 
   module: {
     loaders: [

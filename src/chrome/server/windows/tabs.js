@@ -2,7 +2,7 @@ import * as record from "../../../util/record";
 import * as list from "../../../util/list";
 import * as event from "../../../util/event";
 import { chrome } from "../../../common/globals";
-import { assert } from "../../../util/assert";
+import { assert, fail } from "../../../util/assert";
 import { update_indexes, throw_error } from "../../common/util";
 import { window_ids } from "./windows";
 
@@ -254,7 +254,7 @@ export const replace_tab = (new_id, old_id) => {
     });
 
     // TODO what about updating the tab ?
-    debugger;
+    fail();
   }
 };
 

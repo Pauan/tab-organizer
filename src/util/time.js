@@ -38,46 +38,33 @@ export const round_to_second = (x) => {
 
 export const round_to_minute = (x) => {
   const t = new Date(x);
-  t["setSeconds"](0);
-  t["setMilliseconds"](0);
+  t["setSeconds"](0, 0);
   return +t;
 };
 
 export const round_to_hour = (x) => {
   const t = new Date(x);
-  t["setMinutes"](0);
-  t["setSeconds"](0);
-  t["setMilliseconds"](0);
+  t["setMinutes"](0, 0, 0);
   return +t;
 };
 
 export const round_to_day = (x) => {
   const t = new Date(x);
-  t["setHours"](0);
-  t["setMinutes"](0);
-  t["setSeconds"](0);
-  t["setMilliseconds"](0);
+  t["setHours"](0, 0, 0, 0);
   return +t;
 };
 
 export const round_to_month = (x) => {
   const t = new Date(x);
   t["setDate"](1);
-  t["setHours"](0);
-  t["setMinutes"](0);
-  t["setSeconds"](0);
-  t["setMilliseconds"](0);
+  t["setHours"](0, 0, 0, 0);
   return +t;
 };
 
 export const round_to_year = (x) => {
   const t = new Date(x);
-  t["setMonth"](0);
-  t["setDate"](1);
-  t["setHours"](0);
-  t["setMinutes"](0);
-  t["setSeconds"](0);
-  t["setMilliseconds"](0);
+  t["setMonth"](0, 1);
+  t["setHours"](0, 0, 0, 0);
   return +t;
 };
 

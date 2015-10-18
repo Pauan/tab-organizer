@@ -1,8 +1,14 @@
 import * as dom from "../../../util/dom";
 import * as ref from "../../../util/ref";
 import { value } from "../search/search";
-import { failed } from "../../../util/assert";
 import { top_inset } from "./common";
+
+
+const failed = ref.make(null);
+
+addEventListener("error", (e) => {
+  ref.set(failed, e["error"]);
+}, true);
 
 
 const style_search = dom.make_style({

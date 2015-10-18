@@ -6,6 +6,13 @@ import { init as init_popup } from "./server/popup";
 import { init as init_options } from "./server/options";
 import { init as init_counter } from "./server/counter";
 
+
+// TODO code duplication
+addEventListener("error", (e) => {
+  alert(e["error"]["stack"]);
+}, true);
+
+
 const duration = timer.make();
 
 async.run_all([init_windows,
