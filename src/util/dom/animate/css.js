@@ -3,7 +3,7 @@ import * as ref from "../../ref";
 import * as set from "../../set";
 import { get_style_value, set_style_value,
          insert_rule, set_rules } from "../style";
-import { assert, fail } from "../../assert";
+import { assert, crash } from "../../assert";
 
 
 // TODO this isn't quite correct, but it will do for now
@@ -30,7 +30,7 @@ const wait_for_animation = (dom, a, done) => {
 
   const error = () => {
     cleanup();
-    fail(new Error("Animation took too long"));
+    crash(new Error("Animation took too long"));
   };
 
   // TODO is it possible for these to leak ?
@@ -81,7 +81,7 @@ const get_animations = (dom, f) => {
                            " reverse both");
 
           } else {
-            fail();
+            crash();
           }
         }
       }

@@ -1,4 +1,3 @@
-import { assert, fail } from "./assert";
 import { insert as _insert, remove as _remove,
          check_index, size as _size, index_in_range, get_index,
          index_of, clear, each, map, all, join,

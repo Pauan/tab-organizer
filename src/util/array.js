@@ -1,5 +1,5 @@
 import * as maybe from "./maybe";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 
 
 // TODO is this correct ?
@@ -76,7 +76,7 @@ export const index_of = (array, value) => {
   const index = array["indexOf"](value);
 
   if (index === -1) {
-    fail(new Error("Could not find value: " + value));
+    crash(new Error("Could not find value: " + value));
 
   } else {
     return index;
@@ -115,7 +115,7 @@ export const get_index = (index, len) => {
     return index;
 
   } else {
-    fail(new Error("Invalid index: " + index));
+    crash(new Error("Invalid index: " + index));
   }
 };
 

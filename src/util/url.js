@@ -1,5 +1,5 @@
 import { lowercase, replace, match } from "./string";
-import { fail } from "./assert";
+import { crash } from "./assert";
 
 
 const spacify = (x) =>
@@ -24,7 +24,7 @@ export const parse = (x) => {
       hash:      a[9] || ""
     };
   } else {
-    fail(new Error("Invalid URI: " + x));
+    crash(new Error("Invalid URI: " + x));
   }
 };
 

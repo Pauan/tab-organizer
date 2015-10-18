@@ -1,4 +1,4 @@
-import { fail } from "./assert";
+import { crash } from "./assert";
 import { current_time } from "./time";
 
 
@@ -15,7 +15,7 @@ export const done = (timer) => {
 
 export const diff = (timer) => {
   if (timer._end === null) {
-    fail(new Error("Timer is not done yet"));
+    crash(new Error("Timer is not done yet"));
 
   } else {
     return timer._end - timer._start;

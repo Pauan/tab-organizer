@@ -1,5 +1,5 @@
 import * as list from "./list";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 
 
 const PENDING = 0;
@@ -36,7 +36,7 @@ export const success = (obj, value) => {
     });
 
   } else {
-    fail(new Error("async is not pending"));
+    crash(new Error("async is not pending"));
   }
 };
 
@@ -53,7 +53,7 @@ export const error = (obj, value) => {
     });
 
   } else {
-    fail(new Error("async is not pending"));
+    crash(new Error("async is not pending"));
   }
 };
 
@@ -68,7 +68,7 @@ const _run = (obj, out, success, error) => {
     error(out, obj._value);
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -115,7 +115,7 @@ export const chain = (x, f) => {
 
 const on_fail = (out, x) => {
   assert(out === null);
-  fail(x);
+  crash(x);
 };
 
 const run_fail = (x) => {
@@ -126,7 +126,7 @@ const run_fail = (x) => {
 
     if (x !== undefined) {
       // TODO test this
-      fail(err);
+      crash(err);
     }
   }, on_fail);
 };

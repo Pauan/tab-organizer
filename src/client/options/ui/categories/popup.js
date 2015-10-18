@@ -6,7 +6,7 @@ import * as ref from "../../../../util/ref";
 import * as string from "../../../../util/string";
 import { uuid_port_popup } from "../../../../common/uuid";
 import { ports } from "../../../../chrome/client";
-import { fail } from "../../../../util/assert";
+import { crash } from "../../../../util/assert";
 import { category, row, text, separator, stretch, button,
          horizontal_space } from "../common";
 import { init as init_textbox } from "../textbox";
@@ -122,7 +122,7 @@ export const init = async.all([init_textbox,
         case "bottom":
           return "100%";
         default:
-          fail();
+          crash();
         }
 
       case "popup":
@@ -135,7 +135,7 @@ export const init = async.all([init_textbox,
         return "100%";
 
       default:
-        fail();
+        crash();
       }
     }),
 
@@ -163,7 +163,7 @@ export const init = async.all([init_textbox,
         case "bottom":
           return percent(sidebar, height) + "%";
         default:
-          fail();
+          crash();
         }
 
       case "popup":
@@ -177,7 +177,7 @@ export const init = async.all([init_textbox,
         return (100 - percent(61, height)) + "%";
 
       default:
-        fail();
+        crash();
       }
     }),
 

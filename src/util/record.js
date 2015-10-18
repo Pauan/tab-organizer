@@ -1,10 +1,10 @@
 import * as list from "./list";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 
 
 const check_key = (key) => {
   if (!(typeof key === "string" || typeof key === "number")) {
-    fail(new Error("Expected string or number but got: " + key));
+    crash(new Error("Expected string or number but got: " + key));
   }
 };
 
@@ -35,7 +35,7 @@ export const get = (obj, key) => {
     return obj[key];
 
   } else {
-    fail(new Error("Key not found: " + key));
+    crash(new Error("Key not found: " + key));
   }
 };
 
@@ -66,7 +66,7 @@ export const insert = (obj, key, value) => {
   check_key(key);
 
   if (key in obj) {
-    fail(new Error("Key already exists: " + key));
+    crash(new Error("Key already exists: " + key));
 
   } else {
     obj[key] = value;
@@ -120,7 +120,7 @@ export const remove = (obj, key) => {
     delete obj[key];
 
   } else {
-    fail(new Error("Key not found: " + key));
+    crash(new Error("Key not found: " + key));
   }
 };
 

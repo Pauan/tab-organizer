@@ -1,7 +1,7 @@
 import * as list from "../../util/list";
 import * as async from "../../util/async";
 import { chrome } from "../../common/globals";
-import { fail } from "../../util/assert";
+import { crash } from "../../util/assert";
 
 
 // TODO this can be made faster if it was given an index to start at
@@ -29,7 +29,7 @@ export const check_error = () => {
 export const throw_error = () => {
   const err = check_error();
   if (err !== null) {
-    fail(err);
+    crash(err);
   }
 };
 

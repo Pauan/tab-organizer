@@ -3,7 +3,7 @@ import * as list from "../../list";
 import * as ref from "../../ref";
 import * as set from "../../set";
 import * as string from "../../string";
-import { assert, fail } from "../../assert";
+import { assert, crash } from "../../assert";
 
 
 const TweenLite = window["TweenLite"];
@@ -11,7 +11,7 @@ const Power1    = window["Power1"];
 
 
 const animation_fail = () => {
-  fail(new Error("Animation took too long"));
+  crash(new Error("Animation took too long"));
 };
 
 // TODO test this
@@ -32,7 +32,7 @@ const get_animations = (dom, f) => {
             list.push(out, { animation, type });
 
           } else {
-            fail();
+            crash();
           }
         }
       }
@@ -69,7 +69,7 @@ const start_animation = (_dom, animation, type, done) => {
     tween_lite("from", _dom, animation, done);
 
   } else {
-    fail();
+    crash();
   }
 };
 

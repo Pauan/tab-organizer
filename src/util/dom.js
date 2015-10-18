@@ -6,7 +6,7 @@ import * as record from "./record";
 import * as _stream from "./stream";
 import * as functions from "./functions";
 import * as async from "./async";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 import { get_style_value, set_style_value,
          make_style, make_stylesheet } from "./dom/style";
 import { batch_read, batch_write } from "./dom/batch";
@@ -164,7 +164,7 @@ const _on_insert = (dom, parent, animate, type) => {
 
 
   } else {
-    fail();
+    crash();
   }
 
 
@@ -679,7 +679,7 @@ export const set_alt = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -714,7 +714,7 @@ export const set_url = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -732,7 +732,7 @@ export const set_target = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -771,7 +771,7 @@ export const set_value = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -837,7 +837,7 @@ export const on_change = (dom, send) => {
 
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -863,7 +863,7 @@ export const toggle_checked = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -881,7 +881,7 @@ export const set_name = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -898,7 +898,7 @@ export const set_label = (dom, x) => {
     });
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -1077,7 +1077,7 @@ export const stream = (dom, x) =>
       break;
 
     default:
-      fail();
+      crash();
       break;
     }
   });

@@ -3,7 +3,7 @@ import * as record from "./record";
 import * as event from "./event";
 import * as maybe from "./maybe";
 import * as array from "./array";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 
 
 export const uuid_initial = "9fea84a4-c36f-4ecf-a1d2-9bbcf778385b";
@@ -66,7 +66,7 @@ export const current = (stream) => {
     return stream._list;
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -77,7 +77,7 @@ export const insert = (stream, index, x) => {
     event_insert(stream, index, x);
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -88,7 +88,7 @@ export const push = (stream, x) => {
     event_insert(stream, list.size(stream._list) - 1, x);
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -98,7 +98,7 @@ export const remove = (stream, index) => {
     event_remove(stream, index);
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -108,7 +108,7 @@ export const clear = (stream) => {
     event_clear(stream);
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -119,7 +119,7 @@ export const clear = (stream) => {
     return maybe.has(value);
 
   } else {
-    fail();
+    crash();
   }
 };*/
 
@@ -136,7 +136,7 @@ export const sorted_insert = (stream, x) => {
     assert(array.is_all_sorted(stream._list, stream._sort));
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -153,7 +153,7 @@ export const sorted_remove = (stream, x) => {
     assert(array.is_all_sorted(stream._list, stream._sort));
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -178,7 +178,7 @@ export const sorted_update = (stream, x) => {
     }
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -226,13 +226,13 @@ export const listen = (stream, f) => {
         break;
 
       default:
-        fail();
+        crash();
         break;
       }
     });
 
 
   } else {
-    fail();
+    crash();
   }
 };

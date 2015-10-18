@@ -1,4 +1,4 @@
-import { fail } from "./assert";
+import { crash } from "./assert";
 import { remove as _remove, size, each, push } from "./array";
 export { size, each } from "./array";
 
@@ -16,7 +16,7 @@ export const insert = (array, value) => {
     push(array, value);
 
   } else {
-    fail(new Error("Value already exists in set: " + value));
+    crash(new Error("Value already exists in set: " + value));
   }
 };
 
@@ -32,7 +32,7 @@ export const remove = (array, value) => {
   const index = array["indexOf"](value);
 
   if (index === -1) {
-    fail(new Error("Value does not exist in set: " + value));
+    crash(new Error("Value does not exist in set: " + value));
 
   } else {
     _remove(array, index);

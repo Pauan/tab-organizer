@@ -11,7 +11,7 @@ import { init as init_chrome } from "../chrome/server";
 import { init as init_session } from "./session";
 import { init as init_db } from "./migrate";
 import { timestamp } from "../util/time";
-import { assert, fail } from "../util/assert";
+import { assert, crash } from "../util/assert";
 
 
 export const init = async.all([init_db,
@@ -706,7 +706,7 @@ export const init = async.all([init_db,
             return find_right_index(new_tabs, new_window, new_index);
 
           } else {
-            fail();
+            crash();
           }
 
         } else {

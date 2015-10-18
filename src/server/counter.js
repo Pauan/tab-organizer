@@ -5,7 +5,6 @@ import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_windows } from "./windows";
 import { init as init_options } from "./options";
-import { assert, fail } from "../util/assert";
 
 
 export const init = async.all([init_chrome,

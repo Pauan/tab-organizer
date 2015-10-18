@@ -5,7 +5,6 @@ import * as ref from "../util/ref";
 import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
-import { fail } from "../util/assert";
 
 
 export const make_options = (uuid, db_name, default_options) =>

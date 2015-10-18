@@ -1,7 +1,7 @@
 import * as record from "../record";
 import * as list from "../list";
 import * as ref from "../ref";
-import { assert, fail } from "../assert";
+import { assert, crash } from "../assert";
 
 
 export const has_style = (style, key) =>
@@ -41,16 +41,16 @@ export const set_style_value = (() => {
   return (style, key, value, important = false) => {
     // TODO test this
     if (typeof key !== "string") {
-      fail(new Error("Key must be a string: " + key));
+      crash(new Error("Key must be a string: " + key));
     }
 
     // TODO test this
     if (value !== null && typeof value !== "string") {
-      fail(new Error("Value must be null or a string: " + value));
+      crash(new Error("Value must be null or a string: " + value));
     }
 
     if (value === "") {
-      fail(new Error("Value cannot be \"\", use `null` instead"));
+      crash(new Error("Value cannot be \"\", use `null` instead"));
     }
 
     const keys = (prefixes[key]
@@ -80,14 +80,14 @@ export const set_style_value = (() => {
           const new_value = get_style_value(style, key);
 
           if (old_value === new_value) {
-            fail(new Error("Invalid value (\"" + key + "\": " + stringify(value) + ")"));
+            crash(new Error("Invalid value (\"" + key + "\": " + stringify(value) + ")"));
           }
         }
       }
     });
 
     if (!seen) {
-      fail(new Error("Invalid keys (\"" + list.join(keys, "\", \"") + "\")"));
+      crash(new Error("Invalid keys (\"" + list.join(keys, "\", \"") + "\")"));
     }
   };
 })();

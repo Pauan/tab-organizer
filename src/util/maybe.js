@@ -1,4 +1,4 @@
-import { fail } from "./assert";
+import { crash } from "./assert";
 
 
 export const none = [];
@@ -12,6 +12,6 @@ export const get = (x) => {
   if (x["length"] === 1) {
     return x[0];
   } else {
-    fail(new Error("Cannot get from none"));
+    crash(new Error("Cannot get from none"));
   }
 };

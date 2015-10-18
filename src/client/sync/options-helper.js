@@ -2,7 +2,6 @@ import * as async from "../../util/async";
 import * as record from "../../util/record";
 import * as ref from "../../util/ref";
 import { ports } from "../../chrome/client";
-import { fail } from "../../util/assert";
 
 
 // TODO rather than syncing with the background page, maybe instead use `chrome.storage.local` ?

@@ -4,7 +4,7 @@ import * as stream from "../../util/stream";
 import * as async from "../../util/async";
 import * as maybe from "../../util/maybe";
 import * as ref from "../../util/ref";
-import { assert, fail } from "../../util/assert";
+import { assert, crash } from "../../util/assert";
 import { init as init_tabs } from "../sync/tabs";
 import { init as init_options } from "../sync/options";
 import { init as init_sort_by_window } from "./sort/window";
@@ -75,7 +75,7 @@ export const init = async.all([init_tabs,
       break;
 
     default:
-      fail();
+      crash();
     }
   };
 
@@ -410,7 +410,7 @@ export const init = async.all([init_tabs,
       ref.set(group_type, make_sort_by_url());
 
     } else {
-      fail();
+      crash();
     }
   });
 

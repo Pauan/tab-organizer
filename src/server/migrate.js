@@ -4,7 +4,7 @@ import * as timer from "../util/timer";
 import * as async from "../util/async";
 import * as console from "../util/console";
 import { init as init_chrome } from "../chrome/server";
-import { fail } from "../util/assert";
+import { crash } from "../util/assert";
 
 
 const version = 1435820160244;
@@ -48,10 +48,10 @@ export const migrate = (db) => {
     return true;
 
   } else if (old_version > version) {
-    fail(new Error("Cannot downgrade from version " +
-                   old_version +
-                   " to version " +
-                   version));
+    crash(new Error("Cannot downgrade from version " +
+                    old_version +
+                    " to version " +
+                    version));
 
   } else {
     return false;

@@ -5,7 +5,7 @@ import * as async from "../util/async";
 import * as console from "../util/console";
 import { init as init_db } from "./migrate";
 import { timestamp } from "../util/time";
-import { assert, fail } from "../util/assert";
+import { assert, crash } from "../util/assert";
 
 
 const new_id = () => "" + timestamp();
@@ -240,7 +240,7 @@ export const init = async.all([init_db], (db) => {
             return make_new_tab(new_tab);
 
           } else {
-            fail();
+            crash();
           }
 
         // Create new tab

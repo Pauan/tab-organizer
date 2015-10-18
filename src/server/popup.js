@@ -6,7 +6,7 @@ import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_options } from "./options";
 import { uuid_port_popup } from "../common/uuid";
-import { assert, fail } from "../util/assert";
+import { assert, crash } from "../util/assert";
 
 
 export const init = async.all([init_chrome,
@@ -205,7 +205,7 @@ export const init = async.all([init_chrome,
 
 
     default:
-      fail();
+      crash();
     }
   };
 

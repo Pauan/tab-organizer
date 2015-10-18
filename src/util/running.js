@@ -1,5 +1,5 @@
 import * as functions from "./functions";
-import { fail } from "./assert";
+import { crash } from "./assert";
 
 
 export const make = (f) => {
@@ -17,7 +17,7 @@ export const stop = (runner) => {
     _stop();
 
   } else {
-    fail(new Error("Runner is already stopped!"));
+    crash(new Error("Runner is already stopped!"));
   }
 };
 

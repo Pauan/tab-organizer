@@ -2,7 +2,7 @@ import * as list from "./list";
 import * as event from "./event";
 import * as running from "./running";
 import * as functions from "./functions";
-import { assert, fail } from "./assert";
+import { assert, crash } from "./assert";
 
 
 export const always = (value) => {
@@ -49,7 +49,7 @@ export const get = (x) => {
     return x._value;
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -62,7 +62,7 @@ export const set = (x, value) => {
     }
 
   } else {
-    fail();
+    crash();
   }
 };
 
@@ -173,7 +173,7 @@ export const listen = (x, f) => {
     return listen_first(x, f);
 
   } else {
-    fail();
+    crash();
   }
 };
 
