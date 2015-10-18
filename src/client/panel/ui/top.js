@@ -30,7 +30,14 @@ export const init = async.all([init_group_list,
     "border-color": ref.always(dom.hsl(0, 0, 94)),
     "background-color": ref.always(dom.hsl(0, 0, 96)),
 
-    //"margin-top": ref.always("1px"), // 3px
+    "margin-top": ref.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "vertical":
+        return "4px";
+      default:
+        return null;
+      }
+    }),
 
     "overflow": ref.always("visible"),
     "border-radius": ref.always("5px")
