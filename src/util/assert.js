@@ -12,3 +12,15 @@ export const assert = (x) => {
     crash(new Error("Assertion failed"));
   }
 };
+
+export const on_crash = (f) => {
+  addEventListener("error", (e) => {
+    const error = e["error"];
+
+    if (error == null) {
+      f(new Error("" + e["message"]));
+    } else {
+      f(error);
+    }
+  }, true);
+};
