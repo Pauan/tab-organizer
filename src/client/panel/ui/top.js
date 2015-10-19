@@ -45,6 +45,9 @@ export const init = async.all([init_group_list,
   });
 
   dom.make_stylesheet("::-webkit-scrollbar-thumb", {
+    "min-width": ref.always("36px"), // 3 * 12
+    "min-height": ref.always("36px"), // 3 * 12
+
     "border": ref.always("2px solid"),
     "border-color": ref.always(dom.hsl(0, 0, 97)),
     "background-color": ref.always(dom.hsl(0, 0, 80)),
