@@ -28,8 +28,10 @@ export const init = async.all([init_group_list,
 
   dom.make_stylesheet("::-webkit-scrollbar-track", {
     "border": ref.always("1px solid"),
-    "border-color": ref.always(dom.hsl(0, 0, 94)),
+    "border-color": ref.always(dom.hsl(0, 0, 97)),
     "background-color": ref.always(dom.hsl(0, 0, 96)),
+
+    "box-shadow": ref.always("inset 0px 0px 0px 1px " + dom.hsl(0, 0, 95)),
 
     "margin-top": ref.map(opt("groups.layout"), (x) => {
       switch (x) {
