@@ -374,9 +374,13 @@ export const init = async.all([init_tabs,
   };
 
 
-  const focus_tab = tabs.focus_tab;
+  const focus_tab = (tab) => {
+    tabs.focus_tab(record.get(tab, "id"));
+  };
 
-  const close_tabs = tabs.close_tabs;
+  const close_tabs = (a) => {
+    tabs.close_tabs(list.map(a, (tab) => record.get(tab, "id")));
+  };
 
 
   // TODO a little bit hacky
