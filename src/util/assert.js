@@ -18,7 +18,8 @@ export const on_crash = (f) => {
     const error = e["error"];
 
     if (error == null) {
-      f(new Error("" + e["message"]));
+      // TODO non-standard
+      f(new Error(e["message"], e["filename"], e["lineno"]));
     } else {
       f(error);
     }
