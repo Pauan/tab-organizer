@@ -19,6 +19,7 @@ export const init = async.all([init_group_list,
                                { group_type }) => {
 
   // Styling for the scrollbar
+  // TODO change colors when hovering/focused/dragging/etc.
   dom.make_stylesheet("::-webkit-scrollbar", {
     "width": ref.always("12px"),
     "height": ref.always("12px"),
