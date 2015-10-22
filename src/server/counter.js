@@ -2,6 +2,7 @@ import * as list from "../util/list";
 import * as ref from "../util/ref";
 import * as event from "../util/event";
 import * as async from "../util/async";
+import * as maybe from "../util/maybe";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_windows } from "./windows";
 import { init as init_options } from "./options";
@@ -28,7 +29,7 @@ export const init = async.all([init_chrome,
           : x + y));
 
   list.each(get_all_tabs(), ({ transient }) => {
-    if (transient !== null) {
+    if (maybe.has(transient)) {
       ref.modify(loaded, add1);
     } else {
       ref.modify(unloaded, add1);
@@ -36,7 +37,7 @@ export const init = async.all([init_chrome,
   });
 
   event.on_receive(on_tab_open, ({ transient }) => {
-    if (transient !== null) {
+    if (maybe.has(transient)) {
       ref.modify(loaded, add1);
     } else {
       ref.modify(unloaded, add1);
@@ -45,7 +46,7 @@ export const init = async.all([init_chrome,
 
   // TODO handle a tab transitioning from loaded to unloaded, and vice versa
   event.on_receive(on_tab_close, ({ transient }) => {
-    if (transient !== null) {
+    if (maybe.has(transient)) {
       ref.modify(loaded, sub1);
     } else {
       ref.modify(unloaded, sub1);

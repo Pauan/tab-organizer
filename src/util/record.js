@@ -1,4 +1,5 @@
 import * as list from "./list";
+import * as maybe from "./maybe";
 import { assert, crash } from "./assert";
 
 
@@ -36,6 +37,17 @@ export const get = (obj, key) => {
 
   } else {
     crash(new Error("Key not found: " + key));
+  }
+};
+
+export const get_maybe = (obj, key) => {
+  check_key(key);
+
+  if (key in obj) {
+    return maybe.some(obj[key]);
+
+  } else {
+    return maybe.none;
   }
 };
 

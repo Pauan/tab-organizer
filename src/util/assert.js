@@ -13,6 +13,7 @@ export const assert = (x) => {
   }
 };
 
+// TODO this doesn't seem to work when `record.get` fails
 export const on_crash = (f) => {
   addEventListener("error", (e) => {
     const error = e["error"];

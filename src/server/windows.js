@@ -5,6 +5,7 @@ import * as running from "../util/running";
 import * as set from "../util/set"; // TODO this is only needed for development
 import * as timer from "../util/timer";
 import * as async from "../util/async";
+import * as maybe from "../util/maybe";
 import * as console from "../util/console";
 import { uuid_port_tab } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
@@ -412,7 +413,7 @@ export const init = async.all([init_db,
 
       const window_id = record.get(tab, "window");
 
-      const transient = record.get_default(transient_tab_ids, tab_id, () => null);
+      const transient = record.get_maybe(transient_tab_ids, tab_id);
 
       record.remove(tab_ids, tab_id);
       record.exclude(transient_tab_ids, tab_id);
@@ -767,7 +768,7 @@ export const init = async.all([init_db,
       add_tag_to_tab(tab_id, "", true);
     });
 
-    event.send(on_tab_open, { tab, transient });
+    event.send(on_tab_open, { tab, transient: maybe.some(transient) });
   };
 
   // TODO send a single tab-focus event, and get rid of tab-unfocus event ?
@@ -965,8 +966,7 @@ export const init = async.all([init_db,
     const out = list.make();
 
     record.each(db.get("current.tab-ids"), (id, tab) => {
-      const transient = record.get_default(transient_tab_ids, id, () =>
-                          null);
+      const transient = record.get_maybe(transient_tab_ids, id);
 
       list.push(out, { tab, transient });
     });
