@@ -163,7 +163,7 @@ export const init = async.all([init_db,
           tabs.close(chrome_tab);
 
         } else {
-          tab_close(tab_id);
+          close_tab(tab_id);
         }
       });
     }
