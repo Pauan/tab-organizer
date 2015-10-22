@@ -152,16 +152,19 @@ export const init = async.all([init_db,
       const _tabs = record.get(x, "tabs");
 
       list.each(_tabs, (tab_id) => {
-        // TODO it should work even if the tab is unloaded
-        const chrome_tab = record.get(transient_tab_ids, tab_id);
+        if (record.has(transient_tab_ids, tab_id)) {
+          // TODO it should work even if the tab is unloaded
+          const chrome_tab = record.get(transient_tab_ids, tab_id);
 
-        //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
-        //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+          //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
+          //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 
+          //const tab = db.get(["current.tab-ids", tab_id]);
+          tabs.close(chrome_tab);
 
-
-        //const tab = db.get(["current.tab-ids", tab_id]);
-        tabs.close(chrome_tab);
+        } else {
+          tab_close(tab_id);
+        }
       });
     }
   });
@@ -203,6 +206,96 @@ export const init = async.all([init_db,
   // TODO this can be removed for the final release, it's only for development
   // TODO more checks (e.g. that the indexes are correct)
   // TODO rather than putting this here, this should instead be in `migrate.js`
+  window["fix_integrity"] = () => {
+    const duration = timer.make();
+
+    const windows_seen     = set.make();
+    const window_tabs_seen = set.make();
+    const tag_tabs_seen    = set.make();
+
+    let amount = 0;
+
+    // TODO more efficient version of this ?
+    // TODO move into another module ?
+    const keep = (a, f) => {
+      const to_remove = list.make();
+
+      list.each(a, (x) => {
+        if (!f(x)) {
+          list.push(to_remove, x);
+        }
+      });
+
+      list.each(to_remove, (x) => {
+        list.remove(a, list.index_of(a, x));
+      });
+    };
+
+    db.write("current.windows", (windows) => {
+      db.write("current.window-ids", (window_ids) => {
+        db.write("current.tab-ids", (tab_ids) => {
+          db.write("current.tag-ids", (tag_ids) => {
+            keep(windows, (id) => {
+              set.insert(windows_seen, id);
+              return record.has(window_ids, id);
+            });
+
+
+            record.each(window_ids, (id, window) => {
+              assert(record.get(window, "id") === id);
+              // TODO
+              assert(set.has(windows_seen, id));
+
+              keep(record.get(window, "tabs"), (id) => {
+                set.insert(window_tabs_seen, id);
+                return record.has(tab_ids, id);
+              });
+            });
+
+
+            record.each(tag_ids, (id, tag) => {
+              assert(record.get(tag, "id") === id);
+
+              const seen = set.make();
+
+              keep(record.get(tag, "tabs"), (id) => {
+                set.insert(seen, id);
+                set.include(tag_tabs_seen, id);
+                return record.has(tab_ids, id);
+              });
+            });
+
+
+            record.each(tab_ids, (id, tab) => {
+              assert(record.get(tab, "id") === id);
+              // TODO
+              assert(set.has(window_tabs_seen, id));
+              // TODO
+              assert(set.has(tag_tabs_seen, id));
+
+              const window = record.get(window_ids, record.get(tab, "window"));
+              list.index_of(record.get(window, "tabs"), id);
+
+              record.each(record.get(tab, "tags"), (tag_id) => {
+                const tag = record.get(tag_ids, tag_id);
+                list.index_of(record.get(tag, "tabs"), id);
+              });
+
+              ++amount;
+            });
+          });
+        });
+      });
+    });
+
+
+    timer.done(duration);
+    console.info("windows: fixed " + amount + " tabs (" + timer.diff(duration) + "ms)");
+  };
+
+  // TODO this can be removed for the final release, it's only for development
+  // TODO more checks (e.g. that the indexes are correct)
+  // TODO rather than putting this here, this should instead be in `migrate.js`
   const check_integrity = () => {
     const duration = timer.make();
 
@@ -238,8 +331,11 @@ export const init = async.all([init_db,
     record.each(tag_ids, (id, tag) => {
       assert(record.get(tag, "id") === id);
 
+      const seen = set.make();
+
       list.each(record.get(tag, "tabs"), (id) => {
         assert(record.has(tab_ids, id));
+        set.insert(seen, id);
         set.include(tag_tabs_seen, id);
       });
     });
@@ -304,6 +400,42 @@ export const init = async.all([init_db,
           }));
         }
       }
+    });
+  };
+
+  const close_tab = (tab_id) => {
+    // TODO test this
+    remove_all_tags_from_tab(tab_id, true);
+
+    db.write("current.tab-ids", (tab_ids) => {
+      const tab = record.get(tab_ids, tab_id);
+
+      const window_id = record.get(tab, "window");
+
+      const transient = record.get_default(transient_tab_ids, tab_id, () => null);
+
+      record.remove(tab_ids, tab_id);
+      record.exclude(transient_tab_ids, tab_id);
+
+      db.write("current.window-ids", (window_ids) => {
+        const tabs = record.get(record.get(window_ids, window_id), "tabs");
+
+        // TODO can this be implemented more efficiently ?
+        const index = list.index_of(tabs, tab_id);
+
+        // TODO what if the window doesn't have anymore tabs in it ?
+        list.remove(tabs, index);
+
+        event.send(tab_events, record.make({
+          "type": "tab-close",
+          "window-id": window_id,
+          "tab-id": tab_id,
+          "tab-index": index
+        }));
+      });
+
+      // TODO should this include the tags ?
+      event.send(on_tab_close, { tab, transient });
     });
   };
 
@@ -742,50 +874,6 @@ export const init = async.all([init_db,
     });
   };
 
-  const tab_close = (info) => {
-    // Delay by 10 seconds, so that when Chrome closes,
-    // it doesn't remove the tabs / windows
-    // TODO is this place correct ?
-    if (info.window_closing) {
-      delay(10000);
-    }
-
-    const window_id = session.window_id(info.window.id);
-    const tab_id = session.tab_id(info.tab.id);
-
-    // TODO test this
-    remove_all_tags_from_tab(tab_id, true);
-
-    db.write("current.tab-ids", (tab_ids) => {
-      const tab = record.get(tab_ids, tab_id);
-      const transient = record.get(transient_tab_ids, tab_id);
-
-      record.remove(tab_ids, tab_id);
-      record.remove(transient_tab_ids, tab_id);
-
-      assert(record.get(tab, "window") === window_id);
-
-      db.write("current.window-ids", (window_ids) => {
-        const tabs = record.get(record.get(window_ids, window_id), "tabs");
-
-        // TODO can this be implemented more efficiently ?
-        const index = list.index_of(tabs, tab_id);
-
-        list.remove(tabs, index);
-
-        event.send(tab_events, record.make({
-          "type": "tab-close",
-          "window-id": window_id,
-          "tab-id": tab_id,
-          "tab-index": index
-        }));
-      });
-
-      // TODO should this include the tags ?
-      event.send(on_tab_close, { tab, transient });
-    });
-  };
-
 
   // This must go before `window_init`
   session.init(windows.get_all());
@@ -822,8 +910,18 @@ export const init = async.all([init_db,
   });
 
   event.on_receive(tabs.on_close, (info) => {
-    tab_close(info);
-    // This must be after `tab_close`
+    // Delay by 10 seconds, so that when Chrome closes,
+    // it doesn't remove the tabs / windows
+    // TODO is this place correct ?
+    if (info.window_closing) {
+      delay(10000);
+    }
+
+    const tab_id = session.tab_id(info.tab.id);
+
+    close_tab(tab_id);
+
+    // This must be after `session.tab_id`
     session.tab_close(info);
   });
 

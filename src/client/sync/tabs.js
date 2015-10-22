@@ -168,7 +168,7 @@ const types = record.make({
     assert(record.get(tab, "window") === window_id);
 
     record.remove(tab_ids, tab_id);
-    record.remove(transient_ids, tab_id);
+    record.exclude(transient_ids, tab_id);
 
     assert(list.get(tabs, index) === tab_id);
 
