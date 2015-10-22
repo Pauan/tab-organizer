@@ -4,7 +4,6 @@ import * as event from "../../../util/event";
 import { chrome } from "../../../common/globals";
 import { assert, crash } from "../../../util/assert";
 import { update_indexes, throw_error } from "../../common/util";
-import { window_ids } from "./windows";
 
 
 export const on_open    = event.make();
@@ -14,7 +13,8 @@ export const on_replace = event.make();
 export const on_move    = event.make();
 export const on_update  = event.make();
 
-export const tab_ids = record.make();
+export const tab_ids    = record.make();
+export const window_ids = record.make();
 
 
 const _focus = (tab, events) => {

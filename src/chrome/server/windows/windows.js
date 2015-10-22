@@ -68,8 +68,9 @@ import * as record from "../../../util/record";
 import { chrome } from "../../../common/globals";
 import { throw_error, update_indexes, round } from "../../common/util";
 import { assert } from "../../../util/assert";
-import { make_tab } from "./tabs";
+import { window_ids, make_tab } from "./tabs";
 import { focus, close, move, maximize } from "./popups";
+
 export { focus, close, move, maximize } from "./popups";
 
 
@@ -77,8 +78,7 @@ export const on_open  = event.make();
 export const on_close = event.make();
 export const on_focus = event.make();
 
-export const windows    = list.make();
-export const window_ids = record.make();
+export const windows = list.make();
 
 
 // TODO maybe make a copy ?
