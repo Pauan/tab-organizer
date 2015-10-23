@@ -1,5 +1,6 @@
 import * as console from "./console";
 import * as list from "./list";
+import * as _async from "./async";
 
 
 // TODO a tiny bit hacky
@@ -97,6 +98,47 @@ export const sync = (f) => {
   }
 
   return times;
+};
+
+
+// TODO more efficient implementation of this
+export const async = (f) => {
+  const loops    = 100;
+  const duration = 100;
+
+  const times = list.make();
+
+  const loop2 = (iterations, done) =>
+    _async.chain(f(), (_) => {
+      if (performance["now"]() < done) {
+        return loop2(iterations + 1, done);
+      } else {
+        return _async.done(iterations + 1);
+      }
+    });
+
+  const loop1 = (i) => {
+    if (i < loops) {
+      const start = performance["now"]();
+      const done  = start + duration;
+
+      return _async.chain(loop2(0, done), (iterations) => {
+        const end = performance["now"]();
+
+        list.push(times, {
+          duration: end - start,
+          iterations: iterations
+        });
+
+        return loop1(i + 1);
+      });
+
+    } else {
+      return _async.done(times);
+    }
+  };
+
+  return loop1(0);
 };
 
 
