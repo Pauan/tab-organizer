@@ -24,9 +24,6 @@ function cp(from, to) {
 
 mkdir(path.join("build", "lib"));
 
-cp(path.join("node_modules", "babel-core", "external-helpers.min.js"),
-   path.join("build", "lib", "external-helpers.min.js"));
-
 cp(path.join("node_modules", "gsap", "src", "minified", "TweenLite.min.js"),
    path.join("build", "lib", "TweenLite.min.js"));
 
@@ -71,7 +68,6 @@ module.exports = {
         loader: "babel-loader",
         query: {
           //cacheDirectory: true,
-          externalHelpers: true,
           nonStandard: false,
           whitelist: [
             "es6.arrowFunctions",
@@ -94,7 +90,7 @@ module.exports = {
             "strict",
 
             "validation.undeclaredVariableCheck",
-            //"runtime",
+            "runtime",
             //"minification.deadCodeElimination",
             //"minification.constantFolding",
             "minification.memberExpressionLiterals",
