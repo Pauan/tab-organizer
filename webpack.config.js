@@ -52,7 +52,15 @@ module.exports = {
   },
 
   plugins: [
-    new webpack.optimize.CommonsChunkPlugin("common.js")
+    new webpack.optimize.CommonsChunkPlugin({
+      name: "common-client",
+      chunks: ["panel", "options"]
+    }),
+    new webpack.optimize.CommonsChunkPlugin({
+      name: "common",
+      chunks: ["server", "panel", "options", "common-client"],
+      minChunks: 2
+    })
   ],
 
   module: {
