@@ -102,7 +102,7 @@ export const all = (a, f) => {
   return out;
 };
 
-export const chain = (x, f) => {
+export const after = (x, f) => {
   const out = make();
 
   _run(x, out, (out, value) => {
@@ -134,7 +134,7 @@ const run_fail = (x) => {
 // TODO implement more efficiently ?
 // TODO test this
 export const run = (x, f) => {
-  run_fail(chain(x, (value) => done(f(value))));
+  run_fail(after(x, (value) => done(f(value))));
 };
 
 // TODO implement more efficiently ?
@@ -147,4 +147,4 @@ const _ignore = (_) =>
   done(undefined);
 
 export const ignore = (x) =>
-  chain(x, _ignore);
+  after(x, _ignore);

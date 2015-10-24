@@ -109,7 +109,7 @@ export const async = (f) => {
   const times = list.make();
 
   const loop2 = (iterations, done) =>
-    _async.chain(f(), (_) => {
+    _async.after(f(), (_) => {
       if (performance["now"]() < done) {
         return loop2(iterations + 1, done);
       } else {
@@ -122,7 +122,7 @@ export const async = (f) => {
       const start = performance["now"]();
       const done  = start + duration;
 
-      return _async.chain(loop2(0, done), (iterations) => {
+      return _async.after(loop2(0, done), (iterations) => {
         const end = performance["now"]();
 
         list.push(times, {

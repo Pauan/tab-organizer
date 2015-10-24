@@ -99,8 +99,8 @@ const chrome_get_all = () =>
 
 
 // TODO do we need `ready` ?
-export const init = async.chain(ready, (_) =>
-  async.chain(chrome_get_all(), (a) => {
+export const init = async.after(ready, (_) =>
+  async.after(chrome_get_all(), (a) => {
     list.each(a, (info) => {
       windows.make_window(info, false);
       popups.make_popup(info, false);
