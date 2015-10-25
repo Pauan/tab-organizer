@@ -86,6 +86,14 @@ const _on_remove1 = (dom, parent, animate, done) => {
 
   list.each(dom._running, running.stop);
 
+  if (dom._hovering !== null) {
+    running.stop(dom._hovering.runner);
+  }
+
+  if (dom._holding !== null) {
+    running.stop(dom._holding.runner);
+  }
+
   if (dom._animations !== null) {
     assert(set.size(dom._animations) === 0);
   }
@@ -178,10 +186,6 @@ const _on_insert = (dom, parent, animate, type) => {
   }
 };
 
-const _run = (dom, x) => {
-  list.push(dom._running, x);
-};
-
 
 const _on_inserted = (dom) => {
   if (dom._inserted === null) {
@@ -251,28 +255,28 @@ export const on_mouse_hold = (dom, send) => {
 
 export const hovering = (dom) => {
   if (dom._hovering === null) {
-    dom._hovering = ref.make(null);
-
-    // TODO a little hacky
-    _run(dom, on_mouse_hover(dom, (hover) => {
-      ref.set(dom._hovering, hover);
-    }));
+    dom._hovering = {
+      ref: ref.make(null),
+      runner: on_mouse_hover(dom, (hover) => {
+        ref.set(dom._hovering.ref, hover);
+      })
+    };
   }
 
-  return dom._hovering;
+  return dom._hovering.ref;
 };
 
 export const holding = (dom) => {
   if (dom._holding === null) {
-    dom._holding = ref.make(null);
-
-    // TODO a little hacky
-    _run(dom, on_mouse_hold(dom, (hold) => {
-      ref.set(dom._holding, hold);
-    }));
+    dom._holding = {
+      ref: ref.make(null),
+      runner: on_mouse_hold(dom, (hold) => {
+        ref.set(dom._holding.ref, hold);
+      })
+    };
   }
 
-  return dom._holding;
+  return dom._holding.ref;
 };
 
 // TODO use batch_read ?
