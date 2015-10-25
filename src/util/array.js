@@ -70,6 +70,12 @@ export const is_all_sorted = (list, sort) => {
 };
 
 
+export const contains = (array, value) => {
+  check_array(array);
+
+  return array["indexOf"](value) !== -1;
+};
+
 export const index_of = (array, value) => {
   check_array(array);
 

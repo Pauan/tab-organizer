@@ -212,7 +212,6 @@ export const init = async.all([init_db,
 
     const windows_seen     = set.make();
     const window_tabs_seen = set.make();
-    const tag_tabs_seen    = set.make();
 
     let amount = 0;
 
@@ -236,16 +235,36 @@ export const init = async.all([init_db,
       db.write("current.window-ids", (window_ids) => {
         db.write("current.tab-ids", (tab_ids) => {
           db.write("current.tag-ids", (tag_ids) => {
-            keep(windows, (id) => {
-              set.insert(windows_seen, id);
-              return record.has(window_ids, id);
+            record.each(tab_ids, (id, tab) => {
+              assert(record.get(tab, "id") === id);
+
+              const window = record.get(window_ids, record.get(tab, "window"));
+
+              if (!list.contains(record.get(window, "tabs"), id)) {
+                // TODO is it safe to do this while it's iterating ?
+                record.exclude(tab_ids, id);
+              }
+
+              record.each(record.get(tab, "tags"), (tag_id) => {
+                const tag = record.get(tag_ids, tag_id);
+
+                if (!list.contains(record.get(tag, "tabs"), id)) {
+                  // TODO is it safe to do this while it's iterating ?
+                  record.exclude(tab_ids, id);
+                }
+              });
+
+              ++amount;
             });
 
 
             record.each(window_ids, (id, window) => {
               assert(record.get(window, "id") === id);
-              // TODO
-              assert(set.has(windows_seen, id));
+
+              if (!list.contains(windows, id)) {
+                // TODO is it safe to do this while it's iterating ?
+                record.exclude(window_ids, id);
+              }
 
               keep(record.get(window, "tabs"), (id) => {
                 set.insert(window_tabs_seen, id);
@@ -261,28 +280,14 @@ export const init = async.all([init_db,
 
               keep(record.get(tag, "tabs"), (id) => {
                 set.insert(seen, id);
-                set.include(tag_tabs_seen, id);
                 return record.has(tab_ids, id);
               });
             });
 
 
-            record.each(tab_ids, (id, tab) => {
-              assert(record.get(tab, "id") === id);
-              // TODO
-              assert(set.has(window_tabs_seen, id));
-              // TODO
-              assert(set.has(tag_tabs_seen, id));
-
-              const window = record.get(window_ids, record.get(tab, "window"));
-              list.index_of(record.get(window, "tabs"), id);
-
-              record.each(record.get(tab, "tags"), (tag_id) => {
-                const tag = record.get(tag_ids, tag_id);
-                list.index_of(record.get(tag, "tabs"), id);
-              });
-
-              ++amount;
+            keep(windows, (id) => {
+              set.insert(windows_seen, id);
+              return record.has(window_ids, id);
             });
           });
         });
