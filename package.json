@@ -8,9 +8,6 @@
     "babel-runtime": "^5.8.25",
     "webpack": "^1.12.2"
   },
-  "dependencies": {
-    "gsap": "^1.18.0"
-  },
   "scripts": {
     "build": "npm install && webpack --bail -p",
     "watch": "npm install && webpack --watch"

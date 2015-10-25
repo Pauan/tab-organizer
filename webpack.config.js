@@ -22,14 +22,6 @@ function cp(from, to) {
 //rm --recursive --force build/lib/gsap
 //rm --recursive --force build/lib
 
-mkdir(path.join("build", "lib"));
-
-cp(path.join("node_modules", "gsap", "src", "minified", "TweenLite.min.js"),
-   path.join("build", "lib", "TweenLite.min.js"));
-
-cp(path.join("node_modules", "gsap", "src", "minified", "plugins", "CSSPlugin.min.js"),
-   path.join("build", "lib", "CSSPlugin.min.js"));
-
 
 module.exports = {
   "devtool": "source-map",
