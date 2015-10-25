@@ -48,7 +48,7 @@ const make = (type, dom, children) => {
     _type: type,
     _dom: dom,
     _children: children,
-    _running: list.make(),
+    _running: null,
     _parent: null,
     _animations: null,
     _visible: true,
@@ -58,12 +58,10 @@ const make = (type, dom, children) => {
   };
 };
 
-const make_run = (type, tag, children, f) => {
+const make_tag = (type, tag, children, f) => {
   const e = make(type, document["createElement"](tag), children);
 
-  list.each(f(e), (x) => {
-    _run(e, x);
-  });
+  e._running = f(e);
 
   return e;
 };
@@ -1155,50 +1153,50 @@ export const stretch = make_style({
 
 
 export const child = (f) =>
-  make_run("div", "div", null, f);
+  make_tag("div", "div", null, f);
 
 export const parent = (f) =>
-  make_run("div", "div", list.make(), f);
+  make_tag("div", "div", list.make(), f);
 
 export const label = (f) =>
-  make_run("label", "label", list.make(), f);
+  make_tag("label", "label", list.make(), f);
 
 // TODO is this correct ?
 export const text = (f) =>
-  make_run("text", "div", null, f);
+  make_tag("text", "div", null, f);
 
 export const select = (f) =>
-  make_run("select", "select", list.make(), f);
+  make_tag("select", "select", list.make(), f);
 
 export const optgroup = (f) =>
-  make_run("optgroup", "optgroup", list.make(), f);
+  make_tag("optgroup", "optgroup", list.make(), f);
 
 export const option = (f) =>
-  make_run("option", "option", null, f);
+  make_tag("option", "option", null, f);
 
 export const image = (f) =>
-  make_run("img", "img", null, f);
+  make_tag("img", "img", null, f);
 
 export const iframe = (f) =>
-  make_run("iframe", "iframe", null, f);
+  make_tag("iframe", "iframe", null, f);
 
 export const button = (f) =>
-  make_run("button", "button", list.make(), f);
+  make_tag("button", "button", list.make(), f);
 
 export const link = (f) =>
-  make_run("a", "a", null, f);
+  make_tag("a", "a", null, f);
 
 export const table = (f) =>
-  make_run("table", "table", list.make(), f);
+  make_tag("table", "table", list.make(), f);
 
 export const table_row = (f) =>
-  make_run("tr", "tr", list.make(), f);
+  make_tag("tr", "tr", list.make(), f);
 
 export const table_cell = (f) =>
-  make_run("td", "td", list.make(), f);
+  make_tag("td", "td", list.make(), f);
 
 export const checkbox = (f) => {
-  const e = make_run("checkbox", "input", null, f);
+  const e = make_tag("checkbox", "input", null, f);
 
   // TODO should this run before `f` ?
   e._dom["type"] = "checkbox";
@@ -1207,7 +1205,7 @@ export const checkbox = (f) => {
 };
 
 export const radio = (f) => {
-  const e = make_run("radio", "input", null, f);
+  const e = make_tag("radio", "input", null, f);
 
   // TODO should this run before `f` ?
   e._dom["type"] = "radio";
@@ -1216,7 +1214,7 @@ export const radio = (f) => {
 };
 
 export const search = (f) => {
-  const e = make_run("search", "input", null, f);
+  const e = make_tag("search", "input", null, f);
 
   // TODO should this run before `f` ?
   // TODO a bit hacky, this should probably be configurable
@@ -1233,7 +1231,7 @@ export const search = (f) => {
 };
 
 export const textbox = (f) => {
-  const e = make_run("textbox", "input", null, f);
+  const e = make_tag("textbox", "input", null, f);
 
   e._dom["type"] = "text";
 

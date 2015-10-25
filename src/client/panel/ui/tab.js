@@ -533,39 +533,46 @@ export const init = async.all([init_options,
 
     const ui_close = close(tab, is_hovering);
 
-    return list.concat(f(is_focused, ui_close), [
-      dom.add_style(e, dom.row),
-      dom.add_style(e, style_tab),
-      dom.add_style(e, style_menu_item),
+    const output = f(is_focused, ui_close);
 
-      dom.toggle_style(e, style_tab_hover, is_hovering),
-      dom.toggle_style(e, style_menu_item_hover, is_hovering),
+    list.push(output, dom.add_style(e, dom.row));
+    list.push(output, dom.add_style(e, style_tab));
+    list.push(output, dom.add_style(e, style_menu_item));
 
+    list.push(output, dom.toggle_style(e, style_tab_hover, is_hovering));
+    list.push(output, dom.toggle_style(e, style_menu_item_hover, is_hovering));
+
+    list.push(output,
       dom.toggle_style(e, style_tab_selected,
-        record.get(tab, "selected")),
+        record.get(tab, "selected")));
 
-      // TODO test this
+    // TODO test this
+    list.push(output,
       dom.toggle_style(e, style_tab_selected_hover, ref.and([
         record.get(tab, "selected"),
         is_hovering
-      ])),
+      ])));
 
-      dom.toggle_style(e, style_tab_focused, is_focused),
+    list.push(output, dom.toggle_style(e, style_tab_focused, is_focused));
 
+    list.push(output,
       dom.toggle_style(e, style_tab_focused_hover, ref.and([
         is_focused,
         is_hovering
-      ])),
+      ])));
 
-      // TODO test these
+    // TODO test these
+    list.push(output,
       dom.toggle_style(e, style_tab_unloaded,
-        record.get(tab, "unloaded")),
+        record.get(tab, "unloaded")));
 
+    list.push(output,
       dom.toggle_style(e, style_tab_unloaded_hover, ref.and([
         record.get(tab, "unloaded"),
         is_hovering
-      ])),
+      ])));
 
+    list.push(output,
       dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
         if (x === "left") {
           return [ui_close, ui_text, ui_favicon];
@@ -573,8 +580,9 @@ export const init = async.all([init_options,
         } else if (x === "right") {
           return [ui_favicon, ui_text, ui_close];
         }
-      }))
-    ]);
+      })));
+
+    return output;
   };
 
 
