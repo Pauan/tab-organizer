@@ -693,7 +693,7 @@ export const set_url = (dom, x) => {
       // TODO is this done for performance reasons?
       // TODO does this prevent a crash in Chrome when there's a lot of tabs?
       // TODO this should probably only batch <img> and not batch <iframe>
-      batch_write(() => {
+      //batch_write(() => {
         if (x === null) {
           // TODO is this correct ?
           dom._dom["src"] = "";
@@ -701,7 +701,7 @@ export const set_url = (dom, x) => {
         } else {
           dom._dom["src"] = x;
         }
-      });
+      //});
     });
 
   } else if (dom._type === "a") {

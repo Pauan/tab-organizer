@@ -10,15 +10,14 @@ import { init as init_tabs } from "../../sync/tabs";
 import { assert } from "../../../util/assert";
 import { search, value } from "../search/search";
 import { make_group, make_tab, make_group_tab,
-         update_groups, update_tabs } from "../logic/general";
+         update_group, update_tabs } from "../logic/general";
 
 
 // TODO this can be more efficient if it's given a starting index
-// TODO inefficient; this should be combined with `update_groups` in some way
 const update_group_names = (groups) => {
-  update_groups(groups);
-
   list.each(stream.current(groups), (group, i) => {
+    update_group(group, i);
+
     if (record.get(group, "info") === null) {
       ref.set(record.get(group, "name"), "" + (i + 1));
     }

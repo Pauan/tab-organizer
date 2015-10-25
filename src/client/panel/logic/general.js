@@ -20,11 +20,13 @@ export const get_title = (tab) => {
 };
 
 
+export const update_group = (group, i) => {
+  record.update(group, "index", i);
+};
+
 // TODO this can be more efficient if it's given a starting index
 export const update_groups = (groups) => {
-  list.each(stream.current(groups), (group, i) => {
-    record.update(group, "index", i);
-  });
+  list.each(stream.current(groups), update_group);
 };
 
 // TODO this can be more efficient if it's given a starting index
