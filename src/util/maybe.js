@@ -1,16 +1,23 @@
 import { crash } from "./assert";
 
 
-export const none = [];
+export const none = {
+  _type: 0
+};
 
-export const some = (x) => [x];
+export const some = (x) => {
+  return {
+    _type: 1,
+    _value: x
+  };
+};
 
 export const has = (x) =>
-  x["length"] === 1;
+  x._type === 1;
 
 export const get = (x) => {
-  if (x["length"] === 1) {
-    return x[0];
+  if (x._type === 1) {
+    return x._value;
   } else {
     crash(new Error("Cannot get from none"));
   }
