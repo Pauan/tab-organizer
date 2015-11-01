@@ -62,6 +62,13 @@ const stringify = (x) => {
 };
 
 
+const check_style_key = (key) => {
+  // TODO test this
+  if (typeof key !== "string") {
+    crash(new Error("Key must be a string: " + key));
+  }
+};
+
 const check_style_value = (value) => {
   // TODO test this
   if (value !== null && typeof value !== "string") {
@@ -73,45 +80,13 @@ const check_style_value = (value) => {
   }
 };
 
-const check_style_important = (important) => {
-  if (typeof important !== "boolean") {
-    crash(new Error("Important must be a boolean: " + important));
-  }
-};
-
-const get_style_values = (x) => {
-  if (x === null || typeof x === "string") {
-    check_style_value(x);
-    return prefix_value(x);
-
-  } else {
-    check_style_value(x.value);
-    return prefix_value(x.value);
-  }
-};
-
-const get_style_important = (x) => {
-  if (x === null || typeof x === "string") {
-    return "";
-
-  } else {
-    check_style_important(x.important);
-    return (x.important ? "important" : "");
-  }
-};
-
 
 export const set_style_value = (style, key, value) => {
-  // TODO test this
-  if (typeof key !== "string") {
-    crash(new Error("Key must be a string: " + key));
-  }
+  check_style_key(key);
+  check_style_value(value);
 
-  const keys = prefix_key(key);
-
-  const values = get_style_values(value);
-
-  const important = get_style_important(value);
+  const keys   = prefix_key(key);
+  const values = prefix_value(value);
 
   let seen = false;
 
@@ -130,7 +105,7 @@ export const set_style_value = (style, key, value) => {
           } else {
             // TODO does this trigger a relayout ?
             // https://drafts.csswg.org/cssom/#dom-cssstyledeclaration-setproperty
-            style["setProperty"](key, value, important);
+            style["setProperty"](key, value, "");
           }
 
 
