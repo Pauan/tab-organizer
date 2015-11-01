@@ -189,30 +189,32 @@ export const init = async.all([init_tabs,
   };
 
   const find_first = (group) => {
-    const tabs = record.get(group, "tabs");
+    const tabs = stream.current(record.get(group, "tabs"));
 
-    const m = list.find_first(stream.current(tabs), (tab) =>
+    const m = list.find_first(tabs, (tab) =>
                 ref.get(record.get(tab, "visible")));
 
     if (maybe.has(m)) {
       return maybe.get(m);
+
     } else {
       // TODO is it guaranteed that the group has tabs in it ?
-      return list.get(stream.current(tabs), 0);
+      return list.get(tabs, 0);
     }
   };
 
   const find_last = (group) => {
-    const tabs = record.get(group, "tabs");
+    const tabs = stream.current(record.get(group, "tabs"));
 
-    const m = list.find_last(stream.current(tabs), (tab) =>
+    const m = list.find_last(tabs, (tab) =>
                 ref.get(record.get(tab, "visible")));
 
     if (maybe.has(m)) {
       return maybe.get(m);
+
     } else {
       // TODO is it guaranteed that the group has tabs in it ?
-      return list.get(stream.current(tabs), -1);
+      return list.get(tabs, -1);
     }
   };
 
@@ -221,7 +223,9 @@ export const init = async.all([init_tabs,
     let top   = 0;
     let empty = true;
 
-    list.each(stream.current(record.get(group, "tabs")), (x) => {
+    const tabs = stream.current(record.get(group, "tabs"));
+
+    list.each(tabs, (x) => {
       // TODO a bit hacky
       if (drag_info.tab === x && drag_info.direction === "up") {
         top += drag_info.height;
@@ -249,7 +253,9 @@ export const init = async.all([init_tabs,
   };
 
   const stop_dragging = (group) => {
-    list.each(stream.current(record.get(group, "tabs")), (x) => {
+    const tabs = stream.current(record.get(group, "tabs"));
+
+    list.each(tabs, (x) => {
       ref.set(record.get(x, "top"), null);
     });
 
@@ -310,8 +316,10 @@ export const init = async.all([init_tabs,
 
     assert(ref.get(dragging_animate) === false);
 
+    const groups = stream.current(ref.get(group_type).groups);
+
     // TODO hacky
-    list.each(stream.current(ref.get(group_type).groups), (group) => {
+    list.each(groups, (group) => {
       update_dragging(group);
     });
   };
@@ -324,8 +332,10 @@ export const init = async.all([init_tabs,
 
     ref.set(dragging_animate, false);
 
+    const groups = stream.current(ref.get(group_type).groups);
+
     // TODO hacky
-    list.each(stream.current(ref.get(group_type).groups), (group) => {
+    list.each(groups, (group) => {
       stop_dragging(group);
     });
 
