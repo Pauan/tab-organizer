@@ -30,6 +30,13 @@ export const init = async.all([init_options,
     Math["sqrt"](x * x + y * y);
 
 
+  // TODO this is a tiny bit hacky
+  dom.make_stylesheet("html, body", {
+    "cursor": ref.map(dragging_started, (x) =>
+                (x !== null ? "grabbing" : null))
+  });
+
+
   const animation_tab = dom.make_animation({
     easing: ref.always("ease-in-out"),
     duration: ref.map(opt("theme.animation"), (x) =>
@@ -83,8 +90,6 @@ export const init = async.all([init_options,
   });
 
 
-  // TODO the mouse cursor should be "grabbing" while dragging
-  //      https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
   const style_dragging = dom.make_style({
     "pointer-events": ref.always("none"),
     "opacity": ref.always("0.98"),
@@ -103,7 +108,9 @@ export const init = async.all([init_options,
                                            ["10px", dom.hsl(0, 0, 100, 0.05)]);
 
   const style_menu_item = dom.make_style({
-    "cursor": ref.always("pointer"),
+    "cursor": ref.map(dragging_started, (x) =>
+                (x === null ? "pointer" : null)),
+
     "border-width": ref.always("1px"),
 
     "transition": ref.latest([
