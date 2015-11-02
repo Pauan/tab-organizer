@@ -1,17 +1,17 @@
-import * as list from "../../../util/list";
-import * as stream from "../../../util/stream";
-import * as record from "../../../util/record";
-import * as functions from "../../../util/functions";
-import * as running from "../../../util/running";
-import * as async from "../../../util/async";
-import * as ref from "../../../util/ref";
-import * as event from "../../../util/event";
-import * as string from "../../../util/string";
-import { init as init_tabs } from "../../sync/tabs";
-import { assert } from "../../../util/assert";
-import { search, value } from "../search/search";
+import * as list from "../../../../util/list";
+import * as stream from "../../../../util/stream";
+import * as record from "../../../../util/record";
+import * as functions from "../../../../util/functions";
+import * as running from "../../../../util/running";
+import * as async from "../../../../util/async";
+import * as ref from "../../../../util/ref";
+import * as event from "../../../../util/event";
+import * as string from "../../../../util/string";
+import { init as init_tabs } from "../../../sync/tabs";
+import { assert } from "../../../../util/assert";
+import { search, value } from "../../search/search";
 import { make_group, make_tab, make_group_tab,
-         update_groups, update_tabs } from "../logic/general";
+         update_groups, update_tabs } from "../general";
 
 
 export const init = async.all([init_tabs], (sync) => {

@@ -1,9 +1,9 @@
-import * as record from "../../../util/record";
-import * as functions from "../../../util/functions";
-import { make } from "../logic/sorted";
-import { get_title, get_created } from "../logic/general";
-import { sort } from "../../../util/string";
-import { simplify, parse } from "../../../util/url";
+import * as record from "../../../../util/record";
+import * as functions from "../../../../util/functions";
+import { make } from "../sorted";
+import { get_title, get_created } from "../general";
+import { sort } from "../../../../util/string";
+import { simplify, parse } from "../../../../util/url";
 
 
 const get_name = (parsed) => {

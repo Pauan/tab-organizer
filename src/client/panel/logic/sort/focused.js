@@ -1,6 +1,6 @@
-import * as record from "../../../util/record";
-import { make } from "../logic/sorted";
-import { get_group_name, get_group_time } from "../logic/time";
+import * as record from "../../../../util/record";
+import { make } from "../sorted";
+import { get_group_name, get_group_time } from "../time";
 
 
 const get_time = (tab) => {

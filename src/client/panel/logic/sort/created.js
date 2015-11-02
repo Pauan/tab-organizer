@@ -1,6 +1,6 @@
-import { make } from "../logic/sorted";
-import { get_created } from "../logic/general";
-import { get_group_name, get_group_time } from "../logic/time";
+import { make } from "../sorted";
+import { get_created } from "../general";
+import { get_group_name, get_group_time } from "../time";
 
 
 export const init = make({

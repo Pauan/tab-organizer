@@ -1,8 +1,8 @@
-import * as record from "../../../util/record";
-import * as functions from "../../../util/functions";
-import { make } from "../logic/sorted";
-import { get_title, get_created } from "../logic/general";
-import { uppercase, sort } from "../../../util/string";
+import * as record from "../../../../util/record";
+import * as functions from "../../../../util/functions";
+import { make } from "../sorted";
+import { get_title, get_created } from "../general";
+import { uppercase, sort } from "../../../../util/string";
 
 
 export const init = make({
