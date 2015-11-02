@@ -19,7 +19,6 @@ export const init = async.all([init_group_list,
                                { group_type }) => {
 
   // Styling for the scrollbar
-  // TODO change colors when hovering/focused/dragging/etc.
   dom.make_stylesheet("::-webkit-scrollbar", {
     "width": ref.always("12px"),
     "height": ref.always("12px"),
@@ -59,6 +58,13 @@ export const init = async.all([init_group_list,
 
     "overflow": ref.always("visible"),
     "border-radius": ref.always("5px")
+  });
+
+  dom.make_stylesheet("::-webkit-scrollbar-thumb:hover", {
+    "background-color": ref.always(dom.hsl(0, 0, 70)),
+
+    "box-shadow": ref.always("inset 0px 0px 0px 1px " + dom.hsl(0, 0, 50) + "," +
+                             "inset 0px 0px 0px 2px " + dom.hsl(0, 0, 79)),
   });
 
 
