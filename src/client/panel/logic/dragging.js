@@ -1,10 +1,10 @@
-import * as list from "../../util/list";
-import * as record from "../../util/record";
-import * as stream from "../../util/stream";
-import * as async from "../../util/async";
-import * as maybe from "../../util/maybe";
-import * as ref from "../../util/ref";
-import { assert } from "../../util/assert";
+import * as list from "../../../util/list";
+import * as record from "../../../util/record";
+import * as stream from "../../../util/stream";
+import * as async from "../../../util/async";
+import * as maybe from "../../../util/maybe";
+import * as ref from "../../../util/ref";
+import { assert } from "../../../util/assert";
 import { init as init_groups } from "./groups";
 
 
@@ -183,7 +183,7 @@ export const init = async.all([init_groups],
     assert(ref.get(dragging_animate) === false);
 
     // TODO hacky ?
-    list.each(stream.current(groups), (group) => {
+    list.each(stream.current(ref.get(groups)), (group) => {
       update_dragging(group);
     });
   };
@@ -197,7 +197,7 @@ export const init = async.all([init_groups],
     ref.set(dragging_animate, false);
 
     // TODO hacky ?
-    list.each(stream.current(groups), (group) => {
+    list.each(stream.current(ref.get(groups)), (group) => {
       stop_dragging(group);
     });
 

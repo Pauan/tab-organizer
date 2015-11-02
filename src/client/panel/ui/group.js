@@ -6,15 +6,15 @@ import * as ref from "../../../util/ref";
 import { style_texture } from "./common";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
-import { init as init_logic } from "../logic";
+import { init as init_dragging } from "../logic/dragging";
 
 
 export const init = async.all([init_tab,
                                init_options,
-                               init_logic],
+                               init_dragging],
                               ({ tab: ui_tab },
                                { get: opt },
-                               logic) => {
+                               { drag_onto_group }) => {
 
   const animation_group_wrapper = dom.make_animation({
     easing: ref.always("ease-in-out"),
@@ -346,7 +346,7 @@ export const init = async.all([init_tab,
       dom.on_mouse_hover(e, (hover) => {
         // TODO is this correct ?
         if (hover && !hover.subtree) {
-          logic.drag_onto_group(group);
+          drag_onto_group(group);
         }
       }),
 
@@ -386,7 +386,7 @@ export const init = async.all([init_tab,
 
       dom.on_mouse_hover(e, (hover) => {
         if (hover && !hover.subtree) {
-          logic.drag_onto_group(group);
+          drag_onto_group(group);
         }
       }),
 

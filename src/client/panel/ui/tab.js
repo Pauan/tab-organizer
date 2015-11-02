@@ -7,13 +7,18 @@ import * as ref from "../../../util/ref";
 import * as console from "../../../util/console";
 import { url_bar } from "./url-bar";
 import { init as init_options } from "../../sync/options";
-import { init as init_logic } from "../logic";
+import { init as init_dragging } from "../logic/dragging";
+import { init as init_groups } from "../logic/groups";
 
 
 export const init = async.all([init_options,
-                               init_logic],
+                               init_dragging,
+                               init_groups],
                               ({ get: opt },
-                               logic) => {
+                               { dragging_animate, drag_start, drag_end,
+                                 drag_onto_tab },
+                               { close_tabs, click_tab, shift_select_tab,
+                                 ctrl_select_tab }) => {
 
   let dragging_offset_x = null;
   let dragging_offset_y = null;
@@ -115,7 +120,7 @@ export const init = async.all([init_options,
 
     "transition": ref.latest([
       opt("theme.animation"),
-      logic.dragging_animate
+      dragging_animate
     ], (animation, dragging_animate) =>
       (animation
         ? (dragging_animate
@@ -212,7 +217,7 @@ export const init = async.all([init_options,
                                dom.hsl(30, 70, 57)),
 
     // TODO a bit hacky
-    "transition-duration": ref.map(logic.dragging_animate, (dragging_animate) =>
+    "transition-duration": ref.map(dragging_animate, (dragging_animate) =>
                              (dragging_animate
                                ? null
                                : "0ms")),
@@ -399,7 +404,7 @@ export const init = async.all([init_options,
 
       dom.on_left_click(e, ({ shift, ctrl, alt }) => {
         if (!shift && !ctrl && !alt) {
-          logic.close_tabs([tab]);
+          close_tabs([tab]);
         }
       }),
     ]);
@@ -431,14 +436,14 @@ export const init = async.all([init_options,
 
   const group_type = opt("group.sort.type");
 
-  const drag_start_if = (start_x, start_y, { x, y, alt, ctrl, shift }) =>
+  const tab_drag_start_if = (start_x, start_y, { x, y, alt, ctrl, shift }) =>
     // TODO should also support dragging when the type is "tag"
     ref.get(group_type) === "window" &&
     !alt && !ctrl && !shift &&
     hypot(start_x - x, start_y - y) > 5;
 
   // TODO this should be a part of logic and stuff
-  const drag_start = ({ group, tab, e, x, y }) => {
+  const tab_drag_start = ({ group, tab, e, x, y }) => {
     async.run(dom.get_position(e), (tab_box) => {
       const tabs = record.get(group, "tabs");
 
@@ -480,11 +485,11 @@ export const init = async.all([init_options,
         width: Math["round"](tab_box.width)
       });
 
-      logic.drag_start({ group, tab, height });
+      drag_start({ group, tab, height });
     });
   };
 
-  const drag_move = ({ x, y }) => {
+  const tab_drag_move = ({ x, y }) => {
     // TODO is it faster to have two Refs, rather than using an object ?
     ref.set(dragging_dimensions, {
       x: (dragging_should_x
@@ -495,7 +500,7 @@ export const init = async.all([init_options,
     });
   };
 
-  const drag_end = () => {
+  const tab_drag_end = () => {
     const { selected } = ref.get(dragging_started);
 
     list.each(selected, (tab) => {
@@ -511,7 +516,7 @@ export const init = async.all([init_options,
       }*/
     });
 
-    logic.drag_end(selected);
+    drag_end(selected);
 
     ref.set(dragging_started, null);
     ref.set(dragging_dimensions, null);
@@ -683,20 +688,20 @@ export const init = async.all([init_options,
             // TODO a little hacky
             if (!ref.get(dom.hovering(ui_close))) {
               if (!shift && !ctrl && !alt) {
-                logic.click_tab(group, tab);
+                click_tab(group, tab);
 
               } else if (shift && !ctrl && !alt) {
-                logic.shift_select_tab(group, tab);
+                shift_select_tab(group, tab);
 
               } else if (!shift && ctrl && !alt) {
-                logic.ctrl_select_tab(group, tab);
+                ctrl_select_tab(group, tab);
               }
             }
           }),
 
           dom.on_middle_click(e, ({ shift, ctrl, alt }) => {
             if (!shift && !ctrl && !alt) {
-              logic.close_tabs([tab]);
+              close_tabs([tab]);
             }
           }),
 
@@ -706,7 +711,7 @@ export const init = async.all([init_options,
 
           dom.on_mouse_hover(e, (hover) => {
             if (hover) {
-              logic.drag_onto_tab(group, tab);
+              drag_onto_tab(group, tab);
             }
           }),
 
@@ -719,12 +724,12 @@ export const init = async.all([init_options,
           }),
 
           dom.draggable(e, {
-            start_if: drag_start_if,
+            start_if: tab_drag_start_if,
             start: ({ x, y }) => {
-              drag_start({ group, tab, e, x, y });
+              tab_drag_start({ group, tab, e, x, y });
             },
-            move: drag_move,
-            end: drag_end
+            move: tab_drag_move,
+            end: tab_drag_end
           })
         ];
       });

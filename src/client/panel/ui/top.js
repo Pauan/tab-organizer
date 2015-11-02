@@ -5,18 +5,18 @@ import { style_texture } from "./common";
 import { init as init_group_list } from "./group-list";
 import { init as init_options } from "../../sync/options";
 import { init as init_toolbar } from "./toolbar";
-import { init as init_logic } from "../logic";
+import { init as init_groups } from "../logic/groups";
 import { is_panel } from "../init";
 
 
 export const init = async.all([init_group_list,
                                init_options,
                                init_toolbar,
-                               init_logic],
+                               init_groups],
                               ({ group_list: ui_group_list },
                                { get: opt },
                                { toolbar: ui_toolbar },
-                               { group_type }) => {
+                               { groups }) => {
 
   // Styling for the scrollbar
   dom.make_stylesheet("::-webkit-scrollbar", {
@@ -123,8 +123,8 @@ export const init = async.all([init_group_list,
 
       dom.children(e, [
         ui_toolbar(),
-        // TODO handle `group_type` changing
-        ui_group_list(ref.get(group_type).groups)
+        // TODO handle `groups` changing
+        ui_group_list(ref.get(groups))
       ])
     ]);
 
