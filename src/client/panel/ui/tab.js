@@ -15,7 +15,8 @@ export const init = async.all([init_options,
                                init_dragging,
                                init_groups],
                               ({ get: opt },
-                               { dragging_animate, drag_start, drag_end,
+                               { dragging_animate, dragging_started,
+                                 dragging_dimensions, drag_start, drag_end,
                                  drag_onto_tab },
                                { close_tabs, click_tab, shift_select_tab,
                                  ctrl_select_tab }) => {
@@ -23,9 +24,6 @@ export const init = async.all([init_options,
   let dragging_offset_x = null;
   let dragging_offset_y = null;
   let dragging_should_x = true;
-
-  const dragging_started    = ref.make(null);
-  const dragging_dimensions = ref.make(null);
 
   const tab_height = 20;
 

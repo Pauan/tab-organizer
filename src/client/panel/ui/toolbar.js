@@ -2,11 +2,17 @@ import * as dom from "../../../util/dom";
 import * as async from "../../../util/async";
 import * as ref from "../../../util/ref";
 import { top_inset, top_shadow } from "./common";
-import { search as ui_search } from "./search";
+import { init as init_search } from "./search";
 import { init as init_options } from "../../sync/options";
+import { init as init_dragging } from "../logic/dragging";
 
 
-export const init = async.all([init_options], ({ get: opt }) => {
+export const init = async.all([init_search,
+                               init_options,
+                               init_dragging],
+                              ({ search: ui_search },
+                               { get: opt },
+                               { dragging_started }) => {
 
   const style_toolbar = dom.make_style({
     "margin": ref.map(opt("groups.layout"), (x) => {
@@ -39,7 +45,9 @@ export const init = async.all([init_options], ({ get: opt }) => {
     "height": ref.always("100%"),
     "padding-left": ref.always("12px"),
     "padding-right": ref.always("12px"),
-    "cursor": ref.always("pointer"),
+
+    "cursor": ref.map(dragging_started, (x) =>
+                (x === null ? "pointer" : null)),
 
     "box-shadow": ref.always("inset 0px 0px 1px 0px " + top_inset)
   });

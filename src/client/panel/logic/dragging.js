@@ -13,7 +13,9 @@ export const init = async.all([init_groups],
 
   let drag_info = null;
 
-  const dragging_animate = ref.make(false);
+  const dragging_animate    = ref.make(false);
+  const dragging_started    = ref.make(null);
+  const dragging_dimensions = ref.make(null);
 
   const get_direction_swap = (direction) =>
     (direction === "up"
@@ -247,5 +249,6 @@ export const init = async.all([init_groups],
 
 
   return async.done({ drag_start, drag_end, drag_onto_tab,
-                      drag_onto_group, dragging_animate });
+                      drag_onto_group, dragging_animate,
+                      dragging_started, dragging_dimensions });
 });
