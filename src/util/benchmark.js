@@ -1,10 +1,20 @@
 import * as console from "./console";
 import * as list from "./list";
 import * as _async from "./async";
+import { assert } from "./assert";
 
 
 // TODO a tiny bit hacky
 const performance = window["performance"];
+
+
+const nth_root = (x, i) => {
+  if (x < 0) {
+    return NaN;
+  } else {
+    return Math["pow"](x, 1 / i);
+  }
+};
 
 
 const ms = (x) =>
@@ -42,6 +52,33 @@ export const median = (a) => {
 
   } else {
     return list.get(a2, Math["floor"](middle));
+  }
+};
+
+// TODO better implementation of this
+//      https://en.wikipedia.org/wiki/Geometric_mean
+// TODO this is probably a bit wrong
+export const geometric = (a) => {
+  let sum = null;
+
+  // TODO foldl ?
+  list.each(a, (x) => {
+    const y = ms(x);
+
+    if (y !== 0) {
+      if (sum === null) {
+        sum = y;
+      } else {
+        sum = sum * y;
+      }
+    }
+  });
+
+  if (sum === null) {
+    return 0;
+
+  } else {
+    return nth_root(sum, list.size(a));
   }
 };
 
@@ -85,7 +122,7 @@ export const sync = (f) => {
     const done  = start + duration;
 
     do {
-      f();
+      assert(f());
       ++iterations;
     } while (performance["now"]() < done);
 
@@ -109,7 +146,9 @@ export const async = (f) => {
   const times = list.make();
 
   const loop2 = (iterations, done) =>
-    _async.after(f(), (_) => {
+    _async.after(f(), (bool) => {
+      assert(bool);
+
       if (performance["now"]() < done) {
         return loop2(iterations + 1, done);
       } else {
@@ -146,10 +185,11 @@ export const async = (f) => {
 export const output = (message, x) => {
   const { fastest, slowest } = variance(x);
   console.log(message +
-              "\n  fastest: " + fastest +
-              "\n  median:  " + median(x) +
-              "\n  slowest: " + slowest +
+              "\n  fastest:   " + fastest +
+              "\n  median:    " + median(x) +
+              "\n  slowest:   " + slowest +
               "\n" +
-              "\n  sum:     " + sum(x) +
-              "\n  average: " + average(x));
+              "\n  geometric: " + geometric(x) +
+              "\n  sum:       " + sum(x) +
+              "\n  average:   " + average(x));
 };

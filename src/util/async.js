@@ -148,3 +148,13 @@ const _ignore = (_) =>
 
 export const ignore = (x) =>
   after(x, _ignore);
+
+export const delay = (ms) => {
+  const out = make();
+
+  setTimeout(() => {
+    success(out, undefined);
+  }, ms);
+
+  return out;
+};
