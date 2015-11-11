@@ -150,22 +150,24 @@ export const init = async.all([init_db,
 
 
     "close-tabs": (x) => {
-      const _tabs = record.get(x, "tabs");
+      db.transaction(() => {
+        const _tabs = record.get(x, "tabs");
 
-      list.each(_tabs, (tab_id) => {
-        if (record.has(transient_tab_ids, tab_id)) {
-          // TODO it should work even if the tab is unloaded
-          const chrome_tab = record.get(transient_tab_ids, tab_id);
+        list.each(_tabs, (tab_id) => {
+          if (record.has(transient_tab_ids, tab_id)) {
+            // TODO it should work even if the tab is unloaded
+            const chrome_tab = record.get(transient_tab_ids, tab_id);
 
-          //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
-          //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+            //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
+            //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
 
-          //const tab = db.get(["current.tab-ids", tab_id]);
-          tabs.close(chrome_tab);
+            //const tab = db.get(["current.tab-ids", tab_id]);
+            tabs.close(chrome_tab);
 
-        } else {
-          close_tab(tab_id);
-        }
+          } else {
+            close_tab(tab_id);
+          }
+        });
       });
     }
   });
@@ -231,63 +233,65 @@ export const init = async.all([init_db,
       });
     };
 
-    db.write("current.windows", (windows) => {
-      db.write("current.window-ids", (window_ids) => {
-        db.write("current.tab-ids", (tab_ids) => {
-          db.write("current.tag-ids", (tag_ids) => {
-            record.each(tab_ids, (id, tab) => {
-              assert(record.get(tab, "id") === id);
+    db.transaction(() => {
+      db.write("current.windows", (windows) => {
+        db.write("current.window-ids", (window_ids) => {
+          db.write("current.tab-ids", (tab_ids) => {
+            db.write("current.tag-ids", (tag_ids) => {
+              record.each(tab_ids, (id, tab) => {
+                assert(record.get(tab, "id") === id);
 
-              const window = record.get(window_ids, record.get(tab, "window"));
+                const window = record.get(window_ids, record.get(tab, "window"));
 
-              if (!list.contains(record.get(window, "tabs"), id)) {
-                // TODO is it safe to do this while it's iterating ?
-                record.exclude(tab_ids, id);
-              }
-
-              record.each(record.get(tab, "tags"), (tag_id) => {
-                const tag = record.get(tag_ids, tag_id);
-
-                if (!list.contains(record.get(tag, "tabs"), id)) {
+                if (!list.contains(record.get(window, "tabs"), id)) {
                   // TODO is it safe to do this while it's iterating ?
                   record.exclude(tab_ids, id);
                 }
+
+                record.each(record.get(tab, "tags"), (tag_id) => {
+                  const tag = record.get(tag_ids, tag_id);
+
+                  if (!list.contains(record.get(tag, "tabs"), id)) {
+                    // TODO is it safe to do this while it's iterating ?
+                    record.exclude(tab_ids, id);
+                  }
+                });
+
+                ++amount;
               });
 
-              ++amount;
-            });
 
+              record.each(window_ids, (id, window) => {
+                assert(record.get(window, "id") === id);
 
-            record.each(window_ids, (id, window) => {
-              assert(record.get(window, "id") === id);
+                if (!list.contains(windows, id)) {
+                  // TODO is it safe to do this while it's iterating ?
+                  record.exclude(window_ids, id);
+                }
 
-              if (!list.contains(windows, id)) {
-                // TODO is it safe to do this while it's iterating ?
-                record.exclude(window_ids, id);
-              }
-
-              keep(record.get(window, "tabs"), (id) => {
-                set.insert(window_tabs_seen, id);
-                return record.has(tab_ids, id);
+                keep(record.get(window, "tabs"), (id) => {
+                  set.insert(window_tabs_seen, id);
+                  return record.has(tab_ids, id);
+                });
               });
-            });
 
 
-            record.each(tag_ids, (id, tag) => {
-              assert(record.get(tag, "id") === id);
+              record.each(tag_ids, (id, tag) => {
+                assert(record.get(tag, "id") === id);
 
-              const seen = set.make();
+                const seen = set.make();
 
-              keep(record.get(tag, "tabs"), (id) => {
-                set.insert(seen, id);
-                return record.has(tab_ids, id);
+                keep(record.get(tag, "tabs"), (id) => {
+                  set.insert(seen, id);
+                  return record.has(tab_ids, id);
+                });
               });
-            });
 
 
-            keep(windows, (id) => {
-              set.insert(windows_seen, id);
-              return record.has(window_ids, id);
+              keep(windows, (id) => {
+                set.insert(windows_seen, id);
+                return record.has(window_ids, id);
+              });
             });
           });
         });
@@ -881,72 +885,91 @@ export const init = async.all([init_db,
   };
 
 
-  // This must go before `window_init`
-  session.init(windows.get_all());
+  db.transaction(() => {
+    // This must go before `window_init`
+    session.init(windows.get_all());
 
+    check_integrity();
 
-  check_integrity();
+    // TODO time this
+    list.each(windows.get_all(), (info) => {
+      window_init(info);
+    });
 
-  // TODO time this
-  list.each(windows.get_all(), (info) => {
-    window_init(info);
+    check_integrity();
   });
-
-  check_integrity();
 
 
   event.on_receive(windows.on_open, (info) => {
-    session.window_open(info);
-    window_open(info);
+    db.transaction(() => {
+      session.window_open(info);
+      window_open(info);
+    });
   });
 
   event.on_receive(windows.on_close, (info) => {
-    window_close(info);
-    // This must be after `window_close`
-    session.window_close(info);
+    db.transaction(() => {
+      window_close(info);
+      // This must be after `window_close`
+      session.window_close(info);
+    });
   });
 
   event.on_receive(windows.on_focus, (info) => {
-    window_focus(info);
+    db.transaction(() => {
+      window_focus(info);
+    });
   });
 
   event.on_receive(tabs.on_open, (info) => {
-    session.tab_open(info);
-    tab_open(info);
+    db.transaction(() => {
+      session.tab_open(info);
+      tab_open(info);
+    });
   });
 
   event.on_receive(tabs.on_close, (info) => {
-    // Delay by 10 seconds, so that when Chrome closes,
-    // it doesn't remove the tabs / windows
-    // TODO is this place correct ?
-    if (info.window_closing) {
-      delay(10000);
-    }
+    db.transaction(() => {
+      // Delay by 10 seconds, so that when Chrome closes,
+      // it doesn't remove the tabs / windows
+      // TODO is this place correct ?
+      if (info.window_closing) {
+        delay(10000);
+      }
 
-    const tab_id = session.tab_id(info.tab.id);
+      const tab_id = session.tab_id(info.tab.id);
 
-    close_tab(tab_id);
+      close_tab(tab_id);
 
-    // This must be after `session.tab_id`
-    session.tab_close(info);
+      // This must be after `session.tab_id`
+      session.tab_close(info);
+    });
   });
 
   event.on_receive(tabs.on_focus, (info) => {
-    tab_focus(info);
+    db.transaction(() => {
+      tab_focus(info);
+    });
   });
 
   event.on_receive(tabs.on_move, (info) => {
-    session.tab_move(info);
-    tab_move(info);
+    db.transaction(() => {
+      session.tab_move(info);
+      tab_move(info);
+    });
   });
 
   event.on_receive(tabs.on_update, (info) => {
-    session.tab_update(info);
-    tab_update(info);
+    db.transaction(() => {
+      session.tab_update(info);
+      tab_update(info);
+    });
   });
 
   event.on_receive(tabs.on_replace, (info) => {
-    session.tab_replace(info);
+    db.transaction(() => {
+      session.tab_replace(info);
+    });
   });
 
   /*const window = yield open_window({});

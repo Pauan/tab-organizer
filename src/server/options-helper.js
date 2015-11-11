@@ -32,15 +32,17 @@ export const make_options = (uuid, db_name, default_options) =>
 
       // TODO handle stop somehow ?
       ref.on_change(x, (value) => {
-        db.write(db_name, (current_options) => {
-          // TODO test this
-          if (value === default_value) {
-            // TODO use `exclude` instead ?
-            record.remove(current_options, key);
+        db.transaction(() => {
+          db.write(db_name, (current_options) => {
+            // TODO test this
+            if (value === default_value) {
+              // TODO use `exclude` instead ?
+              record.remove(current_options, key);
 
-          } else {
-            record.assign(current_options, key, value);
-          }
+            } else {
+              record.assign(current_options, key, value);
+            }
+          });
         });
 
         event.send(events, record.make({
