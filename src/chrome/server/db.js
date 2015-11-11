@@ -3,7 +3,7 @@ import * as timer from "../../util/timer";
 import * as async from "../../util/async";
 import * as console from "../../util/console";
 import { chrome } from "../../common/globals";
-import { async_chrome, throw_error } from "../common/util";
+import { async_chrome, throw_error, callback } from "../common/util";
 import { assert, crash } from "../../util/assert";
 
 
