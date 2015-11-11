@@ -14,10 +14,6 @@ const new_id = () => "" + timestamp();
 export const init = async.all([init_db], (db) => {
   const namespace = "session.windows";
 
-  const delay = (ms) => {
-    db.delay(namespace, ms);
-  };
-
   db.include(namespace, list.make());
 
 
@@ -116,12 +112,6 @@ export const init = async.all([init_db], (db) => {
   };
 
   const tab_close = ({ window, tab, index, window_closing }) => {
-    // Delay by 10 seconds, so that when Chrome closes,
-    // it doesn't remove the tabs / windows
-    if (window_closing) {
-      delay(10000);
-    }
-
     check_tab(window, index, tab);
 
     write_tabs(window, (tabs) => {

@@ -198,14 +198,6 @@ export const init = async.all([init_db,
   });
 
 
-  const delay = (ms) => {
-    db.delay("current.windows", ms);
-    db.delay("current.window-ids", ms);
-    db.delay("current.tab-ids", ms);
-    db.delay("current.tag-ids", ms);
-  };
-
-
   // TODO this can be removed for the final release, it's only for development
   // TODO more checks (e.g. that the indexes are correct)
   // TODO rather than putting this here, this should instead be in `migrate.js`
@@ -932,9 +924,12 @@ export const init = async.all([init_db,
     db.transaction(() => {
       // Delay by 10 seconds, so that when Chrome closes,
       // it doesn't remove the tabs / windows
-      // TODO is this place correct ?
+      // TODO maybe do this automatically in chrome/server/windows.js or something ?
       if (info.window_closing) {
-        delay(10000);
+        db.delay("current.windows", 10000);
+        db.delay("current.window-ids", 10000);
+        db.delay("current.tab-ids", 10000);
+        db.delay("current.tag-ids", 10000);
       }
 
       const tab_id = session.tab_id(info.tab.id);
