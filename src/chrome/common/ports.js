@@ -1,5 +1,5 @@
 import * as event from "../../util/event";
-import { throw_error } from "./util";
+import { throw_error, callback } from "./util";
 
 
 export const make = (port) => {
@@ -9,11 +9,11 @@ export const make = (port) => {
 
     _on_receive: event.make({
       start: (e) => {
-        const onMessage = (x) => {
+        const onMessage = callback((x) => {
           throw_error();
 
           event.send(e, x);
-        };
+        });
 
         port["onMessage"]["addListener"](onMessage);
 
@@ -29,7 +29,7 @@ export const make = (port) => {
 
 
   // TODO test this
-  const onDisconnect = () => {
+  const onDisconnect = callback(() => {
     // TODO do we need to remove the onMessage listener ?
     port["onDisconnect"]["removeListener"](onDisconnect);
 
@@ -47,7 +47,7 @@ export const make = (port) => {
 
     event.close(on_receive);
     event.close(on_close);
-  };
+  });
 
   port["onDisconnect"]["addListener"](onDisconnect);
 

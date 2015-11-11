@@ -66,7 +66,8 @@ import * as event from "../../../util/event";
 import * as list from "../../../util/list";
 import * as record from "../../../util/record";
 import { chrome } from "../../../common/globals";
-import { throw_error, update_indexes, round } from "../../common/util";
+import { throw_error, update_indexes,
+         round, callback } from "../../common/util";
 import { assert } from "../../../util/assert";
 import { window_ids, make_tab } from "./tabs";
 import { focus, close, move, maximize } from "./popups";
@@ -140,18 +141,13 @@ export const open = ({ focused = true }, f) => {
   chrome["windows"]["create"]({
     "type": "normal",
     "focused": focused
-  }, (window) => {
+  }, callback((window) => {
     throw_error();
     // TODO test this
     f(record.get(window_ids, window["id"]));
-  });
+  }));
 };
 
-
-/*const get_window = (window) =>
-  async_chrome((callback) => {
-    chrome["windows"]["get"](window.id, { "populate": false }, callback);
-  });*/
 
 const make = (info) => {
   return {

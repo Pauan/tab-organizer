@@ -2,17 +2,17 @@ import * as ref from "../../util/ref";
 import * as event from "../../util/event";
 import { chrome } from "../../common/globals";
 import { assert } from "../../util/assert";
-import { throw_error } from "../common/util";
+import { throw_error, callback } from "../common/util";
 
 
 // TODO test this
 export const on_click = event.make({
   start: (e) => {
-    const onClicked = () => {
+    const onClicked = callback(() => {
       throw_error();
 
       event.send(e, undefined);
-    };
+    });
 
     chrome["browserAction"]["onClicked"]["addListener"](onClicked);
 

@@ -1,7 +1,7 @@
 import * as list from "../../util/list";
 import * as async from "../../util/async";
 import { chrome } from "../../common/globals";
-import { throw_error, async_chrome } from "../common/util";
+import { throw_error, async_chrome, callback } from "../common/util";
 import { assert } from "../../util/assert";
 
 // Exports
@@ -10,7 +10,7 @@ import * as tabs from "./windows/tabs";
 import * as popups from "./windows/popups";
 
 
-chrome["windows"]["onCreated"]["addListener"]((info) => {
+chrome["windows"]["onCreated"]["addListener"](callback((info) => {
   throw_error();
 
   assert(info["focused"] === false);
@@ -21,63 +21,63 @@ chrome["windows"]["onCreated"]["addListener"]((info) => {
 
   windows.make_window(info, true);
   popups.make_popup(info, true);
-});
+}));
 
-chrome["windows"]["onRemoved"]["addListener"]((id) => {
+chrome["windows"]["onRemoved"]["addListener"](callback((id) => {
   throw_error();
 
   windows.remove_window(id);
   popups.remove_popup(id);
-});
+}));
 
-chrome["windows"]["onFocusChanged"]["addListener"]((id) => {
+chrome["windows"]["onFocusChanged"]["addListener"](callback((id) => {
   throw_error();
 
   windows.focus_window(id);
   popups.focus_popup(id);
-});
+}));
 
-chrome["tabs"]["onCreated"]["addListener"]((info) => {
+chrome["tabs"]["onCreated"]["addListener"](callback((info) => {
   throw_error();
 
   tabs.make_tab(info, true);
-});
+}));
 
-chrome["tabs"]["onRemoved"]["addListener"]((id, info) => {
+chrome["tabs"]["onRemoved"]["addListener"](callback((id, info) => {
   throw_error();
 
   tabs.remove_tab(id, info);
-});
+}));
 
-chrome["tabs"]["onActivated"]["addListener"]((info) => {
+chrome["tabs"]["onActivated"]["addListener"](callback((info) => {
   throw_error();
 
   tabs.focus_tab(info);
-});
+}));
 
-chrome["tabs"]["onReplaced"]["addListener"]((new_id, old_id) => {
+chrome["tabs"]["onReplaced"]["addListener"](callback((new_id, old_id) => {
   throw_error();
 
   tabs.replace_tab(new_id, old_id);
-});
+}));
 
-chrome["tabs"]["onAttached"]["addListener"]((id, info) => {
+chrome["tabs"]["onAttached"]["addListener"](callback((id, info) => {
   throw_error();
 
   tabs.attach_tab(id, info);
-});
+}));
 
-chrome["tabs"]["onMoved"]["addListener"]((id, info) => {
+chrome["tabs"]["onMoved"]["addListener"](callback((id, info) => {
   throw_error();
 
   tabs.move_tab(id, info);
-});
+}));
 
-chrome["tabs"]["onUpdated"]["addListener"]((id, _, tab) => {
+chrome["tabs"]["onUpdated"]["addListener"](callback((id, _, tab) => {
   throw_error();
 
   tabs.update_tab(id, tab);
-});
+}));
 
 
 const ready = async.make();
@@ -93,8 +93,9 @@ if (document["readyState"] === "complete") {
 
 
 const chrome_get_all = () =>
-  async_chrome((callback) => {
-    chrome["windows"]["getAll"]({ "populate": true }, callback);
+  async_chrome((f) => {
+    // TODO what about using `callback` ?
+    chrome["windows"]["getAll"]({ "populate": true }, f);
   });
 
 

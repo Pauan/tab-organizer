@@ -1,18 +1,18 @@
 import * as event from "../../util/event";
 import * as ports from "../common/ports";
 import { chrome } from "../../common/globals";
-import { throw_error } from "../common/util";
+import { throw_error, callback } from "../common/util";
 import { on_receive, on_close, send } from "../common/ports";
 export { on_receive, on_close, send } from "../common/ports";
 
 
 const _events = event.make({
   start: (e) => {
-    const onConnect = (x) => {
+    const onConnect = callback((x) => {
       throw_error();
 
       event.send(e, ports.make(x));
-    };
+    });
 
     chrome["runtime"]["onConnect"]["addListener"](onConnect);
 

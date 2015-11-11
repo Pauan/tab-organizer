@@ -1,7 +1,7 @@
 import * as record from "../../../util/record";
 import * as event from "../../../util/event";
 import { chrome } from "../../../common/globals";
-import { throw_error, round } from "../../common/util";
+import { throw_error, round, callback } from "../../common/util";
 import { assert } from "../../../util/assert";
 
 
@@ -38,13 +38,13 @@ export const focus_popup = (id) => {};
 
 
 const update_popup = (popup, info) => {
-  chrome["windows"]["update"](popup.id, info, () => {
+  chrome["windows"]["update"](popup.id, info, callback(() => {
     throw_error();
-  });
+  }));
 };
 
 const get_popup = (popup, f) => {
-  chrome["windows"]["get"](popup.id, { "populate": false }, f);
+  chrome["windows"]["get"](popup.id, { "populate": false }, callback(f));
 };
 
 const make = (info) => {
@@ -58,9 +58,9 @@ export const focus = (popup) => {
 };
 
 export const close = (popup) => {
-  chrome["windows"]["remove"](popup.id, () => {
+  chrome["windows"]["remove"](popup.id, callback(() => {
     throw_error();
-  });
+  }));
 };
 
 export const move = (popup, { left, top, width, height }) => {
@@ -104,8 +104,8 @@ export const open = ({ type = "popup",
     "top": round(top),
     "width": round(width),
     "height": round(height)
-  }, (info) => {
+  }, callback((info) => {
     throw_error();
     f(record.get(popup_ids, info["id"]));
-  });
+  }));
 };

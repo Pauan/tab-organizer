@@ -3,7 +3,7 @@ import * as list from "../../../util/list";
 import * as event from "../../../util/event";
 import { chrome } from "../../../common/globals";
 import { assert, crash } from "../../../util/assert";
-import { update_indexes, throw_error } from "../../common/util";
+import { update_indexes, throw_error, callback } from "../../common/util";
 
 
 export const on_open    = event.make();
@@ -68,10 +68,10 @@ const _defocus = (window, tab) => {
 export const open = ({ url }, f) => {
   chrome["tabs"]["create"]({
     "url": url
-  }, (info) => {
+  }, callback((info) => {
     throw_error();
     f(record.get(tab_ids, info["id"]));
-  });
+  }));
 };
 
 
@@ -99,18 +99,21 @@ const make = (info, window) => {
   };
 };
 
+// TODO callback
 export const pin = (tab) => {
   chrome["tabs"]["update"](tab.id, {
     "pinned": true
   });
 };
 
+// TODO callback
 export const unpin = (tab) => {
   chrome["tabs"]["update"](tab.id, {
     "pinned": false
   });
 };
 
+// TODO callback
 export const move = (tab, window, index) => {
   chrome["tabs"]["move"](tab.id, {
     "windowId": window.id,
@@ -118,6 +121,7 @@ export const move = (tab, window, index) => {
   });
 };
 
+// TODO callback
 export const focus = (tab) => {
   chrome["tabs"]["update"](tab.id, {
     "active": true
@@ -128,6 +132,7 @@ export const focus = (tab) => {
   });
 };
 
+// TODO callback
 export const close = (tab) => {
   chrome["tabs"]["remove"](tab.id);
 };

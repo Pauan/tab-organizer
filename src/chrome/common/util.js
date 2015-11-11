@@ -33,6 +33,7 @@ export const throw_error = () => {
   }
 };
 
+// TODO what about using `callback` ?
 export const async_chrome = (f) => {
   const out = async.make();
 
@@ -52,4 +53,17 @@ export const async_chrome = (f) => {
   });
 
   return out;
+};
+
+// TODO remove this once Chrome bugs 357568 and 143281 are fixed
+export const callback = (f) => {
+  return (...args) => {
+    try {
+      return f(...args);
+    } catch (e) {
+      setTimeout(() => {
+        crash(e);
+      }, 0);
+    }
+  };
 };
