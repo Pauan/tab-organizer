@@ -9,20 +9,17 @@ import { assert, crash } from "../../util/assert";
 
 const chrome_get_all = () =>
   async_chrome((f) => {
-    // TODO what about using `callback` ?
-    chrome["storage"]["local"]["get"](null, f);
+    chrome["storage"]["local"]["get"](null, callback(f));
   });
 
 const chrome_remove = (key) =>
   async_chrome((f) => {
-    // TODO what about using `callback` ?
-    chrome["storage"]["local"]["remove"](key, f);
+    chrome["storage"]["local"]["remove"](key, callback(f));
   });
 
 const chrome_set = (key, value) =>
   async_chrome((f) => {
-    // TODO what about using `callback` ?
-    chrome["storage"]["local"]["set"]({ [key]: value }, f);
+    chrome["storage"]["local"]["set"]({ [key]: value }, callback(f));
   });
 
 

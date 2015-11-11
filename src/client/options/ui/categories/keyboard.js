@@ -13,6 +13,8 @@ export const init = async.all([], () => {
 
   const open_keyboard_url = () => {
     // TODO lib:extension module for handling async stuff like this ?
+    // TODO error handling
+    // TODO use `callback` ?
     chrome["tabs"]["getCurrent"]((tab) => {
       chrome["tabs"]["create"]({
         "url": keyboard_shortcut_url,

@@ -94,8 +94,7 @@ if (document["readyState"] === "complete") {
 
 const chrome_get_all = () =>
   async_chrome((f) => {
-    // TODO what about using `callback` ?
-    chrome["windows"]["getAll"]({ "populate": true }, f);
+    chrome["windows"]["getAll"]({ "populate": true }, callback(f));
   });
 
 

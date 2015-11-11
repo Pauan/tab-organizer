@@ -33,7 +33,6 @@ export const throw_error = () => {
   }
 };
 
-// TODO what about using `callback` ?
 export const async_chrome = (f) => {
   const out = async.make();
 
