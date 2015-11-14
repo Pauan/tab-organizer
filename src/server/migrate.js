@@ -3,6 +3,7 @@ import * as list from "../util/list";
 import * as timer from "../util/timer";
 import * as async from "../util/async";
 import * as console from "../util/console";
+import { uuid_port_export } from "../common/uuid";
 import { init as init_chrome } from "../chrome/server";
 import { crash } from "../util/assert";
 
@@ -69,7 +70,25 @@ migrate_to(1435820160244, (db) => {
 });
 
 
-export const init = async.all([init_chrome], ({ db }) => {
+const handle_export = (db, ports) => {
+  const handle_events = record.make({
+    "export": (port) => {
+      ports.send(port, record.make({
+        "type": "export-data",
+        "db": db.get_all()
+      }));
+    }
+  });
+
+  ports.on_open(uuid_port_export, (port) => {
+    ports.on_receive(port, (x) => {
+      record.get(handle_events, record.get(x, "type"))(port);
+    });
+  });
+};
+
+
+export const init = async.all([init_chrome], ({ db, ports }) => {
   // TODO hacky and inefficient
   const new_db = record.copy(db.get_all());
 
@@ -92,6 +111,9 @@ export const init = async.all([init_chrome], ({ db }) => {
   } else {
     console.info("migrate: already at version " + version);
   }
+
+  // TODO is this a good place for this ?
+  handle_export(db, ports);
 
   return async.done(db);
 });
