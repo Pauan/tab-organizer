@@ -373,39 +373,46 @@ export const init = async.all([init_options,
       }))
     ]);
 
-  const close = (tab, is_hovering) =>
-    dom.image((e) => [
-      dom.set_url(e, ref.always("data/images/button-close.png")),
+  const close = (tab, visible, hovering) =>
+    dom.image((e) => {
+      const holding = ref.make(null);
 
-      dom.add_style(e, style_icon),
-      dom.add_style(e, style_close),
+      return [
+        dom.set_url(e, ref.always("data/images/button-close.png")),
 
-      dom.toggle_visible(e, ref.latest([
-        opt("tabs.close.display"),
-        is_hovering
-      ], (display, hover) =>
-        (display === "every") ||
-        (display === "hover" && hover))),
+        dom.add_style(e, style_icon),
+        dom.add_style(e, style_close),
 
-      dom.toggle_style(e, style_close_hover,
-        dom.hovering(e)),
+        dom.toggle_visible(e, visible),
 
-      dom.toggle_style(e, style_close_hold, ref.and([
-        dom.hovering(e),
-        dom.holding(e)
-      ])),
+        dom.toggle_style(e, style_close_hover,
+          hovering),
 
-      dom.animate(e, animation_tab_close, {
-        insert: "start-at",
-        remove: "end-at"
-      }),
+        dom.toggle_style(e, style_close_hold, ref.and([
+          hovering,
+          holding
+        ])),
 
-      dom.on_left_click(e, ({ shift, ctrl, alt }) => {
-        if (!shift && !ctrl && !alt) {
-          close_tabs([tab]);
-        }
-      }),
-    ]);
+        dom.on_mouse_hover(e, (hover) => {
+          ref.set(hovering, hover);
+        }),
+
+        dom.on_mouse_hold(e, (hold) => {
+          ref.set(holding, hold);
+        }),
+
+        dom.animate(e, animation_tab_close, {
+          insert: "start-at",
+          remove: "end-at"
+        }),
+
+        dom.on_left_click(e, ({ shift, ctrl, alt }) => {
+          if (!shift && !ctrl && !alt) {
+            close_tabs([tab]);
+          }
+        }),
+      ];
+    });
 
 
   const dragging =
@@ -528,7 +535,7 @@ export const init = async.all([init_options,
   const is_window = ref.map(opt("group.sort.type"), (x) =>
                       (x === "window"));
 
-  const tab_template = (e, tab, is_hovering, f) => {
+  const tab_template = (e, tab, is_hovering, hovering_close, f) => {
     const is_focused = ref.and([
       record.get(tab, "focused"),
       // TODO is this correct ?
@@ -541,9 +548,16 @@ export const init = async.all([init_options,
 
     const ui_text = text(tab);
 
-    const ui_close = close(tab, is_hovering);
+    const visible = ref.latest([
+      opt("tabs.close.display"),
+      is_hovering
+    ], (display, hover) =>
+      (display === "every") ||
+      (display === "hover" && hover));
 
-    const output = f(is_focused, ui_close);
+    const ui_close = close(tab, visible, hovering_close);
+
+    const output = f(is_focused);
 
     list.push(output, dom.add_style(e, dom.row));
     list.push(output, dom.add_style(e, style_tab));
@@ -600,9 +614,11 @@ export const init = async.all([init_options,
   const ui_dragging = (tab, index) =>
     dom.parent((e) => {
       const is_hovering = ref.always(index === 0);
+      // TODO is this correct ?
+      const hovering_close = ref.always(null);
 
       // TODO code duplication with `tab`
-      return tab_template(e, tab, is_hovering, () => [
+      return tab_template(e, tab, is_hovering, hovering_close, () => [
         dom.add_style(e, style_menu_item_shadow),
 
         dom.toggle_style(e, style_tab_dragging,
@@ -630,17 +646,22 @@ export const init = async.all([init_options,
 
   const tab = (group, tab) =>
     dom.parent((e) => {
+      const hovering = ref.make(null);
+      const holding  = ref.make(null);
+
+      const hovering_close = ref.make(null);
+
       const is_hovering = ref.and([
         ref.not(dragging_started),
-        dom.hovering(e)
+        hovering
       ]);
 
-      return tab_template(e, tab, is_hovering, (is_focused, ui_close) => {
+      return tab_template(e, tab, is_hovering, hovering_close, (is_focused) => {
         const is_holding = ref.and([
           is_hovering,
-          dom.holding(e),
+          holding,
           // TODO a little bit hacky
-          ref.not(dom.hovering(ui_close))
+          ref.not(hovering_close)
         ]);
 
         return [
@@ -669,7 +690,7 @@ export const init = async.all([init_options,
           }),
 
           ref.listen(ref.latest([
-            dom.hovering(e),
+            hovering,
             dragging_started,
             record.get(tab, "url")
           ], (hover, dragging, url) => {
@@ -682,9 +703,17 @@ export const init = async.all([init_options,
             ref.set(url_bar, x);
           }),
 
+          dom.on_mouse_hover(e, (hover) => {
+            ref.set(hovering, hover);
+          }),
+
+          dom.on_mouse_hold(e, (hold) => {
+            ref.set(holding, hold);
+          }),
+
           dom.on_left_click(e, ({ shift, ctrl, alt }) => {
             // TODO a little hacky
-            if (!ref.get(dom.hovering(ui_close))) {
+            if (!ref.get(hovering_close)) {
               if (!shift && !ctrl && !alt) {
                 click_tab(group, tab);
 
