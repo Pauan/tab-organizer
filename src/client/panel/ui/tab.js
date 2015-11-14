@@ -557,7 +557,7 @@ export const init = async.all([init_options,
     }));
   };
 
-  const tab_template = (e, tab, is_hovering, hovering_close, f) => {
+  const tab_template = (e, tab, is_hovering, f) => {
     const is_focused = ref.and([
       record.get(tab, "focused"),
       // TODO is this correct ?
@@ -566,7 +566,9 @@ export const init = async.all([init_options,
       ref.not(record.get(tab, "selected"))
     ]);
 
-    const output = f(is_focused);
+    const hovering_close = ref.make(null);
+
+    const output = f(is_focused, hovering_close);
 
     list.push(output, dom.add_style(e, dom.row));
     list.push(output, dom.add_style(e, style_tab));
@@ -615,11 +617,9 @@ export const init = async.all([init_options,
   const ui_dragging = (tab, index) =>
     dom.parent((e) => {
       const is_hovering = ref.always(index === 0);
-      // TODO is this correct ?
-      const hovering_close = ref.always(null);
 
       // TODO code duplication with `tab`
-      return tab_template(e, tab, is_hovering, hovering_close, () => [
+      return tab_template(e, tab, is_hovering, () => [
         dom.add_style(e, style_menu_item_shadow),
 
         dom.toggle_style(e, style_tab_dragging,
@@ -650,14 +650,12 @@ export const init = async.all([init_options,
       const hovering = ref.make(null);
       const holding  = ref.make(null);
 
-      const hovering_close = ref.make(null);
-
       const is_hovering = ref.and([
         ref.not(dragging_started),
         hovering
       ]);
 
-      return tab_template(e, tab, is_hovering, hovering_close, (is_focused) => {
+      return tab_template(e, tab, is_hovering, (is_focused, hovering_close) => {
         const is_holding = ref.and([
           is_hovering,
           holding,
