@@ -77,22 +77,35 @@ export const init = async.all([init_search,
 
         separator(dom.hsl(0, 0, 45)),
 
-        dom.parent((e) => [
-          dom.add_style(e, dom.row),
-          dom.add_style(e, style_menu),
+        dom.parent((e) => {
+          const hovering = ref.make(null);
+          const holding  = ref.make(null);
 
-          dom.toggle_style(e, style_menu_hold, ref.and([
-            dom.hovering(e),
-            dom.holding(e)
-          ])),
+          return [
+            dom.add_style(e, dom.row),
+            dom.add_style(e, style_menu),
 
-          // TODO a little hacky
-          dom.children(e, [
-            dom.text((e) => [
-              dom.set_value(e, ref.always("Menu"))
+            dom.toggle_style(e, style_menu_hold, ref.and([
+              hovering,
+              holding
+            ])),
+
+            dom.on_mouse_hover(e, (hover) => {
+              ref.set(hovering, hover);
+            }),
+
+            dom.on_mouse_hold(e, (hold) => {
+              ref.set(holding, hold);
+            }),
+
+            // TODO a little hacky
+            dom.children(e, [
+              dom.text((e) => [
+                dom.set_value(e, ref.always("Menu"))
+              ])
             ])
-          ])
-        ])
+          ];
+        })
       ])
     ]);
 
