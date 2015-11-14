@@ -535,6 +535,28 @@ export const init = async.all([init_options,
   const is_window = ref.map(opt("group.sort.type"), (x) =>
                       (x === "window"));
 
+  const tab_children = (e, tab, is_hovering, hovering_close) => {
+    const visible = ref.latest([
+      opt("tabs.close.display"),
+      is_hovering
+    ], (display, hover) =>
+      (display === "every") ||
+      (display === "hover" && hover));
+
+    const ui_favicon = favicon(tab);
+    const ui_text    = text(tab);
+    const ui_close   = close(tab, visible, hovering_close);
+
+    return dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
+      if (x === "left") {
+        return [ui_close, ui_text, ui_favicon];
+
+      } else if (x === "right") {
+        return [ui_favicon, ui_text, ui_close];
+      }
+    }));
+  };
+
   const tab_template = (e, tab, is_hovering, hovering_close, f) => {
     const is_focused = ref.and([
       record.get(tab, "focused"),
@@ -543,19 +565,6 @@ export const init = async.all([init_options,
       // "selected" has precedence over "focused"
       ref.not(record.get(tab, "selected"))
     ]);
-
-    const ui_favicon = favicon(tab);
-
-    const ui_text = text(tab);
-
-    const visible = ref.latest([
-      opt("tabs.close.display"),
-      is_hovering
-    ], (display, hover) =>
-      (display === "every") ||
-      (display === "hover" && hover));
-
-    const ui_close = close(tab, visible, hovering_close);
 
     const output = f(is_focused);
 
@@ -596,15 +605,7 @@ export const init = async.all([init_options,
         is_hovering
       ])));
 
-    list.push(output,
-      dom.children(e, ref.map(opt("tabs.close.location"), (x) => {
-        if (x === "left") {
-          return [ui_close, ui_text, ui_favicon];
-
-        } else if (x === "right") {
-          return [ui_favicon, ui_text, ui_close];
-        }
-      })));
+    list.push(output, tab_children(e, tab, is_hovering, hovering_close));
 
     return output;
   };
