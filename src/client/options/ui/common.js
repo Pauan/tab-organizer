@@ -252,16 +252,27 @@ const style_button_hold = dom.make_style({
                                    ["100%", dom.hsl(0, 0, 0, 0.1)])),
 });
 
-export const button = (s, { on_click, height = "24px" }) =>
-  dom.button((e) => [
+export const button = (s, { on_click, height = "24px" }) => {
+  const hovering = ref.make(null);
+  const holding  = ref.make(null);
+
+  return dom.button((e) => [
     dom.add_style(e, style_button),
 
-    dom.toggle_style(e, style_button_hover, dom.hovering(e)),
+    dom.toggle_style(e, style_button_hover, hovering),
 
     dom.toggle_style(e, style_button_hold, ref.and([
-      dom.hovering(e),
-      dom.holding(e)
+      hovering,
+      holding
     ])),
+
+    dom.on_mouse_hover(e, (hover) => {
+      ref.set(hovering, hover);
+    }),
+
+    dom.on_mouse_hold(e, (hold) => {
+      ref.set(holding, hold);
+    }),
 
     dom.style(e, {
       "height": ref.always(height)
@@ -275,3 +286,4 @@ export const button = (s, { on_click, height = "24px" }) =>
       text(s)
     ])
   ]);
+};
