@@ -1,3 +1,19 @@
+export const pad_left = (pad, s) => {
+  if (s["length"] >= pad["length"]) {
+    return s;
+  } else {
+    return pad["slice"](0, pad["length"] - s["length"]) + s;
+  }
+};
+
+export const pad_right = (s, pad) => {
+  if (s["length"] >= pad["length"]) {
+    return s;
+  } else {
+    return s + pad["slice"](s["length"], pad["length"]);
+  }
+};
+
 export const uppercase = (s) =>
   s["toLocaleUpperCase"]();
 

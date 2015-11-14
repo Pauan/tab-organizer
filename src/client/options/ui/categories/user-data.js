@@ -1,3 +1,4 @@
+import * as string from "../../../../util/string";
 import * as record from "../../../../util/record";
 import * as async from "../../../../util/async";
 import { ports } from "../../../../chrome/client";
@@ -18,6 +19,10 @@ const download = (value, { type, name }) => {
   URL["revokeObjectURL"](url);
 };
 
+const format = (date) =>
+  date["getFullYear"]() + "-" +
+  string.pad_left("00", "" + (date["getMonth"]() + 1)) + "-" +
+  string.pad_left("00", "" + date["getDate"]());
 
 export const init = async.all([], () => {
   const port = ports.open(uuid_port_export);
@@ -26,9 +31,11 @@ export const init = async.all([], () => {
     "export-data": (x) => {
       const db = record.get(x, "db");
 
+      const date = new Date();
+
       download(JSON["stringify"](db, null, 2), {
         type: "application/json",
-        name: "Tab Organizer - User Data.json"
+        name: "Tab Organizer - User Data (" + format(date) + ").json"
       });
     }
   });
