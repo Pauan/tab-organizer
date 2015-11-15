@@ -55,38 +55,18 @@ module.exports = {
   module: {
     loaders: [
       {
-        test: /\.jsx?$/,
+        test: /\.js$/,
         include: path.join(__dirname, "src"),
-        loader: "babel-loader",
+        loader: "babel",
         query: {
-          //cacheDirectory: true,
-          nonStandard: false,
-          whitelist: [
-            "es6.arrowFunctions",
-            "es6.blockScoping",
-            "es6.classes",
-            "es6.constants",
-            "es6.destructuring",
-            //"es6.forOf",
-            "es6.modules",
-            "es6.parameters",
-            "es6.properties.computed",
-            "es6.properties.shorthand",
-            "es6.spread",
-            "es6.tailCall",
-            //"es6.templateLiterals",
-            //"es6.regex.unicode",
-            //"es6.regex.sticky",
-
-            //"regenerator",
-            "strict",
-
-            "validation.undeclaredVariableCheck",
-            "runtime",
-            //"minification.deadCodeElimination",
-            //"minification.constantFolding",
-            "minification.memberExpressionLiterals",
-            "minification.propertyLiterals",
+          cacheDirectory: true,
+          presets: ["es2015"],
+          plugins: [
+            "transform-runtime",
+            "undeclared-variables-check",
+            "transform-member-expression-literals",
+            "transform-property-literals",
+            "transform-strict-mode"
           ]
         }
       }
