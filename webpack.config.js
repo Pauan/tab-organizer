@@ -24,7 +24,7 @@ function cp(from, to) {
 
 
 module.exports = {
-  "devtool": "source-map",
+  //"devtool": "source-map",
   // TODO use this, and maybe `source-map-loader` plugin as well
   //devtool: "cheap-module-source-map",
 

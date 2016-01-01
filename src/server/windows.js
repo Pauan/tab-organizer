@@ -624,11 +624,16 @@ export const init = async.all([init_db,
 
   const find_right_index = (tabs, window, index) => {
     // TODO test this
-    const prev = list.get(window.tabs, index - 1);
-    const prev_id = session.tab_id(prev.id);
-    // TODO can this be implemented more efficiently ?
-    const prev_index = list.index_of(tabs, prev_id);
-    return prev_index + 1;
+    if (list.has(window.tabs, index - 1)) {
+      const prev = list.get(window.tabs, index - 1);
+      const prev_id = session.tab_id(prev.id);
+      // TODO can this be implemented more efficiently ?
+      return list.index_of(tabs, prev_id) + 1;
+
+    } else {
+      // TODO is this correct ?
+      return 0;
+    }
   };
 
   const find_left_index = (tabs, window, index) => {
@@ -812,13 +817,9 @@ export const init = async.all([init_db,
     const old_window_id = session.window_id(old_window.id);
     const new_window_id = session.window_id(new_window.id);
 
-
     db.write("current.window-ids", (window_ids) => {
-      const old_window = record.get(window_ids, old_window_id);
-      const new_window = record.get(window_ids, new_window_id);
-
-      const old_tabs   = record.get(old_window, "tabs");
-      const new_tabs   = record.get(new_window, "tabs");
+      const old_tabs = record.get(record.get(window_ids, old_window_id), "tabs");
+      const new_tabs = record.get(record.get(window_ids, new_window_id), "tabs");
 
       const session_old_index = list.index_of(old_tabs, tab_id);
 

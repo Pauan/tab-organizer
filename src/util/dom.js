@@ -420,6 +420,8 @@ export const toggle_style = (dom, style, x) => {
   let first = true;
 
   return ref.listen(x, (x) => {
+    assert(typeof x === "boolean");
+
     if (x) {
       assert(!dom._dom["classList"]["contains"](style._name));
       dom._dom["classList"]["add"](style._name);
@@ -565,6 +567,8 @@ export const toggle_visible = (dom, x) => {
   let first = true;
 
   return ref.listen(x, (x) => {
+    assert(typeof x === "boolean");
+
     if (x) {
       assert(first || dom._visible === false);
       dom._visible = true;
@@ -814,6 +818,8 @@ export const toggle_checked = (dom, x) => {
 
     // TODO handle indeterminate state
     return ref.listen(x, (x) => {
+      assert(typeof x === "boolean");
+
       if (x) {
         assert(!dom._dom["checked"]);
         dom._dom["checked"] = true;

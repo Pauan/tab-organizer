@@ -386,7 +386,8 @@ export const init = async.all([init_options,
         dom.toggle_visible(e, visible),
 
         dom.toggle_style(e, style_close_hover,
-          hovering),
+          ref.map(hovering, (x) =>
+            x !== null)),
 
         dom.toggle_style(e, style_close_hold, ref.and([
           hovering,
@@ -420,7 +421,8 @@ export const init = async.all([init_options,
       dom.add_style(e, dom.floating),
       dom.add_style(e, style_dragging),
 
-      dom.toggle_visible(e, dragging_started),
+      dom.toggle_visible(e, ref.map(dragging_started, (x) =>
+                              x !== null)),
 
       dom.children(e, ref.map_null(dragging_started, ({ selected }) =>
         list.map(selected, (tab, index) =>

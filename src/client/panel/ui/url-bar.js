@@ -75,9 +75,8 @@ const make = (style, f) => {
     dom.add_style(e, text_style),
     dom.add_style(e, style),
 
-    // TODO a little bit hacky
-    // TODO utility function to convert to a boolean ?
-    dom.toggle_visible(e, ref.map(x, (x) => !!x)),
+    dom.toggle_visible(e, ref.map(x, (x) =>
+                            x !== null)),
     dom.set_value(e, x)
   ]);
 };
@@ -98,5 +97,6 @@ dom.push_root(dom.parent((e) => [
     make(hash_style, (x) => x.hash)
   ]),
 
-  dom.toggle_visible(e, url_bar)
+  dom.toggle_visible(e, ref.map(url_bar, (x) =>
+                          x !== null))
 ]));

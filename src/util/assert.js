@@ -15,14 +15,20 @@ export const assert = (x) => {
 
 // TODO this doesn't seem to work when `record.get` fails
 export const on_crash = (f) => {
-  addEventListener("error", (e) => {
-    const error = e["error"];
+  let crashed = false;
 
-    if (error == null) {
-      // TODO non-standard
-      f(new Error(e["message"], e["filename"], e["lineno"]));
-    } else {
-      f(error);
+  addEventListener("error", (e) => {
+    if (!crashed) {
+      crashed = true;
+
+      const error = e["error"];
+
+      if (error == null) {
+        // TODO non-standard
+        f(new Error(e["message"], e["filename"], e["lineno"]));
+      } else {
+        f(error);
+      }
     }
   }, true);
 };
