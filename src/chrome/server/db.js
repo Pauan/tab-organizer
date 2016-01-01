@@ -45,7 +45,7 @@ export const init = async.after(chrome_get_all(), (db) => {
   };
 
   const _commit = () => {
-    if (_transaction._touched && _transaction._timer === null) {
+    if (_transaction._touched) {
       const duration = timer.make();
 
       const remove = list.make();
@@ -54,7 +54,11 @@ export const init = async.after(chrome_get_all(), (db) => {
       let removed = false;
       let updated = false;
 
+      const touched = list.make();
+
       record.each(_transaction._keys, (key) => {
+        list.push(touched, key);
+
         if (record.has(db, key)) {
           record.insert(update, key, record.get(db, key));
           updated = true;
@@ -92,17 +96,11 @@ export const init = async.after(chrome_get_all(), (db) => {
       _transaction._keys = record.make();
       _transaction._touched = false;
 
-      _transaction._timer = setTimeout(() => {
-        _transaction._timer = null;
-
-        _commit();
-      }, 1000);
-
       timer.done(duration);
 
       console.debug("commit: serialize (" +
                     timer.diff(duration) +
-                    "ms)");
+                    "ms)\n    " + list.join(touched, "\n    "));
     }
   };
 
@@ -142,7 +140,14 @@ export const init = async.after(chrome_get_all(), (db) => {
         throw e;
       }
 
-      _commit();
+      if (_transaction._timer === null) {
+        _transaction._timer = setTimeout(() => {
+          _transaction._timer = null;
+
+          _commit();
+        }, 1000);
+      }
+
       _transaction._state = OUTSIDE;
 
     } else {
