@@ -1,3 +1,4 @@
+import * as list from "../../util/list";
 import * as record from "../../util/record";
 import * as timer from "../../util/timer";
 import * as async from "../../util/async";
@@ -12,111 +13,119 @@ const chrome_get_all = () =>
     chrome["storage"]["local"]["get"](null, callback(f));
   });
 
-const chrome_remove = (key) =>
+const chrome_remove = (keys) =>
   async_chrome((f) => {
-    chrome["storage"]["local"]["remove"](key, callback(f));
+    chrome["storage"]["local"]["remove"](keys, callback(f));
   });
 
-const chrome_set = (key, value) =>
+const chrome_set = (values) =>
   async_chrome((f) => {
-    chrome["storage"]["local"]["set"]({ [key]: value }, callback(f));
+    chrome["storage"]["local"]["set"](values, callback(f));
   });
 
 
 const duration = timer.make();
 
-// TODO add in transaction support, so that a bug/error rolls back the transaction
 export const init = async.after(chrome_get_all(), (db) => {
-  const delaying = record.make();
-
-
-  // TODO test this
-  const _touch = (key) => {
-    delay(key, 1000);
-
-    const info = record.get(delaying, key);
-
-    info.touched = true;
-  };
-
-  // TODO test this
-  const _commit = (key) => {
-    const duration = timer.make();
-
-    if (record.has(db, key)) {
-      async.run(chrome_set(key, record.get(db, key)), () => {
-        timer.done(duration);
-
-        console.debug("db.set: \"" +
-                      key +
-                      "\" (" +
-                      timer.diff(duration) +
-                      "ms)");
-      });
-
-
-    } else {
-      async.run(chrome_remove(key), () => {
-        timer.done(duration);
-
-        console.debug("db.remove: \"" +
-                      key +
-                      "\" (" +
-                      timer.diff(duration) +
-                      "ms)");
-      });
-    }
-  };
-
-  // TODO test this
-  const set_timer = (info, ms, key) => {
-    info.ms = ms;
-
-    info.timer = setTimeout(() => {
-      assert(record.get(delaying, key) === info);
-
-      record.remove(delaying, key);
-
-      if (info.touched) {
-        _commit(key);
-      }
-    }, ms);
-  };
-
-  // TODO check that the key exists in the db ?
-  // TODO test this
-  const delay = (key, ms) => {
-    if (record.has(delaying, key)) {
-      const info = record.get(delaying, key);
-
-      // Only delay if `ms` is greater than `info.ms`
-      if (ms > info.ms) {
-        clearTimeout(info.timer);
-
-        set_timer(info, ms, key);
-      }
-
-    } else {
-      const info = {
-        touched: false,
-        ms: null,
-        timer: null
-      };
-
-      set_timer(info, ms, key);
-
-      record.insert(delaying, key, info);
-    }
-  };
-
-
   const OUTSIDE = 0;
   const INSIDE  = 1;
   const FAILED  = 2;
 
   const _transaction = {
-    _state: OUTSIDE
+    _state: OUTSIDE,
+    _keys: record.make(),
+    _delay: null,
+    _timer: null,
+    _touched: false
   };
+
+  const _touch = (key) => {
+    record.include(_transaction._keys, key, true);
+    _transaction._touched = true;
+  };
+
+  const _commit = () => {
+    if (_transaction._touched && _transaction._timer === null) {
+      const duration = timer.make();
+
+      const remove = list.make();
+      const update = record.make();
+
+      let removed = false;
+      let updated = false;
+
+      record.each(_transaction._keys, (key) => {
+        if (record.has(db, key)) {
+          record.insert(update, key, record.get(db, key));
+          updated = true;
+
+        } else {
+          list.push(remove, key);
+          removed = true;
+        }
+      });
+
+      if (removed) {
+        const duration = timer.make();
+
+        async.run(chrome_remove(remove), () => {
+          timer.done(duration);
+
+          console.debug("commit: remove (" +
+                        timer.diff(duration) +
+                        "ms)");
+        });
+      }
+
+      if (updated) {
+        const duration = timer.make();
+
+        async.run(chrome_set(update), () => {
+          timer.done(duration);
+
+          console.debug("commit: write (" +
+                        timer.diff(duration) +
+                        "ms)");
+        });
+      }
+
+      _transaction._keys = record.make();
+      _transaction._touched = false;
+
+      _transaction._timer = setTimeout(() => {
+        _transaction._timer = null;
+
+        _commit();
+      }, 1000);
+
+      timer.done(duration);
+
+      console.debug("commit: serialize (" +
+                    timer.diff(duration) +
+                    "ms)");
+    }
+  };
+
+  const delay = (ms) => {
+    if (_transaction._delay === null) {
+      if (_transaction._timer !== null) {
+        clearTimeout(_transaction._timer);
+      }
+
+      _transaction._delay = ms;
+
+      _transaction._timer = setTimeout(() => {
+        _transaction._delay = null;
+        _transaction._timer = null;
+
+        _commit();
+      }, ms);
+
+    } else {
+      assert(ms === _transaction._delay);
+    }
+  };
+
 
   const transaction = (f) => {
     if (_transaction._state === FAILED) {
@@ -133,6 +142,7 @@ export const init = async.after(chrome_get_all(), (db) => {
         throw e;
       }
 
+      _commit();
       _transaction._state = OUTSIDE;
 
     } else {

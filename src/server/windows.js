@@ -926,10 +926,7 @@ export const init = async.all([init_db,
       // it doesn't remove the tabs / windows
       // TODO maybe do this automatically in chrome/server/windows.js or something ?
       if (info.window_closing) {
-        db.delay("current.windows", 10000);
-        db.delay("current.window-ids", 10000);
-        db.delay("current.tab-ids", 10000);
-        db.delay("current.tag-ids", 10000);
+        db.delay(10000);
       }
 
       const tab_id = session.tab_id(info.tab.id);

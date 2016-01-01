@@ -63,7 +63,7 @@ module.exports = {
           presets: ["es2015"],
           plugins: [
             "transform-runtime",
-            "undeclared-variables-check",
+            //"undeclared-variables-check",
             "transform-member-expression-literals",
             "transform-property-literals",
             "transform-strict-mode"
