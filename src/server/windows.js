@@ -153,21 +153,7 @@ export const init = async.all([init_db,
       db.transaction(() => {
         const _tabs = record.get(x, "tabs");
 
-        list.each(_tabs, (tab_id) => {
-          if (record.has(transient_tab_ids, tab_id)) {
-            // TODO it should work even if the tab is unloaded
-            const chrome_tab = record.get(transient_tab_ids, tab_id);
-
-            //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
-            //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
-
-            //const tab = db.get(["current.tab-ids", tab_id]);
-            tabs.close(chrome_tab);
-
-          } else {
-            close_tab(tab_id);
-          }
-        });
+        list.each(_tabs, close_tab);
       });
     }
   });
@@ -405,7 +391,7 @@ export const init = async.all([init_db,
     });
   };
 
-  const close_tab = (tab_id) => {
+  const close_tab_unloaded = (tab_id) => {
     // TODO test this
     remove_all_tags_from_tab(tab_id, true);
 
@@ -439,6 +425,22 @@ export const init = async.all([init_db,
       // TODO should this include the tags ?
       event.send(on_tab_close, { tab, transient });
     });
+  };
+
+  const close_tab = (tab_id) => {
+    if (record.has(transient_tab_ids, tab_id)) {
+      // TODO it should work even if the tab is unloaded
+      const chrome_tab = record.get(transient_tab_ids, tab_id);
+
+      //const window_id = db.get(["current.tab-ids", tab_id, "window"]);
+      //const tabs = db.get(["current.window-ids", window_id, "tabs"]);
+
+      //const tab = db.get(["current.tab-ids", tab_id]);
+      tabs.close(chrome_tab);
+
+    } else {
+      close_tab_unloaded(tab_id);
+    }
   };
 
 
@@ -533,6 +535,101 @@ export const init = async.all([init_db,
       remove_tag_from_tab(tab_id, tag_id, events);
     });
   };
+
+
+  // TODO test this
+  const merge_time_max = (time_from, time_to, key, f) => {
+    if (record.has(time_from, key)) {
+      if (record.has(time_to, key)) {
+        record.update(time_to, key,
+          f(record.get(time_from, key),
+            record.get(time_to, key)));
+
+      } else {
+        record.update(time_to, key, record.get(time_from, key));
+      }
+    }
+  };
+
+  const time_more = (time_a, time_b, key) => {
+    if (record.has(time_a, key)) {
+      if (record.has(time_b, key)) {
+        return record.get(time_a, key) >
+               record.get(time_b, key);
+
+      } else {
+        return true;
+      }
+    }
+  };
+
+  // TODO test this
+  // TODO send tab update event
+  const merge_tab_into = (from, to) => {
+    const time_from = record.get(from, "time");
+    const time_to   = record.get(to, "time");
+
+    merge_time(time_from, time_to, "created", Math["min"]);
+    merge_time(time_from, time_to, "updated", Math["max"]);
+    merge_time(time_from, time_to, "unloaded", Math["min"]); // TODO is this correct ?
+    merge_time(time_from, time_to, "focused", Math["max"]);
+
+    // TODO what if neither one is updated, shouldn't it then compare the created time ?
+    if (time_more(time_from, time_to, "updated")) {
+      record.update(to, "url", record.get(from, "url"));
+      record.update(to, "title", record.get(from, "title"));
+      record.update(to, "favicon", record.get(from, "favicon"));
+    }
+
+    // TODO merge tags
+
+    close_tab(record.get(from, "id"));
+  };
+
+  // Prefer active tabs over inactive tabs
+  // If both are active, prefer the left-most tab
+  // TODO test this
+  const merge_duplicate_tabs = () => {
+    db.transaction(() => {
+      const urls = record.make();
+
+      const window_ids = db.get("current.window-ids");
+      const tab_ids    = db.get("current.tab-ids");
+
+      array.each(db.get("current.windows"), (id) => {
+        const window = record.get(window_ids, id);
+
+        array.each(record.get(window, "tabs"), (id) => {
+          const right = record.get(tab_ids, id);
+          const url = record.get(right, "url");
+
+          if (record.has(urls, url)) {
+            const left = record.get(urls, url);
+            const left_id = record.get(left, "id");
+
+            const left_transient = record.get_maybe(transient_tab_ids, left_id);
+            const right_transient = record.get_maybe(transient_tab_ids, id);
+
+            console.log(right_transient, left_transient);
+
+            if (maybe.has(right_transient) && !maybe.has(left_transient)) {
+              record.update(urls, url, right);
+              merge_tab_into(left, right);
+
+            } else {
+              merge_tab_into(right, left);
+            }
+
+          } else {
+            record.insert(urls, url, right);
+          }
+        });
+      });
+    });
+  };
+
+  // TODO remove this after I put in a menu
+  window.merge_duplicate_tabs = merge_duplicate_tabs;
 
 
   const make_new_tab = (window_id, tab_id, info) => {
@@ -932,7 +1029,7 @@ export const init = async.all([init_db,
 
       const tab_id = session.tab_id(info.tab.id);
 
-      close_tab(tab_id);
+      close_tab_unloaded(tab_id);
 
       // This must be after `session.tab_id`
       session.tab_close(info);

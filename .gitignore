@@ -1,4 +1,4 @@
-node_modules
-build/lib
-build/js
-build/map
+/node_modules
+/build/lib
+/build/js
+/build/map
