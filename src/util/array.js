@@ -189,7 +189,7 @@ export const concat = <A>(a1: Array<A>, a2: Array<A>): Array<A> => {
 };
 
 
-export const each = <A>(array: Array<A>, f: (_: A) => void): void => {
+export const each = <A>(array: Array<A>, f: (_: A, _: number) => void): void => {
   check_array(array);
 
   const len = size(array);
@@ -199,7 +199,7 @@ export const each = <A>(array: Array<A>, f: (_: A) => void): void => {
   }
 };
 
-export const map = <A, B>(array: Array<A>, f: (_: A) => B): Array<B> => {
+export const map = <A, B>(array: Array<A>, f: (_: A, _: number) => B): Array<B> => {
   check_array(array);
 
   const len = size(array);
@@ -240,7 +240,7 @@ export const reverse = (array) => {
   }
 };*/
 
-export const find_first = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.Maybe<A> => {
+export const find_first = <A>(array: Array<A>, f: (_: A, _: number) => boolean): $maybe.Maybe<A> => {
   check_array(array);
 
   const len = size(array);
@@ -254,7 +254,7 @@ export const find_first = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.May
   return $maybe.none;
 };
 
-export const find_last = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.Maybe<A> => {
+export const find_last = <A>(array: Array<A>, f: (_: A, _: number) => boolean): $maybe.Maybe<A> => {
   check_array(array);
 
   for (let i = size(array) - 1; i >= 0; --i) {
@@ -266,10 +266,10 @@ export const find_last = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.Mayb
   return $maybe.none;
 };
 
-export const any = <A>(array: Array<A>, f: (_: A) => boolean): boolean =>
+export const any = <A>(array: Array<A>, f: (_: A, _: number) => boolean): boolean =>
   $maybe.has(find_first(array, f));
 
-export const all = <A>(array: Array<A>, f: (_: A) => boolean): boolean =>
+export const all = <A>(array: Array<A>, f: (_: A, _: number) => boolean): boolean =>
   !any(array, (x, i) => !f(x, i));
 
 /*export const zip = (...array) => {
