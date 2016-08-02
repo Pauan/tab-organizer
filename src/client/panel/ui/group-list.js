@@ -1,6 +1,6 @@
 import * as dom from "../../../util/dom";
 import * as async from "../../../util/async";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import * as stream from "../../../util/stream";
 import { init as init_group } from "./group";
 import { init as init_options } from "../../sync/options";
@@ -12,13 +12,13 @@ export const init = async.all([init_group,
                                { get: opt }) => {
 
   const style_group_list = dom.make_style({
-    "width": ref.always("100%"),
+    "width": mutable.always("100%"),
 
     // TODO really hacky
     // This has to match with the height of the search bar
-    "height": ref.always("calc(100% - 24px)"),
+    "height": mutable.always("calc(100% - 24px)"),
 
-    "padding": ref.map(opt("groups.layout"), (x) => {
+    "padding": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "9px 9px 9px 9px";
@@ -31,13 +31,13 @@ export const init = async.all([init_group,
     }),
 
     // TODO hack which causes Chrome to not repaint when scrolling
-    "transform": ref.always("translateZ(0)"),
+    "transform": mutable.always("translateZ(0)"),
 
-    "overflow": ref.always("auto"),
+    "overflow": mutable.always("auto"),
   });
 
   const style_group_children = dom.make_style({
-    "overflow": ref.map(opt("groups.layout"), (x) => {
+    "overflow": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
       case "horizontal":
@@ -47,9 +47,9 @@ export const init = async.all([init_group,
       }
     }),
 
-    "width": ref.always("100%"),
+    "width": mutable.always("100%"),
 
-    "height": ref.map(opt("groups.layout"), (x) => {
+    "height": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
       case "horizontal":
@@ -59,7 +59,7 @@ export const init = async.all([init_group,
       }
     }),
 
-    "padding": ref.map(opt("groups.layout"), (x) => {
+    "padding": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "0px 95px 0px 95px"
@@ -76,7 +76,7 @@ export const init = async.all([init_group,
 
   // "grid" layout is neither horizontal nor vertical,
   // because it uses "float: left"
-  const is_horizontal = ref.map(opt("groups.layout"), (x) =>
+  const is_horizontal = mutable.map(opt("groups.layout"), (x) =>
                           (x === "horizontal"));
 
 
@@ -87,9 +87,9 @@ export const init = async.all([init_group,
 
       dom.set_scroll(e, {
         // TODO a little hacky
-        x: ref.always(scroll_x),
+        x: mutable.always(scroll_x),
         // TODO a little hacky
-        y: ref.always(scroll_y)
+        y: mutable.always(scroll_y)
       }),
 
       // TODO should it also save the current scroll after using the search box ?

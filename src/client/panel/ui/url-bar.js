@@ -1,81 +1,81 @@
 import * as dom from "../../../util/dom";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { parse, minify } from "../../../util/url";
 
 
-export const url_bar = ref.make(null);
+export const url_bar = mutable.make(null);
 
 const top_style = dom.make_style({
   // TODO hack to make it smoother when showing/hiding the URL bar
   // TODO is this unneeded? maybe setting position: fixed is enough ?
-  "transform": ref.always("translateZ(0)"),
+  "transform": mutable.always("translateZ(0)"),
 
-  "pointer-events": ref.always("none"),
+  "pointer-events": mutable.always("none"),
 
-  "left": ref.always("0px"),
-  "bottom": ref.always("0px"),
+  "left": mutable.always("0px"),
+  "bottom": mutable.always("0px"),
 
   // TODO maybe remove this
-  "max-width": ref.always("calc(100% + 1px)"),
+  "max-width": mutable.always("calc(100% + 1px)"),
 
-  "border-top-width": ref.always("1px"),
-  "border-right-width": ref.always("1px"),
-  "border-top-color": ref.always(dom.hsl(0, 0, 45)),
-  "border-right-color": ref.always(dom.hsl(0, 0, 40)),
-  "border-top-right-radius": ref.always("5px"),
+  "border-top-width": mutable.always("1px"),
+  "border-right-width": mutable.always("1px"),
+  "border-top-color": mutable.always(dom.hsl(0, 0, 45)),
+  "border-right-color": mutable.always(dom.hsl(0, 0, 40)),
+  "border-top-right-radius": mutable.always("5px"),
 
   //e.set("paddingTop", "0px")
-  "padding-right": ref.always("2px"), // 2px + 3px = 5px
-  "padding-bottom": ref.always("1px"),
+  "padding-right": mutable.always("2px"), // 2px + 3px = 5px
+  "padding-bottom": mutable.always("1px"),
   //e.set("padding-left", "2px")
 
-  "color": ref.always("black"),
+  "color": mutable.always("black"),
 
-  "background-color": ref.always("white"),
+  "background-color": mutable.always("white"),
 
-  "box-shadow": ref.always("0px 0px 3px dimgray"),
+  "box-shadow": mutable.always("0px 0px 3px dimgray"),
 });
 
 const text_style = dom.make_style({
-  "margin-left": ref.always("3px"),
-  "margin-right": ref.always("3px")
+  "margin-left": mutable.always("3px"),
+  "margin-right": mutable.always("3px")
 });
 
 const protocol_style = dom.make_style({
-  "font-weight": ref.always("bold"),
-  "color": ref.always(dom.hsl(120, 100, 25))
+  "font-weight": mutable.always("bold"),
+  "color": mutable.always(dom.hsl(120, 100, 25))
 });
 
 const domain_style = dom.make_style({
-  "font-weight": ref.always("bold")
+  "font-weight": mutable.always("bold")
 });
 
 const path_style = dom.make_style({});
 
 const file_style = dom.make_style({
-  "font-weight": ref.always("bold"),
-  "color": ref.always("darkred") // TODO replace with hsl
+  "font-weight": mutable.always("bold"),
+  "color": mutable.always("darkred") // TODO replace with hsl
 });
 
 const query_style = dom.make_style({
-  "font-weight": ref.always("bold"),
-  "color": ref.always("darkred") // TODO replace with hsl
+  "font-weight": mutable.always("bold"),
+  "color": mutable.always("darkred") // TODO replace with hsl
 });
 
 const hash_style = dom.make_style({
-  "color": ref.always("darkblue") // TODO replace with hsl
+  "color": mutable.always("darkblue") // TODO replace with hsl
 });
 
-const parsed_url = ref.map_null(url_bar, (url) => minify(parse(url)));
+const parsed_url = mutable.map_null(url_bar, (url) => minify(parse(url)));
 
 const make = (style, f) => {
-  const x = ref.map_null(parsed_url, f);
+  const x = mutable.map_null(parsed_url, f);
 
   return dom.text((e) => [
     dom.add_style(e, text_style),
     dom.add_style(e, style),
 
-    dom.toggle_visible(e, ref.map(x, (x) =>
+    dom.toggle_visible(e, mutable.map(x, (x) =>
                             x !== null)),
     dom.set_value(e, x)
   ]);
@@ -97,6 +97,6 @@ dom.push_root(dom.parent((e) => [
     make(hash_style, (x) => x.hash)
   ]),
 
-  dom.toggle_visible(e, ref.map(url_bar, (x) =>
+  dom.toggle_visible(e, mutable.map(url_bar, (x) =>
                           x !== null))
 ]));

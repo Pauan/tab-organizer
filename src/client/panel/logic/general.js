@@ -1,7 +1,7 @@
 import * as list from "../../../util/list";
 import * as stream from "../../../util/stream";
 import * as record from "../../../util/record";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { uppercase } from "../../../util/string";
 
 
@@ -9,7 +9,7 @@ export const get_created = (tab) =>
   record.get(record.get(tab, "time"), "created");
 
 export const get_title = (tab) => {
-  const title = ref.get(record.get(tab, "title"));
+  const title = mutable.get(record.get(tab, "title"));
 
   if (title === null) {
     return "";
@@ -43,9 +43,9 @@ export const make_group = (id, name, tabs, info) =>
     "tabs": tabs,
     "info": info,
 
-    "selected": ref.make(false),
-    "visible": ref.make(true), // TODO is this correct ?
-    "height": ref.make(null),
+    "selected": mutable.make(false),
+    "visible": mutable.make(true), // TODO is this correct ?
+    "height": mutable.make(null),
 
     "index": null, // TODO a little bit hacky
     // TODO a little hacky
@@ -79,15 +79,15 @@ export const make_tab = (info, transient) => {
     "id": record.get(info, "id"),
     "time": make_time(record.get(info, "time")),
 
-    "url": ref.make(url),
+    "url": mutable.make(url),
     // TODO maybe this should be server-side ?
-    "title": ref.make(title || url),
-    "favicon": ref.make(record.get(info, "favicon")),
-    "pinned": ref.make(record.get(info, "pinned")),
+    "title": mutable.make(title || url),
+    "favicon": mutable.make(record.get(info, "favicon")),
+    "pinned": mutable.make(record.get(info, "pinned")),
 
-    "focused": ref.make(transient !== null &&
+    "focused": mutable.make(transient !== null &&
                         record.get(transient, "focused")),
-    "unloaded": ref.make(transient === null),
+    "unloaded": mutable.make(transient === null),
   });
 };
 
@@ -104,9 +104,9 @@ export const make_group_tab = (group, tab) =>
     "focused": record.get(tab, "focused"),
     "unloaded": record.get(tab, "unloaded"),
 
-    "selected": ref.make(false),
-    "visible": ref.make(true), // TODO use `matches(tab)` ?
-    "top": ref.make(null),
+    "selected": mutable.make(false),
+    "visible": mutable.make(true), // TODO use `matches(tab)` ?
+    "top": mutable.make(null),
 
     "index": null, // TODO a little bit hacky
     "group": group

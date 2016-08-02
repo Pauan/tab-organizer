@@ -1,6 +1,6 @@
 import * as dom from "../../../../util/dom";
 import * as async from "../../../../util/async";
-import * as ref from "../../../../util/ref";
+import * as mutable from "../../../../util/mutable";
 import { category, header, indent,
          row, text, separator } from "../common";
 import { init as init_radio } from "../radio";
@@ -18,9 +18,9 @@ export const init = async.all([init_radio,
         text("Show the "),
 
         dom.image((e) => [
-          dom.set_alt(e, ref.always("close")),
-          dom.set_tooltip(e, ref.always("close")),
-          dom.set_url(e, ref.always("data/images/button-close.png"))
+          dom.set_alt(e, mutable.always("close")),
+          dom.set_tooltip(e, mutable.always("close")),
+          dom.set_url(e, mutable.always("data/images/button-close.png"))
         ]),
 
         text(" button on the "),

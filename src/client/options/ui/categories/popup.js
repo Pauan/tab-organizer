@@ -2,7 +2,7 @@ import * as dom from "../../../../util/dom";
 import * as list from "../../../../util/list";
 import * as record from "../../../../util/record";
 import * as async from "../../../../util/async";
-import * as ref from "../../../../util/ref";
+import * as mutable from "../../../../util/mutable";
 import * as string from "../../../../util/string";
 import { uuid_port_popup } from "../../../../common/uuid";
 import { ports } from "../../../../chrome/client";
@@ -28,77 +28,77 @@ export const init = async.all([init_textbox,
   const container_width = 512; // 1024 / 2
 
   const style_popup = dom.make_style({
-    "width": ref.always(container_width + "px"),
+    "width": mutable.always(container_width + "px"),
     // TOOD should this use Math["round"] ?
-    "height": ref.always(Math["round"]((record.get(screen, "height") /
+    "height": mutable.always(Math["round"]((record.get(screen, "height") /
                                         record.get(screen, "width")) *
                                        container_width) + "px"),
-    "border-width": ref.always("1px"),
-    "border-color": ref.always("black"),
-    "background-color": ref.always("black"),
-    "margin-top": ref.always("5px"),
-    "margin-bottom": ref.always("7px")
+    "border-width": mutable.always("1px"),
+    "border-color": mutable.always("black"),
+    "background-color": mutable.always("black"),
+    "margin-top": mutable.always("5px"),
+    "margin-bottom": mutable.always("7px")
   });
 
   const style_popup_screen = dom.make_style({
-    "overflow": ref.always("hidden"),
+    "overflow": mutable.always("hidden"),
 
-    "left": ref.map(opt("screen.available.left"), (left) =>
+    "left": mutable.map(opt("screen.available.left"), (left) =>
               percent(left, record.get(screen, "width")) + "%"),
 
-    "top": ref.map(opt("screen.available.top"), (top) =>
+    "top": mutable.map(opt("screen.available.top"), (top) =>
              percent(top, record.get(screen, "height")) + "%"),
 
-    "width": ref.map(opt("screen.available.width"), (width) =>
+    "width": mutable.map(opt("screen.available.width"), (width) =>
                percent(width, record.get(screen, "width")) + "%"),
 
-    "height": ref.map(opt("screen.available.height"), (height) =>
+    "height": mutable.map(opt("screen.available.height"), (height) =>
                 percent(height, record.get(screen, "height")) + "%"),
   });
 
   /*const style_popup_vertical_line = dom.make_style({
-    "position": ref.always("absolute"),
-    "left": ref.always("50%"),
-    "top": ref.always("0px"),
-    "width": ref.always("1px"),
-    "height": ref.always("100%"),
-    "background-color": ref.always(dom.hsl(0, 0, 90)),
+    "position": mutable.always("absolute"),
+    "left": mutable.always("50%"),
+    "top": mutable.always("0px"),
+    "width": mutable.always("1px"),
+    "height": mutable.always("100%"),
+    "background-color": mutable.always(dom.hsl(0, 0, 90)),
   });
 
   const style_popup_horizontal_line = dom.make_style({
-    "position": ref.always("absolute"),
-    "left": ref.always("0px"),
-    "top": ref.always("50%"),
-    "width": ref.always("100%"),
-    "height": ref.always("1px"),
-    "background-color": ref.always(dom.hsl(0, 0, 90)),
+    "position": mutable.always("absolute"),
+    "left": mutable.always("0px"),
+    "top": mutable.always("50%"),
+    "width": mutable.always("100%"),
+    "height": mutable.always("1px"),
+    "background-color": mutable.always(dom.hsl(0, 0, 90)),
   });*/
 
   const style_popup_text = dom.make_style({
-    "position": ref.always("absolute"),
-    "left": ref.always("4px"),
-    "bottom": ref.always("2px"),
+    "position": mutable.always("absolute"),
+    "left": mutable.always("4px"),
+    "bottom": mutable.always("2px"),
 
-    "font-weight": ref.always("bold"),
-    "font-size": ref.always("12px"),
-    "text-shadow": ref.always(dom.text_stroke("white", "1px")),
+    "font-weight": mutable.always("bold"),
+    "font-size": mutable.always("12px"),
+    "text-shadow": mutable.always(dom.text_stroke("white", "1px")),
   });
 
   const style_popup_item = dom.make_style({
-    "position": ref.always("absolute"),
-    "overflow": ref.always("hidden"),
+    "position": mutable.always("absolute"),
+    "overflow": mutable.always("hidden"),
 
-    "border-width": ref.always("1px"),
-    "border-color": ref.always(dom.hsl(211, 100, 10)),
+    "border-width": mutable.always("1px"),
+    "border-color": mutable.always(dom.hsl(211, 100, 10)),
 
-    "align-items": ref.always("center"),
-    "justify-content": ref.always("center"),
+    "align-items": mutable.always("center"),
+    "justify-content": mutable.always("center"),
   });
 
   const style_popup_popup = dom.make_style({
-    "background-color": ref.always(dom.hsl(211, 100, 96)),
+    "background-color": mutable.always(dom.hsl(211, 100, 96)),
 
-    "width": ref.latest([
+    "width": mutable.latest([
       opt("popup.type"),
       opt("screen.available.width"),
       opt("size.bubble.width"),
@@ -139,7 +139,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "height": ref.latest([
+    "height": mutable.latest([
       opt("popup.type"),
       opt("screen.available.height"),
       opt("size.bubble.height"),
@@ -181,7 +181,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "left": ref.latest([
+    "left": mutable.latest([
       opt("popup.type"),
       opt("screen.available.width"),
       opt("size.sidebar.position"),
@@ -208,7 +208,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "right": ref.latest([
+    "right": mutable.latest([
       opt("popup.type"),
       opt("screen.available.width"),
       opt("size.sidebar.position")
@@ -234,7 +234,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "top": ref.latest([
+    "top": mutable.latest([
       opt("popup.type"),
       opt("screen.available.height"),
       opt("size.sidebar.position"),
@@ -266,7 +266,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "bottom": ref.latest([
+    "bottom": mutable.latest([
       opt("popup.type"),
       opt("size.sidebar.position")
     ], (type, position) => {
@@ -287,7 +287,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "border-radius": ref.map(opt("popup.type"), (type) => {
+    "border-radius": mutable.map(opt("popup.type"), (type) => {
       switch (type) {
       case "bubble":
         return "3px";
@@ -298,7 +298,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "box-shadow": ref.map(opt("popup.type"), (type) => {
+    "box-shadow": mutable.map(opt("popup.type"), (type) => {
       switch (type) {
       case "bubble":
       case "panel":
@@ -311,7 +311,7 @@ export const init = async.all([init_textbox,
   });
 
   const style_popup_chrome_position = dom.make_style({
-    "left": ref.latest([
+    "left": mutable.latest([
       opt("popup.type"),
       opt("screen.available.width"),
       opt("size.sidebar"),
@@ -330,7 +330,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "top": ref.latest([
+    "top": mutable.latest([
       opt("popup.type"),
       opt("screen.available.height"),
       opt("size.sidebar"),
@@ -349,7 +349,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "width": ref.latest([
+    "width": mutable.latest([
       opt("popup.type"),
       opt("screen.available.width"),
       opt("size.sidebar"),
@@ -368,7 +368,7 @@ export const init = async.all([init_textbox,
       }
     }),
 
-    "height": ref.latest([
+    "height": mutable.latest([
       opt("popup.type"),
       opt("screen.available.height"),
       opt("size.sidebar"),
@@ -389,25 +389,25 @@ export const init = async.all([init_textbox,
   });
 
   const style_popup_chrome = dom.make_style({
-    //"background-color": ref.always(dom.hsl(0, 0, 90)),
-    "background-color": ref.always(dom.hsl(211, 13, 80)),
+    //"background-color": mutable.always(dom.hsl(0, 0, 90)),
+    "background-color": mutable.always(dom.hsl(211, 13, 80)),
   });
 
   const style_popup_chrome_top = dom.make_style({
-    "position": ref.always("absolute"),
-    //"background-color": ref.always(dom.hsl(211, 13, 80)),
+    "position": mutable.always("absolute"),
+    //"background-color": mutable.always(dom.hsl(211, 13, 80)),
 
     // TODO code duplication
-    "border-color": ref.always(dom.hsl(211, 100, 10, 0.2)),
-    "border-style": ref.always("dashed"),
+    "border-color": mutable.always(dom.hsl(211, 100, 10, 0.2)),
+    "border-style": mutable.always("dashed"),
 
-    "border-bottom-width": ref.map(opt("popup.type"), (type) =>
+    "border-bottom-width": mutable.map(opt("popup.type"), (type) =>
                              (type === "tab"
                                ? null
                                : "1px")),
 
     // TODO is this correct? e.g. what about when "sidebar" is set to "top" ?
-    "height": ref.map(opt("screen.available.height"), (height) =>
+    "height": mutable.map(opt("screen.available.height"), (height) =>
                 // Chrome's UI takes up 61 pixels at the top
                 percent(61, height) + "%")
   });
@@ -444,7 +444,7 @@ export const init = async.all([init_textbox,
 
               dom.children(e, [
                 dom.text((e) => [
-                  dom.set_value(e, ref.map(opt("popup.type"), (x) =>
+                  dom.set_value(e, mutable.map(opt("popup.type"), (x) =>
                                      // TODO function for this
                                      string.uppercase(x[0]) + string.slice(x, 1)))
                 ])
@@ -454,7 +454,7 @@ export const init = async.all([init_textbox,
             dom.text((e) => [
               dom.add_style(e, style_popup_text),
 
-              dom.set_value(e, ref.latest([
+              dom.set_value(e, mutable.latest([
                 opt("screen.available.width"),
                 opt("screen.available.height")
               ], (width, height) =>
@@ -468,20 +468,20 @@ export const init = async.all([init_textbox,
 
   const style_controls_wrapper = dom.make_style({
     // TODO a little bit hacky
-    "justify-content": ref.always("center")
+    "justify-content": mutable.always("center")
   });
 
   const style_controls_table = dom.make_style({
-    "table-layout": ref.always("fixed"),
-    "overflow": ref.always("hidden")
+    "table-layout": mutable.always("fixed"),
+    "overflow": mutable.always("hidden")
   });
 
   const style_controls_cell = dom.make_style({
-    "text-align": ref.always("right")
+    "text-align": mutable.always("right")
   });
 
   const style_controls_text = dom.make_style({
-    "margin-right": ref.always("2px")
+    "margin-right": mutable.always("2px")
   });
 
   const ui_controls = (o) => {
@@ -493,7 +493,7 @@ export const init = async.all([init_textbox,
 
         dom.style(e, {
           // Only show the controls that match the type
-          "width": ref.map(opt("popup.type"), (type) =>
+          "width": mutable.map(opt("popup.type"), (type) =>
                      (type === key
                        ? null
                        : "0px"))
@@ -523,7 +523,7 @@ export const init = async.all([init_textbox,
     dom.text((e) => [
       dom.add_style(e, dom.stretch),
       dom.add_style(e, style_controls_text),
-      dom.set_value(e, ref.always(text))
+      dom.set_value(e, mutable.always(text))
     ]);
 
   const ui_textbox = (left, right, name, info) =>

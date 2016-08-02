@@ -4,7 +4,7 @@ import * as record from "../../../../util/record";
 import * as functions from "../../../../util/functions";
 import * as running from "../../../../util/running";
 import * as async from "../../../../util/async";
-import * as ref from "../../../../util/ref";
+import * as mutable from "../../../../util/mutable";
 import * as event from "../../../../util/event";
 import * as string from "../../../../util/string";
 import { init as init_tabs } from "../../../sync/tabs";
@@ -27,7 +27,7 @@ export const init = async.all([init_tabs], (sync) => {
       const tabs = stream.make_list();
 
       const group = make_group(record.get(tag, "id"),
-                               ref.make(record.get(tag, "id")),
+                               mutable.make(record.get(tag, "id")),
                                tabs,
                                null);
 
@@ -74,10 +74,10 @@ export const init = async.all([init_tabs], (sync) => {
 
         const x = record.get(tab_ids, tab_id);
 
-        ref.set(record.get(x, "url"), url);
-        ref.set(record.get(x, "title"), title);
-        ref.set(record.get(x, "favicon"), favicon);
-        ref.set(record.get(x, "pinned"), pinned);
+        mutable.set(record.get(x, "url"), url);
+        mutable.set(record.get(x, "title"), title);
+        mutable.set(record.get(x, "favicon"), favicon);
+        mutable.set(record.get(x, "pinned"), pinned);
 
         search(groups);
       },
@@ -185,7 +185,7 @@ export const init = async.all([init_tabs], (sync) => {
 
     // TODO test this
     // TODO move this into logic.js
-    const stop2 = ref.on_change(value, () => {
+    const stop2 = mutable.on_change(value, () => {
       search(groups);
     });
 

@@ -20,24 +20,25 @@ export const window_ids = record.make();
 const _focus = (tab, events) => {
   const old = tab.window.focused_tab;
 
-  assert(tab !== old);
+  // TODO is this correct ?
+  if (tab !== old) {
+    if (old !== null) {
+      assert(old.focused === true);
+      old.focused = false;
+    }
 
-  if (old !== null) {
-    assert(old.focused === true);
-    old.focused = false;
-  }
+    assert(tab.focused === false);
+    tab.focused = true;
 
-  assert(tab.focused === false);
-  tab.focused = true;
+    tab.window.focused_tab = tab;
 
-  tab.window.focused_tab = tab;
-
-  if (events) {
-    event.send(on_focus, {
-      window: tab.window,
-      old: old,
-      new: tab
-    });
+    if (events) {
+      event.send(on_focus, {
+        window: tab.window,
+        old: old,
+        new: tab
+      });
+    }
   }
 };
 
@@ -193,6 +194,7 @@ export const make_tab = (info, events) => {
     }
 
     if (info["active"]) {
+      console.log("create", tab);
       _focus(tab, events);
     }
   }
@@ -236,6 +238,8 @@ export const focus_tab = ({ "tabId": tabId, "windowId": windowId }) => {
 
     assert(tab.id === tabId);
     assert(tab.window.id === windowId);
+
+    console.log("focus", tab);
 
     _focus(tab, true);
   }

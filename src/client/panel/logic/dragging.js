@@ -3,7 +3,7 @@ import * as record from "../../../util/record";
 import * as stream from "../../../util/stream";
 import * as async from "../../../util/async";
 import * as maybe from "../../../util/maybe";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { assert } from "../../../util/assert";
 import { init as init_groups } from "./groups";
 
@@ -13,9 +13,9 @@ export const init = async.all([init_groups],
 
   let drag_info = null;
 
-  const dragging_animate    = ref.make(false);
-  const dragging_started    = ref.make(null);
-  const dragging_dimensions = ref.make(null);
+  const dragging_animate    = mutable.make(false);
+  const dragging_started    = mutable.make(null);
+  const dragging_dimensions = mutable.make(null);
 
   const get_direction_swap = (direction) =>
     (direction === "up"
@@ -60,7 +60,7 @@ export const init = async.all([init_groups],
     const tabs = stream.current(record.get(group, "tabs"));
 
     const m = list.find_first(tabs, (tab) =>
-                ref.get(record.get(tab, "visible")));
+                mutable.get(record.get(tab, "visible")));
 
     if (maybe.has(m)) {
       return maybe.get(m);
@@ -75,7 +75,7 @@ export const init = async.all([init_groups],
     const tabs = stream.current(record.get(group, "tabs"));
 
     const m = list.find_last(tabs, (tab) =>
-                ref.get(record.get(tab, "visible")));
+                mutable.get(record.get(tab, "visible")));
 
     if (maybe.has(m)) {
       return maybe.get(m);
@@ -100,8 +100,8 @@ export const init = async.all([init_groups],
       }
 
       // TODO a little bit hacky
-      if (ref.get(record.get(x, "visible"))) {
-        ref.set(record.get(x, "top"), top + "px");
+      if (mutable.get(record.get(x, "visible"))) {
+        mutable.set(record.get(x, "top"), top + "px");
 
         top += 20; // TODO gross
         empty = false;
@@ -117,17 +117,17 @@ export const init = async.all([init_groups],
       top += 20; // TODO gross
     }
 
-    ref.set(record.get(group, "height"), top + "px");
+    mutable.set(record.get(group, "height"), top + "px");
   };
 
   const stop_dragging = (group) => {
     const tabs = stream.current(record.get(group, "tabs"));
 
     list.each(tabs, (x) => {
-      ref.set(record.get(x, "top"), null);
+      mutable.set(record.get(x, "top"), null);
     });
 
-    ref.set(record.get(group, "height"), null);
+    mutable.set(record.get(group, "height"), null);
   };
 
   const drag_onto_tab = (new_group, new_tab) => {
@@ -138,7 +138,7 @@ export const init = async.all([init_groups],
       drag_info.group     = new_group;
       drag_info.tab       = new_tab;
 
-      ref.set(dragging_animate, (old_group === new_group));
+      mutable.set(dragging_animate, (old_group === new_group));
 
       if (old_group === new_group) {
         update_dragging(old_group);
@@ -166,7 +166,7 @@ export const init = async.all([init_groups],
         drag_info.group     = new_group;
         drag_info.tab       = new_tab;
 
-        ref.set(dragging_animate, false);
+        mutable.set(dragging_animate, false);
 
         update_dragging(old_group);
         update_dragging(new_group);
@@ -182,10 +182,10 @@ export const init = async.all([init_groups],
       direction: "up"
     };
 
-    assert(ref.get(dragging_animate) === false);
+    assert(mutable.get(dragging_animate) === false);
 
     // TODO hacky ?
-    list.each(stream.current(ref.get(groups)), (group) => {
+    list.each(stream.current(mutable.get(groups)), (group) => {
       update_dragging(group);
     });
   };
@@ -196,10 +196,10 @@ export const init = async.all([init_groups],
 
     drag_info = null;
 
-    ref.set(dragging_animate, false);
+    mutable.set(dragging_animate, false);
 
     // TODO hacky ?
-    list.each(stream.current(ref.get(groups)), (group) => {
+    list.each(stream.current(mutable.get(groups)), (group) => {
       stop_dragging(group);
     });
 

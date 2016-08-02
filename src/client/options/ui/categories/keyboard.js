@@ -1,6 +1,6 @@
 import * as dom from "../../../../util/dom";
 import * as async from "../../../../util/async";
-import * as ref from "../../../../util/ref";
+import * as mutable from "../../../../util/mutable";
 import { chrome } from "../../../../common/globals";
 import { category, row, text } from "../common";
 
@@ -26,7 +26,7 @@ export const init = async.all([], () => {
   };
 
   const style_link = dom.make_style({
-    "cursor": ref.always("auto"),
+    "cursor": mutable.always("auto"),
   });
 
   const ui_keyboard = () =>
@@ -37,9 +37,9 @@ export const init = async.all([], () => {
         // TODO a little bit hacky
         dom.add_style(e, style_link),
 
-        dom.set_target(e, ref.always("_blank")),
-        dom.set_value(e, ref.always("here")),
-        dom.set_url(e, ref.always(keyboard_shortcut_url)),
+        dom.set_target(e, mutable.always("_blank")),
+        dom.set_value(e, mutable.always("here")),
+        dom.set_url(e, mutable.always(keyboard_shortcut_url)),
 
         // TODO hacky, but needed to work around a security restriction in Chrome
         dom.on_left_click(e, open_keyboard_url),

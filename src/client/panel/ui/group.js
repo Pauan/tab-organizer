@@ -2,7 +2,7 @@ import * as dom from "../../../util/dom";
 import * as async from "../../../util/async";
 import * as stream from "../../../util/stream";
 import * as record from "../../../util/record";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { style_texture } from "./common";
 import { init as init_tab } from "./tab";
 import { init as init_options } from "../../sync/options";
@@ -17,11 +17,11 @@ export const init = async.all([init_tab,
                                { drag_onto_group }) => {
 
   const animation_group_wrapper = dom.make_animation({
-    easing: ref.always("ease-in-out"),
-    duration: ref.map(opt("theme.animation"), (x) =>
+    easing: mutable.always("ease-in-out"),
+    duration: mutable.map(opt("theme.animation"), (x) =>
                 (x ? 500 : null)),
     style: {
-      "width": ref.map(opt("groups.layout"), (x) => {
+      "width": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
         case "grid":
@@ -31,16 +31,16 @@ export const init = async.all([init_tab,
         }
       }),
 
-      "opacity": ref.always("0")
+      "opacity": mutable.always("0")
     }
   });
 
   const animation_group = dom.make_animation({
-    easing: ref.always("ease-in-out"),
-    duration: ref.map(opt("theme.animation"), (x) =>
+    easing: mutable.always("ease-in-out"),
+    duration: mutable.map(opt("theme.animation"), (x) =>
                 (x ? 500 : null)),
     style: {
-      "border-width": ref.map(opt("groups.layout"), (x) => {
+      "border-width": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
           // TODO a little hacky
@@ -50,7 +50,7 @@ export const init = async.all([init_tab,
         }
       }),
 
-      "padding": ref.map(opt("groups.layout"), (x) => {
+      "padding": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
           // TODO a little hacky, this needs to match padding-top
@@ -60,7 +60,7 @@ export const init = async.all([init_tab,
         }
       }),
 
-      "width": ref.map(opt("groups.layout"), (x) => {
+      "width": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "horizontal":
           return "0px";
@@ -72,11 +72,11 @@ export const init = async.all([init_tab,
   });
 
   const animation_group_header = dom.make_animation({
-    easing: ref.always("ease-in-out"),
-    duration: ref.map(opt("theme.animation"), (x) =>
+    easing: mutable.always("ease-in-out"),
+    duration: mutable.map(opt("theme.animation"), (x) =>
                 (x ? 500 : null)),
     style: {
-      "height": ref.map(opt("groups.layout"), (x) => {
+      "height": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "vertical":
           return "0px";
@@ -86,16 +86,16 @@ export const init = async.all([init_tab,
       }),
 
       // This needs to match the "margin-left" in "tab.js"
-      "margin-left": ref.always("12px"),
+      "margin-left": mutable.always("12px"),
     }
   });
 
   const animation_group_tabs = dom.make_animation({
-    easing: ref.always("ease-in-out"),
-    duration: ref.map(opt("theme.animation"), (x) =>
+    easing: mutable.always("ease-in-out"),
+    duration: mutable.map(opt("theme.animation"), (x) =>
                 (x ? 500 : null)),
     style: {
-      "padding-bottom": ref.map(opt("groups.layout"), (x) => {
+      "padding-bottom": mutable.map(opt("groups.layout"), (x) => {
         switch (x) {
         case "vertical":
           return "0px";
@@ -108,9 +108,9 @@ export const init = async.all([init_tab,
 
 
   const style_group_wrapper = dom.make_style({
-    "overflow": ref.always("visible"),
+    "overflow": mutable.always("visible"),
 
-    "flex-grow": ref.map(opt("groups.layout"), (x) => {
+    "flex-grow": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "1";
@@ -119,7 +119,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "float": ref.map(opt("groups.layout"), (x) => {
+    "float": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
         return "left";
@@ -128,7 +128,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "width": ref.latest([
+    "width": mutable.latest([
       opt("groups.layout"),
       opt("groups.layout.grid.column")
     ], (layout, col) => {
@@ -145,7 +145,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "height": ref.latest([
+    "height": mutable.latest([
       opt("groups.layout"),
       opt("groups.layout.grid.row")
     ], (layout, row) => {
@@ -163,14 +163,14 @@ export const init = async.all([init_tab,
   });
 
   const style_group_wrapper_focused = dom.make_style({
-    "z-index": ref.always("2")
+    "z-index": mutable.always("2")
   });
 
   const style_group = dom.make_style({
     // TODO hack to make it smoother when opening/closing windows
-    "transform": ref.always("translateZ(0)"),
+    "transform": mutable.always("translateZ(0)"),
 
-    "left": ref.map(opt("groups.layout"), (x) => {
+    "left": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         // width / 2
@@ -180,7 +180,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "width": ref.map(opt("groups.layout"), (x) => {
+    "width": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "300px";
@@ -189,7 +189,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "height": ref.map(opt("groups.layout"), (x) => {
+    "height": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "100%";
@@ -201,7 +201,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "box-shadow": ref.map(opt("groups.layout"), (x) => {
+    "box-shadow": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
         return "-2px 0px 5px -2px " + dom.hsl(0, 0, 50, 0.7) + "," +
@@ -215,7 +215,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "border-width": ref.map(opt("groups.layout"), (x) => {
+    "border-width": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
       case "grid":
@@ -227,7 +227,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "margin": ref.map(opt("groups.layout"), (x) => {
+    "margin": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "grid":
         return "3px";
@@ -236,7 +236,7 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "border-color": ref.map(opt("groups.layout"), (x) => {
+    "border-color": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
       case "grid":
@@ -251,16 +251,16 @@ export const init = async.all([init_tab,
       }
     }),
 
-    /*"border-image-source": ref.always(dom.gradient("to right",
+    /*"border-image-source": mutable.always(dom.gradient("to right",
                                                    ["0%", "transparent"],
                                                    ["5%", dom.hsl(211, 50, 75)],
                                                    ["95%", dom.hsl(211, 50, 75)],
                                                    ["100%", "transparent"])),
-    "border-image-slice": ref.always("100% 0%"),*/
+    "border-image-slice": mutable.always("100% 0%"),*/
 
-    //"border-color": ref.always(dom.hsl(211, 50, 75)),
+    //"border-color": mutable.always(dom.hsl(211, 50, 75)),
 
-    "top": ref.map(opt("groups.layout"), (x) => {
+    "top": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "vertical":
         return "-1px";
@@ -269,33 +269,33 @@ export const init = async.all([init_tab,
       }
     }),
 
-    "padding-top": ref.always("3px"),
-    "padding-left": ref.always("1px"),
-    "padding-right": ref.always("1px"),
+    "padding-top": mutable.always("3px"),
+    "padding-left": mutable.always("1px"),
+    "padding-right": mutable.always("1px"),
 
-    "background-color": ref.always(dom.hsl(0, 0, 100)),
+    "background-color": mutable.always(dom.hsl(0, 0, 100)),
   });
 
   const style_group_focused = dom.make_style({
-    "box-shadow": ref.always("0px 0px 4px 1px " + dom.hsl(211, 80, 50)),
+    "box-shadow": mutable.always("0px 0px 4px 1px " + dom.hsl(211, 80, 50)),
   });
 
   const style_group_header = dom.make_style({
     // TODO is this correct ?
-    "height": ref.always("16px"),
-    //"padding-top": ref.always("1px"), // TODO this needs to be animated
-    "padding-left": ref.always("4px")
+    "height": mutable.always("16px"),
+    //"padding-top": mutable.always("1px"), // TODO this needs to be animated
+    "padding-left": mutable.always("4px")
   });
 
   const style_group_text = dom.make_style({
-    "font-size": ref.always("11px")
+    "font-size": mutable.always("11px")
   });
 
   const style_group_tabs = dom.make_style({
     // This is needed so that drag-and-drop works correctly (i.e. "height")
-    "box-sizing": ref.always("content-box"),
+    "box-sizing": mutable.always("content-box"),
 
-    "height": ref.map(opt("groups.layout"), (x) => {
+    "height": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
       case "grid":
@@ -307,7 +307,7 @@ export const init = async.all([init_tab,
     }),
 
     // TODO hack which causes Chrome to not repaint when scrolling
-    "transform": ref.map(opt("groups.layout"), (x) => {
+    "transform": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
       case "grid":
@@ -317,8 +317,8 @@ export const init = async.all([init_tab,
       }
     }),
 
-    //"transition": ref.always("height 1000ms ease-in-out"),
-    "overflow-y": ref.map(opt("groups.layout"), (x) => {
+    //"transition": mutable.always("height 1000ms ease-in-out"),
+    "overflow-y": mutable.map(opt("groups.layout"), (x) => {
       switch (x) {
       case "horizontal":
       case "grid":
@@ -329,7 +329,7 @@ export const init = async.all([init_tab,
     }),
 
     // TODO test if using "padding-bottom" rather than "margin-bottom" messes up tab drag-and-drop
-    "padding-bottom": ref.always("3px"),
+    "padding-bottom": mutable.always("3px"),
   });
 
   const group_header = (group) =>
@@ -371,7 +371,7 @@ export const init = async.all([init_tab,
       }),
 
       dom.style(e, {
-        "height": ref.latest([
+        "height": mutable.latest([
           opt("groups.layout"),
           record.get(group, "height")
         ], (layout, height) => {
@@ -394,11 +394,11 @@ export const init = async.all([init_tab,
                       ui_tab(group, x)))
     ]);
 
-  const is_horizontal = ref.map(opt("groups.layout"), (x) =>
+  const is_horizontal = mutable.map(opt("groups.layout"), (x) =>
                           (x === "horizontal"));
 
   const group = (group) => {
-    const is_focused = ref.and([
+    const is_focused = mutable.and([
       record.get(group, "selected"),
       is_horizontal
     ]);
@@ -426,7 +426,7 @@ export const init = async.all([init_tab,
 
           dom.on_focus(e, (focused) => {
             // TODO a little hacky, should be a part of logic
-            ref.set(record.get(group, "selected"), focused);
+            mutable.set(record.get(group, "selected"), focused);
           }),
 
           dom.animate(e, animation_group, {

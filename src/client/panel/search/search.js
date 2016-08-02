@@ -1,7 +1,7 @@
 import * as list from "../../../util/list";
 import * as stream from "../../../util/stream";
 import * as record from "../../../util/record";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import * as string from "../../../util/string";
 
 
@@ -15,8 +15,8 @@ const parse_search = (value) => {
 
   return (tab) => {
     // TODO is this correct ?
-    const title = ref.get(record.get(tab, "title")) || "";
-    const url   = ref.get(record.get(tab, "url"))   || "";
+    const title = mutable.get(record.get(tab, "title")) || "";
+    const url   = mutable.get(record.get(tab, "url"))   || "";
 
     return string.test(title, re) ||
            string.test(url, re);
@@ -24,20 +24,20 @@ const parse_search = (value) => {
 };
 
 
-export const value = ref.make(localStorage["search.last"] || "");
+export const value = mutable.make(localStorage["search.last"] || "");
 
 // TODO is this the right place to put this ?
-export const visible = ref.make({ groups: 0, tabs: 0 });
+export const visible = mutable.make({ groups: 0, tabs: 0 });
 
 
 let search_parsed = null;
 
-ref.listen(value, (value) => {
+mutable.listen(value, (value) => {
   search_parsed = parse_search(value);
 });
 
 // TODO is this correct ?
-ref.on_change(value, (value) => {
+mutable.on_change(value, (value) => {
   localStorage["search.last"] = value;
 });
 
@@ -53,13 +53,13 @@ export const search = (a) => {
       const visible = record.get(tab, "visible");
 
       if (search_parsed(tab)) {
-        ref.set(visible, true);
+        mutable.set(visible, true);
         seen = true;
         // TODO what if the same tab belongs to multiple groups ?
         ++tabs;
 
       } else {
-        ref.set(visible, false);
+        mutable.set(visible, false);
       }
     });
 
@@ -67,11 +67,11 @@ export const search = (a) => {
       ++groups;
     }
 
-    ref.set(record.get(group, "visible"), seen);
+    mutable.set(record.get(group, "visible"), seen);
   });
 
   // TODO is this correct ?
-  ref.modify(visible, (info) => {
+  mutable.modify(visible, (info) => {
     if (info.groups === groups &&
         info.tabs   === tabs) {
       return info;

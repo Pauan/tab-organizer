@@ -1,6 +1,6 @@
 import * as dom from "../../../util/dom";
 import * as async from "../../../util/async";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import * as functions from "../../../util/functions";
 import { style_changed, style_icon,
          style_textbox, style_invalid } from "./common";
@@ -17,26 +17,26 @@ export const init = async.all([init_options], (options) => {
     const opt = options.get(name);
     const def = options.get_default(name);
 
-    const invalid = ref.make(false);
+    const invalid = mutable.make(false);
 
     return dom.textbox((e) => [
       dom.add_style(e, style_textbox),
-      dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
+      dom.toggle_style(e, style_changed, mutable.map(opt, (x) => x !== def)),
       dom.toggle_style(e, style_invalid, invalid),
 
       dom.style(e, {
-        "width": ref.always(width)
+        "width": mutable.always(width)
       }),
 
-      dom.set_tooltip(e, ref.always("Default: " + get_value(def))),
+      dom.set_tooltip(e, mutable.always("Default: " + get_value(def))),
 
-      dom.set_value(e, ref.map(opt, get_value)),
+      dom.set_value(e, mutable.map(opt, get_value)),
 
       dom.on_change(e, (value) => {
         // TODO this isn't quite right
         if (value === "") {
-          ref.set(invalid, false);
-          ref.set(opt, def);
+          mutable.set(invalid, false);
+          mutable.set(opt, def);
 
 
         } else if (type === "number") {
@@ -44,17 +44,17 @@ export const init = async.all([init_options], (options) => {
 
           // TODO better test for this ?
           if (isNaN(value)) {
-            ref.set(invalid, true);
+            mutable.set(invalid, true);
 
           } else {
-            ref.set(invalid, false);
-            ref.set(opt, set_value(value));
+            mutable.set(invalid, false);
+            mutable.set(opt, set_value(value));
           }
 
 
         } else {
-          ref.set(invalid, false);
-          ref.set(opt, set_value(value));
+          mutable.set(invalid, false);
+          mutable.set(opt, set_value(value));
         }
       })
     ])

@@ -5,7 +5,7 @@ import * as list from "../../../util/list";
 import * as async from "../../../util/async";
 import * as stream from "../../../util/stream";
 import * as event from "../../../util/event";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { init as init_tabs } from "../../sync/tabs";
 import { search, value } from "../search/search";
 import { make_group, make_group_tab, make_tab,
@@ -35,7 +35,7 @@ export const make = ({ get_group_data,
         return record.set_default(group_ids, id, () => {
           // TODO update the name periodically
           const group = make_group(id,
-                                   ref.make(get_group_name(data)),
+                                   mutable.make(get_group_name(data)),
                                    stream.make_sorted_list(sort_tabs),
                                    data);
 
@@ -157,10 +157,10 @@ export const make = ({ get_group_data,
           // TODO a little bit hacky
           update_tab(x, tab, () => {
             // TODO remove + insert the tab if the URL is different ?
-            ref.set(record.get(x, "url"), url);
-            ref.set(record.get(x, "title"), title);
-            ref.set(record.get(x, "favicon"), favicon);
-            ref.set(record.get(x, "pinned"), pinned);
+            mutable.set(record.get(x, "url"), url);
+            mutable.set(record.get(x, "title"), title);
+            mutable.set(record.get(x, "favicon"), favicon);
+            mutable.set(record.get(x, "pinned"), pinned);
           });
 
           // TODO is this needed ?
@@ -206,7 +206,7 @@ export const make = ({ get_group_data,
 
       // TODO test this
       // TODO move this into logic.js
-      const stop2 = ref.on_change(value, () => {
+      const stop2 = mutable.on_change(value, () => {
         search(groups);
       });
 

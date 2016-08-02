@@ -4,7 +4,7 @@ import * as record from "../../../../util/record";
 import * as functions from "../../../../util/functions";
 import * as running from "../../../../util/running";
 import * as async from "../../../../util/async";
-import * as ref from "../../../../util/ref";
+import * as mutable from "../../../../util/mutable";
 import * as event from "../../../../util/event";
 import { init as init_tabs } from "../../../sync/tabs";
 import { assert } from "../../../../util/assert";
@@ -19,7 +19,7 @@ const update_group_names = (groups) => {
     update_group(group, i);
 
     if (record.get(group, "info") === null) {
-      ref.set(record.get(group, "name"), "" + (i + 1));
+      mutable.set(record.get(group, "name"), "" + (i + 1));
     }
   });
 };
@@ -37,7 +37,7 @@ export const init = async.all([init_tabs], (sync) => {
       const tabs = stream.make_list();
 
       const group = make_group(record.get(window, "id"),
-                               ref.make(record.get(window, "name")),
+                               mutable.make(record.get(window, "name")),
                                tabs,
                                record.get(window, "name"));
 
@@ -89,7 +89,7 @@ export const init = async.all([init_tabs], (sync) => {
 
         const x = record.get(tab_ids, tab_id);
 
-        ref.set(record.get(x, "focused"), true);
+        mutable.set(record.get(x, "focused"), true);
       },
 
 
@@ -98,7 +98,7 @@ export const init = async.all([init_tabs], (sync) => {
 
         const x = record.get(tab_ids, tab_id);
 
-        ref.set(record.get(x, "focused"), false);
+        mutable.set(record.get(x, "focused"), false);
       },
 
 
@@ -111,10 +111,10 @@ export const init = async.all([init_tabs], (sync) => {
 
         const x = record.get(tab_ids, tab_id);
 
-        ref.set(record.get(x, "url"), url);
-        ref.set(record.get(x, "title"), title);
-        ref.set(record.get(x, "favicon"), favicon);
-        ref.set(record.get(x, "pinned"), pinned);
+        mutable.set(record.get(x, "url"), url);
+        mutable.set(record.get(x, "title"), title);
+        mutable.set(record.get(x, "favicon"), favicon);
+        mutable.set(record.get(x, "pinned"), pinned);
 
         search(groups);
       },
@@ -235,7 +235,7 @@ export const init = async.all([init_tabs], (sync) => {
 
     // TODO test this
     // TODO move this into logic.js
-    const stop2 = ref.on_change(value, () => {
+    const stop2 = mutable.on_change(value, () => {
       search(groups);
     });
 

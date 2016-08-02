@@ -3,7 +3,7 @@ import { crash } from "./assert";
 
 
 const spacify = (x) =>
-  replace(x, /[_\-]/g, " ");
+  replace(x, /[_\-\n]/g, " ");
 
 // http://en.wikipedia.org/wiki/URI_scheme#Generic_syntax
 const re_uri = /^([a-zA-Z][a-zA-Z0-9\+\.\-]*:)(?:(\/\/)([^\@]+\@)?([^\/\?\#\:]*)(\:[0-9]+)?)?([^\?\#]*?)([^\/\?\#]*)(\?[^\#]*)?(\#.*)?$/;

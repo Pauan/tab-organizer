@@ -538,7 +538,7 @@ export const init = async.all([init_db,
 
 
   // TODO test this
-  const merge_time_max = (time_from, time_to, key, f) => {
+  const merge_time = (time_from, time_to, key, f) => {
     if (record.has(time_from, key)) {
       if (record.has(time_to, key)) {
         record.update(time_to, key,
@@ -546,7 +546,7 @@ export const init = async.all([init_db,
             record.get(time_to, key)));
 
       } else {
-        record.update(time_to, key, record.get(time_from, key));
+        record.insert(time_to, key, record.get(time_from, key));
       }
     }
   };
@@ -596,10 +596,10 @@ export const init = async.all([init_db,
       const window_ids = db.get("current.window-ids");
       const tab_ids    = db.get("current.tab-ids");
 
-      array.each(db.get("current.windows"), (id) => {
+      list.each(db.get("current.windows"), (id) => {
         const window = record.get(window_ids, id);
 
-        array.each(record.get(window, "tabs"), (id) => {
+        list.each(record.get(window, "tabs"), (id) => {
           const right = record.get(tab_ids, id);
           const url = record.get(right, "url");
 

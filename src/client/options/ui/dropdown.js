@@ -2,7 +2,7 @@ import * as dom from "../../../util/dom";
 import * as list from "../../../util/list";
 import * as async from "../../../util/async";
 import * as record from "../../../util/record";
-import * as ref from "../../../util/ref";
+import * as mutable from "../../../util/mutable";
 import { style_changed, style_dropdown } from "./common";
 import { init as init_options } from "../../sync/options";
 
@@ -37,12 +37,12 @@ export const init = async.all([init_options],
         ? dom.optgroup((e) => [])
         : (info.group != null
             ? dom.optgroup((e) => [
-                dom.set_label(e, ref.always(info.group)),
+                dom.set_label(e, mutable.always(info.group)),
                 dom.children(e, dropdown_children(info.children))
               ])
             : dom.option((e) => [
-                dom.set_value(e, ref.always(info.value)),
-                dom.set_label(e, ref.always(info.name))
+                dom.set_value(e, mutable.always(info.value)),
+                dom.set_label(e, mutable.always(info.name))
               ]))));
 
   const dropdown = (name, children) => {
@@ -53,9 +53,9 @@ export const init = async.all([init_options],
 
     return dom.select((e) => [
       dom.add_style(e, style_dropdown),
-      dom.toggle_style(e, style_changed, ref.map(opt, (x) => x !== def)),
+      dom.toggle_style(e, style_changed, mutable.map(opt, (x) => x !== def)),
 
-      dom.set_tooltip(e, ref.always("Default: " + record.get(values, def))),
+      dom.set_tooltip(e, mutable.always("Default: " + record.get(values, def))),
 
       // TODO a little hacky
       dom.children(e, dropdown_children(children)),
@@ -64,7 +64,7 @@ export const init = async.all([init_options],
 
       dom.on_change(e, (value) => {
         // TODO this causes the DOM node to be updated twice
-        ref.set(opt, value);
+        mutable.set(opt, value);
       })
     ]);
   };

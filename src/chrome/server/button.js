@@ -1,4 +1,4 @@
-import * as ref from "../../util/ref";
+import * as mutable from "../../util/mutable";
 import * as event from "../../util/event";
 import { chrome } from "../../common/globals";
 import { assert } from "../../util/assert";
@@ -25,7 +25,7 @@ export const on_click = event.make({
 
 
 export const set_tooltip = (x) =>
-  ref.listen(x, (x) => {
+  mutable.listen(x, (x) => {
     assert(x === null || typeof x === "string");
     assert(x !== "");
 
@@ -37,7 +37,7 @@ export const set_tooltip = (x) =>
   });
 
 export const set_bubble_url = (x) =>
-  ref.listen(x, (x) => {
+  mutable.listen(x, (x) => {
     assert(x === null || typeof x === "string");
     assert(x !== "");
 
@@ -49,7 +49,7 @@ export const set_bubble_url = (x) =>
   });
 
 export const set_text = (x) =>
-  ref.listen(x, (x) => {
+  mutable.listen(x, (x) => {
     assert(x === null || typeof x === "string");
     assert(x !== "");
 
@@ -61,7 +61,7 @@ export const set_text = (x) =>
   });
 
 export const set_color = (x) =>
-  ref.listen(x, ({ red, green, blue, alpha }) => {
+  mutable.listen(x, ({ red, green, blue, alpha }) => {
     assert(typeof red === "number");
     assert(typeof green === "number");
     assert(typeof blue === "number");
