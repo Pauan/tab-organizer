@@ -3,9 +3,10 @@ import * as $maybe from "./maybe";
 import { assert, crash } from "./assert";
 
 
-type Order = -1 | 0 | 1;
+// TODO move this someplace else
+export type Order = -1 | 0 | 1;
 
-type Sorter<A> = (_: A, _: A) => Order;
+export type Sorter<A> = (_: A, _: A) => Order;
 
 // TODO is this correct ?
 export const get_sorted = <A>(array: Array<A>, key: A, sort: Sorter<A>): { index: number, value: $maybe.Maybe<A> } => {

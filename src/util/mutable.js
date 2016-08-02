@@ -112,7 +112,7 @@ const listen_map = <A>(x: Map<*, A>, f: (_: A) => void): $running.Runner => {
 };
 
 // TODO test this
-const listen_latest = <A>(ref: Latest<*, A>, f: (_: A) => void): $running.Runner => {
+const listen_latest = <A, B>(ref: Latest<A, B>, f: (_: B) => void): $running.Runner => {
   const len    = $list.size(ref._args);
   const values = new Array(len);
 

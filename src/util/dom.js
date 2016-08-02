@@ -1024,25 +1024,25 @@ export const children = (dom, x) => {
 export const stream = (dom, x) =>
   _stream.listen(x, (x) => {
     switch (record.get(x, "type")) {
-    case _stream.uuid_initial:
+    case "initial":
       list.each(record.get(x, "value"), (x) => {
         _push(dom, x);
       });
       break;
 
-    case _stream.uuid_insert:
+    case "insert":
       _insert(dom, record.get(x, "index"), record.get(x, "value"));
       break;
 
-    case _stream.uuid_update:
+    case "update":
       _update(dom, record.get(x, "index"), record.get(x, "value"));
       break;
 
-    case _stream.uuid_remove:
+    case "remove":
       _remove(dom, record.get(x, "index"));
       break;
 
-    case _stream.uuid_clear:
+    case "clear":
       _clear(dom);
       break;
 

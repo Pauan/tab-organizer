@@ -1,4 +1,5 @@
-import * as list from "./list";
+/* @flow */
+import * as $list from "./list";
 import { assert, crash } from "./assert";
 
 
@@ -6,32 +7,43 @@ const PENDING = 0;
 const SUCCESS = 1;
 const ERROR   = 2;
 
-export const make = () => {
+type State = typeof PENDING | typeof SUCCESS | typeof ERROR;
+
+type Waiting<A, B> = {
+  out: Async<B>,
+  success: (_: Async<B>, _: A) => void,
+  error: (_: Async<B>, _: A) => void
+};
+
+type Async<A> = {
+  _state: State,
+  _value: ?A,
+  _waiting: $list.List<Waiting<A, *>>
+};
+
+export const make = <A>(): Async<A> => {
   return {
     _state: PENDING,
     _value: null,
-    _waiting: list.make()
+    _waiting: $list.make()
   };
 };
 
-export const done = (x) => {
+export const done = <A>(x: A): Async<A> => {
   return {
     _state: SUCCESS,
     _value: x,
-    _waiting: null
+    _waiting: $list.make()
   };
 };
 
 
-export const success = (obj, value) => {
+export const success = <A>(obj: Async<A>, value: A): void => {
   if (obj._state === PENDING) {
-    const a = obj._waiting;
-
     obj._state = SUCCESS;
     obj._value = value;
-    obj._waiting = null;
 
-    list.each(a, ({ out, success }) => {
+    $list.each(obj._waiting, ({ out, success }) => {
       success(out, value);
     });
 
@@ -40,15 +52,12 @@ export const success = (obj, value) => {
   }
 };
 
-export const error = (obj, value) => {
+export const error = <A>(obj: Async<A>, value: A): void => {
   if (obj._state === PENDING) {
-    const a = obj._waiting;
-
     obj._state = ERROR;
     obj._value = value;
-    obj._waiting = null;
 
-    list.each(a, ({ out, error }) => {
+    $list.each(obj._waiting, ({ out, error }) => {
       error(out, value);
     });
 
@@ -57,15 +66,19 @@ export const error = (obj, value) => {
   }
 };
 
-const _run = (obj, out, success, error) => {
+const _run = <A, B>(obj: Async<A>, out: Async<B>, success: (_: Async<B>, _: A) => void, error: (_: Async<B>, _: A) => void): void => {
   if (obj._state === PENDING) {
-    list.push(obj._waiting, { out, success, error });
+    $list.push(obj._waiting, { out, success, error });
 
   } else if (obj._state === SUCCESS) {
-    success(out, obj._value);
+    if (obj._value != null) {
+      success(out, obj._value);
+    }
 
   } else if (obj._state === ERROR) {
-    error(out, obj._value);
+    if (obj._value != null) {
+      error(out, obj._value);
+    }
 
   } else {
     crash();
@@ -73,10 +86,10 @@ const _run = (obj, out, success, error) => {
 };
 
 // TODO cancel the other asyncs when an error occurs ?
-export const all = (a, f) => {
+export const all = <A>(a: Array<Async<*>>, f: (..._: Array<*>) => Async<A>): Async<A> => {
   const out = make();
 
-  let pending = list.size(a);
+  let pending = $list.size(a);
 
   if (pending === 0) {
     // TODO this probably isn't tail-recursive
@@ -85,7 +98,7 @@ export const all = (a, f) => {
   } else {
     const values = new Array(pending);
 
-    list.each(a, (x, i) => {
+    $list.each(a, (x, i) => {
       _run(x, out, (out, value) => {
         values[i] = value;
 
@@ -102,7 +115,8 @@ export const all = (a, f) => {
   return out;
 };
 
-export const after = (x, f) => {
+// TODO why does this require * type ?
+export const after = <A>(x: Async<A>, f: (_: A) => Async<*>): Async<*> => {
   const out = make();
 
   _run(x, out, (out, value) => {
@@ -121,7 +135,8 @@ const on_fail = (out, x) => {
 const run_fail = (x) => {
   const err = new Error("async must return undefined");
 
-  _run(x, null, (out, x) => {
+  // TODO a bit hacky
+  _run(x, (null : any), (out, x) => {
     assert(out === null);
 
     if (x !== undefined) {
@@ -133,23 +148,23 @@ const run_fail = (x) => {
 
 // TODO implement more efficiently ?
 // TODO test this
-export const run = (x, f) => {
+export const run = <A>(x: Async<A>, f: (_: A) => void): void => {
   run_fail(after(x, (value) => done(f(value))));
 };
 
 // TODO implement more efficiently ?
 // TODO test this
-export const run_all = (x, f) => {
+export const run_all = <A>(x: Array<Async<A>>, f: (..._: Array<A>) => void): void => {
   run_fail(all(x, (...value) => done(f(...value))));
 };
 
-const _ignore = (_) =>
+const _ignore = <A>(_: A): Async<void> =>
   done(undefined);
 
-export const ignore = (x) =>
+export const ignore = <A>(x: Async<A>): Async<void> =>
   after(x, _ignore);
 
-export const delay = (ms) => {
+export const delay = (ms: number): Async<void> => {
   const out = make();
 
   setTimeout(() => {

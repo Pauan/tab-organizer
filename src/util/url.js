@@ -1,6 +1,19 @@
+/* @flow */
 import { lowercase, replace, match } from "./string";
 import { crash } from "./assert";
 
+
+export type URL = {
+  protocol: string,
+  separator: string,
+  authority: string,
+  domain: string,
+  port: string,
+  path: string,
+  file: string,
+  query: string,
+  hash: string
+};
 
 const spacify = (x) =>
   replace(x, /[_\-\n]/g, " ");
@@ -9,9 +22,10 @@ const spacify = (x) =>
 const re_uri = /^([a-zA-Z][a-zA-Z0-9\+\.\-]*:)(?:(\/\/)([^\@]+\@)?([^\/\?\#\:]*)(\:[0-9]+)?)?([^\?\#]*?)([^\/\?\#]*)(\?[^\#]*)?(\#.*)?$/;
 
 // TODO test this
-export const parse = (x) => {
+export const parse = (x: string): URL => {
   const a = match(x, re_uri);
-  if (a !== null) {
+
+  if (a != null) {
     return {
       protocol:  lowercase(a[1]),
       separator: a[2] || "",
@@ -23,8 +37,9 @@ export const parse = (x) => {
       query:     a[8] || "",
       hash:      a[9] || ""
     };
+
   } else {
-    crash(new Error("Invalid URI: " + x));
+    return crash(new Error("Invalid URI: " + x));
   }
 };
 
@@ -40,7 +55,7 @@ const simplify_domain = (s) => {
 };
 
 // TODO test this
-export const simplify = (x) => {
+export const simplify = (x: URL): URL => {
   const should_protocol = !(x.protocol === "http:" ||
                             x.protocol === "https:");
 
@@ -64,7 +79,7 @@ export const simplify = (x) => {
 };
 
 // TODO test this
-export const minify = (x) => {
+export const minify = (x: URL): URL => {
   const y = simplify(x);
 
   const path  = y.path;

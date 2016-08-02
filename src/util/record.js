@@ -1,8 +1,10 @@
-import * as list from "./list";
-import * as maybe from "./maybe";
+/* @flow */
+import * as $list from "./list";
+import * as $maybe from "./maybe";
 import { assert, crash } from "./assert";
 
 
+// TODO remove this ?
 const check_key = (key) => {
   if (!(typeof key === "string" || typeof key === "number")) {
     crash(new Error("Expected string or number but got: " + key));
@@ -10,11 +12,14 @@ const check_key = (key) => {
 };
 
 
-export const make = (obj = {}) =>
+export type Record<A> = { [key: string]: A };
+
+
+export const make = <A>(obj: Record<A> = {}): Record<A> =>
   obj;
 
 // TODO is this inefficient ?
-export const copy = (obj) => {
+export const copy = <A>(obj: Record<A>): Record<A> => {
   const out = {};
 
   each(obj, (key, value) => {
@@ -24,34 +29,34 @@ export const copy = (obj) => {
   return out;
 };
 
-export const has = (obj, key) => {
+export const has = <A>(obj: Record<A>, key: string): boolean => {
   check_key(key);
   return key in obj;
 };
 
-export const get = (obj, key) => {
+export const get = <A>(obj: Record<A>, key: string): A => {
   check_key(key);
 
   if (key in obj) {
     return obj[key];
 
   } else {
-    crash(new Error("Key not found: " + key));
+    return crash(new Error("Key not found: " + key));
   }
 };
 
-export const get_maybe = (obj, key) => {
+export const get_maybe = <A>(obj: Record<A>, key: string): $maybe.Maybe<A> => {
   check_key(key);
 
   if (key in obj) {
-    return maybe.some(obj[key]);
+    return $maybe.some(obj[key]);
 
   } else {
-    return maybe.none;
+    return $maybe.none;
   }
 };
 
-export const get_default = (obj, key, f) => {
+export const get_default = <A>(obj: Record<A>, key: string, f: () => A): A => {
   check_key(key);
 
   if (key in obj) {
@@ -63,7 +68,7 @@ export const get_default = (obj, key, f) => {
 };
 
 // TODO test this
-export const set_default = (obj, key, f) => {
+export const set_default = <A>(obj: Record<A>, key: string, f: () => A): A => {
   check_key(key);
 
   if (key in obj) {
@@ -74,7 +79,7 @@ export const set_default = (obj, key, f) => {
   }
 };
 
-export const insert = (obj, key, value) => {
+export const insert = <A>(obj: Record<A>, key: string, value: A): void => {
   check_key(key);
 
   if (key in obj) {
@@ -85,7 +90,7 @@ export const insert = (obj, key, value) => {
   }
 };
 
-export const modify = (obj, key, f) => {
+export const modify = <A>(obj: Record<A>, key: string, f: (_: A) => A): void => {
   const old_value = get(obj, key);
   const new_value = f(old_value);
 
@@ -94,7 +99,7 @@ export const modify = (obj, key, f) => {
   }
 };
 
-export const update = (obj, key, new_value) => {
+export const update = <A>(obj: Record<A>, key: string, new_value: A): void => {
   const old_value = get(obj, key);
 
   if (old_value !== new_value) {
@@ -102,14 +107,14 @@ export const update = (obj, key, new_value) => {
   }
 };
 
-export const assign = (obj, key, value) => {
+export const assign = <A>(obj: Record<A>, key: string, value: A): void => {
   check_key(key);
 
   obj[key] = value;
 };
 
 // TODO maybe change this to accept a thunk rather than a value ?
-export const include = (obj, key, value) => {
+export const include = <A>(obj: Record<A>, key: string, value: A): void => {
   check_key(key);
 
   if (!(key in obj)) {
@@ -117,7 +122,7 @@ export const include = (obj, key, value) => {
   }
 };
 
-export const exclude = (obj, key) => {
+export const exclude = <A>(obj: Record<A>, key: string): void => {
   check_key(key);
 
   if (key in obj) {
@@ -125,7 +130,7 @@ export const exclude = (obj, key) => {
   }
 };
 
-export const remove = (obj, key) => {
+export const remove = <A>(obj: Record<A>, key: string): void => {
   check_key(key);
 
   if (key in obj) {
@@ -136,8 +141,8 @@ export const remove = (obj, key) => {
   }
 };
 
-export const each = (obj, f) => {
-  list.each(Object["keys"](obj), (key) => {
+export const each = <A>(obj: Record<A>, f: (_: string, _: A) => void): void => {
+  $list.each(Object.keys(obj), (key) => {
     f(key, obj[key]);
   });
 };
