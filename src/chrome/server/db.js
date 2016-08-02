@@ -137,7 +137,7 @@ export const init = async.after(chrome_get_all(), (db) => {
 
       } catch (e) {
         _transaction._state = FAILED;
-        throw e;
+        throw (e : Error);
       }
 
       if (_transaction._timer === null) {

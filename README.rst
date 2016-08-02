@@ -35,3 +35,8 @@ How to develop
   automatically recompile.
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
+
+How to test
+===========
+
+* ``npm test``
