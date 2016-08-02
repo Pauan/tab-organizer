@@ -1,5 +1,5 @@
 import * as set from "./set";
-import * as ref from "./ref";
+import * as mutable from "./mutable";
 import * as list from "./list";
 import * as running from "./running";
 import * as record from "./record";
@@ -137,7 +137,7 @@ const _on_insert = (dom, parent, animate, type) => {
   dom._parent = parent;
 
   if (dom._inserted !== null) {
-    ref.set(dom._inserted, type);
+    mutable.set(dom._inserted, type);
   }
 
 
@@ -178,7 +178,7 @@ const _on_insert = (dom, parent, animate, type) => {
 const _on_inserted = (dom) => {
   if (dom._inserted === null) {
     // TODO is it possible for this to run after the element is inserted ?
-    dom._inserted = ref.make(null);
+    dom._inserted = mutable.make(null);
   }
 
   return dom._inserted;
@@ -419,7 +419,7 @@ export const toggle_style = (dom, style, x) => {
 
   let first = true;
 
-  return ref.listen(x, (x) => {
+  return mutable.listen(x, (x) => {
     assert(typeof x === "boolean");
 
     if (x) {
@@ -438,7 +438,7 @@ export const toggle_style = (dom, style, x) => {
 // TODO test this
 export const set_scroll = (dom, { x, y }) =>
     // TODO does this leak memory ?
-  ref.listen(ref.latest([
+  mutable.listen(mutable.latest([
     _on_inserted(dom),
     x,
     y
@@ -472,10 +472,10 @@ export const set_scroll = (dom, { x, y }) =>
   });
 
 // TODO could use a better name
-export const scroll_to = (dom, { initial = ref.always(false),
-                                 insert  = ref.always(false) }) =>
+export const scroll_to = (dom, { initial = mutable.always(false),
+                                 insert  = mutable.always(false) }) =>
   // TODO does this leak memory ?
-  ref.listen(ref.latest([
+  mutable.listen(mutable.latest([
     _on_inserted(dom),
     initial,
     insert
@@ -566,7 +566,7 @@ const _scroll_to = (parent, child) => {
 export const toggle_visible = (dom, x) => {
   let first = true;
 
-  return ref.listen(x, (x) => {
+  return mutable.listen(x, (x) => {
     assert(typeof x === "boolean");
 
     if (x) {
@@ -586,7 +586,7 @@ export const toggle_visible = (dom, x) => {
 
 // TODO does this trigger a relayout ?
 export const set_tooltip = (dom, x) =>
-  ref.listen(x, (x) => {
+  mutable.listen(x, (x) => {
     if (x === null) {
       dom._dom["title"] = "";
     } else {
@@ -619,7 +619,7 @@ export const style = (dom, o) => {
     }*/
 
     // TODO a little hacky
-    list.push(stops, ref.listen(x, (x) => {
+    list.push(stops, mutable.listen(x, (x) => {
       // TODO test this
       set_style_value(dom._dom["style"], key, x);
     }));
@@ -636,7 +636,7 @@ export const style = (dom, o) => {
 // TODO does this trigger a relayout ?
 export const set_alt = (dom, x) => {
   if (dom._type === "img") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         // TODO is this correct ?
         dom._dom["alt"] = "";
@@ -654,7 +654,7 @@ export const set_alt = (dom, x) => {
 // TODO does this trigger a relayout ?
 export const set_url = (dom, x) => {
   if (dom._type === "img" || dom._type === "iframe") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       // TODO is this needed?
       // TODO is this done for performance reasons?
       // TODO does this prevent a crash in Chrome when there's a lot of tabs?
@@ -671,7 +671,7 @@ export const set_url = (dom, x) => {
     });
 
   } else if (dom._type === "a") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         // TODO is this correct ?
         dom._dom["href"] = "";
@@ -689,7 +689,7 @@ export const set_url = (dom, x) => {
 // TODO does this trigger a relayout ?
 export const set_target = (dom, x) => {
   if (dom._type === "a") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         // TODO is this correct ?
         dom._dom["target"] = "";
@@ -707,7 +707,7 @@ export const set_target = (dom, x) => {
 // TODO does this trigger a relayout ?
 export const set_value = (dom, x) => {
   if (dom._type === "text" || dom._type === "a") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         dom._dom["textContent"] = "";
 
@@ -719,7 +719,7 @@ export const set_value = (dom, x) => {
   } else if (dom._type === "textbox" ||
              dom._type === "option" ||
              dom._type === "search") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         dom._dom["value"] = "";
 
@@ -729,7 +729,7 @@ export const set_value = (dom, x) => {
     });
 
   } else if (dom._type === "select") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         dom._dom["selectedIndex"] = -1;
 
@@ -817,7 +817,7 @@ export const toggle_checked = (dom, x) => {
     let first = true;
 
     // TODO handle indeterminate state
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       assert(typeof x === "boolean");
 
       if (x) {
@@ -840,7 +840,7 @@ export const toggle_checked = (dom, x) => {
 // TODO does this trigger a relayout ?
 export const set_name = (dom, x) => {
   if (dom._type === "radio") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         // TODO is this correct ?
         dom._dom["name"] = "";
@@ -858,7 +858,7 @@ export const set_name = (dom, x) => {
 // TODO does this trigger a relayout ?
 export const set_label = (dom, x) => {
   if (dom._type === "optgroup" || dom._type === "option") {
-    return ref.listen(x, (x) => {
+    return mutable.listen(x, (x) => {
       if (x === null) {
         dom._dom["label"] = "";
 
@@ -946,7 +946,7 @@ const _children = (dom, x) => {
 
   let old_keys = record.make();
 
-  return ref.listen(x, (x) => {
+  return mutable.listen(x, (x) => {
     if (first) {
       first = false;
 
@@ -1102,25 +1102,25 @@ export const text_stroke = (color, blur) =>
 
 
 export const floating = make_style({
-  "position": ref.always("fixed"),
-  "z-index": ref.always("2147483647") // 32-bit signed int
+  "position": mutable.always("fixed"),
+  "z-index": mutable.always("2147483647") // 32-bit signed int
 });
 
 export const row = make_style({
-  "display": ref.always("flex"),
-  "flex-direction": ref.always("row"),
-  "align-items": ref.always("center"), // TODO get rid of this ?
+  "display": mutable.always("flex"),
+  "flex-direction": mutable.always("row"),
+  "align-items": mutable.always("center"), // TODO get rid of this ?
 });
 
 export const col = make_style({
-  "display": ref.always("flex"),
-  "flex-direction": ref.always("column"),
+  "display": mutable.always("flex"),
+  "flex-direction": mutable.always("column"),
 });
 
 export const stretch = make_style({
-  "flex-shrink": ref.always("1"),
-  "flex-grow": ref.always("1"),
-  "flex-basis": ref.always("0%"),
+  "flex-shrink": mutable.always("1"),
+  "flex-grow": mutable.always("1"),
+  "flex-basis": mutable.always("0%"),
 });
 
 
@@ -1223,7 +1223,7 @@ export const push_root = (x) => {
 
 // TODO does this trigger a relayout ?
 export const set_title = (x) =>
-  ref.listen(x, (x) => {
+  mutable.listen(x, (x) => {
     if (x === null) {
       document["title"] = "";
 

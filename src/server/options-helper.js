@@ -1,7 +1,7 @@
 import * as event from "../util/event";
 import * as running from "../util/running";
 import * as record from "../util/record";
-import * as ref from "../util/ref";
+import * as mutable from "../util/mutable";
 import * as async from "../util/async";
 import { init as init_chrome } from "../chrome/server";
 import { init as init_db } from "./migrate";
@@ -25,13 +25,13 @@ export const make_options = (uuid, db_name, default_options) =>
 
     record.each(default_options, (key, default_value) => {
       // TODO what if the default and the current are the same ?
-      const x = ref.make(record.get_default(current_options, key, () =>
+      const x = mutable.make(record.get_default(current_options, key, () =>
                            default_value));
 
       record.insert(refs, key, x);
 
       // TODO handle stop somehow ?
-      ref.on_change(x, (value) => {
+      mutable.on_change(x, (value) => {
         db.transaction(() => {
           db.write(db_name, (current_options) => {
             // TODO test this
@@ -63,7 +63,7 @@ export const make_options = (uuid, db_name, default_options) =>
         const key   = record.get(x, "key");
         const value = record.get(x, "value");
         // TODO this shouldn't send out a message to the port that made the change
-        ref.set(get(key), value);
+        mutable.set(get(key), value);
       }
     });
 

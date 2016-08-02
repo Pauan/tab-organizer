@@ -1,5 +1,5 @@
 import * as list from "../util/list";
-import * as ref from "../util/ref";
+import * as mutable from "../util/mutable";
 import * as event from "../util/event";
 import * as async from "../util/async";
 import * as maybe from "../util/maybe";
@@ -15,8 +15,8 @@ export const init = async.all([init_chrome,
                                { get_all_tabs, on_tab_open, on_tab_close },
                                { get: opt }) => {
 
-  const loaded   = ref.make(0);
-  const unloaded = ref.make(0);
+  const loaded   = mutable.make(0);
+  const unloaded = mutable.make(0);
 
   const add1 = (x) => x + 1;
   const sub1 = (x) => x - 1;
@@ -30,31 +30,31 @@ export const init = async.all([init_chrome,
 
   list.each(get_all_tabs(), ({ transient }) => {
     if (maybe.has(transient)) {
-      ref.modify(loaded, add1);
+      mutable.modify(loaded, add1);
     } else {
-      ref.modify(unloaded, add1);
+      mutable.modify(unloaded, add1);
     }
   });
 
   event.on_receive(on_tab_open, ({ transient }) => {
     if (maybe.has(transient)) {
-      ref.modify(loaded, add1);
+      mutable.modify(loaded, add1);
     } else {
-      ref.modify(unloaded, add1);
+      mutable.modify(unloaded, add1);
     }
   });
 
   // TODO handle a tab transitioning from loaded to unloaded, and vice versa
   event.on_receive(on_tab_close, ({ transient }) => {
     if (maybe.has(transient)) {
-      ref.modify(loaded, sub1);
+      mutable.modify(loaded, sub1);
     } else {
-      ref.modify(unloaded, sub1);
+      mutable.modify(unloaded, sub1);
     }
   });
 
 
-  button.set_text(ref.latest([
+  button.set_text(mutable.latest([
     opt("counter.display.loaded"),
     opt("counter.display.unloaded"),
     loaded,
@@ -71,7 +71,7 @@ export const init = async.all([init_chrome,
     }
   }));
 
-  button.set_color(ref.always({
+  button.set_color(mutable.always({
     red: 0,
     green: 0,
     blue: 0,

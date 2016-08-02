@@ -1,5 +1,5 @@
 import * as list from "../../list";
-import * as ref from "../../ref";
+import * as mutable from "../../mutable";
 import * as set from "../../set";
 import { get_style_value, set_style_value,
          insert_rule, set_rules } from "../style";
@@ -116,11 +116,11 @@ export const make_animation = ({ style, duration, easing }) => {
   // TODO does this throw an error on un-animatable values ?
   set_rules(to_style, style);
 
-  ref.listen(easing, (easing) => {
+  mutable.listen(easing, (easing) => {
     animation._easing = easing;
   });
 
-  ref.listen(duration, (duration) => {
+  mutable.listen(duration, (duration) => {
     animation._duration = duration;
   });
 

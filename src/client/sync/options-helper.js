@@ -1,6 +1,6 @@
 import * as async from "../../util/async";
 import * as record from "../../util/record";
-import * as ref from "../../util/ref";
+import * as mutable from "../../util/mutable";
 import { ports } from "../../chrome/client";
 
 
@@ -21,13 +21,13 @@ export const make_options = (uuid) => {
       const defaults = record.get(info, "default");
 
       record.each(defaults, (key, value) => {
-        const x = ref.make(record.get_default(current, key, () =>
+        const x = mutable.make(record.get_default(current, key, () =>
                              value));
 
         record.insert(options, key, x);
 
         // TODO test this
-        ref.on_change(x, (value) => {
+        mutable.on_change(x, (value) => {
           ports.send(port, record.make({
             "type": "set",
             "key": key,
@@ -46,7 +46,7 @@ export const make_options = (uuid) => {
       const key   = record.get(info, "key");
       const value = record.get(info, "value");
       // TODO this shouldn't send out a message
-      ref.set(get(key), value);
+      mutable.set(get(key), value);
     }
   });
 

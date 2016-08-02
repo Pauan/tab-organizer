@@ -1,9 +1,14 @@
-import * as maybe from "./maybe";
+/* @flow */
+import * as $maybe from "./maybe";
 import { assert, crash } from "./assert";
 
 
+type Order = -1 | 0 | 1;
+
+type Sorter<A> = (_: A, _: A) => Order;
+
 // TODO is this correct ?
-export const get_sorted = (array, key, sort) => {
+export const get_sorted = <A>(array: Array<A>, key: A, sort: Sorter<A>): { index: number, value: $maybe.Maybe<A> } => {
   let start = 0;
   let end   = size(array);
 
@@ -17,7 +22,7 @@ export const get_sorted = (array, key, sort) => {
     if (order === 0) {
       return {
         index: pivot,
-        value: maybe.some(array[pivot])
+        value: $maybe.some(array[pivot])
       };
 
     } else if (order < 0) {
@@ -30,12 +35,12 @@ export const get_sorted = (array, key, sort) => {
 
   return {
     index: start,
-    value: maybe.none
+    value: $maybe.none
   };
 };
 
 // TODO is this correct ?
-export const is_sorted = (list, index, len, sort) => {
+export const is_sorted = <A>(list: Array<A>, index: number, len: number, sort: Sorter<A>): boolean => {
   const prev = index - 1;
   const next = index + 1;
 
@@ -47,7 +52,7 @@ export const is_sorted = (list, index, len, sort) => {
 };
 
 // TODO is this correct ?
-export const is_all_sorted = (list, sort) => {
+export const is_all_sorted = <A>(list: Array<A>, sort: Sorter<A>): boolean => {
   const len = size(list) - 1;
 
   let index = 0;
@@ -70,46 +75,48 @@ export const is_all_sorted = (list, sort) => {
 };
 
 
-export const contains = (array, value) => {
+export const contains = <A>(array: Array<A>, value: A): boolean => {
   check_array(array);
 
-  return array["indexOf"](value) !== -1;
+  return array.indexOf(value) !== -1;
 };
 
-export const index_of = (array, value) => {
+export const index_of = <A>(array: Array<A>, value: A): number => {
   check_array(array);
 
-  const index = array["indexOf"](value);
+  const index = array.indexOf(value);
 
   if (index === -1) {
-    crash(new Error("Could not find value: " + value));
+    return crash(new Error("Could not find value: " + value));
 
   } else {
     return index;
   }
 };
 
-export const size = (array) =>
-  array["length"];
+export const size = <A>(array: Array<A>): number =>
+  array.length;
 
-export const clear = (array) => {
+export const clear = <A>(array: Array<A>): void => {
   check_array(array);
-  array["length"] = 0;
+  array.length = 0;
 };
 
 
-export const index_in_range = (index, len) =>
+export const index_in_range = (index: number, len: number): boolean =>
   index >= 0 && index < len;
 
-export const check_index = (index) => {
+// TODO get rid of this ?
+export const check_index = (index: number): void => {
   assert(typeof index === "number");
 };
 
-export const check_array = (x) => {
-  assert(Array["isArray"](x));
+// TODO get rid of this ?
+export const check_array = <A>(x: Array<A>): void => {
+  assert(Array.isArray(x));
 };
 
-export const get_index = (index, len) => {
+export const get_index = (index: number, len: number): number => {
   check_index(index);
 
   // TODO test this
@@ -121,47 +128,47 @@ export const get_index = (index, len) => {
     return index;
 
   } else {
-    crash(new Error("Invalid index: " + index));
+    return crash(new Error("Invalid index: " + index));
   }
 };
 
 
-export const insert = (array, index, value) => {
+export const insert = <A>(array: Array<A>, index: number, value: A): void => {
   // TODO test this
   // TODO maybe have the check for "unshift" before the check for "push" ?
   if (index === 0) {
-    array["unshift"](value);
+    array.unshift(value);
 
   } else if (index === size(array)) {
-    array["push"](value);
+    array.push(value);
 
   } else {
-    array["splice"](index, 0, value);
+    array.splice(index, 0, value);
   }
 };
 
-export const remove = (array, index) => {
+export const remove = <A>(array: Array<A>, index: number): void => {
   // TODO test this
   if (index === 0) {
-    array["shift"]();
+    array.shift();
 
   // TODO test this
   // TODO maybe have the check for "pop" before the check for "shift" ?
   } else if (index === size(array) - 1) {
-    array["pop"]();
+    array.pop();
 
   } else {
-    array["splice"](index, 1);
+    array.splice(index, 1);
   }
 };
 
-export const push = (array, value) => {
+export const push = <A>(array: Array<A>, value: A): void => {
   check_array(array);
 
-  array["push"](value);
+  array.push(value);
 };
 
-export const concat = (a1, a2) => {
+export const concat = <A>(a1: Array<A>, a2: Array<A>): Array<A> => {
   check_array(a1);
   check_array(a2);
 
@@ -182,7 +189,7 @@ export const concat = (a1, a2) => {
 };
 
 
-export const each = (array, f) => {
+export const each = <A>(array: Array<A>, f: (_: A) => void): void => {
   check_array(array);
 
   const len = size(array);
@@ -192,7 +199,7 @@ export const each = (array, f) => {
   }
 };
 
-export const map = (array, f) => {
+export const map = <A, B>(array: Array<A>, f: (_: A) => B): Array<B> => {
   check_array(array);
 
   const len = size(array);
@@ -233,36 +240,36 @@ export const reverse = (array) => {
   }
 };*/
 
-export const find_first = (array, f) => {
+export const find_first = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.Maybe<A> => {
   check_array(array);
 
   const len = size(array);
 
   for (let i = 0; i < len; ++i) {
     if (f(array[i], i)) {
-      return maybe.some(array[i]);
+      return $maybe.some(array[i]);
     }
   }
 
-  return maybe.none;
+  return $maybe.none;
 };
 
-export const find_last = (array, f) => {
+export const find_last = <A>(array: Array<A>, f: (_: A) => boolean): $maybe.Maybe<A> => {
   check_array(array);
 
   for (let i = size(array) - 1; i >= 0; --i) {
     if (f(array[i], i)) {
-      return maybe.some(array[i]);
+      return $maybe.some(array[i]);
     }
   }
 
-  return maybe.none;
+  return $maybe.none;
 };
 
-export const any = (array, f) =>
-  maybe.has(find_first(array, f));
+export const any = <A>(array: Array<A>, f: (_: A) => boolean): boolean =>
+  $maybe.has(find_first(array, f));
 
-export const all = (array, f) =>
+export const all = <A>(array: Array<A>, f: (_: A) => boolean): boolean =>
   !any(array, (x, i) => !f(x, i));
 
 /*export const zip = (...array) => {
@@ -289,7 +296,7 @@ export const all = (array, f) =>
   }
 };*/
 
-export const join = (x, s = "") => {
+export const join = (x: Array<string>, s: string = ""): string => {
   check_array(x);
-  return x["join"](s);
+  return x.join(s);
 };

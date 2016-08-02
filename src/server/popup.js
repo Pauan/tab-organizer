@@ -1,5 +1,5 @@
 import * as list from "../util/list";
-import * as ref from "../util/ref";
+import * as mutable from "../util/mutable";
 import * as event from "../util/event";
 import * as record from "../util/record";
 import * as async from "../util/async";
@@ -15,7 +15,7 @@ export const init = async.all([init_chrome,
                                  tabs, windows, ports },
                                { get: opt }) => {
 
-  button.set_tooltip(ref.always(record.get(manifest, "name")));
+  button.set_tooltip(mutable.always(record.get(manifest, "name")));
 
   const panel_url = "panel.html";
   const empty_url = "data/empty.html";
@@ -104,20 +104,20 @@ export const init = async.all([init_chrome,
   };
 
   const set_monitor_size = (size) => {
-    ref.set(opt("screen.available.left"), size.left);
-    ref.set(opt("screen.available.top"), size.top);
-    ref.set(opt("screen.available.width"), size.width);
-    ref.set(opt("screen.available.height"), size.height);
-    ref.set(opt("screen.available.checked"), true);
+    mutable.set(opt("screen.available.left"), size.left);
+    mutable.set(opt("screen.available.top"), size.top);
+    mutable.set(opt("screen.available.width"), size.width);
+    mutable.set(opt("screen.available.height"), size.height);
+    mutable.set(opt("screen.available.checked"), true);
   };
 
   const get_screen_size = (f) => {
-    if (ref.get(opt("screen.available.checked"))) {
+    if (mutable.get(opt("screen.available.checked"))) {
       f({
-        left:   ref.get(opt("screen.available.left")),
-        top:    ref.get(opt("screen.available.top")),
-        width:  ref.get(opt("screen.available.width")),
-        height: ref.get(opt("screen.available.height"))
+        left:   mutable.get(opt("screen.available.left")),
+        top:    mutable.get(opt("screen.available.top")),
+        width:  mutable.get(opt("screen.available.width")),
+        height: mutable.get(opt("screen.available.height"))
       });
 
     } else {
@@ -159,10 +159,10 @@ export const init = async.all([init_chrome,
   const get_popup_dimensions = (type, screen) => {
     switch (type) {
     case "popup":
-      const popup_left   = ref.get(opt("size.popup.left"));
-      const popup_top    = ref.get(opt("size.popup.top"));
-      const popup_width  = ref.get(opt("size.popup.width"));
-      const popup_height = ref.get(opt("size.popup.height"));
+      const popup_left   = mutable.get(opt("size.popup.left"));
+      const popup_top    = mutable.get(opt("size.popup.top"));
+      const popup_width  = mutable.get(opt("size.popup.width"));
+      const popup_height = mutable.get(opt("size.popup.height"));
 
       return {
         left: screen.left +
@@ -180,8 +180,8 @@ export const init = async.all([init_chrome,
 
 
     case "sidebar":
-      const sidebar_position = ref.get(opt("size.sidebar.position"));
-      const sidebar_size     = ref.get(opt("size.sidebar"));
+      const sidebar_position = mutable.get(opt("size.sidebar.position"));
+      const sidebar_size     = mutable.get(opt("size.sidebar"));
 
       return {
         left: (sidebar_position === "right"
@@ -210,8 +210,8 @@ export const init = async.all([init_chrome,
   };
 
   const get_window_size = (screen) => {
-    const sidebar_position = ref.get(opt("size.sidebar.position"));
-    const sidebar_size     = ref.get(opt("size.sidebar"));
+    const sidebar_position = mutable.get(opt("size.sidebar.position"));
+    const sidebar_size     = mutable.get(opt("size.sidebar"));
 
     return {
       left:   (sidebar_position === "left"
@@ -290,8 +290,8 @@ export const init = async.all([init_chrome,
     close_tab();
 
     const dimensions = {
-      width:  ref.get(opt("size.panel.width")),
-      height: ref.get(opt("size.panel.height"))
+      width:  mutable.get(opt("size.panel.width")),
+      height: mutable.get(opt("size.panel.height"))
     };
 
     if (panel.value === null) {
@@ -390,14 +390,14 @@ export const init = async.all([init_chrome,
 
 
   event.on_receive(button.on_click, () => {
-    const type = ref.get(opt("popup.type"));
+    const type = mutable.get(opt("popup.type"));
     record.get(types, type)(type);
   });
 
 
   const handle_events = record.make({
     "open-panel": () => {
-      if (ref.get(opt("popup.type")) === "bubble") {
+      if (mutable.get(opt("popup.type")) === "bubble") {
         open_bubble();
       }
     },
@@ -420,7 +420,7 @@ export const init = async.all([init_chrome,
   });
 
 
-  button.set_bubble_url(ref.map(opt("popup.type"), (type) =>
+  button.set_bubble_url(mutable.map(opt("popup.type"), (type) =>
                           (type === "bubble"
                             ? panel_url
                             : null)));

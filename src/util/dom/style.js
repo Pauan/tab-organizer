@@ -1,6 +1,6 @@
 import * as record from "../record";
 import * as list from "../list";
-import * as ref from "../ref";
+import * as mutable from "../mutable";
 import { assert, crash } from "../assert";
 
 
@@ -159,7 +159,7 @@ export const make_style = (rules) => {
 
 export const set_rules = (style, rules) => {
   record.each(rules, (key, value) => {
-    ref.listen(value, (value) => {
+    mutable.listen(value, (value) => {
       set_style_value(style, key, value);
     });
   });

@@ -66,7 +66,8 @@ module.exports = {
             //"undeclared-variables-check",
             "transform-member-expression-literals",
             "transform-property-literals",
-            "transform-strict-mode"
+            "transform-strict-mode",
+            require("babel-plugin-transform-flow-comments")
           ]
         }
       }
