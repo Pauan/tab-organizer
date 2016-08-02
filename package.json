@@ -12,10 +12,14 @@
     "babel-plugin-transform-member-expression-literals": "^6.3.13",
     "babel-plugin-transform-property-literals": "^6.3.13",
     "babel-plugin-transform-strict-mode": "^6.3.13",
-    "webpack": "^1.12.9"
+    "webpack": "^1.12.9",
+    "flow-bin": "^0.30.0"
   },
   "scripts": {
     "build": "npm install && webpack --colors --bail -p",
-    "watch": "npm install && webpack --colors --watch"
+    "watch": "npm install && webpack --colors --watch",
+    "start": "flow && npm run-script watch",
+    "stop": "flow stop",
+    "test": "flow check"
   }
 }

@@ -1,0 +1,11 @@
+[ignore]
+<PROJECT_ROOT>/node_modules/.*
+<PROJECT_ROOT>/build/.*
+
+[include]
+
+[libs]
+
+[options]
+module.use_strict=true
+munge_underscores=true
