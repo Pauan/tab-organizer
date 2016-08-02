@@ -67,7 +67,7 @@ module.exports = {
             "transform-member-expression-literals",
             "transform-property-literals",
             "transform-strict-mode",
-            require("babel-plugin-transform-flow-comments")
+            "transform-flow-comments"
           ]
         }
       }
