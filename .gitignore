@@ -1,4 +1,8 @@
-/node_modules
-/build/lib
-/build/js
-/build/map
+/.pulp-cache/
+/bower_components/
+/build/js/
+/node_modules/
+/output/
+
+/.psc*
+/yarn-error.log
