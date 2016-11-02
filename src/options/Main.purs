@@ -12,7 +12,13 @@ main = do
   c <- Mutable.make 3
   observe
     (\a -> show a >> log)
-    (lift3 (\a b c -> a + b + c) (view a) (view b) (view c)) >> void
+    --(map (\a b c -> a + b + c) << view a |< view b |< view c)
+    (view a >|
+     view b >|
+     view c >>
+     map \a b c ->
+       a + b + c)
+    >> void
   runTransaction do
     a >> Mutable.set 20
   runTransaction do
