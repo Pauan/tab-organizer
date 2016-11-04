@@ -17,6 +17,8 @@ import Prelude
   , bind
   , show
   , (+)
+  , (-)
+  , negate
   , void
   , class Eq
   , class Show

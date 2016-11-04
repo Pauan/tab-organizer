@@ -13,6 +13,7 @@
     "build:server": "pulp build --main Server.Main --optimise --to build/js/server.js",
     "build:options": "pulp build --main Options.Main --optimise --to build/js/options.js",
     "test": "pulp test",
+    "psci": "pulp psci",
     "bower:install": "bower install --save-dev"
   }
 }

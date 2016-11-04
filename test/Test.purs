@@ -7,8 +7,10 @@ module Pauan.Prelude.Test
   , Push
   , makePush
   , runPush
+  , unsafeRunPush
   , getPush
   , equalPush
+  , equalView
   , Tests
   , TestOutput
   ) where
@@ -16,13 +18,15 @@ module Pauan.Prelude.Test
 import Pauan.Prelude
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Aff.AVar (AVAR)
-import Test.Unit (suite, test, TestSuite)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
+import Test.Unit (suite, test, TestSuite, Test)
 import Test.Unit.Assert (equal)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
 import Test.Unit.QuickCheck (quickCheck)
 
 import Pauan.Mutable as Mutable
+import Pauan.View (value)
 import Data.Array (snoc)
 
 
@@ -48,6 +52,12 @@ runPush var value = runTransaction do
   var >> Mutable.modify \a -> value >> snoc a
 
 
+unsafeRunPush :: forall a. Push a -> a -> a
+unsafeRunPush var value = unsafePerformEff do
+  runPush var value
+  pure value
+
+
 getPush :: forall a eff.
   Push a ->
   Aff (mutable :: Mutable.MUTABLE | eff) (Array a)
@@ -62,3 +72,9 @@ equalPush :: forall a eff. (Eq a, Show a) =>
 equalPush expected var = do
   output <- getPush var
   output >> equal expected
+
+
+equalView :: forall a eff. (Eq a, Show a) => a -> View eff a -> Test eff
+equalView expected a = do
+  actual <- a >> value >> liftEff
+  actual >> equal expected
