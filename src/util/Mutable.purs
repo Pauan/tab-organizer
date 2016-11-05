@@ -26,7 +26,7 @@ foreign import viewImpl :: forall a eff.
   Mutable a ->
   View eff a
 
-instance toViewMutable :: ToView Mutable eff where
+instance toViewMutable :: ToView (Mutable a) a eff where
   view = viewImpl Events.receive unit
 
 
@@ -36,12 +36,13 @@ foreign import get :: forall a eff. Mutable a -> Transaction (mutable :: MUTABLE
 foreign import setImpl :: forall a eff.
   -- TODO is this type signature correct ?
   (TransactionId -> Events.Events TransactionId -> Eff eff Unit) ->
+  Unit ->
   a ->
   Mutable a ->
   Transaction (mutable :: MUTABLE | eff) Unit
 
 set :: forall a eff. a -> Mutable a -> Transaction (mutable :: MUTABLE | eff) Unit
-set = setImpl Events.send
+set = setImpl Events.send unit
 
 
 modify :: forall a eff. (a -> a) -> Mutable a -> Transaction (mutable :: MUTABLE | eff) Unit

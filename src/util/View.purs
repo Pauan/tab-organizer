@@ -12,8 +12,8 @@ foreign import value :: forall a eff. View eff a -> Eff eff a
 foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View eff a -> Eff eff Resource
 
 
-class ToView f eff where
-  view :: forall a. f a -> View eff a
+class ToView f a eff where
+  view :: f -> View eff a
 
 
 foreign import mapImpl :: forall a b eff. (a -> b) -> View eff a -> View eff b
