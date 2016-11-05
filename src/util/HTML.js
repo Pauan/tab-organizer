@@ -152,9 +152,9 @@ exports.styleViewImpl = function (observe) {
 };
 
 
-exports.widget = function (eff) {
+exports.widget = function (f) {
   return function (state) {
-    return eff()(state);
+    return f(state)()(state);
   };
 };
 
@@ -196,7 +196,9 @@ exports.attribute = function (key) {
 };
 
 
-exports.body = document.body;
+exports.body = function () {
+  return document.body;
+};
 
 
 exports.renderImpl = function (unit) {

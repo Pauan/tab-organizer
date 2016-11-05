@@ -7,21 +7,22 @@ import Pauan.HTML (render, body)
 
 root :: HTML
 root =
-  widget do
+  widget \state -> do
     a <- Animation.make { duration: 500.0 }
     a >> Animation.tweenTo 1.0
+    --state >> keepUntil (a >> view >> is 0.0)
     --runTransaction do
       --a >> Animation.jumpTo 1.0
     pure << html "div"
       [ styleView "width"
-          (view a >> map (Animation.rangeSuffix 0.0 100.0 "px"))
+          (view a >> map (spy >>> Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"))
       , style "height" "50px"
       , style "background-color" "green" ]
       []
 
 
 main :: Eff () Unit
-main = root >> render body >> void
+main = root >> render >> void
 
 {-main :: Eff (err :: EXCEPTION) Unit
 main = void << launchAff do

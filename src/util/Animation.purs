@@ -1,16 +1,45 @@
-module Pauan.Animation (Animation, Tween, make, jumpTo, tweenTo, range, rangeSuffix) where
+module Pauan.Animation
+  ( Animation
+  , Tween(..)
+  , make
+  , jumpTo
+  , tweenTo
+  , range
+  , rangeSuffix
+  , easePow
+  , easeSinusoidal
+  , easeExponential
+  , easeCircular
+  , easeOut
+  , easeInOut
+  , easeRepeat
+  ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
 import Data.Foldable (sequence_)
 import Pauan.View (class ToView, View, view)
 import Pauan.Transaction (Transaction, runTransaction)
+import Data.Generic (class Generic, gEq, gShow, gCompare)
 import Pauan.Mutable as Mutable
 
 
 foreign import data Animation :: *
 
+
 newtype Tween = Tween Number
+
+derive instance genericTween :: Generic Tween
+
+-- TODO replace with Newtype or whatever
+instance showTween :: Show Tween where
+  show = gShow
+
+instance eqTween :: Eq Tween where
+  eq = gEq
+
+instance ordTween :: Ord Tween where
+  compare = gCompare
 
 
 foreign import makeImpl :: forall eff.
@@ -68,3 +97,19 @@ range = rangeImpl
 rangeSuffix :: Number -> Number -> String -> Tween -> String
 -- TODO should this use show or something else ?
 rangeSuffix from to suffix t = show (range from to t) <> suffix
+
+
+foreign import easePow :: Number -> Tween -> Tween
+
+foreign import easeSinusoidal :: Tween -> Tween
+
+foreign import easeExponential :: Tween -> Tween
+
+foreign import easeCircular :: Tween -> Tween
+
+foreign import easeOut :: (Tween -> Tween) -> Tween -> Tween
+
+foreign import easeInOut :: (Tween -> Tween) -> Tween -> Tween
+
+-- TODO should this be Int or Number ?
+foreign import easeRepeat :: Int -> Tween -> Tween

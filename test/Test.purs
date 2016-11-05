@@ -4,6 +4,7 @@ module Pauan.Prelude.Test
   , module Test.Unit.Assert
   , module Test.Unit.Main
   , module Test.Unit.QuickCheck
+  , module Test.QuickCheck
   , Push
   , makePush
   , runPush
@@ -12,6 +13,7 @@ module Pauan.Prelude.Test
   , equalPush
   , equalView
   , Tests
+  , Test
   , TestOutput
   ) where
 
@@ -19,20 +21,24 @@ import Pauan.Prelude
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import Test.Unit (suite, test, TestSuite, Test)
+import Test.Unit (suite, test, TestSuite)
 import Test.Unit.Assert (equal)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
 import Test.Unit.QuickCheck (quickCheck)
+import Test.QuickCheck ((===))
+import Control.Monad.Eff.Random (RANDOM)
 
 import Pauan.Mutable as Mutable
 import Pauan.View (value)
 import Data.Array (snoc)
 
 
-type Tests = forall eff. TestSuite (mutable :: Mutable.MUTABLE | eff)
+type Test eff = Aff (random :: RANDOM | eff) Unit
 
-type TestOutput = Eff (console :: CONSOLE, testOutput :: TESTOUTPUT, avar :: AVAR, mutable :: Mutable.MUTABLE) Unit
+type Tests = forall eff. TestSuite (random :: RANDOM, mutable :: Mutable.MUTABLE | eff)
+
+type TestOutput = Eff (random :: RANDOM, console :: CONSOLE, testOutput :: TESTOUTPUT, avar :: AVAR, mutable :: Mutable.MUTABLE) Unit
 
 
 -- TODO use a newtype for this ?
@@ -74,7 +80,7 @@ equalPush expected var = do
   output >> equal expected
 
 
-equalView :: forall a eff. (Eq a, Show a) => a -> View eff a -> Test eff
+equalView :: forall a eff. (Eq a, Show a) => a -> View eff a -> Aff eff Unit
 equalView expected a = do
   actual <- a >> value >> liftEff
   actual >> equal expected

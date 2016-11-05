@@ -3,6 +3,7 @@ module Pauan.Prelude
   , module Control.Monad.Eff
   , module Control.Monad.Eff.Class
   , module Control.Monad.Aff
+  , module Debug.Trace
   , module Pauan.View
   , module Pauan.Transaction
   , module Pauan.HTML
@@ -20,6 +21,8 @@ import Prelude
   , (+)
   , (-)
   , (<>)
+  , (<<<)
+  , (>>>)
   , negate
   , void
   , class Eq
@@ -34,6 +37,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
+import Debug.Trace (spy)
 
 import Pauan.HTML (HTML, html, style, styleView, widget)
 import Pauan.View (class ToView, View, view)

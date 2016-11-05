@@ -12,6 +12,10 @@
     "purescript-eff": "^1.0.0",
     "purescript-prelude": "^1.1.0",
     "purescript-psci-support": "^1.0.0",
-    "purescript-test-unit": "^9.1.0"
+    "purescript-test-unit": "^9.1.0",
+    "purescript-debug": "^2.0.0"
+  },
+  "resolutions": {
+    "purescript-prelude": "~1.1.0"
   }
 }

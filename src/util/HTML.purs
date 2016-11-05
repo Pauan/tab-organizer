@@ -1,6 +1,7 @@
 module Pauan.HTML
   ( DOMElement
   , HTML
+  , State
   , Attribute
   , widget
   , html
@@ -29,10 +30,12 @@ foreign import data DOMElement :: *
 
 foreign import data HTML :: *
 
+foreign import data State :: *
+
 foreign import data Attribute :: *
 
 
-foreign import widget :: forall eff. Eff eff HTML -> HTML
+foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML
 
 foreign import html :: String -> Array Attribute -> Array HTML -> HTML
 
@@ -90,9 +93,15 @@ styleView = styleViewImpl observe unit
 
 foreign import renderImpl :: forall eff. Unit -> DOMElement -> HTML -> Eff eff Resource
 
-render :: forall eff. DOMElement -> HTML -> Eff eff Resource
-render = renderImpl unit
+render' :: forall eff. DOMElement -> HTML -> Eff eff Resource
+render' = renderImpl unit
 
 
--- TODO maybe this should return Eff instead ?
-foreign import body :: DOMElement
+-- TODO should this return Eff ?
+foreign import body :: forall eff. Eff eff DOMElement
+
+
+render :: forall eff. HTML -> Eff eff Resource
+render a = do
+  b <- body
+  render' b a

@@ -200,3 +200,74 @@ exports.tweenToImpl = function (set) {
     };
   };
 };
+
+
+// Easings
+exports.easePow = function (pow) {
+  return function (t) {
+    return Math.pow(t, pow);
+  };
+};
+
+
+var tau = Math.PI / 2;
+
+exports.easeSinusoidal = function (t) {
+  // TODO is this correct ?
+  if (t === 1) {
+    return 1;
+
+  } else {
+    return 1 - Math.cos(t * tau);
+  }
+};
+
+
+exports.easeExponential = function (t) {
+  // TODO is this correct ?
+  if (t === 0) {
+    return 0;
+
+  } else {
+    return Math.pow(2, 10 * (t - 1));
+  }
+};
+
+
+exports.easeCircular = function (t) {
+  return 1 - Math.sqrt(1 - t * t);
+};
+
+
+exports.easeOut = function (f) {
+  return function (t) {
+    return 1 - f(1 - t);
+  };
+};
+
+
+// TODO test this
+exports.easeInOut = function (f) {
+  return function (t) {
+    if (t <= 0.5) {
+      return f(t * 2) / 2;
+
+    } else {
+      return 1 - (f((1 - t) * 2) / 2);
+    }
+  };
+};
+
+
+// TODO is this correct ?
+// TODO can this be made faster ?
+exports.easeRepeat = function (amount) {
+  return function (t) {
+    if (t === 1) {
+      return 1;
+
+    } else {
+      return (t * amount) % 1;
+    }
+  };
+};
