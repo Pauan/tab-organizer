@@ -159,6 +159,30 @@ exports.widget = function (f) {
 };
 
 
+exports.beforeRemoveImpl = function (unit) {
+  return function (eff) {
+    return function (state) {
+      return function () {
+        beforeRemove(state, eff);
+        return unit;
+      };
+    };
+  };
+};
+
+
+exports.afterInsertImpl = function (unit) {
+  return function (eff) {
+    return function (state) {
+      return function () {
+        afterInsert(state, eff);
+        return unit;
+      };
+    };
+  };
+};
+
+
 exports.html = function (tag) {
   return function (attrs) {
     return function (children) {

@@ -14,6 +14,10 @@ module Pauan.HTML
   , checkedView
   , style
   , styleView
+  , afterInsert
+  , beforeRemove
+  , hsl
+  , hsla
   ) where
 
 import Prelude
@@ -40,6 +44,18 @@ foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML
 foreign import html :: String -> Array Attribute -> Array HTML -> HTML
 
 foreign import attribute :: String -> String -> Attribute
+
+
+foreign import afterInsertImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit
+
+afterInsert :: forall eff. Eff eff Unit -> State -> Eff eff Unit
+afterInsert = afterInsertImpl unit
+
+
+foreign import beforeRemoveImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit
+
+beforeRemove :: forall eff. Eff eff Unit -> State -> Eff eff Unit
+beforeRemove = beforeRemoveImpl unit
 
 
 {-foreign import attributeViewImpl :: forall eff.
@@ -105,3 +121,13 @@ render :: forall eff. HTML -> Eff eff Resource
 render a = do
   b <- body
   render' b a
+
+
+hsl :: Number -> Number -> Number -> String
+-- TODO should this use show ?
+hsl h s l = "hsl(" <> show h <> ", " <> show s <> "%, " <> show l <> "%)"
+
+
+hsla :: Number -> Number -> Number -> Number -> String
+-- TODO should this use show ?
+hsla h s l a = "hsl(" <> show h <> ", " <> show s <> "%, " <> show l <> "%, " <> show a <> ")"

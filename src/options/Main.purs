@@ -2,22 +2,37 @@ module Options.Main where
 
 import Pauan.Prelude
 import Pauan.Animation as Animation
-import Pauan.HTML (render, body)
+import Pauan.HTML (render, widget, afterInsert, beforeRemove)
 
 
 root :: HTML
 root =
   widget \state -> do
-    a <- Animation.make { duration: 500.0 }
-    a >> Animation.tweenTo 1.0
+    a <- Animation.make { duration: 5000.0 }
+    "Widget before" >> spy >> pure
+    state >> afterInsert do
+      "afterInsert" >> spy >> pure
+      a >> Animation.tweenTo 1.0
+    "Widget after" >> spy >> pure
+    state >> beforeRemove do
+      a >> Animation.tweenTo 0.0
     --state >> keepUntil (a >> view >> is 0.0)
-    --runTransaction do
-      --a >> Animation.jumpTo 1.0
     pure << html "div"
-      [ styleView "width"
-          (view a >> map (spy >>> Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"))
-      , style "height" "50px"
-      , style "background-color" "green" ]
+      [ style "position" "fixed"
+      , style "left" "0px"
+      , style "top" "0px"
+      , style "transform" "translate3d(0, 0, 0)"
+      , styleView "width"
+          -- Animation.easeOut Animation.easeExponential >>>
+          (view a >> map (spy >>> Animation.rangeSuffix 0.0 100.0 "px"))
+      , styleView "height"
+          (view a >> map (Animation.rangeSuffix 0.0 50.0 "px"))
+      , styleView "background-color"
+          (view a >> map \t ->
+            hsl
+              (Animation.range 0.0 360.0 t)
+              100.0
+              50.0) ]
       []
 
 
