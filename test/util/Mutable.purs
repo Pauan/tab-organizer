@@ -33,35 +33,36 @@ tests = suite "Mutable" do
     output >> equal 13
 
 
-  test "view >>> value" do
-    a <- Mutable.make 1 >> liftEff
-    let v = a >> view
-    v >> equalView 1
-    liftEff << runTransaction do
-      a >> Mutable.set 2
-    v >> equalView 2
-
-
-  test "view >>> observe" do
-    push <- makePush
-
-    liftEff do
-      a <- Mutable.make 1
-      resource <- a >> view >> observe (runPush push)
-      resource >> cleanup
-      runTransaction do
+  suite "view" do
+    test "value" do
+      a <- Mutable.make 1 >> liftEff
+      let v = a >> view
+      v >> equalView 1
+      liftEff << runTransaction do
         a >> Mutable.set 2
+      v >> equalView 2
 
-    push >> equalPush [1]
 
-    liftEff do
-      a <- Mutable.make 3
-      resource <- a >> view >> observe (runPush push)
-      runTransaction do
-        a >> Mutable.set 4
-        a >> Mutable.set 5
-      resource >> cleanup
-      runTransaction do
-        a >> Mutable.set 6
+    test "observe" do
+      push <- makePush
 
-    push >> equalPush [1, 3, 5]
+      liftEff do
+        a <- Mutable.make 1
+        resource <- a >> view >> observe (runPush push)
+        resource >> cleanup
+        runTransaction do
+          a >> Mutable.set 2
+
+      push >> equalPush [1]
+
+      liftEff do
+        a <- Mutable.make 3
+        resource <- a >> view >> observe (runPush push)
+        runTransaction do
+          a >> Mutable.set 4
+          a >> Mutable.set 5
+        resource >> cleanup
+        runTransaction do
+          a >> Mutable.set 6
+
+      push >> equalPush [1, 3, 5]

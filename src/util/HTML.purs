@@ -5,6 +5,9 @@ module Pauan.HTML
   , Attribute
   , widget
   , html
+  , htmlView
+  , text
+  , textView
   , attribute
   , render
   , body
@@ -12,8 +15,10 @@ module Pauan.HTML
   , valueView
   , checked
   , checkedView
+  , MouseEvent
   , style
   , styleView
+  , onClick
   , afterInsert
   , beforeRemove
   , hsl
@@ -44,6 +49,36 @@ foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML
 foreign import html :: String -> Array Attribute -> Array HTML -> HTML
 
 foreign import attribute :: String -> String -> Attribute
+
+foreign import text :: String -> HTML
+
+
+foreign import htmlViewImpl :: forall eff.
+  Observe eff (Array HTML) ->
+  Unit ->
+  String ->
+  Array Attribute ->
+  View eff (Array HTML) -> HTML
+
+htmlView :: forall eff. String -> Array Attribute -> View eff (Array HTML) -> HTML
+htmlView = htmlViewImpl observe unit
+
+
+foreign import textViewImpl :: forall eff.
+  Observe eff String ->
+  Unit ->
+  View eff String -> HTML
+
+textView :: forall eff. View eff String -> HTML
+textView = textViewImpl observe unit
+
+
+type MouseEvent = {}
+
+foreign import onClickImpl :: forall eff. (MouseEvent -> Eff eff Unit) -> Attribute
+
+onClick :: forall eff. (MouseEvent -> Eff eff Unit) -> Attribute
+onClick = onClickImpl
 
 
 foreign import afterInsertImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit

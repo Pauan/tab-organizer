@@ -7,6 +7,7 @@ module Pauan.Prelude
   , module Pauan.View
   , module Pauan.Transaction
   , module Pauan.HTML
+  , module Data.Array
   , (<<)
   , (>>)
   , (|<)
@@ -34,12 +35,13 @@ import Prelude
   , class Apply
   )
 
+import Data.Array ((..))
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
 import Debug.Trace (spy)
 
-import Pauan.HTML (HTML, html, style, styleView, hsl, hsla)
+import Pauan.HTML (HTML, html, htmlView, style, styleView, hsl, hsla, text, onClick, MouseEvent)
 import Pauan.View (class ToView, View, view)
 import Pauan.Transaction (Transaction, runTransaction)
 

@@ -33,12 +33,6 @@ function send(events, value, unit) {
   // This causes it to not trigger listeners which are added while sending a value
   events.length = listeners.length;
 
-  /*var length = listeners.length;
-
-  for (var i = 0; i < length; ++i) {
-    listeners[i](value)();
-  }*/
-
   // All of this extra code is needed when a listener is removed while sending a value
   for (;;) {
     var index = events.index;

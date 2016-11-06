@@ -74,26 +74,28 @@ function makePropertySetter(f) {
   };
 }
 
-function attributeObserve(observe, unit, view, f) {
-  return function (state, element) {
-    var resource = observe(function (value) {
-      // TODO make this more efficient ?
-      return function () {
-        f(state, element, value);
-        return unit;
-      };
-    })(view)();
+function stateObserve(state, observe, view, f) {
+  var resource = observe(function (value) {
+    // TODO make this more efficient ?
+    return function () {
+      return f(value);
+    };
+  })(view)();
 
-    // TODO test this
-    beforeRemove(state, resource);
-  };
+  // TODO test this
+  beforeRemove(state, resource);
 }
 
 function makePropertyViewSetter(f) {
   return function (observe) {
     return function (unit) {
       return function (view) {
-        return attributeObserve(observe, unit, view, f);
+        return function (state, element) {
+          stateObserve(state, observe, view, function (value) {
+            f(state, element, value);
+            return unit;
+          });
+        };
       };
     };
   };
@@ -116,17 +118,34 @@ exports.checked = makePropertySetter(setChecked);
 exports.checkedViewImpl = makePropertyViewSetter(setChecked);
 
 
+exports.onClickImpl = function (f) {
+  return function (state, element) {
+    element.addEventListener("click", function (e) {
+      f({})();
+    }, true);
+  };
+};
+
+
 // TODO test this
 // TODO browser prefixes
 function setStyle(style, key, value) {
-  var oldValue = style.getPropertyValue(key);
+  // TODO can this be made faster ?
+  // TODO remove this ?
+  if (key in style) {
+    style.removeProperty(key);
 
-  style.setProperty(key, value, "");
+    // TODO is this correct ?
+    if (value !== "") {
+      style.setProperty(key, value, "");
 
-  var newValue = style.getPropertyValue(key);
+      // TODO test this
+      if (style.getPropertyValue(key) === "") {
+        throw new Error("Invalid style \"" + key + "\": \"" + value + "\"");
+      }
+    }
 
-  // TODO this is probably incorrect
-  if (oldValue === newValue) {
+  } else {
     throw new Error("Invalid style \"" + key + "\": \"" + value + "\"");
   }
 }
@@ -143,9 +162,12 @@ exports.styleViewImpl = function (observe) {
   return function (unit) {
     return function (key) {
       return function (view) {
-        return attributeObserve(observe, unit, view, function (state, element, value) {
-          setStyle(element.style, key, value);
-        });
+        return function (state, element) {
+          stateObserve(state, observe, view, function (value) {
+            setStyle(element.style, key, value);
+            return unit;
+          });
+        };
       };
     };
   };
@@ -183,6 +205,22 @@ exports.afterInsertImpl = function (unit) {
 };
 
 
+function setChildren(state, e, children) {
+  var length = children.length;
+
+  for (var i = 0; i < length; ++i) {
+    e.appendChild(children[i](state));
+  }
+}
+
+function setAttributes(state, e, attrs) {
+  var length = attrs.length;
+
+  for (var i = 0; i < length; ++i) {
+    attrs[i](state, e);
+  }
+}
+
 exports.html = function (tag) {
   return function (attrs) {
     return function (children) {
@@ -190,18 +228,92 @@ exports.html = function (tag) {
         // TODO use createElementNS ?
         var e = document.createElement(tag);
 
-        var length1 = children.length;
+        // This must be before `setAttributes`, because otherwise setting the `value` of a `<select>` doesn't work
+        setChildren(state, e, children);
+        setAttributes(state, e, attrs);
 
-        // This must be before the attributes, because otherwise setting the `value` of a `<select>` doesn't work
-        for (var i1 = 0; i1 < length1; ++i1) {
-          e.appendChild(children[i1](state));
-        }
+        return e;
+      };
+    };
+  };
+};
 
-        var length2 = attrs.length;
 
-        for (var i2 = 0; i2 < length2; ++i2) {
-          attrs[i2](state, e);
-        }
+function setChildrenView(state, e, children, observe, unit) {
+  var childState = null;
+
+  // TODO guarantee that this is called synchronously ?
+  stateObserve(state, observe, children, function (value) {
+    var oldState = childState;
+
+    childState = makeState(state);
+
+    // TODO is it faster or slower to use a document fragment ?
+    var fragment = document.createDocumentFragment();
+
+    setChildren(childState, fragment, value);
+
+    if (oldState !== null) {
+      triggerRemove(oldState);
+      // TODO can this be made faster ?
+      e.innerHTML = "";
+    }
+
+    e.appendChild(fragment);
+
+    triggerInsert(childState);
+
+    return unit;
+  });
+
+  // TODO test this
+  beforeRemove(state, function () {
+    triggerRemove(childState);
+  });
+}
+
+exports.htmlViewImpl = function (observe) {
+  return function (unit) {
+    return function (tag) {
+      return function (attrs) {
+        return function (children) {
+          return function (state) {
+            // TODO use createElementNS ?
+            var e = document.createElement(tag);
+
+            // This must be before `setAttributes`, because otherwise setting the `value` of a `<select>` doesn't work
+            setChildrenView(state, e, children, observe, unit);
+            setAttributes(state, e, attrs);
+
+            return e;
+          };
+        };
+      };
+    };
+  };
+};
+
+
+exports.text = function (text) {
+  return function (state) {
+    // TODO cache this ?
+    return document.createTextNode(text);
+  };
+};
+
+
+exports.textViewImpl = function (observe) {
+  return function (unit) {
+    return function (view) {
+      return function (state) {
+        var e = document.createTextNode("");
+
+        // TODO guarantee that this is called synchronously ?
+        stateObserve(state, observe, view, function (value) {
+          // http://jsperf.com/textnode-performance
+          e.data = value;
+          return unit;
+        });
 
         return e;
       };
