@@ -3,12 +3,12 @@ module Pauan.Test.Animation where
 import Pauan.Prelude.Test
 import Pauan.Animation (Tween(..), easePow, easeExponential, easeSinusoidal, easeCircular, easeOut, easeInOut, easeRepeat)
 
-testBeginEnd :: forall eff. (Tween -> Tween) -> Test eff
+testBeginEnd :: (Tween -> Tween) -> TestAff Unit
 testBeginEnd f = do
   f (Tween 0.0) >> equal (Tween 0.0)
   f (Tween 1.0) >> equal (Tween 1.0)
 
-testEasing :: forall eff. (Tween -> Tween) -> Test eff
+testEasing :: (Tween -> Tween) -> TestAff Unit
 testEasing f = do
   testBeginEnd f
   testBeginEnd (easeOut f)

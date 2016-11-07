@@ -24,9 +24,9 @@ foreign import viewImpl :: forall a eff.
   ((TransactionId -> Eff eff Unit) -> Events.Events TransactionId -> Eff eff Resource) ->
   Unit ->
   Mutable a ->
-  View eff a
+  View a
 
-instance toViewMutable :: ToView (Mutable a) a eff where
+instance toViewMutable :: ToView (Mutable a) a where
   view = viewImpl Events.receive unit
 
 

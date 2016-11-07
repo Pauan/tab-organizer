@@ -5,36 +5,36 @@ import Control.Monad.Eff (Eff)
 import Pauan.Resource (Resource)
 
 
-foreign import data View :: # ! -> * -> *
+foreign import data View :: * -> *
 
-foreign import value :: forall a eff. View eff a -> Eff eff a
+foreign import value :: forall a eff. View a -> Eff eff a
 
-foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View eff a -> Eff eff Resource
-
-
-class ToView f a eff where
-  view :: f -> View eff a
+foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View a -> Eff eff Resource
 
 
-foreign import mapImpl :: forall a b eff. (a -> b) -> View eff a -> View eff b
+class ToView f a where
+  view :: f -> View a
 
-instance functorView :: Functor (View eff) where
+
+foreign import mapImpl :: forall a b. (a -> b) -> View a -> View b
+
+instance functorView :: Functor View where
   map = mapImpl
 
 
-foreign import applyImpl :: forall a b eff. View eff (a -> b) -> View eff a -> View eff b
+foreign import applyImpl :: forall a b. View (a -> b) -> View a -> View b
 
-instance applyView :: Apply (View eff) where
+instance applyView :: Apply View where
   apply = applyImpl
 
 
-foreign import bindImpl :: forall a b eff. View eff a -> (a -> View eff b) -> View eff b
+foreign import bindImpl :: forall a b. View a -> (a -> View b) -> View b
 
-instance bindView :: Bind (View eff) where
+instance bindView :: Bind View where
   bind = bindImpl
 
 
-foreign import pureImpl :: forall a eff. a -> View eff a
+foreign import pureImpl :: forall a. a -> View a
 
-instance applicativeView :: Applicative (View eff) where
+instance applicativeView :: Applicative View where
   pure = pureImpl

@@ -13,7 +13,9 @@ module Pauan.Prelude.Test
   , equalPush
   , equalView
   , Tests
-  , Test
+  , TestAff
+  , TestEff
+  , toTest
   , TestOutput
   ) where
 
@@ -34,11 +36,34 @@ import Pauan.View (value)
 import Data.Array (snoc)
 
 
-type Test eff = Aff (random :: RANDOM | eff) Unit
+type TestAff a =
+  Aff (
+    mutable :: Mutable.MUTABLE,
+    random :: RANDOM,
+    console :: CONSOLE,
+    testOutput :: TESTOUTPUT,
+    avar :: AVAR
+  ) a
 
-type Tests = forall eff. TestSuite (random :: RANDOM, mutable :: Mutable.MUTABLE | eff)
+type TestEff a =
+  Eff (
+    mutable :: Mutable.MUTABLE,
+    random :: RANDOM,
+    console :: CONSOLE,
+    testOutput :: TESTOUTPUT,
+    avar :: AVAR
+  ) a
 
-type TestOutput = Eff (random :: RANDOM, console :: CONSOLE, testOutput :: TESTOUTPUT, avar :: AVAR, mutable :: Mutable.MUTABLE) Unit
+type Tests =
+  TestSuite (
+    mutable :: Mutable.MUTABLE,
+    random :: RANDOM,
+    console :: CONSOLE,
+    testOutput :: TESTOUTPUT,
+    avar :: AVAR
+  )
+
+type TestOutput = TestEff Unit
 
 
 -- TODO use a newtype for this ?
@@ -80,7 +105,11 @@ equalPush expected var = do
   output >> equal expected
 
 
-equalView :: forall a eff. (Eq a, Show a) => a -> View eff a -> Aff eff Unit
+equalView :: forall a. (Eq a, Show a) => a -> View a -> TestAff Unit
 equalView expected a = do
-  actual <- a >> value >> liftEff
+  actual <- a >> value >> toTest
   actual >> equal expected
+
+
+toTest :: forall a. TestEff a -> TestAff a
+toTest = liftEff

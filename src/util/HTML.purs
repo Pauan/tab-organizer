@@ -31,7 +31,7 @@ import Pauan.View (View, observe)
 import Pauan.Resource (Resource)
 
 
-type Observe eff a = (a -> Eff eff Unit) -> View eff a -> Eff eff Resource
+type Observe eff a = (a -> Eff eff Unit) -> View a -> Eff eff Resource
 
 
 -- TODO use purescript-dom
@@ -58,18 +58,18 @@ foreign import htmlViewImpl :: forall eff.
   Unit ->
   String ->
   Array Attribute ->
-  View eff (Array HTML) -> HTML
+  View (Array HTML) -> HTML
 
-htmlView :: forall eff. String -> Array Attribute -> View eff (Array HTML) -> HTML
+htmlView :: String -> Array Attribute -> View (Array HTML) -> HTML
 htmlView = htmlViewImpl observe unit
 
 
 foreign import textViewImpl :: forall eff.
   Observe eff String ->
   Unit ->
-  View eff String -> HTML
+  View String -> HTML
 
-textView :: forall eff. View eff String -> HTML
+textView :: View String -> HTML
 textView = textViewImpl observe unit
 
 
@@ -94,13 +94,13 @@ beforeRemove = beforeRemoveImpl unit
 
 
 {-foreign import attributeViewImpl :: forall eff.
-  Observe (Maybe String) ->
+  Observe eff (Maybe String) ->
   Unit ->
   String ->
-  View eff (Maybe String) ->
+  View (Maybe String) ->
   Attribute
 
-attributeView :: forall eff. String -> View eff (Maybe String) -> Attribute
+attributeView :: String -> View (Maybe String) -> Attribute
 attributeView = attributeViewImpl observe unit-}
 
 
@@ -109,10 +109,10 @@ foreign import value :: String -> Attribute
 foreign import valueViewImpl :: forall eff.
   Observe eff String ->
   Unit ->
-  View eff String ->
+  View String ->
   Attribute
 
-valueView :: forall eff. View eff String -> Attribute
+valueView :: View String -> Attribute
 valueView = valueViewImpl observe unit
 
 
@@ -122,10 +122,10 @@ foreign import checked :: Boolean -> Attribute
 foreign import checkedViewImpl :: forall eff.
   Observe eff Boolean ->
   Unit ->
-  View eff Boolean ->
+  View Boolean ->
   Attribute
 
-checkedView :: forall eff. View eff Boolean -> Attribute
+checkedView :: View Boolean -> Attribute
 checkedView = checkedViewImpl observe unit
 
 
@@ -135,10 +135,10 @@ foreign import styleViewImpl :: forall eff.
   Observe eff String ->
   Unit ->
   String ->
-  View eff String ->
+  View String ->
   Attribute
 
-styleView :: forall eff. String -> View eff String -> Attribute
+styleView :: String -> View String -> Attribute
 styleView = styleViewImpl observe unit
 
 

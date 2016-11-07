@@ -56,12 +56,12 @@ make :: forall eff.
 make x = makeImpl' x.duration
 
 
-foreign import viewImpl :: forall eff.
-  (Mutable.Mutable Tween -> View eff Tween) ->
+foreign import viewImpl ::
+  (Mutable.Mutable Tween -> View Tween) ->
   Animation ->
-  View eff Tween
+  View Tween
 
-instance toViewAnimation :: ToView Animation Tween eff where
+instance toViewAnimation :: ToView Animation Tween where
   view = viewImpl view
 
 

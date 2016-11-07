@@ -24,6 +24,7 @@ import Prelude
   , (<>)
   , (<<<)
   , (>>>)
+  , id
   , negate
   , void
   , class Eq

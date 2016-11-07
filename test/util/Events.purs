@@ -9,7 +9,7 @@ tests = suite "Events" do
   test "receive, send, and cleanup" do
     push <- makePush
 
-    liftEff do
+    toTest do
       events <- Events.make
       resource <- events >> Events.receive (runPush push)
       events >> Events.send 1
@@ -27,7 +27,7 @@ tests = suite "Events" do
     push2 <- makePush
     push3 <- makePush
 
-    liftEff do
+    toTest do
       events <- Events.make
       resource1 <- events >> Events.receive \value -> do
         value >> runPush push1
@@ -50,7 +50,7 @@ tests = suite "Events" do
     push2 <- makePush
     push3 <- makePush
 
-    liftEff do
+    toTest do
       events <- Events.make
 
       resource1 <- events >> Events.receive (runPush push1)

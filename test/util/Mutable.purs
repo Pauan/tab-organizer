@@ -8,7 +8,7 @@ import Pauan.View (observe)
 tests :: Tests
 tests = suite "Mutable" do
   test "get" do
-    output <- liftEff do
+    output <- toTest do
       a <- Mutable.make 1
       runTransaction do
         a >> Mutable.get
@@ -16,7 +16,7 @@ tests = suite "Mutable" do
 
 
   test "set" do
-    output <- liftEff do
+    output <- toTest do
       a <- Mutable.make 1
       runTransaction do
         a >> Mutable.set 2
@@ -25,7 +25,7 @@ tests = suite "Mutable" do
 
 
   test "modify" do
-    output <- liftEff do
+    output <- toTest do
       a <- Mutable.make 1
       runTransaction do
         a >> Mutable.modify \b -> b + 12
@@ -35,10 +35,10 @@ tests = suite "Mutable" do
 
   suite "view" do
     test "value" do
-      a <- Mutable.make 1 >> liftEff
+      a <- Mutable.make 1 >> toTest
       let v = a >> view
       v >> equalView 1
-      liftEff << runTransaction do
+      toTest << runTransaction do
         a >> Mutable.set 2
       v >> equalView 2
 
@@ -46,7 +46,7 @@ tests = suite "Mutable" do
     test "observe" do
       push <- makePush
 
-      liftEff do
+      toTest do
         a <- Mutable.make 1
         resource <- a >> view >> observe (runPush push)
         resource >> cleanup
@@ -55,7 +55,7 @@ tests = suite "Mutable" do
 
       push >> equalPush [1]
 
-      liftEff do
+      toTest do
         a <- Mutable.make 3
         resource <- a >> view >> observe (runPush push)
         runTransaction do
