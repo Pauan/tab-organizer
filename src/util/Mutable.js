@@ -1,44 +1,47 @@
 "use strict";
 
 
-function Mutable(events, value) {
-  this.snapshot = {
-    id: 0,
-    value: value
-  };
-
-  this.listeners = events;
-}
-
-
 exports.makeImpl = function (Events) {
-  return function (value) {
-    return function () {
-      return new Mutable(Events(), value);
+  return function (receive) {
+    return function (unit) {
+      return function (value) {
+        return function () {
+          var self = {
+            snapshot: {
+              id: 0,
+              value: value
+            },
+
+            listeners: Events(),
+
+            // TODO is this correct ?
+            // TODO can this be made faster ?
+            view: {
+              snapshot: function () {
+                return self.snapshot;
+              },
+              subscribe: function (push) {
+                // TODO make this faster ?
+                return receive(function (id) {
+                  return function () {
+                    push(id);
+                    return unit;
+                  };
+                })(self.listeners)();
+              }
+            }
+          };
+
+          return self;
+        };
+      };
     };
   };
 };
 
 
-exports.viewImpl = function (receive) {
-  return function (unit) {
-    return function (mutable) {
-      return {
-        snapshot: function () {
-          return mutable.snapshot;
-        },
-        subscribe: function (push) {
-          // TODO make this faster ?
-          return receive(function (id) {
-            return function () {
-              push(id);
-              return unit;
-            };
-          })(mutable.listeners)();
-        }
-      };
-    };
-  };
+exports.viewImpl = function (mutable) {
+  return mutable.view;
 };
 
 

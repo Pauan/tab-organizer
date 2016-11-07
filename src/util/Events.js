@@ -1,14 +1,12 @@
 "use strict";
 
 
-function Events() {
-  this.index = 0;
-  this.length = 0;
-  this.listeners = [];
-}
-
 exports.make = function () {
-  return new Events();
+  return {
+    index: 0,
+    length: 0,
+    listeners: []
+  };
 };
 
 

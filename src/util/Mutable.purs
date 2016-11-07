@@ -14,20 +14,21 @@ foreign import data Mutable :: * -> *
 
 -- TODO Should this have an effect of MUTABLE ?
 -- TODO what should it use for the effect type of Events ?
-foreign import makeImpl :: forall a eff. Eff eff (Events.Events TransactionId) -> a -> Eff (mutable :: MUTABLE | eff) (Mutable a)
-
-make :: forall a eff. a -> Eff (mutable :: MUTABLE | eff) (Mutable a)
-make = makeImpl Events.make
-
-
-foreign import viewImpl :: forall a eff.
+foreign import makeImpl :: forall a eff.
+  Eff eff (Events.Events TransactionId) ->
   ((TransactionId -> Eff eff Unit) -> Events.Events TransactionId -> Eff eff Resource) ->
   Unit ->
-  Mutable a ->
-  View a
+  a ->
+  Eff (mutable :: MUTABLE | eff) (Mutable a)
+
+make :: forall a eff. a -> Eff (mutable :: MUTABLE | eff) (Mutable a)
+make = makeImpl Events.make Events.receive unit
+
+
+foreign import viewImpl :: forall a. Mutable a -> View a
 
 instance toViewMutable :: ToView (Mutable a) a where
-  view = viewImpl Events.receive unit
+  view = viewImpl
 
 
 foreign import get :: forall a eff. Mutable a -> Transaction (mutable :: MUTABLE | eff) a
