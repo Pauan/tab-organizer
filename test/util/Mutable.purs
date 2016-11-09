@@ -46,23 +46,25 @@ tests = suite "Mutable" do
     test "observe" do
       push <- makePush
 
-      toTest do
+      testUnit do
         a <- Mutable.make 1
         resource <- a >> view >> observe (runPush push)
-        resource >> cleanup
+        u <- resource >> cleanup
         runTransaction do
           a >> Mutable.set 2
+        pure u
 
       push >> equalPush [1]
 
-      toTest do
+      testUnit do
         a <- Mutable.make 3
         resource <- a >> view >> observe (runPush push)
         runTransaction do
           a >> Mutable.set 4
           a >> Mutable.set 5
-        resource >> cleanup
+        u <- resource >> cleanup
         runTransaction do
           a >> Mutable.set 6
+        pure u
 
       push >> equalPush [1, 3, 5]

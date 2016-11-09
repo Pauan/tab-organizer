@@ -16,6 +16,7 @@ module Pauan.Prelude.Test
   , TestAff
   , TestEff
   , toTest
+  , testUnit
   , TestOutput
   ) where
 
@@ -113,3 +114,12 @@ equalView expected a = do
 
 toTest :: forall a. TestEff a -> TestAff a
 toTest = liftEff
+
+
+-- TODO use Data.Eq.Unsafe instead
+foreign import unsafeEq :: forall a. a -> a -> Boolean
+
+testUnit :: TestEff Unit -> TestAff Unit
+testUnit a = do
+  x <- toTest a
+  x >> unsafeEq unit >> equal true

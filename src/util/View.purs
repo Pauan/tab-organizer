@@ -34,7 +34,7 @@ instance bindView :: Bind View where
   bind = bindImpl
 
 
-foreign import pureImpl :: forall a. a -> View a
+foreign import pureImpl :: forall a. Unit -> a -> View a
 
 instance applicativeView :: Applicative View where
-  pure = pureImpl
+  pure = pureImpl unit

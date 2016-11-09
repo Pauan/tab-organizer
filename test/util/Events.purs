@@ -9,15 +9,16 @@ tests = suite "Events" do
   test "receive, send, and cleanup" do
     push <- makePush
 
-    toTest do
+    testUnit do
       events <- Events.make
       resource <- events >> Events.receive (runPush push)
       events >> Events.send 1
       events >> Events.send 2
       events >> Events.send 3
-      resource >> cleanup
+      u <- resource >> cleanup
       resource >> cleanup
       events >> Events.send 4
+      pure u
 
     push >> equalPush [1, 2, 3]
 
@@ -27,7 +28,7 @@ tests = suite "Events" do
     push2 <- makePush
     push3 <- makePush
 
-    toTest do
+    testUnit do
       events <- Events.make
       resource1 <- events >> Events.receive \value -> do
         value >> runPush push1
@@ -37,8 +38,9 @@ tests = suite "Events" do
       events >> Events.send 1
       events >> Events.send 2
       events >> Events.send 3
-      resource1 >> cleanup
+      u <- resource1 >> cleanup
       events >> Events.send 4
+      pure u
 
     push1 >> equalPush [1, 2, 3]
     push2 >> equalPush []
@@ -50,7 +52,7 @@ tests = suite "Events" do
     push2 <- makePush
     push3 <- makePush
 
-    toTest do
+    testUnit do
       events <- Events.make
 
       resource1 <- events >> Events.receive (runPush push1)
@@ -63,9 +65,10 @@ tests = suite "Events" do
 
       events >> Events.send 1
       events >> Events.send 2
-      resource2 >> cleanup
+      u <- resource2 >> cleanup
       resource3 >> cleanup
       events >> Events.send 3
+      pure u
 
     push1 >> equalPush [1]
     push2 >> equalPush [1, 2]

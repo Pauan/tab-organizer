@@ -34,6 +34,7 @@ import Prelude
   , map
   , apply
   , class Apply
+  , Ordering(..)
   )
 
 import Data.Array ((..))

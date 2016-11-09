@@ -1,15 +1,6 @@
 "use strict";
 
 
-// TODO return Unit ?
-function noop() {}
-
-function noopSubscribe(push) {
-  return noop;
-}
-
-
-
 exports.mapImpl = function (f) {
   return function (view) {
     var oldSnapshot = null;
@@ -94,17 +85,27 @@ exports.applyImpl = function (view1) {
 };
 
 
-exports.pureImpl = function (a) {
-  var snapshot = {
-    id: 0,
-    value: a
-  };
+exports.pureImpl = function (unit) {
+  function noop() {
+    return unit;
+  }
 
-  return {
-    snapshot: function () {
-      return snapshot;
-    },
-    subscribe: noopSubscribe
+  function noopSubscribe(push) {
+    return noop;
+  }
+
+  return function (a) {
+    var snapshot = {
+      id: 0,
+      value: a
+    };
+
+    return {
+      snapshot: function () {
+        return snapshot;
+      },
+      subscribe: noopSubscribe
+    };
   };
 };
 

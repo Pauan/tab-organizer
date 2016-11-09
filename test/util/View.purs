@@ -10,12 +10,13 @@ tests = suite "View" do
   test "observe" do
     push <- makePush
 
-    toTest do
+    testUnit do
       a <- Mutable.make 1
       resource <- a >> view >> observe (runPush push)
-      resource >> cleanup
+      u <- resource >> cleanup
       runTransaction do
         a >> Mutable.set 2
+      pure u
 
     push >> equalPush [1]
 
@@ -41,7 +42,7 @@ tests = suite "View" do
 
     push <- makePush
 
-    toTest do
+    testUnit do
       resource <- 3 >> pure >> observe (runPush push)
       resource >> cleanup
 
@@ -59,14 +60,15 @@ tests = suite "View" do
     v >> equalView 13
     v >> equalView 13
 
-    toTest do
+    testUnit do
       resource <- v >> observe (runPush push1)
       runTransaction do
         a >> Mutable.set 2
         a >> Mutable.set 3
-      resource >> cleanup
+      u <- resource >> cleanup
       runTransaction do
         a >> Mutable.set 4
+      pure u
 
     v >> equalView 16
     v >> equalView 16
@@ -88,17 +90,18 @@ tests = suite "View" do
       v >> equalView 3
       v >> equalView 3
 
-      toTest do
+      testUnit do
         resource <- v >> observe (runPush push1)
         runTransaction do
           a >> Mutable.set 3
           a >> Mutable.set 4
           b >> Mutable.set 5
           b >> Mutable.set 6
-        resource >> cleanup
+        u <- resource >> cleanup
         runTransaction do
           a >> Mutable.set 7
           b >> Mutable.set 8
+        pure u
 
       v >> equalView 15
       v >> equalView 15
@@ -124,14 +127,15 @@ tests = suite "View" do
       v3 >> equalView (-2)
       v3 >> equalView (-2)
 
-      toTest do
+      testUnit do
         resource <- v3 >> observe (runPush push1)
         runTransaction do
           a >> Mutable.set 2
           a >> Mutable.set 3
-        resource >> cleanup
+        u <- resource >> cleanup
         runTransaction do
           a >> Mutable.set 4
+        pure u
 
       v3 >> equalView 4
       v3 >> equalView 4
@@ -159,7 +163,7 @@ tests = suite "View" do
     v >> equalView 3
     v >> equalView 3
 
-    toTest do
+    testUnit do
       resource <- v >> observe (runPush push1)
       runTransaction do
         b >> Mutable.set 3
@@ -168,10 +172,11 @@ tests = suite "View" do
       runTransaction do
         a >> Mutable.set 5
         b >> Mutable.set 6
-      resource >> cleanup
+      u <- resource >> cleanup
       runTransaction do
         a >> Mutable.set 7
         b >> Mutable.set 8
+      pure u
 
     v >> equalView 15
     v >> equalView 15
