@@ -13,13 +13,19 @@ function noopSubscribe(push) {
 exports.mapImpl = function (f) {
   return function (view) {
     var oldSnapshot = null;
+    var parentSnapshot = null;
 
     return {
       snapshot: function () {
         var newSnapshot = view.snapshot();
 
-        // TODO don't update if the new value is the same as the old value ?
-        if (oldSnapshot === null || oldSnapshot.id !== newSnapshot.id) {
+        if (oldSnapshot === null ||
+            (parentSnapshot.id !== newSnapshot.id &&
+             // TODO is this optimization okay ?
+             parentSnapshot.value !== newSnapshot.value)) {
+
+          parentSnapshot = newSnapshot;
+
           oldSnapshot = {
             id: newSnapshot.id,
             value: f(newSnapshot.value)
@@ -203,6 +209,7 @@ exports.observe = function (push) {
 
       var oldSnapshot = view.snapshot();
 
+      // TODO should this push or subscribe first ?
       push(oldSnapshot.value)();
 
       return view.subscribe(function (newId) {
