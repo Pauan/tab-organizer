@@ -46,7 +46,7 @@ class HTMLProperty a b | a -> b where
 
 foreign import unsafeSetPropertyValue :: forall a. Fn4 State DOMElement String a Unit
 
-instance unsafeSetPropertyValue' :: HTMLProperty a a where
+instance htmlPropertyValue :: HTMLProperty a a where
   unsafeSetProperty = unsafeSetPropertyValue
 
 
@@ -55,7 +55,7 @@ foreign import unsafeSetPropertyView :: forall eff a.
   Unit ->
   Fn4 State DOMElement String (View a) Unit
 
-instance unsafeSetPropertyView' :: HTMLProperty (View a) a where
+instance htmlPropertyView :: HTMLProperty (View a) a where
   unsafeSetProperty = unsafeSetPropertyView observe unit
 
 
@@ -75,7 +75,7 @@ class HTMLStyle a where
 
 foreign import unsafeSetStyleValue :: Fn4 State DOMElement String String Unit
 
-instance unsafeSetStyleValue' :: HTMLStyle String where
+instance htmlStyleValue :: HTMLStyle String where
   unsafeSetStyle = unsafeSetStyleValue
 
 
@@ -84,7 +84,7 @@ foreign import unsafeSetStyleView :: forall eff.
   Unit ->
   Fn4 State DOMElement String (View String) Unit
 
-instance unsafeSetStyleView' :: HTMLStyle (View String) where
+instance htmlStyleView :: HTMLStyle (View String) where
   unsafeSetStyle = unsafeSetStyleView observe unit
 
 
@@ -94,7 +94,7 @@ class HTMLText a where
 
 foreign import makeTextString :: Fn2 State String DOMElement
 
-instance unsafeMakeTextString :: HTMLText String where
+instance htmlTextString :: HTMLText String where
   unsafeMakeText = makeTextString
 
 
@@ -103,7 +103,7 @@ foreign import makeTextView :: forall eff.
   Unit ->
   Fn2 State (View String) DOMElement
 
-instance unsafeMakeTextView :: HTMLText (View String) where
+instance htmlTextView :: HTMLText (View String) where
   unsafeMakeText = makeTextView observe unit
 
 
@@ -113,7 +113,7 @@ class HTMLChild a where
 
 foreign import appendChildArray :: Unit -> Fn3 State DOMElement (Array HTML) Unit
 
-instance unsafeAppendChildArray :: HTMLChild (Array HTML) where
+instance htmlChildArray :: HTMLChild (Array HTML) where
   unsafeAppendChild = appendChildArray unit
 
 
@@ -122,7 +122,7 @@ foreign import appendChildView :: forall eff.
   Unit ->
   Fn3 State DOMElement (View (Array HTML)) Unit
 
-instance unsafeAppendChildView :: HTMLChild (View (Array HTML)) where
+instance htmlChildView :: HTMLChild (View (Array HTML)) where
   unsafeAppendChild = appendChildView observe unit
 
 

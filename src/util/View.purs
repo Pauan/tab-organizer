@@ -12,8 +12,14 @@ foreign import value :: forall a eff. View a -> Eff eff a
 foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View a -> Eff eff Resource
 
 
+-- TODO move `f` to the end, so that newtype deriving works ?
 class ToView f a | f -> a where
   view :: f -> View a
+
+
+-- TODO is this a good idea ?
+instance viewView :: ToView (View a) a where
+  view = id
 
 
 foreign import mapImpl :: forall a b. (a -> b) -> View a -> View b

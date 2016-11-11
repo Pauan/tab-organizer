@@ -44,13 +44,9 @@ import Pauan.HTML.Unsafe
   , State
   , Adjective
   , class HTMLProperty
-  , unsafeSetProperty
   , class HTMLStyle
-  , unsafeSetStyle
   , class HTMLChild
-  , unsafeAppendChild
   , class HTMLText
-  , unsafeMakeText
   , beforeRemove
   , afterInsert
   , render'
