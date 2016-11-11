@@ -5,7 +5,7 @@
   "devDependencies": {
     "bower": "^1.7.9",
     "pulp": "^9.0.1",
-    "purescript": "^0.9.3"
+    "purescript": "^0.10.2"
   },
   "scripts": {
     "postinstall": "bower install && mkdir -p build/js && yarn run build",
