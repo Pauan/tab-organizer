@@ -43,7 +43,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
 import Debug.Trace (spy)
 
-import Pauan.HTML (HTML, html, htmlView, style, styleView, hsl, hsla, text, onClick, MouseEvent)
+import Pauan.HTML (HTML, html, style, hsl, hsla, text, on)
 import Pauan.View (class ToView, View, view)
 import Pauan.Transaction (Transaction, runTransaction)
 

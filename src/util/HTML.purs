@@ -1,155 +1,120 @@
 module Pauan.HTML
-  ( DOMElement
-  , HTML
-  , State
-  , Attribute
+  ( module Exports
+  , on
   , widget
   , html
-  , htmlView
   , text
-  , textView
-  , attribute
-  , render
-  , body
-  , value
-  , valueView
-  , checked
-  , checkedView
-  , MouseEvent
   , style
-  , styleView
-  , onClick
-  , afterInsert
-  , beforeRemove
+  , body
+  , property
+  , checked
+  , sampleOn
+  , render
   , hsl
   , hsla
   ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Pauan.View (View, observe)
+import Pauan.View (value)
 import Pauan.Resource (Resource)
+import Data.Function.Uncurried (Fn2, Fn3, Fn4)
+
+import Pauan.HTML.Unsafe
+  ( Event
+  , State
+  , Adjective
+  , HTML
+  , DOMElement
+  , render'
+  , class HTMLProperty
+  , class HTMLStyle
+  , class HTMLText
+  , class HTMLChild
+  , unsafeAppendChild
+  , unsafeMakeText
+  , unsafeSetStyle
+  , unsafeProperty
+  )
+
+import Pauan.HTML.Unsafe
+  ( DOMElement
+  , HTML
+  , Event
+  , State
+  , Adjective
+  , class HTMLProperty
+  , unsafeSetProperty
+  , class HTMLStyle
+  , unsafeSetStyle
+  , class HTMLChild
+  , unsafeAppendChild
+  , class HTMLText
+  , unsafeMakeText
+  , beforeRemove
+  , afterInsert
+  , render'
+  ) as Exports
 
 
-type Observe eff a = (a -> Eff eff Unit) -> View a -> Eff eff Resource
+foreign import onImpl :: forall eff.
+  String ->
+  (Event -> Eff eff Unit) ->
+  Adjective
 
-
--- TODO use purescript-dom
-foreign import data DOMElement :: *
-
-foreign import data HTML :: *
-
-foreign import data State :: *
-
-foreign import data Attribute :: *
+on :: forall eff. String -> (Event -> Eff eff Unit) -> Adjective
+on = onImpl
 
 
 foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML
 
-foreign import html :: String -> Array Attribute -> Array HTML -> HTML
 
-foreign import attribute :: String -> String -> Attribute
-
-foreign import text :: String -> HTML
-
-
-foreign import htmlViewImpl :: forall eff.
-  Observe eff (Array HTML) ->
-  Unit ->
+foreign import htmlImpl :: forall a.
+  (Fn3 State DOMElement a Unit) ->
   String ->
-  Array Attribute ->
-  View (Array HTML) -> HTML
+  Array Adjective ->
+  a ->
+  HTML
 
-htmlView :: String -> Array Attribute -> View (Array HTML) -> HTML
-htmlView = htmlViewImpl observe unit
-
-
-foreign import textViewImpl :: forall eff.
-  Observe eff String ->
-  Unit ->
-  View String -> HTML
-
-textView :: View String -> HTML
-textView = textViewImpl observe unit
+html :: forall a. (HTMLChild a) => String -> Array Adjective -> a -> HTML
+html = htmlImpl unsafeAppendChild
 
 
-type MouseEvent = {}
+foreign import textImpl :: forall a.
+  (Fn2 State a DOMElement) ->
+  a ->
+  HTML
 
-foreign import onClickImpl :: forall eff. (MouseEvent -> Eff eff Unit) -> Attribute
-
-onClick :: forall eff. (MouseEvent -> Eff eff Unit) -> Attribute
-onClick = onClickImpl
-
-
-foreign import afterInsertImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit
-
-afterInsert :: forall eff. Eff eff Unit -> State -> Eff eff Unit
-afterInsert = afterInsertImpl unit
+text :: forall a. (HTMLText a) => a -> HTML
+text = textImpl unsafeMakeText
 
 
-foreign import beforeRemoveImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit
-
-beforeRemove :: forall eff. Eff eff Unit -> State -> Eff eff Unit
-beforeRemove = beforeRemoveImpl unit
-
-
-{-foreign import attributeViewImpl :: forall eff.
-  Observe eff (Maybe String) ->
-  Unit ->
+foreign import styleImpl :: forall a.
+  (Fn4 State DOMElement String a Unit) ->
   String ->
-  View (Maybe String) ->
-  Attribute
+  a ->
+  Adjective
 
-attributeView :: String -> View (Maybe String) -> Attribute
-attributeView = attributeViewImpl observe unit-}
-
-
-foreign import value :: String -> Attribute
-
-foreign import valueViewImpl :: forall eff.
-  Observe eff String ->
-  Unit ->
-  View String ->
-  Attribute
-
-valueView :: View String -> Attribute
-valueView = valueViewImpl observe unit
-
-
--- TODO what about indeterminacy ?
-foreign import checked :: Boolean -> Attribute
-
-foreign import checkedViewImpl :: forall eff.
-  Observe eff Boolean ->
-  Unit ->
-  View Boolean ->
-  Attribute
-
-checkedView :: View Boolean -> Attribute
-checkedView = checkedViewImpl observe unit
-
-
-foreign import style :: String -> String -> Attribute
-
-foreign import styleViewImpl :: forall eff.
-  Observe eff String ->
-  Unit ->
-  String ->
-  View String ->
-  Attribute
-
-styleView :: String -> View String -> Attribute
-styleView = styleViewImpl observe unit
-
-
-foreign import renderImpl :: forall eff. Unit -> DOMElement -> HTML -> Eff eff Resource
-
-render' :: forall eff. DOMElement -> HTML -> Eff eff Resource
-render' = renderImpl unit
+style :: forall a. (HTMLStyle a) => String -> a -> Adjective
+style = styleImpl unsafeSetStyle
 
 
 -- TODO should this return Eff ?
 foreign import body :: forall eff. Eff eff DOMElement
+
+
+property :: forall a. (HTMLProperty a String) => String -> a -> Adjective
+property = unsafeProperty
+
+-- TODO what about indeterminacy ?
+checked :: forall a. (HTMLProperty a Boolean) => a -> Adjective
+checked = unsafeProperty "checked"
+
+
+sampleOn name view f =
+  on name \e -> do
+    v <- value view
+    f e v
 
 
 render :: forall eff. HTML -> Eff eff Resource

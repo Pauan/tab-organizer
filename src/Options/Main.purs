@@ -18,10 +18,10 @@ root =
     pure << html "div"
       []
       [ html "button"
-          [ onClick \_ -> runTransaction do
+          [ on "click" \_ -> runTransaction do
               a >> Mutable.set (1..200) ]
           [ text "Activate" ]
-      , htmlView "div"
+      , html "div"
           []
           (view a >> map \a ->
             a >> map \(i :: Int) ->
@@ -41,11 +41,11 @@ root =
                   --, style "left" "50px"
                   --, style "top" "50px"
                   style "transform" "translate3d(0, 0, 0)"
-                  , styleView "width"
+                  , style "width"
                       (view a >> map (Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"))
-                  , styleView "height"
+                  , style "height"
                       (view a >> map (Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"))
-                  , styleView "background-color"
+                  , style "background-color"
                       (view a >> map \t ->
                         hsl
                           (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
