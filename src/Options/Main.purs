@@ -4,7 +4,6 @@ import Pauan.Prelude
 import Pauan.Animation as Animation
 import Pauan.Mutable as Mutable
 import Pauan.HTML (render, widget, afterInsert, beforeRemove)
-import Control.Monad.Eff.Timer (setTimeout)
 
 
 root :: HTML

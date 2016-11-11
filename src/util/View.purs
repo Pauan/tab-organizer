@@ -12,7 +12,7 @@ foreign import value :: forall a eff. View a -> Eff eff a
 foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View a -> Eff eff Resource
 
 
-class ToView f a where
+class ToView f a | f -> a where
   view :: f -> View a
 
 

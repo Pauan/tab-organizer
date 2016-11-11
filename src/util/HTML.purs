@@ -16,7 +16,7 @@ module Pauan.HTML
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Pauan.View (value)
+import Pauan.View (View, value)
 import Pauan.Resource (Resource)
 import Data.Function.Uncurried (Fn2, Fn3, Fn4)
 
@@ -111,6 +111,7 @@ checked :: forall a. (HTMLProperty a Boolean) => a -> Adjective
 checked = unsafeProperty "checked"
 
 
+sampleOn :: forall eff a. String -> View a -> (Event -> a -> Eff eff Unit) -> Adjective
 sampleOn name view f =
   on name \e -> do
     v <- value view
