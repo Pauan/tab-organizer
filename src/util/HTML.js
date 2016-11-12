@@ -20,7 +20,7 @@ exports.widget = function (f) {
 };
 
 
-function setAttributes(state, e, attrs) {
+function setTraits(state, e, attrs) {
   var length = attrs.length;
 
   for (var i = 0; i < length; ++i) {
@@ -36,9 +36,9 @@ exports.htmlImpl = function (appendChild) {
           // TODO use createElementNS ?
           var e = document.createElement(tag);
 
-          // This must be before `setAttributes`, because otherwise setting the `value` of a `<select>` doesn't work
+          // This must be before `setTraits`, because otherwise setting the `value` of a `<select>` doesn't work
           appendChild(state, e, children);
-          setAttributes(state, e, attrs);
+          setTraits(state, e, attrs);
 
           return e;
         };
@@ -70,4 +70,11 @@ exports.styleImpl = function (setStyle) {
 
 exports.body = function () {
   return document.body;
+};
+
+
+exports.trait = function (traits) {
+  return function (state, element) {
+    setTraits(state, element, traits);
+  };
 };

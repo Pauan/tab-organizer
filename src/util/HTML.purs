@@ -6,6 +6,7 @@ module Pauan.HTML
   , text
   , style
   , body
+  , trait
   , property
   , checked
   , sampleOn
@@ -105,6 +106,9 @@ property = unsafeProperty
 -- TODO what about indeterminacy ?
 checked :: forall a. (HTMLProperty a Boolean) => a -> Trait
 checked = unsafeProperty "checked"
+
+
+foreign import trait :: Array Trait -> Trait
 
 
 sampleOn :: forall eff a. String -> View a -> (Event -> a -> Eff eff Unit) -> Trait
