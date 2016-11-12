@@ -23,7 +23,7 @@ import Data.Function.Uncurried (Fn2, Fn3, Fn4)
 import Pauan.HTML.Unsafe
   ( Event
   , State
-  , Adjective
+  , Trait
   , HTML
   , DOMElement
   , render'
@@ -42,7 +42,7 @@ import Pauan.HTML.Unsafe
   , HTML
   , Event
   , State
-  , Adjective
+  , Trait
   , class HTMLProperty
   , class HTMLStyle
   , class HTMLChild
@@ -56,9 +56,9 @@ import Pauan.HTML.Unsafe
 foreign import onImpl :: forall eff.
   String ->
   (Event -> Eff eff Unit) ->
-  Adjective
+  Trait
 
-on :: forall eff. String -> (Event -> Eff eff Unit) -> Adjective
+on :: forall eff. String -> (Event -> Eff eff Unit) -> Trait
 on = onImpl
 
 
@@ -68,11 +68,11 @@ foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML
 foreign import htmlImpl :: forall a.
   (Fn3 State DOMElement a Unit) ->
   String ->
-  Array Adjective ->
+  Array Trait ->
   a ->
   HTML
 
-html :: forall a. (HTMLChild a) => String -> Array Adjective -> a -> HTML
+html :: forall a. (HTMLChild a) => String -> Array Trait -> a -> HTML
 html = htmlImpl unsafeAppendChild
 
 
@@ -89,9 +89,9 @@ foreign import styleImpl :: forall a.
   (Fn4 State DOMElement String a Unit) ->
   String ->
   a ->
-  Adjective
+  Trait
 
-style :: forall a. (HTMLStyle a) => String -> a -> Adjective
+style :: forall a. (HTMLStyle a) => String -> a -> Trait
 style = styleImpl unsafeSetStyle
 
 
@@ -99,15 +99,15 @@ style = styleImpl unsafeSetStyle
 foreign import body :: forall eff. Eff eff DOMElement
 
 
-property :: forall a. (HTMLProperty a String) => String -> a -> Adjective
+property :: forall a. (HTMLProperty a String) => String -> a -> Trait
 property = unsafeProperty
 
 -- TODO what about indeterminacy ?
-checked :: forall a. (HTMLProperty a Boolean) => a -> Adjective
+checked :: forall a. (HTMLProperty a Boolean) => a -> Trait
 checked = unsafeProperty "checked"
 
 
-sampleOn :: forall eff a. String -> View a -> (Event -> a -> Eff eff Unit) -> Adjective
+sampleOn :: forall eff a. String -> View a -> (Event -> a -> Eff eff Unit) -> Trait
 sampleOn name view f =
   on name \e -> do
     v <- value view

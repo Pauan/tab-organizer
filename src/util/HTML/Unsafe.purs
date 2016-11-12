@@ -3,7 +3,7 @@ module Pauan.HTML.Unsafe
   , HTML
   , Event
   , State
-  , Adjective
+  , Trait
   , class HTMLProperty
   , unsafeSetProperty
   , unsafeProperty
@@ -37,7 +37,7 @@ foreign import data HTML :: *
 
 foreign import data State :: *
 
-foreign import data Adjective :: *
+foreign import data Trait :: *
 
 
 class HTMLProperty a b | a -> b where
@@ -63,9 +63,9 @@ foreign import unsafePropertyImpl :: forall a.
   (Fn4 State DOMElement String a Unit) ->
   String ->
   a ->
-  Adjective
+  Trait
 
-unsafeProperty :: forall a b. (HTMLProperty a b) => String -> a -> Adjective
+unsafeProperty :: forall a b. (HTMLProperty a b) => String -> a -> Trait
 unsafeProperty = unsafePropertyImpl unsafeSetProperty
 
 
