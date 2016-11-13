@@ -105,41 +105,37 @@ function setStyle1(style, key, value) {
 // TODO test this
 function setStylePrefixValues(style, prefix, key, value) {
   if (prefix in style) {
-    if (setStyle1(style, prefix, value) ||
-        setStyle1(style, prefix, "-webkit-" + value) ||
-        setStyle1(style, prefix, "-moz-" + value) ||
-        setStyle1(style, prefix, "-ms-" + value) ||
-        setStyle1(style, prefix, "-o-" + value)) {
-      return true;
-
-    } else {
-      throw new Error("Invalid style value \"" + key + "\": \"" + value + "\"");
+    if (!(setStyle1(style, prefix, value) ||
+          setStyle1(style, prefix, "-webkit-" + value) ||
+          setStyle1(style, prefix, "-moz-" + value) ||
+          setStyle1(style, prefix, "-ms-" + value) ||
+          setStyle1(style, prefix, "-o-" + value))) {
+      console.warn("Invalid style value \"" + key + "\": \"" + value + "\"");
     }
+
+    return true;
 
   } else {
     return false;
   }
 }
 
-function setStylePrefixKeys(style, key, value) {
-  return setStylePrefixValues(style, key, key, value) ||
-         setStylePrefixValues(style, "-webkit-" + key, key, value) ||
-         setStylePrefixValues(style, "-moz-" + key, key, value) ||
-         setStylePrefixValues(style, "-ms-" + key, key, value) ||
-         setStylePrefixValues(style, "-o-" + key, key, value);
-}
-
 // TODO test this
 // TODO can this be made faster ?
 function setStyle(style, key, value) {
-  if (!setStylePrefixKeys(style, key, value)) {
-    throw new Error("Invalid style key \"" + key + "\": \"" + value + "\"");
+  if (!(setStylePrefixValues(style, key, key, value) ||
+        setStylePrefixValues(style, "-webkit-" + key, key, value) ||
+        setStylePrefixValues(style, "-moz-" + key, key, value) ||
+        setStylePrefixValues(style, "-ms-" + key, key, value) ||
+        setStylePrefixValues(style, "-o-" + key, key, value))) {
+    console.warn("Invalid style key \"" + key + "\": \"" + value + "\"");
   }
 }
 
 
 // TODO browser prefixes ?
 // TODO test this
+// TODO should this warn or error ?
 function setProperty(element, key, value) {
   if (key in element) {
     var oldValue = element[key];
@@ -150,12 +146,11 @@ function setProperty(element, key, value) {
 
     // TODO better detection ?
     if (newValue === oldValue && oldValue !== value) {
-      // TODO code duplication
-      throw new Error("Invalid property value \"" + key + "\": \"" + value + "\"");
+      console.warn("Invalid property value \"" + key + "\": \"" + value + "\"");
     }
 
   } else {
-    throw new Error("Invalid property key \"" + key + "\": \"" + value + "\"");
+    console.warn("Invalid property key \"" + key + "\": \"" + value + "\"");
   }
 }
 
