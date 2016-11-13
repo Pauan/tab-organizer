@@ -821,11 +821,11 @@ export const toggle_checked = (dom, x) => {
       assert(typeof x === "boolean");
 
       if (x) {
-        assert(!dom._dom["checked"]);
+        //assert(!dom._dom["checked"]);
         dom._dom["checked"] = true;
 
       } else {
-        assert(first || dom._dom["checked"]);
+        //assert(first || dom._dom["checked"]);
         dom._dom["checked"] = false;
       }
 

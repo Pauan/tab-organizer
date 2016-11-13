@@ -254,8 +254,8 @@ const style_button_hold = dom.make_style({
 
 export const button = (s, { on_click, height = "24px" }) =>
   dom.button((e) => {
-    const hovering = mutable.make(null);
-    const holding  = mutable.make(null);
+    const hovering = mutable.make(false);
+    const holding  = mutable.make(false);
 
     return [
       dom.add_style(e, style_button),
@@ -268,11 +268,11 @@ export const button = (s, { on_click, height = "24px" }) =>
       ])),
 
       dom.on_mouse_hover(e, (hover) => {
-        mutable.set(hovering, hover);
+        mutable.set(hovering, !!hover);
       }),
 
       dom.on_mouse_hold(e, (hold) => {
-        mutable.set(holding, hold);
+        mutable.set(holding, !!hold);
       }),
 
       dom.style(e, {
