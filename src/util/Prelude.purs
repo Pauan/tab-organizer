@@ -8,6 +8,7 @@ module Pauan.Prelude
   , module Pauan.Transaction
   , module Pauan.HTML
   , module Data.Array
+  , module Data.Maybe
   , (<<)
   , (>>)
   , (|<)
@@ -38,14 +39,28 @@ import Prelude
   )
 
 import Data.Array ((..))
+import Data.Maybe (Maybe(Nothing, Just), fromMaybe)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
 import Debug.Trace (spy)
 
-import Pauan.HTML (HTML, html, style, hsl, hsla, text, on, Trait, trait)
 import Pauan.View (class ToView, View, view)
 import Pauan.Transaction (Transaction, runTransaction)
+
+import Pauan.HTML
+  ( HTML
+  , html
+  , style
+  , hsl
+  , hsla
+  , text
+  , on
+  , onHoverSet
+  , onDragSet
+  , Trait
+  , trait
+  )
 
 import Data.Function as Function
 

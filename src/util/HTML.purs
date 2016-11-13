@@ -1,6 +1,7 @@
 module Pauan.HTML
   ( module Exports
   , on
+  , onHoverSet
   , widget
   , html
   , text
@@ -13,13 +14,19 @@ module Pauan.HTML
   , render
   , hsl
   , hsla
+  , DragEvent
+  , onDrag
+  , onDragSet
   ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
 import Pauan.View (View, value)
 import Pauan.Resource (Resource)
+import Pauan.Transaction (runTransaction)
+import Pauan.Mutable as Mutable
 import Data.Function.Uncurried (Fn2, Fn3, Fn4)
+import Data.Maybe (Maybe(Just, Nothing))
 
 import Pauan.HTML.Unsafe
   ( Event
@@ -131,4 +138,57 @@ hsl h s l = "hsl(" <> show h <> ", " <> show s <> "%, " <> show l <> "%)"
 
 hsla :: Number -> Number -> Number -> Number -> String
 -- TODO should this use show ?
-hsla h s l a = "hsl(" <> show h <> ", " <> show s <> "%, " <> show l <> "%, " <> show a <> ")"
+hsla h s l a = "hsla(" <> show h <> ", " <> show s <> "%, " <> show l <> "%, " <> show a <> ")"
+
+
+onHoverSet :: (Mutable.Mutable Boolean) -> Trait
+onHoverSet mut =
+  trait [ on "mouseenter" \_ -> runTransaction do
+            Mutable.set true mut
+        , on "mouseleave" \_ -> runTransaction do
+            Mutable.set false mut ]
+
+
+type DragEvent =
+  { screenX :: Int
+  , screenY :: Int
+  , offsetX :: Int
+  , offsetY :: Int }
+
+type DragHandler eff = DragEvent -> Eff eff Unit
+
+
+foreign import onDragImpl :: forall eff.
+  (Int -> Int -> Int -> Int -> DragEvent) ->
+  DragHandler eff ->
+  DragHandler eff ->
+  DragHandler eff ->
+  Trait
+
+onDrag' :: forall eff.
+  DragHandler eff ->
+  DragHandler eff ->
+  DragHandler eff ->
+  Trait
+-- TODO make this more efficient
+onDrag' = onDragImpl { screenX: _, screenY: _, offsetX: _, offsetY: _ }
+
+onDrag :: forall eff.
+  { start :: DragHandler eff
+  , move :: DragHandler eff
+  , end :: DragHandler eff } ->
+  Trait
+onDrag x = onDrag' x.start x.move x.end
+
+
+onDragSet :: (Mutable.Mutable (Maybe Int)) -> (Mutable.Mutable (Maybe Int)) -> Trait
+onDragSet x y =
+  let
+    set = \e -> runTransaction do
+      Mutable.set (Just e.offsetX) x
+      Mutable.set (Just e.offsetY) y
+    unset = \_ -> runTransaction do
+      Mutable.set Nothing x
+      Mutable.set Nothing y
+  in
+    onDrag' set set unset

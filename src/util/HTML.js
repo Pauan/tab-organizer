@@ -78,3 +78,62 @@ exports.trait = function (traits) {
     setTraits(state, element, traits);
   };
 };
+
+
+exports.onDragImpl = function (makeEvent) {
+  return function (onStart) {
+    return function (onMove) {
+      return function (onEnd) {
+        return function (state, element) {
+          var initialX = null;
+          var initialY = null;
+          var dragging = false; // TODO is this correct ?
+
+          function mousemove(e) {
+            if (dragging) {
+              var x = e.clientX;
+              var y = e.clientY;
+              onMove(makeEvent(x)(y)(x - initialX)(y - initialY))();
+            }
+          }
+
+          function mouseup(e) {
+            if (dragging) {
+              var x = e.clientX;
+              var y = e.clientY;
+
+              var oldX = x - initialX;
+              var oldY = y - initialY;
+
+              initialX = null;
+              initialY = null;
+              dragging = false;
+
+              removeEventListener("mousemove", mousemove, true);
+              removeEventListener("mouseup", mouseup, true);
+
+              onEnd(makeEvent(x)(y)(oldX)(oldY))();
+            }
+          }
+
+          element.addEventListener("mousedown", function (e) {
+            if (!dragging) {
+              addEventListener("mousemove", mousemove, true);
+              // TODO what about `blur` or other events ?
+              addEventListener("mouseup", mouseup, true);
+
+              var x = e.clientX;
+              var y = e.clientY;
+
+              initialX = x;
+              initialY = y;
+              dragging = true;
+
+              onStart(makeEvent(x)(y)(x - initialX)(y - initialY))();
+            }
+          }, true);
+        };
+      };
+    };
+  };
+};

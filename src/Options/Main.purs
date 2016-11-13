@@ -23,7 +23,7 @@ root =
       , html "div"
           []
           (view a >> map \a ->
-            a >> map \(i :: Int) ->
+            a >> map \i ->
               widget \state -> do
                 a <- Animation.make { duration: 5000.0 }
                 --"Widget before" >> spy >> pure
@@ -35,21 +35,47 @@ root =
                   --"beforeRemove" >> spy >> pure
                   a >> Animation.tweenTo 0.0
                 --state >> keepUntil (a >> view >> is 0.0)
+                hovering <- Mutable.make false
+                x <- Mutable.make Nothing
+                y <- Mutable.make Nothing
+                --dragging <- (view x >| isJust) ||
+                --            (view y >| isJust)
+
+                let
+                  transform x y =
+                    "translate3d(" <>
+                      show (fromMaybe 0 x)
+                      <> "px, " <>
+                      show (fromMaybe 0 y)
+                      <> "px, 0)"
+
+                  width =
+                    Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
+
+                  height =
+                    Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"
+
+                  opacity hovering =
+                    if hovering then "1" else "0.5"
+
+                  backgroundColor t =
+                    hsla
+                      (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
+                      100.0
+                      50.0
+                      0.5
+
                 pure << html "div"
-                  [ --style "position" "fixed"
+                  [ onHoverSet hovering
+                  --, style "position" "fixed"
                   --, style "left" "50px"
                   --, style "top" "50px"
-                  style "transform" "translate3d(0, 0, 0)"
-                  , style "width"
-                      (view a >> map (Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"))
-                  , style "height"
-                      (view a >> map (Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"))
-                  , style "background-color"
-                      (view a >> map \t ->
-                        hsl
-                          (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
-                          100.0
-                          50.0) ]
+                  , onDragSet x y
+                  , style "transform" (map transform << view x |< view y)
+                  , style "width" (map width << view a)
+                  , style "height" (map height << view a)
+                  , style "opacity" (map opacity << view hovering)
+                  , style "background-color" (map backgroundColor << view a) ]
                   [ text (show i) ]) ]
 
 
