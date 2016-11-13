@@ -36,10 +36,12 @@ import Prelude
   , apply
   , class Apply
   , Ordering(..)
+  , (||)
+  , (&&)
   )
 
 import Data.Array ((..))
-import Data.Maybe (Maybe(Nothing, Just), fromMaybe)
+import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
@@ -60,6 +62,7 @@ import Pauan.HTML
   , onDragSet
   , Trait
   , trait
+  , property
   )
 
 import Data.Function as Function

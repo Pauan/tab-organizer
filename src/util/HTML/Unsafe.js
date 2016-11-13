@@ -88,26 +88,74 @@ function stateObserve(state, observe, view, f) {
 }
 
 
+// TODO is this correct ?
+function setStyle1(style, key, value) {
+  style.removeProperty(key);
+
+  if (value === "") {
+    return true;
+
+  } else {
+    style.setProperty(key, value, "");
+
+    return style.getPropertyValue(key) !== "";
+  }
+}
+
 // TODO test this
-// TODO browser prefixes
-function setStyle(style, key, value) {
-  // TODO can this be made faster ?
-  // TODO remove this ?
-  if (key in style) {
-    style.removeProperty(key);
+function setStylePrefixValues(style, prefix, key, value) {
+  if (prefix in style) {
+    if (setStyle1(style, prefix, value) ||
+        setStyle1(style, prefix, "-webkit-" + value) ||
+        setStyle1(style, prefix, "-moz-" + value) ||
+        setStyle1(style, prefix, "-ms-" + value) ||
+        setStyle1(style, prefix, "-o-" + value)) {
+      return true;
 
-    // TODO is this correct ?
-    if (value !== "") {
-      style.setProperty(key, value, "");
-
-      // TODO test this
-      if (style.getPropertyValue(key) === "") {
-        throw new Error("Invalid style \"" + key + "\": \"" + value + "\"");
-      }
+    } else {
+      throw new Error("Invalid style value \"" + key + "\": \"" + value + "\"");
     }
 
   } else {
-    throw new Error("Invalid style \"" + key + "\": \"" + value + "\"");
+    return false;
+  }
+}
+
+function setStylePrefixKeys(style, key, value) {
+  return setStylePrefixValues(style, key, key, value) ||
+         setStylePrefixValues(style, "-webkit-" + key, key, value) ||
+         setStylePrefixValues(style, "-moz-" + key, key, value) ||
+         setStylePrefixValues(style, "-ms-" + key, key, value) ||
+         setStylePrefixValues(style, "-o-" + key, key, value);
+}
+
+// TODO test this
+// TODO can this be made faster ?
+function setStyle(style, key, value) {
+  if (!setStylePrefixKeys(style, key, value)) {
+    throw new Error("Invalid style key \"" + key + "\": \"" + value + "\"");
+  }
+}
+
+
+// TODO browser prefixes ?
+// TODO test this
+function setProperty(element, key, value) {
+  if (key in element) {
+    var oldValue = element[key];
+
+    element[key] = value;
+
+    var newValue = element[key];
+
+    // TODO better detection ?
+    if (newValue === oldValue && oldValue !== value) {
+      // TODO code duplication
+      throw new Error("Invalid property value \"" + key + "\": \"" + value + "\"");
+    }
+
+  } else {
+    throw new Error("Invalid property key \"" + key + "\": \"" + value + "\"");
   }
 }
 
@@ -230,7 +278,7 @@ exports.renderImpl = function (unit) {
 
 
 exports.unsafeSetPropertyValue = function (state, element, key, value) {
-  element[key] = value;
+  setProperty(element, key, value);
 };
 
 
@@ -238,7 +286,7 @@ exports.unsafeSetPropertyView = function (observe) {
   return function (unit) {
     return function (state, element, key, value) {
       stateObserve(state, observe, value, function (value) {
-        element[key] = value;
+        setProperty(element, key, value);
         return unit;
       });
     };

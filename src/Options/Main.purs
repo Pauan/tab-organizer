@@ -35,13 +35,16 @@ root =
                   --"beforeRemove" >> spy >> pure
                   a >> Animation.tweenTo 0.0
                 --state >> keepUntil (a >> view >> is 0.0)
-                hovering <- Mutable.make false
+                isHovering <- Mutable.make false
                 x <- Mutable.make Nothing
                 y <- Mutable.make Nothing
                 --dragging <- (view x >| isJust) ||
                 --            (view y >| isJust)
 
                 let
+                  isDragging x y =
+                    isJust x || isJust y
+
                   transform x y =
                     "translate3d(" <>
                       show (fromMaybe 0 x)
@@ -65,8 +68,11 @@ root =
                       50.0
                       0.5
 
+                  cursor isDragging =
+                    if isDragging then "grabbing" else "grab"
+
                 pure << html "div"
-                  [ onHoverSet hovering
+                  [ onHoverSet isHovering
                   --, style "position" "fixed"
                   --, style "left" "50px"
                   --, style "top" "50px"
@@ -74,8 +80,9 @@ root =
                   , style "transform" (map transform << view x |< view y)
                   , style "width" (map width << view a)
                   , style "height" (map height << view a)
-                  , style "opacity" (map opacity << view hovering)
-                  , style "background-color" (map backgroundColor << view a) ]
+                  , style "opacity" (map opacity << view isHovering)
+                  , style "background-color" (map backgroundColor << view a)
+                  , style "cursor" (map cursor (map isDragging << view x |< view y)) ]
                   [ text (show i) ]) ]
 
 
