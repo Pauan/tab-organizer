@@ -37,6 +37,15 @@ const focus_tab = (tab_id) => {
   }));
 };
 
+const move_tabs = (window_id, tab_ids, index) => {
+  ports.send(port, record.make({
+    "type": "move-tabs",
+    "window": window_id,
+    "tabs": tab_ids,
+    "index": index
+  }));
+};
+
 
 const update_time = (tab, name, time) => {
   // TODO test this
@@ -56,7 +65,7 @@ const types = record.make({
     console.info("tabs: initialized (" + timer.diff(duration) + "ms)");
 
     async.success(init, { windows, window_ids, tab_ids, transient_ids,
-                          tag_ids, events, focus_tab, close_tabs });
+                          tag_ids, events, focus_tab, close_tabs, move_tabs });
   },
 
   "tab-open": (json) => {

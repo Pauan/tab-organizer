@@ -632,6 +632,26 @@ export const init = async.all([init_db,
   window.merge_duplicate_tabs = merge_duplicate_tabs;
 
 
+  const close_inactive_tabs = () => {
+    db.transaction(() => {
+      const window_ids = db.get("current.window-ids");
+
+      list.each(db.get("current.windows"), (id) => {
+        const window = record.get(window_ids, id);
+
+        list.each(record.get(window, "tabs"), (id) => {
+          if (!record.has(transient_tab_ids, id)) {
+            close_tab(id);
+          }
+        });
+      });
+    });
+  };
+
+  // TODO remove this after I put in a menu
+  window.close_inactive_tabs = close_inactive_tabs;
+
+
   const make_new_tab = (window_id, tab_id, info) => {
     const tab = record.make({
       "id": tab_id,

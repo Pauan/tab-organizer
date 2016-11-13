@@ -9,7 +9,7 @@ import { init as init_groups } from "./groups";
 
 
 export const init = async.all([init_groups],
-                              ({ groups }) => {
+                              ({ groups, move_tabs }) => {
 
   let drag_info = null;
 
@@ -237,14 +237,7 @@ export const init = async.all([init_groups],
 
     update_tabs(tabs, false);*/
 
-
-    /*ports.send(port, record.make({
-      "type": "move-tabs",
-      // TODO hacky
-      "window": record.get(info.group, "id"),
-      "tabs": list.map(selected, (tab) => record.get(tab, "id")),
-      "index": index2
-    }));*/
+    move_tabs(info.group, selected, index2);
   };
 
 

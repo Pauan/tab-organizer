@@ -153,6 +153,10 @@ export const init = async.all([init_tabs,
     tabs.close_tabs(list.map(a, (tab) => record.get(tab, "id")));
   };
 
+  const move_tabs = (group, _tabs, index) => {
+    tabs.move_tabs(record.get(group, "id"), list.map(_tabs, (tab) => record.get(tab, "id")), index);
+  };
+
 
   // TODO a little bit hacky
   const groups = mutable.make(null);
@@ -197,5 +201,5 @@ export const init = async.all([init_tabs,
 
 
   return async.done({ groups, close_tabs, click_tab, focus_tab,
-                      shift_select_tab, ctrl_select_tab });
+                      shift_select_tab, ctrl_select_tab, move_tabs });
 });
