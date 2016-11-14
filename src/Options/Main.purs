@@ -36,7 +36,8 @@ root =
     pure << html "div"
       [ style "width" "100%"
       , style "height" "100%"
-      , style "cursor" (map (\x -> if x then "grabbing" else "") << view isDragging) ]
+      , style "cursor" (map (\x -> if x then "grabbing" else "") << view isDragging)
+      , style "user-select" "none" ]
       [ html "button"
           [ on "click" \_ -> runTransaction do
               a >> Mutable.set (1..200) ]
