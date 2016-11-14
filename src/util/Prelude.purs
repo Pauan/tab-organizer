@@ -14,6 +14,8 @@ module Pauan.Prelude
   , (|<)
   , (>|)
   , applyFlipped
+  , ifJust
+  , (++)
   ) where
 
 import Prelude
@@ -22,7 +24,6 @@ import Prelude
   , show
   , (+)
   , (-)
-  , (<>)
   , (<<<)
   , (>>>)
   , id
@@ -38,10 +39,12 @@ import Prelude
   , Ordering(..)
   , (||)
   , (&&)
+  , top
+  , const
   )
 
 import Data.Array ((..))
-import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust)
+import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust, maybe)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
@@ -59,19 +62,30 @@ import Pauan.HTML
   , text
   , on
   , onHoverSet
+  , DragEvent
+  , onDrag
   , onDragSet
+  , onDragSet'
   , Trait
   , trait
   , property
   )
 
-import Data.Function as Function
+import Prelude as Prelude'
+import Data.Function as Function'
 
 applyFlipped :: forall a b c. (Apply a) => a b -> a (b -> c) -> a c
 applyFlipped a b = apply b a
 
-infixr 1 Function.apply as <<
-infixl 1 Function.applyFlipped as >>
+infixr 5 Prelude'.append as ++
 
-infixl 0 apply as |<
+infixr 1 Function'.apply as <<
+infixl 1 Function'.applyFlipped as >>
+
+infixl 0 Prelude'.apply as |<
 infixr 0 applyFlipped as >|
+
+
+ifJust :: forall a b. a -> a -> Maybe b -> a
+ifJust yes _  (Just _) = yes
+ifJust _   no Nothing = no

@@ -17,6 +17,7 @@ module Pauan.HTML
   , DragEvent
   , onDrag
   , onDragSet
+  , onDragSet'
   ) where
 
 import Prelude
@@ -141,7 +142,7 @@ hsla :: Number -> Number -> Number -> Number -> String
 hsla h s l a = "hsla(" <> show h <> ", " <> show s <> "%, " <> show l <> "%, " <> show a <> ")"
 
 
-onHoverSet :: (Mutable.Mutable Boolean) -> Trait
+onHoverSet :: Mutable.Mutable Boolean -> Trait
 onHoverSet mut =
   trait [ on "mouseenter" \_ -> runTransaction do
             Mutable.set true mut
@@ -181,14 +182,16 @@ onDrag :: forall eff.
 onDrag x = onDrag' x.start x.move x.end
 
 
-onDragSet :: (Mutable.Mutable (Maybe Int)) -> (Mutable.Mutable (Maybe Int)) -> Trait
-onDragSet x y =
+onDragSet' :: forall a. (Maybe DragEvent -> a) -> Mutable.Mutable a -> Trait
+onDragSet' f m =
   let
     set = \e -> runTransaction do
-      Mutable.set (Just e.offsetX) x
-      Mutable.set (Just e.offsetY) y
+      Mutable.set (f (Just e)) m
     unset = \_ -> runTransaction do
-      Mutable.set Nothing x
-      Mutable.set Nothing y
+      Mutable.set (f Nothing) m
   in
     onDrag' set set unset
+
+
+onDragSet :: Mutable.Mutable (Maybe DragEvent) -> Trait
+onDragSet = onDragSet' id

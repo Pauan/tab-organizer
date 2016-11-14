@@ -8,14 +8,18 @@ import Pauan.HTML (render, widget, afterInsert, beforeRemove)
 
 root :: HTML
 root =
-  widget \state -> do
+  widget \_ -> do
     a <- Mutable.make [1, 2, 3]
+
+    dragging <- Mutable.make Nothing
 
     --setTimeout 1000 << runTransaction do
       --a >> Mutable.set [4, 5, 6]
 
     pure << html "div"
-      []
+      [ style "width" "100%"
+      , style "height" "100%"
+      , style "cursor" (map (ifJust "grabbing" "") << view dragging) ]
       [ html "button"
           [ on "click" \_ -> runTransaction do
               a >> Mutable.set (1..200) ]
@@ -36,21 +40,15 @@ root =
                   a >> Animation.tweenTo 0.0
                 --state >> keepUntil (a >> view >> is 0.0)
                 isHovering <- Mutable.make false
-                x <- Mutable.make Nothing
-                y <- Mutable.make Nothing
-                --dragging <- (view x >| isJust) ||
-                --            (view y >| isJust)
 
                 let
-                  isDragging x y =
-                    isJust x || isJust y
-
-                  transform x y =
-                    "translate3d(" <>
-                      show (fromMaybe 0 x)
-                      <> "px, " <>
-                      show (fromMaybe 0 y)
-                      <> "px, 0)"
+                  transform :: (Maybe DragEvent) -> String
+                  transform x =
+                    "translate3d(" ++
+                      show (maybe 0 _.offsetX x) ++
+                      "px, " ++
+                      show (maybe 0 _.offsetY x) ++
+                      "px, 0)"
 
                   width =
                     Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
@@ -68,21 +66,23 @@ root =
                       50.0
                       0.5
 
-                  cursor isDragging =
-                    if isDragging then "grabbing" else "grab"
+                  zIndex = ifJust (show << (top :: Int)) ""
 
                 pure << html "div"
                   [ onHoverSet isHovering
+                  , onDragSet dragging
                   --, style "position" "fixed"
                   --, style "left" "50px"
                   --, style "top" "50px"
-                  , onDragSet x y
-                  , style "transform" (map transform << view x |< view y)
+                  , style "transform" (map transform << view dragging)
                   , style "width" (map width << view a)
                   , style "height" (map height << view a)
                   , style "opacity" (map opacity << view isHovering)
                   , style "background-color" (map backgroundColor << view a)
-                  , style "cursor" (map cursor (map isDragging << view x |< view y)) ]
+                  , style "position" "relative"
+                  , style "cursor" "grab"
+                  , style "z-index" (map zIndex << view dragging)
+                  ]
                   [ text (show i) ]) ]
 
 
