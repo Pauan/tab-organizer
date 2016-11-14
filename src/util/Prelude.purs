@@ -69,6 +69,7 @@ import Pauan.HTML
   , Trait
   , trait
   , property
+  , topZIndex
   )
 
 import Prelude as Prelude'

@@ -6,12 +6,29 @@ import Pauan.Mutable as Mutable
 import Pauan.HTML (render, widget, afterInsert, beforeRemove)
 
 
+cursor :: forall a. (ToView a Boolean) => a -> View String -> Trait
+cursor isDragging a =
+  style "cursor" (map (\x y -> if x then "" else y) << view isDragging |< a)
+
+
+draggable :: Mutable.Mutable Boolean -> Mutable.Mutable (Maybe DragEvent) -> Trait
+draggable isDragging dragging = trait
+  [ onDragSet' isJust isDragging
+  , onDragSet dragging
+  , style "pointer-events" (map (ifJust "none" "") << view dragging)
+  , cursor isDragging (map (ifJust "" "grab") << view dragging)
+  , style "z-index" (map (ifJust topZIndex "") << view dragging)
+  -- This causes it to be displayed on its own layer, so that we can
+  -- move it around without causing a relayout or repaint
+  , style "transform" (map (ifJust "translate3d(0px, 0px, 0px)" "") << view dragging) ]
+
+
 root :: HTML
 root =
   widget \_ -> do
     a <- Mutable.make [1, 2, 3]
 
-    dragging <- Mutable.make Nothing
+    isDragging <- Mutable.make false
 
     --setTimeout 1000 << runTransaction do
       --a >> Mutable.set [4, 5, 6]
@@ -19,7 +36,7 @@ root =
     pure << html "div"
       [ style "width" "100%"
       , style "height" "100%"
-      , style "cursor" (map (ifJust "grabbing" "") << view dragging) ]
+      , style "cursor" (map (\x -> if x then "grabbing" else "") << view isDragging) ]
       [ html "button"
           [ on "click" \_ -> runTransaction do
               a >> Mutable.set (1..200) ]
@@ -40,6 +57,8 @@ root =
                   a >> Animation.tweenTo 0.0
                 --state >> keepUntil (a >> view >> is 0.0)
                 isHovering <- Mutable.make false
+
+                dragging <- Mutable.make Nothing
 
                 let
                   transform :: (Maybe DragEvent) -> String
@@ -66,11 +85,9 @@ root =
                       50.0
                       0.5
 
-                  zIndex = ifJust (show << (top :: Int)) ""
-
                 pure << html "div"
                   [ onHoverSet isHovering
-                  , onDragSet dragging
+                  , draggable isDragging dragging
                   --, style "position" "fixed"
                   --, style "left" "50px"
                   --, style "top" "50px"
@@ -80,8 +97,6 @@ root =
                   , style "opacity" (map opacity << view isHovering)
                   , style "background-color" (map backgroundColor << view a)
                   , style "position" "relative"
-                  , style "cursor" "grab"
-                  , style "z-index" (map zIndex << view dragging)
                   ]
                   [ text (show i) ]) ]
 
