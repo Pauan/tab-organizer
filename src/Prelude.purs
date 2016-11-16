@@ -70,6 +70,7 @@ import Pauan.HTML
   , trait
   , property
   , topZIndex
+  , floating
   )
 
 import Prelude as Prelude'

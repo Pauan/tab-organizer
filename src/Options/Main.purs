@@ -11,99 +11,72 @@ cursor isDragging a =
   style "cursor" (map (\x y -> if x then "" else y) << view isDragging |< a)
 
 
-draggable :: Mutable.Mutable Boolean -> Mutable.Mutable (Maybe DragEvent) -> Trait
-draggable isDragging dragging = trait
-  [ onDragSet' isJust isDragging
-  , onDragSet dragging
-  , style "pointer-events" (map (ifJust "none" "") << view dragging)
-  , cursor isDragging (map (ifJust "" "grab") << view dragging)
-  , style "z-index" (map (ifJust topZIndex "") << view dragging)
-  -- This causes it to be displayed on its own layer, so that we can
-  -- move it around without causing a relayout or repaint
-  , style "transform" (map (ifJust "translate3d(0px, 0px, 0px)" "") << view dragging) ]
+root :: forall eff. Eff eff HTML
+root = do
+  dragging <- draggingMake
 
+  a <- Mutable.make [1, 2, 3]
 
-root :: HTML
-root =
-  widget \_ -> do
-    a <- Mutable.make [1, 2, 3]
+  --setTimeout 1000 << runTransaction do
+    --a >> Mutable.set [4, 5, 6]
+  pure << html "div"
+    [ draggingTrait style "width" "100%"
+    , style "height" "100%"
+    , style "user-select" "none" ]
+    [ draggingView dragging
+    , html "button"
+        [ on "click" \_ -> runTransaction do
+            a >> Mutable.set (1..200) ]
+        [ text "Activate" ]
+    , html "div"
+        []
+        (view a >> map \a ->
+          a >> map \i ->
+            widget \state -> do
+              a <- Animation.make { duration: 5000.0 }
+              --"Widget before" >> spy >> pure
+              state >> afterInsert do
+                --"afterInsert" >> spy >> pure
+                a >> Animation.tweenTo 1.0
+              --"Widget after" >> spy >> pure
+              state >> beforeRemove do
+                --"beforeRemove" >> spy >> pure
+                a >> Animation.tweenTo 0.0
+              --state >> keepUntil (a >> view >> is 0.0)
+              isHovering <- Mutable.make false
 
-    isDragging <- Mutable.make false
+              let
+                width =
+                  Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
 
-    --setTimeout 1000 << runTransaction do
-      --a >> Mutable.set [4, 5, 6]
+                height =
+                  Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"
 
-    pure << html "div"
-      [ style "width" "100%"
-      , style "height" "100%"
-      , style "cursor" (map (\x -> if x then "grabbing" else "") << view isDragging)
-      , style "user-select" "none" ]
-      [ html "button"
-          [ on "click" \_ -> runTransaction do
-              a >> Mutable.set (1..200) ]
-          [ text "Activate" ]
-      , html "div"
-          []
-          (view a >> map \a ->
-            a >> map \i ->
-              widget \state -> do
-                a <- Animation.make { duration: 5000.0 }
-                --"Widget before" >> spy >> pure
-                state >> afterInsert do
-                  --"afterInsert" >> spy >> pure
-                  a >> Animation.tweenTo 1.0
-                --"Widget after" >> spy >> pure
-                state >> beforeRemove do
-                  --"beforeRemove" >> spy >> pure
-                  a >> Animation.tweenTo 0.0
-                --state >> keepUntil (a >> view >> is 0.0)
-                isHovering <- Mutable.make false
+                opacity hovering =
+                  if hovering then "1" else "0.5"
 
-                dragging <- Mutable.make Nothing
+                backgroundColor t =
+                  hsla
+                    (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
+                    100.0
+                    50.0
+                    0.5
 
-                let
-                  transform :: (Maybe DragEvent) -> String
-                  transform x =
-                    "translate3d(" ++
-                      show (maybe 0 _.offsetX x) ++
-                      "px, " ++
-                      show (maybe 0 _.offsetY x) ++
-                      "px, 0)"
-
-                  width =
-                    Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
-
-                  height =
-                    Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"
-
-                  opacity hovering =
-                    if hovering then "1" else "0.5"
-
-                  backgroundColor t =
-                    hsla
-                      (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
-                      100.0
-                      50.0
-                      0.5
-
-                pure << html "div"
-                  [ onHoverSet isHovering
-                  , draggable isDragging dragging
-                  --, style "position" "fixed"
-                  --, style "left" "50px"
-                  --, style "top" "50px"
-                  , style "transform" (map transform << view dragging)
-                  , style "width" (map width << view a)
-                  , style "height" (map height << view a)
-                  , style "opacity" (map opacity << view isHovering)
-                  , style "background-color" (map backgroundColor << view a)
-                  , style "position" "relative"
-                  ]
-                  [ text (show i) ]) ]
+              pure << html "div"
+                [ onHoverSet isHovering
+                , draggable dragging
+                , style "width" (map width << view a)
+                , style "height" (map height << view a)
+                , style "opacity" (map opacity << view isHovering)
+                , style "background-color" (map backgroundColor << view a)
+                ]
+                [ text (show i) ]) ]
 
 
 main :: Eff () Unit
-main = root >> render >> void
+main = do
+  a <- root
+  a >> render >> void
 
 {-main :: Eff (err :: EXCEPTION) Unit
 main = void << launchAff do

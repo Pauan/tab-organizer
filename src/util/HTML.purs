@@ -19,6 +19,7 @@ module Pauan.HTML
   , onDragSet
   , onDragSet'
   , topZIndex
+  , floating
   ) where
 
 import Prelude
@@ -198,5 +199,12 @@ onDragSet :: Mutable.Mutable (Maybe DragEvent) -> Trait
 onDragSet = onDragSet' id
 
 
+-- 32-bit signed int
 topZIndex :: String
 topZIndex = "2147483647"
+
+
+floating :: Trait
+floating = trait
+  [ style "position" "fixed"
+  , style "z-index" topZIndex ]
