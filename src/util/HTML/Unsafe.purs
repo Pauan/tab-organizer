@@ -25,9 +25,6 @@ import Pauan.Resource (Resource)
 import Data.Function.Uncurried (Fn2, Fn3, Fn4)
 
 
-type Observe eff a = (a -> Eff eff Unit) -> View a -> Eff eff Resource
-
-
 -- TODO use purescript-dom
 foreign import data DOMElement :: *
 
@@ -40,27 +37,36 @@ foreign import data State :: *
 foreign import data Trait :: *
 
 
+type Observe eff a = (a -> Eff eff Unit) -> View a -> Eff eff Resource
+
+
+type SetProperty a = Fn4 State DOMElement String a Unit
+
 class HTMLProperty a b | a -> b where
-  unsafeSetProperty :: Fn4 State DOMElement String a Unit
+  unsafeSetProperty :: SetProperty a
 
 
-foreign import unsafeSetPropertyValue :: forall a. Fn4 State DOMElement String a Unit
+foreign import unsafeSetPropertyValue :: forall a. SetProperty a
 
-instance htmlPropertyValue :: HTMLProperty a a where
+instance htmlPropertyString :: HTMLProperty String String where
+  unsafeSetProperty = unsafeSetPropertyValue
+
+-- TODO a bit of code duplication
+instance htmlPropertyBoolean :: HTMLProperty Boolean Boolean where
   unsafeSetProperty = unsafeSetPropertyValue
 
 
 foreign import unsafeSetPropertyView :: forall eff a.
   Observe eff a ->
   Unit ->
-  Fn4 State DOMElement String (View a) Unit
+  SetProperty (View a)
 
 instance htmlPropertyView :: HTMLProperty (View a) a where
   unsafeSetProperty = unsafeSetPropertyView observe unit
 
 
 foreign import unsafePropertyImpl :: forall a.
-  (Fn4 State DOMElement String a Unit) ->
+  SetProperty a ->
   String ->
   a ->
   Trait

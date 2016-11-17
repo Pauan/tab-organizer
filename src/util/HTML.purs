@@ -20,6 +20,7 @@ module Pauan.HTML
   , onDragSet'
   , topZIndex
   , floating
+  , hidden
   ) where
 
 import Prelude
@@ -116,6 +117,9 @@ property = unsafeProperty
 -- TODO what about indeterminacy ?
 checked :: forall a. (HTMLProperty a Boolean) => a -> Trait
 checked = unsafeProperty "checked"
+
+hidden :: forall a. (HTMLProperty a Boolean) => a -> Trait
+hidden = unsafeProperty "hidden"
 
 
 foreign import trait :: Array Trait -> Trait

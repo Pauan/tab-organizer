@@ -71,6 +71,7 @@ import Pauan.HTML
   , property
   , topZIndex
   , floating
+  , hidden
   )
 
 import Prelude as Prelude'

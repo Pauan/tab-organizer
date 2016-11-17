@@ -4,6 +4,7 @@ import Pauan.Prelude
 import Pauan.Animation as Animation
 import Pauan.Mutable as Mutable
 import Pauan.HTML (render, widget, afterInsert, beforeRemove)
+import Pauan.Panel.View.Dragging (draggable, draggingMake, draggingTrait, draggingView)
 
 
 cursor :: forall a. (ToView a Boolean) => a -> View String -> Trait
@@ -11,7 +12,7 @@ cursor isDragging a =
   style "cursor" (map (\x y -> if x then "" else y) << view isDragging |< a)
 
 
-root :: forall eff. Eff eff HTML
+root :: Eff (mutable :: Mutable.MUTABLE) HTML
 root = do
   dragging <- draggingMake
 
@@ -20,7 +21,8 @@ root = do
   --setTimeout 1000 << runTransaction do
     --a >> Mutable.set [4, 5, 6]
   pure << html "div"
-    [ draggingTrait style "width" "100%"
+    [ draggingTrait dragging
+    , style "width" "100%"
     , style "height" "100%"
     , style "user-select" "none" ]
     [ draggingView dragging
@@ -73,7 +75,7 @@ root = do
                 [ text (show i) ]) ]
 
 
-main :: Eff () Unit
+main :: Eff (mutable :: Mutable.MUTABLE) Unit
 main = do
   a <- root
   a >> render >> void

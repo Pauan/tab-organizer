@@ -45,9 +45,9 @@ draggingTrait { dragging } =
 draggable :: Dragging -> Trait
 draggable { children, dragging } =  trait
   [ onDragSet dragging
-  , property "hidden" (map isJust << view dragging) ]
-  where
-    transform Nothing = ""
+  , hidden (map isJust << view dragging) ]
+  --where
+    --transform Nothing = ""
     -- This causes it to be displayed on its own layer, so that we can
     -- move it around without causing a relayout or repaint
-    transform (Just x) = "translate3d(" ++ show x.offsetX ++ "px, " ++ show x.offsetY ++ "px, 0)"
+    --transform (Just x) = "translate3d(" ++ show x.offsetX ++ "px, " ++ show x.offsetY ++ "px, 0)"
