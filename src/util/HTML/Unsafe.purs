@@ -22,7 +22,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Pauan.View (View, observe)
 import Pauan.Resource (Resource)
-import Data.Function.Uncurried (Fn2, Fn3, Fn4)
+import Data.Function.Uncurried (Fn2, Fn3, Fn4, Fn5)
 
 
 -- TODO use purescript-dom
@@ -75,11 +75,13 @@ unsafeProperty :: forall a b. (HTMLProperty a b) => String -> a -> Trait
 unsafeProperty = unsafePropertyImpl unsafeSetProperty
 
 
+type SetStyle a = Fn5 State DOMElement String a String Unit
+
 class HTMLStyle a where
-  unsafeSetStyle :: Fn4 State DOMElement String a Unit
+  unsafeSetStyle :: SetStyle a
 
 
-foreign import unsafeSetStyleValue :: Fn4 State DOMElement String String Unit
+foreign import unsafeSetStyleValue :: SetStyle String
 
 instance htmlStyleValue :: HTMLStyle String where
   unsafeSetStyle = unsafeSetStyleValue
@@ -88,7 +90,7 @@ instance htmlStyleValue :: HTMLStyle String where
 foreign import unsafeSetStyleView :: forall eff.
   Observe eff String ->
   Unit ->
-  Fn4 State DOMElement String (View String) Unit
+  SetStyle (View String)
 
 instance htmlStyleView :: HTMLStyle (View String) where
   unsafeSetStyle = unsafeSetStyleView observe unit

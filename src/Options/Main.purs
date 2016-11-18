@@ -1,78 +1,49 @@
 module Options.Main where
 
 import Pauan.Prelude
-import Pauan.Animation as Animation
 import Pauan.Mutable as Mutable
-import Pauan.HTML (render, widget, afterInsert, beforeRemove)
-import Pauan.Panel.View.Dragging (draggable, draggingMake, draggingTrait, draggingView)
+import Pauan.Panel.Types (Tab, makeState)
+import Pauan.Panel.View.Tab (draggingTrait, draggingView, tabView)
+import Pauan.HTML (render, widget)
 
 
-cursor :: forall a. (ToView a Boolean) => a -> View String -> Trait
-cursor isDragging a =
-  style "cursor" (map (\x y -> if x then "" else y) << view isDragging |< a)
+makeTab :: Int -> Eff (mutable :: Mutable.MUTABLE) Tab
+makeTab i = do
+  top <- Mutable.make Nothing
+  visible <- Mutable.make true
+  selected <- Mutable.make false
+  pure { title: show i, url: "", visible, top, selected }
 
 
 root :: Eff (mutable :: Mutable.MUTABLE) HTML
 root = do
-  dragging <- draggingMake
+  state <- makeState
 
-  a <- Mutable.make [1, 2, 3]
+  a <- sequence [makeTab 1, makeTab 2, makeTab 3]
+  tabs <- Mutable.make a
+
+  let group = { tabs }
 
   --setTimeout 1000 << runTransaction do
     --a >> Mutable.set [4, 5, 6]
   pure << html "div"
-    [ draggingTrait dragging
+    [ draggingTrait state
     , style "width" "100%"
     , style "height" "100%"
     , style "user-select" "none" ]
-    [ draggingView dragging
+    [ draggingView state
     , html "button"
-        [ on "click" \_ -> runTransaction do
-            a >> Mutable.set (1..200) ]
+        [ on "click" \_ -> do
+            tabs <- sequence ((1..200) >> map makeTab)
+            runTransaction do
+              group.tabs >> Mutable.set tabs ]
         [ text "Activate" ]
     , html "div"
         []
-        (view a >> map \a ->
-          a >> map \i ->
-            widget \state -> do
-              a <- Animation.make { duration: 5000.0 }
-              --"Widget before" >> spy >> pure
-              state >> afterInsert do
-                --"afterInsert" >> spy >> pure
-                a >> Animation.tweenTo 1.0
-              --"Widget after" >> spy >> pure
-              state >> beforeRemove do
-                --"beforeRemove" >> spy >> pure
-                a >> Animation.tweenTo 0.0
-              --state >> keepUntil (a >> view >> is 0.0)
-              isHovering <- Mutable.make false
-
-              let
-                width =
-                  Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
-
-                height =
-                  Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"
-
-                opacity hovering =
-                  if hovering then "1" else "0.5"
-
-                backgroundColor t =
-                  hsla
-                    (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
-                    100.0
-                    50.0
-                    0.5
-
-              pure << html "div"
-                [ onHoverSet isHovering
-                , draggable dragging
-                , style "width" (map width << view a)
-                , style "height" (map height << view a)
-                , style "opacity" (map opacity << view isHovering)
-                , style "background-color" (map backgroundColor << view a)
-                ]
-                [ text (show i) ]) ]
+        (view group.tabs >> map \a ->
+          a >> map \tab ->
+            widget \_ -> do
+              pure << tabView state group tab) ]
 
 
 main :: Eff (mutable :: Mutable.MUTABLE) Unit

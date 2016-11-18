@@ -89,27 +89,27 @@ function stateObserve(state, observe, view, f) {
 
 
 // TODO is this correct ?
-function setStyle1(style, key, value) {
+function setStyle1(style, key, value, important) {
   style.removeProperty(key);
 
   if (value === "") {
     return true;
 
   } else {
-    style.setProperty(key, value, "");
+    style.setProperty(key, value, important);
 
     return style.getPropertyValue(key) !== "";
   }
 }
 
 // TODO test this
-function setStylePrefixValues(style, prefix, key, value) {
+function setStylePrefixValues(style, prefix, key, value, important) {
   if (prefix in style) {
-    if (!(setStyle1(style, prefix, value) ||
-          setStyle1(style, prefix, "-webkit-" + value) ||
-          setStyle1(style, prefix, "-moz-" + value) ||
-          setStyle1(style, prefix, "-ms-" + value) ||
-          setStyle1(style, prefix, "-o-" + value))) {
+    if (!(setStyle1(style, prefix, value, important) ||
+          setStyle1(style, prefix, "-webkit-" + value, important) ||
+          setStyle1(style, prefix, "-moz-" + value, important) ||
+          setStyle1(style, prefix, "-ms-" + value, important) ||
+          setStyle1(style, prefix, "-o-" + value, important))) {
       console.warn("Invalid style value \"" + key + "\": \"" + value + "\"");
     }
 
@@ -122,12 +122,12 @@ function setStylePrefixValues(style, prefix, key, value) {
 
 // TODO test this
 // TODO can this be made faster ?
-function setStyle(style, key, value) {
-  if (!(setStylePrefixValues(style, key, key, value) ||
-        setStylePrefixValues(style, "-webkit-" + key, key, value) ||
-        setStylePrefixValues(style, "-moz-" + key, key, value) ||
-        setStylePrefixValues(style, "-ms-" + key, key, value) ||
-        setStylePrefixValues(style, "-o-" + key, key, value))) {
+function setStyle(style, key, value, important) {
+  if (!(setStylePrefixValues(style, key, key, value, important) ||
+        setStylePrefixValues(style, "-webkit-" + key, key, value, important) ||
+        setStylePrefixValues(style, "-moz-" + key, key, value, important) ||
+        setStylePrefixValues(style, "-ms-" + key, key, value, important) ||
+        setStylePrefixValues(style, "-o-" + key, key, value, important))) {
     console.warn("Invalid style key \"" + key + "\": \"" + value + "\"");
   }
 }
@@ -300,16 +300,16 @@ exports.unsafePropertyImpl = function (setProperty) {
 };
 
 
-exports.unsafeSetStyleValue = function (state, element, key, value) {
-  setStyle(element.style, key, value);
+exports.unsafeSetStyleValue = function (state, element, key, value, important) {
+  setStyle(element.style, key, value, important);
 };
 
 
 exports.unsafeSetStyleView = function (observe) {
   return function (unit) {
-    return function (state, element, key, value) {
+    return function (state, element, key, value, important) {
       stateObserve(state, observe, value, function (value) {
-        setStyle(element.style, key, value);
+        setStyle(element.style, key, value, important);
         return unit;
       });
     };

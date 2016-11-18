@@ -58,10 +58,12 @@ exports.textImpl = function (makeText) {
 
 
 exports.styleImpl = function (setStyle) {
-  return function (key) {
-    return function (value) {
-      return function (state, element) {
-        return setStyle(state, element, key, value);
+  return function (important) {
+    return function (key) {
+      return function (value) {
+        return function (state, element) {
+          return setStyle(state, element, key, value, important);
+        };
       };
     };
   };
@@ -81,57 +83,58 @@ exports.trait = function (traits) {
 
 
 exports.onDragImpl = function (makeEvent) {
-  return function (onStart) {
-    return function (onMove) {
-      return function (onEnd) {
-        return function (state, element) {
-          var initialX = null;
-          var initialY = null;
-          var dragging = false; // TODO is this correct ?
+  return function (makePosition) {
+    function getEvent(element, initialX, initialY, e) {
+      var x = e.clientX;
+      var y = e.clientY;
+      var box = element.getBoundingClientRect();
+      var position = makePosition(box.left)(box.top)(box.width)(box.height);
+      return makeEvent(x)(y)(x - initialX)(y - initialY)(position);
+    }
 
-          function mousemove(e) {
-            if (dragging) {
-              var x = e.clientX;
-              var y = e.clientY;
-              onMove(makeEvent(x)(y)(x - initialX)(y - initialY))();
+    return function (onStart) {
+      return function (onMove) {
+        return function (onEnd) {
+          return function (state, element) {
+            var initialX = null;
+            var initialY = null;
+            var dragging = false; // TODO is this correct ?
+
+            function mousemove(e) {
+              if (dragging) {
+                onMove(getEvent(element, initialX, initialY, e))();
+              }
             }
-          }
 
-          function mouseup(e) {
-            if (dragging) {
-              var x = e.clientX;
-              var y = e.clientY;
+            function mouseup(e) {
+              if (dragging) {
+                var event = getEvent(element, initialX, initialY, e);
 
-              var oldX = x - initialX;
-              var oldY = y - initialY;
+                initialX = null;
+                initialY = null;
+                dragging = false;
 
-              initialX = null;
-              initialY = null;
-              dragging = false;
+                removeEventListener("mousemove", mousemove, true);
+                removeEventListener("mouseup", mouseup, true);
 
-              removeEventListener("mousemove", mousemove, true);
-              removeEventListener("mouseup", mouseup, true);
-
-              onEnd(makeEvent(x)(y)(oldX)(oldY))();
+                onEnd(event)();
+              }
             }
-          }
 
-          element.addEventListener("mousedown", function (e) {
-            if (!dragging) {
-              addEventListener("mousemove", mousemove, true);
-              // TODO what about `blur` or other events ?
-              addEventListener("mouseup", mouseup, true);
+            element.addEventListener("mousedown", function (e) {
+              if (!dragging) {
+                addEventListener("mousemove", mousemove, true);
+                // TODO what about `blur` or other events ?
+                addEventListener("mouseup", mouseup, true);
 
-              var x = e.clientX;
-              var y = e.clientY;
+                initialX = e.clientX;
+                initialY = e.clientY;
+                dragging = true;
 
-              initialX = x;
-              initialY = y;
-              dragging = true;
-
-              onStart(makeEvent(x)(y)(x - initialX)(y - initialY))();
-            }
-          }, true);
+                onStart(getEvent(element, initialX, initialY, e))();
+              }
+            }, true);
+          };
         };
       };
     };

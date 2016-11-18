@@ -6,6 +6,7 @@ module Pauan.HTML
   , html
   , text
   , style
+  , styleImportant
   , body
   , trait
   , property
@@ -15,6 +16,7 @@ module Pauan.HTML
   , hsl
   , hsla
   , DragEvent
+  , DOMPosition
   , onDrag
   , onDragSet
   , onDragSet'
@@ -29,7 +31,7 @@ import Pauan.View (View, value)
 import Pauan.Resource (Resource)
 import Pauan.Transaction (runTransaction)
 import Pauan.Mutable as Mutable
-import Data.Function.Uncurried (Fn2, Fn3, Fn4)
+import Data.Function.Uncurried (Fn2, Fn3, Fn5)
 import Data.Maybe (Maybe(Just, Nothing))
 
 import Pauan.HTML.Unsafe
@@ -98,13 +100,18 @@ text = textImpl unsafeMakeText
 
 
 foreign import styleImpl :: forall a.
-  (Fn4 State DOMElement String a Unit) ->
+  (Fn5 State DOMElement String a String Unit) ->
+  String ->
   String ->
   a ->
   Trait
 
 style :: forall a. (HTMLStyle a) => String -> a -> Trait
-style = styleImpl unsafeSetStyle
+style = styleImpl unsafeSetStyle ""
+
+
+styleImportant :: forall a. (HTMLStyle a) => String -> a -> Trait
+styleImportant = styleImpl unsafeSetStyle "important"
 
 
 -- TODO should this return Eff ?
@@ -156,17 +163,28 @@ onHoverSet mut =
             Mutable.set false mut ]
 
 
+-- TODO replace with purescript-dom
+-- TODO use Number ?
+type DOMPosition =
+  { left :: Int
+  , top :: Int
+  , width :: Int
+  , height :: Int }
+
+
 type DragEvent =
   { screenX :: Int
   , screenY :: Int
   , offsetX :: Int
-  , offsetY :: Int }
+  , offsetY :: Int
+  , position :: DOMPosition }
 
 type DragHandler eff = DragEvent -> Eff eff Unit
 
 
 foreign import onDragImpl :: forall eff.
-  (Int -> Int -> Int -> Int -> DragEvent) ->
+  (Int -> Int -> Int -> Int -> DOMPosition -> DragEvent) ->
+  (Int -> Int -> Int -> Int -> DOMPosition) ->
   DragHandler eff ->
   DragHandler eff ->
   DragHandler eff ->
@@ -178,7 +196,9 @@ onDrag' :: forall eff.
   DragHandler eff ->
   Trait
 -- TODO make this more efficient
-onDrag' = onDragImpl { screenX: _, screenY: _, offsetX: _, offsetY: _ }
+onDrag' = onDragImpl
+  { screenX: _, screenY: _, offsetX: _, offsetY: _, position: _ }
+  { left: _, top: _, width: _, height: _ }
 
 onDrag :: forall eff.
   { start :: DragHandler eff

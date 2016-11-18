@@ -9,6 +9,8 @@ module Pauan.Prelude
   , module Pauan.HTML
   , module Data.Array
   , module Data.Maybe
+  , module Data.Foldable
+  , module Data.Traversable
   , (<<)
   , (>>)
   , (|<)
@@ -24,8 +26,11 @@ import Prelude
   , show
   , (+)
   , (-)
+  , (*)
+  , (/)
   , (<<<)
   , (>>>)
+  , min
   , id
   , negate
   , void
@@ -39,11 +44,16 @@ import Prelude
   , Ordering(..)
   , (||)
   , (&&)
+  , (==)
+  , (/=)
+  , not
   , top
   , const
   )
 
-import Data.Array ((..))
+import Data.Traversable (sequence)
+import Data.Foldable (for_)
+import Data.Array ((..), length, filterM)
 import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust, maybe)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
@@ -57,12 +67,14 @@ import Pauan.HTML
   ( HTML
   , html
   , style
+  , styleImportant
   , hsl
   , hsla
   , text
   , on
   , onHoverSet
   , DragEvent
+  , DOMPosition
   , onDrag
   , onDragSet
   , onDragSet'
