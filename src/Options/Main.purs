@@ -5,17 +5,19 @@ import Pauan.Mutable as Mutable
 import Pauan.Panel.Types (Tab, makeState)
 import Pauan.Panel.View.Tab (draggingTrait, draggingView, tabView)
 import Pauan.HTML (render, widget)
+import Pauan.Stream (each)
 
 
-makeTab :: Int -> Eff (mutable :: Mutable.MUTABLE) Tab
+makeTab :: forall eff. Int -> Eff (mutable :: Mutable.MUTABLE | eff) Tab
 makeTab i = do
   top <- Mutable.make Nothing
-  visible <- Mutable.make true
-  selected <- Mutable.make false
-  pure { title: show i, url: "", visible, top, selected }
+  matchedSearch <- Mutable.make true
+  dragging <- Mutable.make false
+  selected <- Mutable.make true
+  pure { title: show i, url: "", matchedSearch, dragging, top, selected }
 
 
-root :: Eff (mutable :: Mutable.MUTABLE) HTML
+root :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) HTML
 root = do
   state <- makeState
 
@@ -40,14 +42,13 @@ root = do
         [ text "Activate" ]
     , html "div"
         []
-        (view group.tabs >> map \a ->
-          a >> map \tab ->
-            widget \_ -> do
-              pure << tabView state group tab) ]
+        (view group.tabs >> streamArray >> map \tab ->
+          tabView state group tab) ]
 
 
-main :: Eff (mutable :: Mutable.MUTABLE) Unit
+main :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) Unit
 main = do
+  --_ <- [1, 2, 3] >> stream >> each (spy >>> pure >>> void) (spy >>> pure) (pure unit)
   a <- root
   a >> render >> void
 

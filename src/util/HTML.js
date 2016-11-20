@@ -82,6 +82,7 @@ exports.trait = function (traits) {
 };
 
 
+// TODO test this
 exports.onDragImpl = function (makeEvent) {
   return function (makePosition) {
     function getEvent(element, initialX, initialY, e) {
@@ -89,51 +90,64 @@ exports.onDragImpl = function (makeEvent) {
       var y = e.clientY;
       var box = element.getBoundingClientRect();
       var position = makePosition(box.left)(box.top)(box.width)(box.height);
-      return makeEvent(x)(y)(x - initialX)(y - initialY)(position);
+      return makeEvent(initialX)(initialY)(x)(y)(position);
     }
 
-    return function (onStart) {
-      return function (onMove) {
-        return function (onEnd) {
-          return function (state, element) {
-            var initialX = null;
-            var initialY = null;
-            var dragging = false; // TODO is this correct ?
+    return function (threshold) {
+      return function (onStart) {
+        return function (onMove) {
+          return function (onEnd) {
+            return function (state, element) {
+              var initialX = null;
+              var initialY = null;
+              var dragging = false;
 
-            function mousemove(e) {
-              if (dragging) {
-                onMove(getEvent(element, initialX, initialY, e))();
+              function mousemove(e) {
+                var event = getEvent(element, initialX, initialY, e);
+
+                if (dragging) {
+                  onMove(event)();
+
+                } else if (threshold(event)()) {
+                  dragging = true;
+                  onStart(event)();
+                }
               }
-            }
 
-            function mouseup(e) {
-              if (dragging) {
+              function mouseup(e) {
+                // TODO don't create this if dragging is false ?
                 var event = getEvent(element, initialX, initialY, e);
 
                 initialX = null;
                 initialY = null;
-                dragging = false;
 
                 removeEventListener("mousemove", mousemove, true);
                 removeEventListener("mouseup", mouseup, true);
 
-                onEnd(event)();
-              }
-            }
+                if (dragging) {
+                  dragging = false;
 
-            element.addEventListener("mousedown", function (e) {
-              if (!dragging) {
+                  onEnd(event)();
+                }
+              }
+
+              element.addEventListener("mousedown", function (e) {
+                initialX = e.clientX;
+                initialY = e.clientY;
+
                 addEventListener("mousemove", mousemove, true);
                 // TODO what about `blur` or other events ?
                 addEventListener("mouseup", mouseup, true);
 
-                initialX = e.clientX;
-                initialY = e.clientY;
-                dragging = true;
+                var event = getEvent(element, initialX, initialY, e);
 
-                onStart(getEvent(element, initialX, initialY, e))();
-              }
-            }, true);
+                dragging = threshold(event)();
+
+                if (dragging) {
+                  onStart(event)();
+                }
+              }, true);
+            };
           };
         };
       };

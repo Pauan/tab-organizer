@@ -5,12 +5,16 @@ module Pauan.Prelude
   , module Control.Monad.Aff
   , module Debug.Trace
   , module Pauan.View
+  , module Pauan.Stream
+  , module Pauan.StreamArray
   , module Pauan.Transaction
   , module Pauan.HTML
   , module Data.Array
   , module Data.Maybe
   , module Data.Foldable
   , module Data.Traversable
+  , module Pauan.Math
+  , module Data.Int
   , (<<)
   , (>>)
   , (|<)
@@ -18,6 +22,8 @@ module Pauan.Prelude
   , applyFlipped
   , ifJust
   , (++)
+  , mapIf
+  , mapIfTrue
   ) where
 
 import Prelude
@@ -46,6 +52,10 @@ import Prelude
   , (&&)
   , (==)
   , (/=)
+  , (<)
+  , (>)
+  , (>=)
+  , (<=)
   , not
   , top
   , const
@@ -53,15 +63,19 @@ import Prelude
 
 import Data.Traversable (sequence)
 import Data.Foldable (for_)
-import Data.Array ((..), length, filterM)
+import Data.Array ((..), length, filterM, mapWithIndex)
 import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust, maybe)
+import Data.Int (toNumber)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
 import Debug.Trace (spy)
 
-import Pauan.View (class ToView, View, view)
+import Pauan.Stream (Stream, class ToStream, stream)
+import Pauan.StreamArray (StreamArray, class ToStreamArray, streamArray)
+import Pauan.View (View, class ToView, view)
 import Pauan.Transaction (Transaction, runTransaction)
+import Pauan.Math (hypot)
 
 import Pauan.HTML
   ( HTML
@@ -76,8 +90,6 @@ import Pauan.HTML
   , DragEvent
   , DOMPosition
   , onDrag
-  , onDragSet
-  , onDragSet'
   , Trait
   , trait
   , property
@@ -88,6 +100,7 @@ import Pauan.HTML
 
 import Prelude as Prelude'
 import Data.Function as Function'
+import Data.Monoid as Monoid'
 
 applyFlipped :: forall a b c. (Apply a) => a b -> a (b -> c) -> a c
 applyFlipped a b = apply b a
@@ -104,3 +117,12 @@ infixr 0 applyFlipped as >|
 ifJust :: forall a b. a -> a -> Maybe b -> a
 ifJust yes _  (Just _) = yes
 ifJust _   no Nothing = no
+
+
+mapIf :: forall a f. (Prelude'.Functor f) => a -> a -> f Boolean -> f a
+mapIf yes no = map (\a -> if a then yes else no)
+
+
+-- TODO should this use mempty or something else ?
+mapIfTrue :: forall a f. (Monoid'.Monoid a, Prelude'.Functor f) => a -> f Boolean -> f a
+mapIfTrue yes = mapIf yes Monoid'.mempty

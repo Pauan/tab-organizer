@@ -18,8 +18,6 @@ module Pauan.HTML
   , DragEvent
   , DOMPosition
   , onDrag
-  , onDragSet
-  , onDragSet'
   , topZIndex
   , floating
   , hidden
@@ -32,7 +30,6 @@ import Pauan.Resource (Resource)
 import Pauan.Transaction (runTransaction)
 import Pauan.Mutable as Mutable
 import Data.Function.Uncurried (Fn2, Fn3, Fn5)
-import Data.Maybe (Maybe(Just, Nothing))
 
 import Pauan.HTML.Unsafe
   ( Event
@@ -145,12 +142,12 @@ render a = do
   render' b a
 
 
-hsl :: Number -> Number -> Number -> String
+hsl :: Int -> Int -> Int -> String
 -- TODO should this use show ?
 hsl h s l = "hsl(" <> show h <> ", " <> show s <> "%, " <> show l <> "%)"
 
 
-hsla :: Number -> Number -> Number -> Number -> String
+hsla :: Int -> Int -> Int -> Number -> String
 -- TODO should this use show ?
 hsla h s l a = "hsla(" <> show h <> ", " <> show s <> "%, " <> show l <> "%, " <> show a <> ")"
 
@@ -173,10 +170,10 @@ type DOMPosition =
 
 
 type DragEvent =
-  { screenX :: Int
-  , screenY :: Int
-  , offsetX :: Int
-  , offsetY :: Int
+  { startX :: Int
+  , startY :: Int
+  , currentX :: Int
+  , currentY :: Int
   , position :: DOMPosition }
 
 type DragHandler eff = DragEvent -> Eff eff Unit
@@ -185,42 +182,30 @@ type DragHandler eff = DragEvent -> Eff eff Unit
 foreign import onDragImpl :: forall eff.
   (Int -> Int -> Int -> Int -> DOMPosition -> DragEvent) ->
   (Int -> Int -> Int -> Int -> DOMPosition) ->
+  (DragEvent -> Eff eff Boolean) ->
   DragHandler eff ->
   DragHandler eff ->
   DragHandler eff ->
   Trait
 
 onDrag' :: forall eff.
+  (DragEvent -> Eff eff Boolean) ->
   DragHandler eff ->
   DragHandler eff ->
   DragHandler eff ->
   Trait
 -- TODO make this more efficient
 onDrag' = onDragImpl
-  { screenX: _, screenY: _, offsetX: _, offsetY: _, position: _ }
+  { startX: _, startY: _, currentX: _, currentY: _, position: _ }
   { left: _, top: _, width: _, height: _ }
 
 onDrag :: forall eff.
-  { start :: DragHandler eff
+  { threshold :: DragEvent -> Eff eff Boolean
+  , start :: DragHandler eff
   , move :: DragHandler eff
   , end :: DragHandler eff } ->
   Trait
-onDrag x = onDrag' x.start x.move x.end
-
-
-onDragSet' :: forall a. (Maybe DragEvent -> a) -> Mutable.Mutable a -> Trait
-onDragSet' f m =
-  let
-    set = \e -> runTransaction do
-      Mutable.set (f (Just e)) m
-    unset = \_ -> runTransaction do
-      Mutable.set (f Nothing) m
-  in
-    onDrag' set set unset
-
-
-onDragSet :: Mutable.Mutable (Maybe DragEvent) -> Trait
-onDragSet = onDragSet' id
+onDrag x = onDrag' x.threshold x.start x.move x.end
 
 
 -- 32-bit signed int

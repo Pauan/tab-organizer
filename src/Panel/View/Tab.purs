@@ -4,7 +4,7 @@ import Pauan.Prelude
 import Pauan.Mutable as Mutable
 import Pauan.Animation as Animation
 import Pauan.View (value)
-import Pauan.Panel.Types (State, Group, Tab)
+import Pauan.Panel.Types (State, Group, Tab, Dragging)
 import Pauan.HTML (widget, afterInsert, beforeRemove)
 
 
@@ -18,14 +18,6 @@ row = trait
   , style "flex-direction" "row"
   -- TODO get rid of this ?
   , style "align-items" "center" ]
-
-
-tabTrait :: Trait
-tabTrait = trait
-  [ style "width" "100%"
-  , style "height" (show tabHeight ++ "px")
-  , style "padding" "1px"
-  , style "border-radius" "5px" ]
 
 
 menuItemTrait :: State -> Trait
@@ -44,8 +36,59 @@ menuItemTrait { dragging } = trait
       : null)),-} ]
 
 
+menuItemShadowTrait :: Trait
+menuItemShadowTrait =
+  style "box-shadow" ("1px 1px  1px " ++ hsla 0 0   0 0.25 ++ "," ++
+                "inset 0px 0px  3px " ++ hsla 0 0 100 1.0  ++ "," ++
+                "inset 0px 0px 10px " ++ hsla 0 0 100 0.25)
+
+
+repeatingGradient :: String
+repeatingGradient =
+  "repeating-linear-gradient(-45deg, " ++
+    "transparent"     ++ " 0px, " ++
+    "transparent"     ++ " 4px, " ++
+    hsla 0 0 100 0.05 ++ " 6px, " ++
+    hsla 0 0 100 0.05 ++ " 10px)"
+
+
+menuItemHoverTrait :: View Boolean -> Trait
+menuItemHoverTrait isHovering = trait
+  -- TODO a bit hacky
+  [ style "transition-duration"
+      (mapIfTrue "0ms" isHovering)
+  , style "background-image"
+      (mapIfTrue
+        ("linear-gradient(to bottom, " ++
+           hsla 0 0 100 0.2 ++ " 0%, " ++
+           "transparent"    ++ " 49%, " ++
+           hsla 0 0   0 0.1 ++ " 50%, " ++
+           hsla 0 0 100 0.1 ++ " 80%, " ++
+           hsla 0 0 100 0.2 ++ " 100%)," ++
+         repeatingGradient)
+        isHovering)
+  , style "color"
+      (mapIfTrue (hsla 211 100 99 0.95) isHovering)
+  , style "background-color"
+      (mapIfTrue (hsl 211 100 65) isHovering)
+  , style "border-color"
+      (mapIfTrue
+        (hsl 211 38 62 ++ " " ++
+         hsl 211 38 57 ++ " " ++
+         hsl 211 38 52 ++ " " ++
+         hsl 211 38 57)
+        isHovering)
+  , style "text-shadow"
+      (mapIfTrue
+        ("1px 0px 1px " ++ hsla 0 0 0 0.2 ++ "," ++
+         "0px 0px 1px " ++ hsla 0 0 0 0.1 ++ "," ++
+         -- TODO why is it duplicated like this ?
+         "0px 1px 1px " ++ hsla 0 0 0 0.2)
+        isHovering) ]
+
+
 draggingView :: State -> HTML
-draggingView { dragging, draggingPosition } =
+draggingView state =
   html "div"
     [ floating
     , style "pointer-events" "none"
@@ -55,23 +98,28 @@ draggingView { dragging, draggingPosition } =
     , style "width" (map width << view dragging)
     , style "transform" (map transform << view dragging |< view draggingPosition)
     , hidden (map (not <<< isJust) << view dragging) ]
-    (map selected << view dragging)
+    -- TODO make this more efficient ?
+    (streamArray << map selected << view dragging)
   where
+    dragging = state.dragging
+    draggingPosition = state.draggingPosition
+
+    selected :: Maybe Dragging -> Array HTML
     selected Nothing             = []
     -- TODO pass the index for each tab
-    selected (Just { selected }) = map tabViewDragging selected
+    selected (Just { selected }) = mapWithIndex (tabViewDragging state) selected
 
+    width :: Maybe Dragging -> String
     width Nothing          = ""
     width (Just { width }) = show width ++ "px"
 
     -- This causes it to be displayed on its own layer, so that we can
     -- move it around without causing a relayout or repaint
-    transform (Just { offsetX, offsetY, left }) (Just { screenX, screenY }) =
+    transform :: Maybe Dragging -> Maybe DragEvent -> String
+    transform (Just { offsetX, offsetY, left }) (Just { currentX, currentY }) =
       "translate3d(" ++
-        show (case left of
-               Nothing -> screenX - offsetX
-               Just left' -> left') ++ "px, " ++
-        show (screenY - offsetY) ++ "px, 0px)"
+        show (fromMaybe (currentX - offsetX) left) ++ "px, " ++
+        show (currentY - offsetY) ++ "px, 0px)"
     transform _ _ =
       "translate3d(0px, 0px, 0px)"
 
@@ -84,7 +132,16 @@ draggingTrait { dragging } =
 draggable :: State -> Group -> Tab -> Trait
 draggable { dragging, draggingPosition } group tab = trait
   [ onDrag
-      { start: \e -> do
+      {-
+        // TODO should also support dragging when the type is "tag"
+        mutable.get(group_type) === "window" &&
+        !alt && !ctrl && !shift &&
+        hypot(start_x - x, start_y - y) > 5
+      -}
+      { threshold: \e -> pure <<
+          hypot (toNumber << e.startX - e.currentX) (toNumber << e.startY - e.currentY) > 5.0
+
+      , start: \e -> do
           {-
           const tabs = record.get(group, "tabs");
 
@@ -133,10 +190,7 @@ draggable { dragging, draggingPosition } group tab = trait
           selected <- if isSelected
             then do
               tabs <- group.tabs >> view >> value
-              tabs >> filterM (\x -> do
-                                a <- x.selected >> view >> value
-                                b <- x.visible >> view >> value
-                                pure (a && b))
+              tabs >> filterM \x -> (view x.selected && view x.matchedSearch) >> value
             else [tab] >> pure
           runTransaction do
             let len = length selected
@@ -148,7 +202,7 @@ draggable { dragging, draggingPosition } group tab = trait
             let offsetX = (width / 2)
             let offsetY = (tabHeight / 2) + 1
             for_ selected \a -> do
-              a.visible >> Mutable.set false
+              a.dragging >> Mutable.set true
             dragging >> Mutable.set (Just { left, width, height, offsetX, offsetY, selected })
             draggingPosition >> Mutable.set (Just e)
 
@@ -163,15 +217,29 @@ draggable { dragging, draggingPosition } group tab = trait
               Nothing -> pure unit
               Just { selected } -> do
                 for_ selected \b -> do
-                  b.visible >> Mutable.set true
+                  b.dragging >> Mutable.set false
             dragging >> Mutable.set Nothing
             draggingPosition >> Mutable.set Nothing } ]
 
 
-tabViewDragging :: Tab -> HTML
-tabViewDragging { title } = html "div"
-  []
-  [ text title ]
+tabView' :: State -> Tab -> View Boolean -> Trait -> HTML
+tabView' state tab isHovering trait = html "div"
+  [ row
+  , menuItemTrait state
+  , menuItemHoverTrait isHovering
+  , style "width" "100%"
+  , style "height" (show tabHeight ++ "px")
+  , style "padding" "1px"
+  , style "border-radius" "5px"
+  , style "font-weight" (mapIfTrue "bold" isHovering)
+  , trait ]
+  [ text tab.title ]
+
+
+tabViewDragging :: State -> Int -> Tab -> HTML
+tabViewDragging state index tab =
+  tabView' state tab (pure (index == 0)) << trait
+    [ style "z-index" (show (-index)) ]
 
 
 tabView :: State -> Group -> Tab -> HTML
@@ -190,34 +258,12 @@ tabView state group tab = widget \state' -> do
   --state' >> keepUntil (a >> view >> is 0.0)
   isHovering <- Mutable.make false
 
-  let
-    width =
-      Animation.easeOut Animation.easeExponential >>> Animation.rangeSuffix 0.0 100.0 "px"
-
-    height =
-      Animation.easeInOut (Animation.easePow 4.0) >>> Animation.rangeSuffix 0.0 50.0 "px"
-
-    opacity hovering =
-      if hovering then "1" else "0.5"
-
-    backgroundColor t =
-      hsla
-        (t >> Animation.easePow 2.0 >> Animation.range 0.0 360.0)
-        100.0
-        50.0
-        0.5
-
-  pure << html "div"
-    [ row
-    , tabTrait
-    , menuItemTrait state
-    , onHoverSet isHovering
+  pure << tabView' state tab (view isHovering) << trait
+    [ onHoverSet isHovering
     , draggable state group tab
-    , style "background-color" (map backgroundColor << view a)
-    , style "display" (map (\a -> if a then "flex" else "none") << view tab.visible)
+    , style "display" (mapIf "flex" "none" << (view tab.matchedSearch && not (view tab.dragging)))
     , style "position" (map (ifJust "absolute" "") << view tab.top)
     , style "transform" (map transform << view tab.top) ]
-    [ text tab.title ]
     where
       transform Nothing    = ""
       transform (Just top) = "translate3d(0px, " ++ show top ++ "px, 0px)"

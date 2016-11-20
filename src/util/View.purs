@@ -1,8 +1,12 @@
 module Pauan.View (class ToView, View, view, observe, value) where
 
 import Prelude
+import Data.HeytingAlgebra (implies, ff, tt)
+import Control.Apply (lift2)
 import Control.Monad.Eff (Eff)
 import Pauan.Resource (Resource)
+import Pauan.Stream (class ToStream, make, stream)
+import Pauan.StreamArray (class ToStreamArray, StreamArray(..), ArrayDelta(..))
 
 
 foreign import data View :: * -> *
@@ -17,9 +21,29 @@ class ToView f a | f -> a where
   view :: f -> View a
 
 
+instance toStreamView :: ToStream (View a) eff e a where
+  stream view = make \onValue _ _ ->
+    observe onValue view
+
+instance toStreamArrayView :: ToStreamArray (View (Array a)) a where
+  streamArray view = StreamArray (map Replace (stream view))
+
+
 -- TODO is this a good idea ?
 instance viewView :: ToView (View a) a where
   view = id
+
+
+-- TODO verify that this is correct and follows the laws
+instance heytingView :: (HeytingAlgebra a) => HeytingAlgebra (View a) where
+  not = map not
+  disj = lift2 disj
+  conj = lift2 conj
+  implies = lift2 implies
+  ff = pure ff
+  tt = pure tt
+
+instance booleanView :: (BooleanAlgebra a) => BooleanAlgebra (View a)
 
 
 foreign import mapImpl :: forall a b. (a -> b) -> View a -> View b

@@ -21,6 +21,7 @@ module Pauan.HTML.Unsafe
 import Prelude
 import Control.Monad.Eff (Eff)
 import Pauan.View (View, observe)
+import Pauan.StreamArray (StreamArray, ArrayDelta, eachDelta, arrayDelta)
 import Pauan.Resource (Resource)
 import Data.Function.Uncurried (Fn2, Fn3, Fn4, Fn5)
 
@@ -125,13 +126,27 @@ instance htmlChildArray :: HTMLChild (Array HTML) where
   unsafeAppendChild = appendChildArray unit
 
 
-foreign import appendChildView :: forall eff.
-  Observe eff (View (Array HTML)) ->
-  Unit ->
-  Fn3 State DOMElement (View (Array HTML)) Unit
+type EachDeltaFn eff a =
+  (ArrayDelta a -> Eff eff Unit) ->
+  StreamArray a ->
+  Eff eff Resource
 
-instance htmlChildView :: HTMLChild (View (Array HTML)) where
-  unsafeAppendChild = appendChildView observe unit
+type ArrayDeltaFn a b =
+  (Array a -> b) ->
+  (Int -> a -> b) ->
+  (Int -> a -> b) ->
+  (Int -> b) ->
+  ArrayDelta a ->
+  b
+
+foreign import appendChildStreamArray :: forall eff.
+  EachDeltaFn eff HTML ->
+  ArrayDeltaFn HTML Unit ->
+  Unit ->
+  Fn3 State DOMElement (StreamArray HTML) Unit
+
+instance htmlChildStreamArray :: HTMLChild (StreamArray HTML) where
+  unsafeAppendChild = appendChildStreamArray eachDelta arrayDelta unit
 
 
 foreign import afterInsertImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit

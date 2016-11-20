@@ -12,7 +12,8 @@ type Tab =
   { url :: String
   , title :: String
   , top :: Mutable.Mutable (Maybe Int)
-  , visible :: Mutable.Mutable Boolean
+  , matchedSearch :: Mutable.Mutable Boolean
+  , dragging :: Mutable.Mutable Boolean
   , selected :: Mutable.Mutable Boolean }
 
 
@@ -30,7 +31,7 @@ type State =
   , draggingPosition :: Mutable.Mutable (Maybe DragEvent) }
 
 
-makeState :: Eff (mutable :: Mutable.MUTABLE) State
+makeState :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) State
 makeState = do
   dragging <- Mutable.make Nothing
   draggingPosition <- Mutable.make Nothing

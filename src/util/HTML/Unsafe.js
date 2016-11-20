@@ -187,39 +187,126 @@ exports.appendChildArray = function (unit) {
 };
 
 
-exports.appendChildView = function (observe) {
-  return function (unit) {
-    return function (state, e, children) {
-      var childState = null;
+exports.appendChildStreamArray = function (eachDelta) {
+  return function (arrayDelta) {
+    return function (unit) {
+      return function (state, e, children) {
+        var childStates = [];
 
-      // TODO guarantee that this is called synchronously ?
-      stateObserve(state, observe, children, function (value) {
-        var oldState = childState;
+        function kill() {
+          var length = childStates.length;
 
-        childState = makeState(state);
-
-        // TODO is it faster or slower to use a document fragment ?
-        var fragment = document.createDocumentFragment();
-
-        setChildren(childState, fragment, value);
-
-        if (oldState !== null) {
-          triggerRemove(oldState);
-          // TODO can this be made faster ?
-          e.innerHTML = "";
+          for (var i = 0; i < length; ++i) {
+            triggerRemove(childStates[i]);
+          }
         }
 
-        e.appendChild(fragment);
+        function onReplace(array) {
+          // TODO is it faster or slower to use a document fragment ?
+          var fragment = document.createDocumentFragment();
 
-        triggerInsert(childState);
+          var length = array.length;
 
-        return unit;
-      });
+          var newStates = new Array(length);
 
-      // TODO test this
-      beforeRemove(state, function () {
-        triggerRemove(childState);
-      });
+          for (var i = 0; i < length; ++i) {
+            newStates[i] = makeState(state);
+            fragment.appendChild(array[i](newStates[i]));
+          }
+
+          if (childStates.length !== 0) {
+            kill();
+            // TODO can this be made faster ?
+            e.innerHTML = "";
+          }
+
+          childStates = newStates;
+
+          e.appendChild(fragment);
+
+          // TODO avoid looping twice ?
+          for (var i = 0; i < length; ++i) {
+            triggerInsert(childStates[i]);
+          }
+
+          return unit;
+        }
+
+        function onInsert(index) {
+          return function (value) {
+            var newState = makeState(state);
+
+            // TODO test this
+            // TODO is this actually faster ?
+            if (index === childStates.length) {
+              childStates.push(newState);
+
+              // TODO should this allow for arrays ?
+              e.appendChild(value(newState));
+
+            } else {
+              childStates.splice(index, 0, newState);
+
+              // TODO should this allow for arrays ?
+              e.insertBefore(value(newState), e.childNodes[index]);
+            }
+
+            triggerInsert(newState);
+
+            return unit;
+          };
+        }
+
+        function onUpdate(index) {
+          return function (value) {
+            var oldState = childStates[index];
+
+            var newState = makeState(state);
+
+            childStates[index] = newState;
+
+            var html = value(newState);
+
+            // TODO test this
+            triggerRemove(oldState);
+
+            // TODO should this allow for arrays ?
+            e.replaceChild(html, e.childNodes[index]);
+
+            triggerInsert(newState);
+
+            return unit;
+          };
+        }
+
+        function onRemove(index) {
+          var oldState = childStates[index];
+
+          // TODO faster code for `pop`?
+          childStates.splice(index, 1);
+
+          triggerRemove(oldState);
+
+          e.removeChild(e.childNodes[index]);
+
+          return unit;
+        }
+
+        var choose = arrayDelta(onReplace)(onInsert)(onUpdate)(onRemove);
+
+        var resource = eachDelta(function (delta) {
+          // TODO make this more efficient ?
+          return function () {
+            return choose(delta);
+          };
+        })(children)();
+
+        // TODO test this
+        beforeRemove(state, resource);
+
+        // TODO test this
+        beforeRemove(state, kill);
+      };
     };
   };
 };
