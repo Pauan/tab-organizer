@@ -21,11 +21,11 @@ class ToView f a | f -> a where
   view :: f -> View a
 
 
-instance toStreamView :: ToStream (View a) eff e a where
+instance toStreamView :: ToStream (View a) e a where
   stream view = make \onValue _ _ ->
     observe onValue view
 
-instance toStreamArrayView :: ToStreamArray (View (Array a)) a where
+instance toStreamArrayView :: ToStreamArray (View (Array a)) e a where
   streamArray view = StreamArray (map Replace (stream view))
 
 

@@ -4,8 +4,7 @@ import Pauan.Prelude
 import Pauan.Mutable as Mutable
 import Pauan.Panel.Types (Tab, makeState)
 import Pauan.Panel.View.Tab (draggingTrait, draggingView, tabView)
-import Pauan.HTML (render, widget)
-import Pauan.Stream (each)
+import Pauan.HTML (render)
 
 
 makeTab :: forall eff. Int -> Eff (mutable :: Mutable.MUTABLE | eff) Tab

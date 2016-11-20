@@ -126,9 +126,9 @@ instance htmlChildArray :: HTMLChild (Array HTML) where
   unsafeAppendChild = appendChildArray unit
 
 
-type EachDeltaFn eff a =
+type EachDeltaFn eff e a =
   (ArrayDelta a -> Eff eff Unit) ->
-  StreamArray a ->
+  StreamArray e a ->
   Eff eff Resource
 
 type ArrayDeltaFn a b =
@@ -139,13 +139,13 @@ type ArrayDeltaFn a b =
   ArrayDelta a ->
   b
 
-foreign import appendChildStreamArray :: forall eff.
-  EachDeltaFn eff HTML ->
+foreign import appendChildStreamArray :: forall e eff.
+  EachDeltaFn eff e HTML ->
   ArrayDeltaFn HTML Unit ->
   Unit ->
-  Fn3 State DOMElement (StreamArray HTML) Unit
+  Fn3 State DOMElement (StreamArray e HTML) Unit
 
-instance htmlChildStreamArray :: HTMLChild (StreamArray HTML) where
+instance htmlChildStreamArray :: HTMLChild (StreamArray e HTML) where
   unsafeAppendChild = appendChildStreamArray eachDelta arrayDelta unit
 
 

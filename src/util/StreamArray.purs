@@ -35,15 +35,15 @@ arrayDelta _ _ update _ (Update i a) = update i a
 arrayDelta _ _ _ remove (Remove i)   = remove i
 
 
-newtype StreamArray a = StreamArray (forall eff e. Stream eff e (ArrayDelta a))
+newtype StreamArray e a = StreamArray (Stream e (ArrayDelta a))
 
 
 -- TODO move `f` to the end, so that newtype deriving works ?
-class ToStreamArray f a | f -> a where
-  streamArray :: f -> StreamArray a
+class ToStreamArray f e a | f -> e a where
+  streamArray :: f -> StreamArray e a
 
 
-instance toStreamArray :: ToStream (StreamArray a) eff e (Array a) where
+instance toStreamArray :: ToStream (StreamArray e a) e (Array a) where
   stream (StreamArray s) = scanl (\old delta ->
     case delta of
       Replace a -> a
@@ -54,7 +54,7 @@ instance toStreamArray :: ToStream (StreamArray a) eff e (Array a) where
       Remove i -> fromMaybe old (deleteAt i old)) [] s
 
 
-instance functorStream :: Functor StreamArray where
+instance functorStream :: Functor (StreamArray e) where
   map f (StreamArray s) = StreamArray
     (map (\delta ->
       case delta of
@@ -64,9 +64,9 @@ instance functorStream :: Functor StreamArray where
         Remove i -> Remove i) s)
 
 
-eachDelta :: forall a eff.
+eachDelta :: forall e a eff.
   (ArrayDelta a -> Eff eff Unit) ->
-  StreamArray a ->
+  StreamArray e a ->
   Eff eff Resource
 -- TODO handle errors better
 eachDelta f (StreamArray s) = each f (const (pure unit)) (pure unit) s

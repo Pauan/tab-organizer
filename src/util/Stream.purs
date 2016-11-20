@@ -7,17 +7,12 @@ import Data.Traversable (class Traversable, traverse_)
 import Data.Function.Uncurried (Fn3, runFn3, mkFn3)
 
 
-newtype Stream eff e a = Stream
-  (Fn3
-    (a -> Eff eff Unit)
-    (e -> Eff eff Unit)
-    (Eff eff Unit)
-    (Eff eff Resource))
+foreign import data Stream :: * -> * -> *
 
 
 -- TODO move `f` to the end, so that newtype deriving works ?
-class ToStream f eff e a | f -> eff e a where
-  stream :: f -> Stream eff e a
+class ToStream f e a | f -> e a where
+  stream :: f -> Stream e a
 
 
 {-foreign import streamArrayImpl :: forall eff e a. Unit -> Array a -> Stream eff e a
@@ -38,62 +33,77 @@ instance toStreamTraversable :: (Traversable t) => ToStream (t a) eff e a where
   stream = streamTraverseImpl unit traverse_-}
 
 
+foreign import makeImpl :: forall eff e a.
+  (Fn3
+    (a -> Eff eff Unit)
+    (e -> Eff eff Unit)
+    (Eff eff Unit)
+    (Eff eff Resource)) ->
+  Stream e a
+
 make :: forall a e eff.
   ((a -> Eff eff Unit) ->
    (e -> Eff eff Unit) ->
    Eff eff Unit ->
    Eff eff Resource) ->
-  Stream eff e a
-make f = Stream (mkFn3 f)
+  Stream e a
+make f = makeImpl (mkFn3 f)
 
+
+foreign import eachImpl :: forall eff e a.
+  (a -> Eff eff Unit) ->
+  (e -> Eff eff Unit) ->
+  Eff eff Unit ->
+  Stream e a ->
+  Eff eff Resource
 
 each :: forall a e eff.
   (a -> Eff eff Unit) ->
   (e -> Eff eff Unit) ->
   Eff eff Unit ->
-  Stream eff e a ->
+  Stream e a ->
   Eff eff Resource
-each a b c (Stream s) = runFn3 s a b c
+each = eachImpl
 
 
-foreign import mapImpl :: forall a b e eff. (a -> b) -> Stream eff e a -> Stream eff e b
+foreign import mapImpl :: forall a b e. (a -> b) -> Stream e a -> Stream e b
 
-instance functorStream :: Functor (Stream eff e) where
+instance functorStream :: Functor (Stream e) where
   map = mapImpl
 
 
-foreign import filterImpl :: forall a e eff.
+foreign import filterImpl :: forall a e.
   Unit ->
   (a -> Boolean) ->
-  Stream eff e a ->
-  Stream eff e a
+  Stream e a ->
+  Stream e a
 
-filter :: forall a e eff.
+filter :: forall a e.
   (a -> Boolean) ->
-  Stream eff e a ->
-  Stream eff e a
+  Stream e a ->
+  Stream e a
 filter = filterImpl unit
 
 
-foreign import mergeImpl :: forall a e eff.
+foreign import mergeImpl :: forall a e.
   Unit ->
-  Stream eff e a ->
-  Stream eff e a ->
-  Stream eff e a
+  Stream e a ->
+  Stream e a ->
+  Stream e a
 
-merge :: forall a e eff. Stream eff e a -> Stream eff e a -> Stream eff e a
+merge :: forall a e. Stream e a -> Stream e a -> Stream e a
 merge = mergeImpl unit
 
 
-foreign import scanlImpl :: forall a b e eff.
+foreign import scanlImpl :: forall a b e.
   (b -> a -> b) ->
   b ->
-  Stream eff e a ->
-  Stream eff e b
+  Stream e a ->
+  Stream e b
 
-scanl :: forall a b e eff.
+scanl :: forall a b e.
   (b -> a -> b) ->
   b ->
-  Stream eff e a ->
-  Stream eff e b
+  Stream e a ->
+  Stream e b
 scanl = scanlImpl

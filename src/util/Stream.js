@@ -1,6 +1,22 @@
 "use strict";
 
 
+exports.makeImpl = function (f) {
+  return f;
+};
+
+
+exports.eachImpl = function (onValue) {
+  return function (onError) {
+    return function (onComplete) {
+      return function (stream) {
+        return stream(onValue, onError, onComplete);
+      };
+    };
+  };
+};
+
+
 exports.scanlImpl = function (f) {
   return function (init) {
     return function (stream) {

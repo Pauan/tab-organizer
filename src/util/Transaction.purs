@@ -1,4 +1,4 @@
-module Pauan.Transaction (Transaction, TransactionId, runTransaction) where
+module Pauan.Transaction (Transaction, TransactionId, runTransaction, onCommit) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
@@ -33,3 +33,13 @@ foreign import pureImpl :: forall a eff. a -> Transaction eff a
 
 instance applicativeTransaction :: Applicative (Transaction eff) where
   pure = pureImpl
+
+
+instance monadTransaction :: Monad (Transaction eff)
+
+
+foreign import onCommitImpl :: forall eff. Unit -> Eff eff Unit -> Transaction eff Unit
+
+-- TODO is this a good idea ?
+onCommit :: forall eff. Eff eff Unit -> Transaction eff Unit
+onCommit = onCommitImpl unit

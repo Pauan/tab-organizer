@@ -77,3 +77,23 @@ exports.pureImpl = function (value) {
     return value;
   };
 };
+
+
+// TODO move this someplace else ?
+function noop() {}
+
+// TODO test this
+exports.onCommitImpl = function (unit) {
+  return function (eff) {
+    return function (state) {
+      state.push({
+        rollback: noop,
+        commit: function () {
+          eff();
+        }
+      });
+
+      return unit;
+    };
+  };
+};
