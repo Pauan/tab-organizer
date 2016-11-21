@@ -1,20 +1,22 @@
 module Pauan.Panel.Types where
 
 import Pauan.Prelude
-import Pauan.Mutable as Mutable
+import Pauan.Mutable as Mutable'
+import Pauan.Mutable (Mutable, MUTABLE)
+import Pauan.MutableArray (MutableArray)
 
 
 type Group =
-  { tabs :: Mutable.Mutable (Array Tab) }
+  { tabs :: MutableArray Tab }
 
 
 type Tab =
   { url :: String
   , title :: String
-  , top :: Mutable.Mutable (Maybe Int)
-  , matchedSearch :: Mutable.Mutable Boolean
-  , dragging :: Mutable.Mutable Boolean
-  , selected :: Mutable.Mutable Boolean }
+  , top :: Mutable (Maybe Int)
+  , matchedSearch :: Mutable Boolean
+  , dragging :: Mutable Boolean
+  , selected :: Mutable Boolean }
 
 
 type Dragging =
@@ -27,12 +29,12 @@ type Dragging =
 
 
 type State =
-  { dragging :: Mutable.Mutable (Maybe Dragging)
-  , draggingPosition :: Mutable.Mutable (Maybe DragEvent) }
+  { dragging :: Mutable (Maybe Dragging)
+  , draggingPosition :: Mutable (Maybe DragEvent) }
 
 
-makeState :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) State
+makeState :: forall eff. Eff (mutable :: MUTABLE | eff) State
 makeState = do
-  dragging <- Mutable.make Nothing
-  draggingPosition <- Mutable.make Nothing
+  dragging <- Mutable'.make Nothing
+  draggingPosition <- Mutable'.make Nothing
   pure { dragging, draggingPosition }

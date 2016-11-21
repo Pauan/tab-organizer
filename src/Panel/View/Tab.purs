@@ -5,7 +5,9 @@ import Pauan.Mutable as Mutable
 import Pauan.Animation as Animation
 import Pauan.View (value)
 import Pauan.Panel.Types (State, Group, Tab, Dragging)
-import Pauan.HTML (widget, afterInsert, beforeRemove)
+import Pauan.HTML (widget)
+import Pauan.MutableArray as MutableArray
+import Data.Array (mapWithIndex)
 
 
 tabHeight :: Int
@@ -189,7 +191,8 @@ draggable { dragging, draggingPosition } group tab = trait
           isSelected <- tab.selected >> view >> value
           selected <- if isSelected
             then do
-              tabs <- group.tabs >> view >> value
+              -- TODO make this faster ?
+              tabs <- group.tabs >> MutableArray.get >> runTransaction
               tabs >> filterM \x -> (view x.selected && view x.matchedSearch) >> value
             else [tab] >> pure
           runTransaction do
@@ -242,9 +245,9 @@ tabViewDragging state index tab =
     [ style "z-index" (show (-index)) ]
 
 
-tabView :: State -> Group -> Tab -> HTML
-tabView state group tab = widget \state' -> do
-  a <- Animation.make { duration: 5000.0 }
+tabView :: State -> Group -> Tab -> View Animation.Interval -> View (Maybe Int) -> HTML
+tabView state group tab animation index = widget \state' -> do
+  {-a <- Animation.make { duration: 5000.0 }
 
   --"Widget before" >> spy >> pure
   state' >> afterInsert do
@@ -253,7 +256,7 @@ tabView state group tab = widget \state' -> do
   --"Widget after" >> spy >> pure
   state' >> beforeRemove do
     --"beforeRemove" >> spy >> pure
-    a >> Animation.tweenTo 0.0
+    a >> Animation.tweenTo 0.0-}
 
   --state' >> keepUntil (a >> view >> is 0.0)
   isHovering <- Mutable.make false
@@ -261,6 +264,19 @@ tabView state group tab = widget \state' -> do
   pure << tabView' state tab (view isHovering) << trait
     [ onHoverSet isHovering
     , draggable state group tab
+    , on "click" \_ -> do
+        i <- index >> value
+        case i of
+          Nothing ->
+            pure unit
+          Just i ->
+            runTransaction do
+              group.tabs >> MutableArray.deleteAt i
+    , style "background-color"
+        (animation >> map \t ->
+          hsl (Animation.rangeRound 0 360 t)
+              (Animation.rangeRound 0 100 t)
+              (Animation.rangeRound 0 100 t))
     , style "display" (mapIf "flex" "none" << (view tab.matchedSearch && not (view tab.dragging)))
     , style "position" (map (ifJust "absolute" "") << view tab.top)
     , style "transform" (map transform << view tab.top) ]

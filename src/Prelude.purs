@@ -63,9 +63,9 @@ import Prelude
 
 import Data.Traversable (sequence)
 import Data.Foldable (for_)
-import Data.Array ((..), length, filterM, mapWithIndex)
+import Data.Array ((..), length, filterM)
 import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust, maybe)
-import Data.Int (toNumber)
+import Data.Int (toNumber, round)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
@@ -126,3 +126,9 @@ mapIf yes no = map (\a -> if a then yes else no)
 -- TODO should this use mempty or something else ?
 mapIfTrue :: forall a f. (Monoid'.Monoid a, Prelude'.Functor f) => a -> f Boolean -> f a
 mapIfTrue yes = mapIf yes Monoid'.mempty
+
+
+{- TODO
+flip :: forall a b c. a -> (b -> a -> c) -> b -> c
+flip a f b = f b a
+-}

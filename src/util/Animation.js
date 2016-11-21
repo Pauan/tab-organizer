@@ -18,6 +18,7 @@ function nextFrame() {
 
   var length = animating.length;
 
+  // TODO should this run new animations or not ?
   for (var i = 0; i < length;) {
     var x = animating[i];
 
@@ -26,6 +27,8 @@ function nextFrame() {
 
     if (diff >= duration) {
       transactions.push(x.set(x.end)(x.tween));
+      transactions.push(x.done);
+
       animating.splice(i, 1); // TODO make this faster ?
       --length;
 
@@ -44,8 +47,8 @@ function nextFrame() {
     runTransaction(sequence_(transactions))();
   }
 
-  // TODO test this
-  if (length === 0) {
+  // Cannot use `length` because new animations might have been added
+  if (animating.length === 0) {
     pending = false;
 
   } else {
@@ -70,14 +73,12 @@ function pause(animation) {
 
 
 // TODO test this
-function play(set, animation) {
+function play(set, animation, duration, done) {
   var tween = animation.tween;
   var start = tween.snapshot.value; // TODO don't rely upon implementation details
   var end = animation.tweenTo;
 
   if (start !== end) {
-    var duration = animation.duration;
-
     if (duration === 0) {
       // TODO is this correct ?
       throw new Error("Cannot tween when the duration is 0");
@@ -92,7 +93,8 @@ function play(set, animation) {
         start: start,
         end: end,
         tween: tween,
-        set: set
+        set: set,
+        done: done
       };
 
       animating.push(info);
@@ -128,15 +130,12 @@ exports.rangeImpl = function (from) {
 
 
 exports.makeImpl = function (mutable) {
-  return function (duration) {
-    return function () {
-      return {
-        tween: mutable(),
-        tweenTo: 0,
-        duration: duration,
-        playing: true,
-        stop: null
-      };
+  return function () {
+    return {
+      tween: mutable(),
+      tweenTo: 0,
+      playing: true,
+      stop: null
     };
   };
 };
@@ -179,20 +178,31 @@ exports.tweenToImpl = function (set) {
 
       return function (unit) {
         return function (tween) {
-          return function (animation) {
-            return function () {
-              // TODO is this correct ?
-              if (animation.tweenTo !== tween) {
-                animation.tweenTo = tween;
-
-                if (animation.playing) {
+          return function (duration) {
+            return function (animation) {
+              return function (done) {
+                return function (state) {
                   // TODO is this correct ?
-                  pause(animation);
-                  play(set, animation);
-                }
-              }
+                  if (animation.tweenTo !== tween) {
+                    animation.tweenTo = tween;
 
-              return unit;
+                    if (animation.playing) {
+                      // TODO is this correct ?
+                      pause(animation);
+                      play(set, animation, duration, done);
+                      return unit;
+
+                    // TODO is this correct ?
+                    } else {
+                      return done(state);
+                    }
+
+                  } else {
+                    // TODO is this correct ?
+                    return done(state);
+                  }
+                };
+              };
             };
           };
         };
@@ -269,5 +279,164 @@ exports.easeRepeat = function (amount) {
     } else {
       return (t * amount) % 1;
     }
+  };
+};
+
+
+// TODO test this
+exports.animatedMapImpl = function (eachDelta, arrayDelta, view, Replace, Insert, Update, Remove, unit, make) {
+  function noop() {
+    return unit;
+  }
+
+  return function (f) {
+    return function (replace) {
+      return function (insert) {
+        return function (update) {
+          return function (remove) {
+            return function (stream) {
+              // TODO don't rely upon this implementation detail ?
+              return function (onValue, onError, onComplete) {
+                return function () {
+                  var indexes = [];
+                  var values = [];
+
+                  function onReplace(array) {
+                    return function () {
+                      var length = array.length;
+
+                      var output = new Array(length);
+                      indexes = new Array(length);
+                      values = new Array(length);
+
+                      for (var i = 0; i < length; ++i) {
+                        var animation = make();
+
+                        // TODO what about if it's cancelled ?
+                        replace(animation)(noop)();
+
+                        var value = f(view(animation))(array[i]);
+
+                        indexes[i] = i;
+
+                        values[i] = {
+                          parentIndex: i,
+                          index: i,
+                          animation: animation
+                        };
+
+                        output[i] = value;
+                      }
+
+                      return onValue(Replace(output))();
+                    };
+                  }
+
+                  function onInsert(index) {
+                    return function (v) {
+                      return function () {
+                        var animation = make();
+
+                        // TODO what about if it's cancelled ?
+                        insert(animation)(noop)();
+
+                        var value = f(view(animation))(v);
+
+                        var length = indexes.length;
+
+                        var realIndex =
+                          (index < length
+                            ? indexes[index]
+                            : values.length);
+
+                        indexes.splice(index, 0, realIndex);
+
+                        values.splice(realIndex, 0, {
+                          parentIndex: index,
+                          index: realIndex,
+                          animation: animation
+                        });
+
+                        for (var i = index + 1; i < length; ++i) {
+                          ++indexes[i];
+                        }
+
+                        var length = values.length;
+
+                        for (var i = realIndex + 1; i < length; ++i) {
+                          ++values[i].parentIndex;
+                          ++values[i].index;
+                        }
+
+                        return onValue(Insert(realIndex)(value))();
+                      };
+                    };
+                  }
+
+                  function onUpdate(index) {
+                    return function (v) {
+                      return function () {
+                        var realIndex = indexes[index];
+
+                        var info = values[realIndex];
+
+                        // TODO what about if it's cancelled ?
+                        update(info.animation)(noop)();
+
+                        var value = f(view(info.animation))(v);
+
+                        return onValue(Update(realIndex)(value))();
+                      };
+                    };
+                  }
+
+                  function onRemove(index) {
+                    return function () {
+                      var realIndex = indexes[index];
+
+                      var info = values[realIndex];
+
+                      indexes.splice(index, 1);
+
+                      var length = values.length;
+
+                      // TODO test this
+                      for (var i = realIndex + 1; i < length; ++i) {
+                        --values[i].parentIndex;
+                      }
+
+                      // TODO what about if it's cancelled ?
+                      remove(info.animation)(function () {
+                        var realIndex = info.index;
+
+                        values.splice(realIndex, 1);
+
+                        var length = indexes.length;
+
+                        for (var i = info.parentIndex; i < length; ++i) {
+                          --indexes[i];
+                        }
+
+                        var length = values.length;
+
+                        for (var i = realIndex; i < length; ++i) {
+                          --values[i].index;
+                        }
+
+                        return onValue(Remove(realIndex))();
+                      })();
+
+                      return unit;
+                    };
+                  }
+
+                  return eachDelta(arrayDelta(onReplace)(onInsert)(onUpdate)(onRemove))(onError)(onComplete)(stream)();
+                };
+              };
+            };
+          };
+        };
+      };
+    };
   };
 };

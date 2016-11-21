@@ -23,6 +23,7 @@ import Control.Monad.Eff (Eff)
 import Pauan.View (View, observe)
 import Pauan.StreamArray (StreamArray, ArrayDelta, eachDelta, arrayDelta)
 import Pauan.Resource (Resource)
+import Control.Monad.Eff.Exception (throwException)
 import Data.Function.Uncurried (Fn2, Fn3, Fn4, Fn5)
 
 
@@ -126,9 +127,9 @@ instance htmlChildArray :: HTMLChild (Array HTML) where
   unsafeAppendChild = appendChildArray unit
 
 
-type EachDeltaFn eff e a =
+type EachDeltaFn eff a =
   (ArrayDelta a -> Eff eff Unit) ->
-  StreamArray e a ->
+  StreamArray a ->
   Eff eff Resource
 
 type ArrayDeltaFn a b =
@@ -139,14 +140,16 @@ type ArrayDeltaFn a b =
   ArrayDelta a ->
   b
 
-foreign import appendChildStreamArray :: forall e eff.
-  EachDeltaFn eff e HTML ->
+foreign import appendChildStreamArray :: forall eff.
+  EachDeltaFn eff HTML ->
   ArrayDeltaFn HTML Unit ->
   Unit ->
-  Fn3 State DOMElement (StreamArray e HTML) Unit
+  Fn3 State DOMElement (StreamArray HTML) Unit
 
-instance htmlChildStreamArray :: HTMLChild (StreamArray e HTML) where
-  unsafeAppendChild = appendChildStreamArray eachDelta arrayDelta unit
+instance htmlChildStreamArray :: HTMLChild (StreamArray HTML) where
+  -- TODO handle errors better
+  -- TODO what about completion ?
+  unsafeAppendChild = appendChildStreamArray (\onValue -> eachDelta onValue throwException (pure unit)) arrayDelta unit
 
 
 foreign import afterInsertImpl :: forall eff. Unit -> Eff eff Unit -> State -> Eff eff Unit

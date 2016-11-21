@@ -1,25 +1,24 @@
 module Pauan.StreamArray
-  ( StreamArray(..)
-  , ArrayDelta(..)
-  , class ToStreamArray
-  , streamArray
+  ( module Pauan.StreamArray.Class
   , arrayDelta
   , eachDelta
+  , mapWithIndex
   ) where
 
+import Pauan.StreamArray.Class (StreamArray(..), ArrayDelta(..), class ToStreamArray, streamArray)
+
 import Prelude
-import Data.Maybe (fromMaybe)
+import Pauan.Mutable as Mutable
+import Data.Maybe (Maybe(..), fromMaybe)
+import Pauan.View (View, view)
 import Data.Array (insertAt, updateAt, deleteAt)
 import Pauan.Stream (Stream, class ToStream, scanl, each)
 import Control.Monad.Eff (Eff)
 import Pauan.Resource (Resource)
-
-
-data ArrayDelta a
-  = Replace (Array a)
-  | Insert Int a
-  | Update Int a
-  | Remove Int
+import Data.Function.Uncurried (Fn7, runFn7, Fn8, runFn8)
+import Pauan.Transaction (Transaction, runTransaction)
+import Data.Traversable (sequence_)
+import Control.Monad.Eff.Exception (Error)
 
 
 arrayDelta :: forall a b.
@@ -35,38 +34,63 @@ arrayDelta _ _ update _ (Update i a) = update i a
 arrayDelta _ _ _ remove (Remove i)   = remove i
 
 
-newtype StreamArray e a = StreamArray (Stream e (ArrayDelta a))
-
-
--- TODO move `f` to the end, so that newtype deriving works ?
-class ToStreamArray f e a | f -> e a where
-  streamArray :: f -> StreamArray e a
-
-
-instance toStreamArray :: ToStream (StreamArray e a) e (Array a) where
-  stream (StreamArray s) = scanl (\old delta ->
-    case delta of
-      Replace a -> a
-      -- TODO is `fromMaybe` correct ?
-      -- TODO throw an error if it is Nothing ?
-      Insert i a -> fromMaybe old (insertAt i a old)
-      Update i a -> fromMaybe old (updateAt i a old)
-      Remove i -> fromMaybe old (deleteAt i old)) [] s
-
-
-instance functorStream :: Functor (StreamArray e) where
-  map f (StreamArray s) = StreamArray
-    (map (\delta ->
-      case delta of
-        Replace a -> Replace (map f a)
-        Insert i a -> Insert i (f a)
-        Update i a -> Update i (f a)
-        Remove i -> Remove i) s)
-
-
-eachDelta :: forall e a eff.
+eachDelta :: forall a eff.
   (ArrayDelta a -> Eff eff Unit) ->
-  StreamArray e a ->
+  (Error -> Eff eff Unit) ->
+  Eff eff Unit ->
+  StreamArray a ->
   Eff eff Resource
--- TODO handle errors better
-eachDelta f (StreamArray s) = each f (const (pure unit)) (pure unit) s
+eachDelta onValue onError onComplete (StreamArray s) = each onValue onError onComplete s
+
+
+foreign import mapWithIndexImpl :: forall a b eff.
+  Fn7
+  ((ArrayDelta a -> Eff eff Unit) ->
+   (Error -> Eff eff Unit) ->
+   Eff eff Unit ->
+   StreamArray a ->
+   Eff eff Resource)
+  ((Array a -> Eff eff Unit) ->
+   (Int -> a -> Eff eff Unit) ->
+   (Int -> a -> Eff eff Unit) ->
+   (Int -> Eff eff Unit) ->
+   ArrayDelta a ->
+   Eff eff Unit)
+  (Maybe Int -> Eff (mutable :: Mutable.MUTABLE | eff) (Mutable.Mutable (Maybe Int)))
+  (Mutable.Mutable (Maybe Int) -> View (Maybe Int))
+  ((Maybe Int -> Maybe Int) -> Mutable.Mutable (Maybe Int) -> Transaction (mutable :: Mutable.MUTABLE | eff) Unit)
+  (Maybe Int -> Mutable.Mutable (Maybe Int) -> Transaction (mutable :: Mutable.MUTABLE | eff) Unit)
+  (Array (Transaction eff Unit) -> Eff eff Unit)
+  (Fn8
+    (Array b -> ArrayDelta b)
+    (Int -> b -> ArrayDelta b)
+    (Int -> b -> ArrayDelta b)
+    (Int -> ArrayDelta b)
+    (Int -> Maybe Int)
+    (Maybe Int)
+    (Maybe Int -> Maybe Int)
+    (Maybe Int -> Maybe Int)
+    ((View (Maybe Int) -> a -> b) ->
+     StreamArray a ->
+     StreamArray b))
+
+mapWithIndex :: forall a b. (View (Maybe Int) -> a -> b) -> StreamArray a -> StreamArray b
+mapWithIndex = runFn8 (runFn7 mapWithIndexImpl
+  eachDelta
+  arrayDelta
+  Mutable.make
+  view
+  Mutable.modify
+  Mutable.set
+  runTransactions)
+  Replace
+  Insert
+  Update
+  Remove
+  Just
+  Nothing
+  (map (_ + 1))
+  (map (_ - 1))
+  where
+    runTransactions :: forall eff. Array (Transaction eff Unit) -> Eff eff Unit
+    runTransactions = sequence_ >>> runTransaction

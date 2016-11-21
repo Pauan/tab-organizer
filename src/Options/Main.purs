@@ -2,9 +2,12 @@ module Options.Main where
 
 import Pauan.Prelude
 import Pauan.Mutable as Mutable
+import Pauan.MutableArray as MutableArray
 import Pauan.Panel.Types (Tab, makeState)
 import Pauan.Panel.View.Tab (draggingTrait, draggingView, tabView)
 import Pauan.HTML (render)
+import Pauan.Animation as Animation
+import Pauan.StreamArray (mapWithIndex)
 
 
 makeTab :: forall eff. Int -> Eff (mutable :: Mutable.MUTABLE | eff) Tab
@@ -20,8 +23,8 @@ root :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) HTML
 root = do
   state <- makeState
 
-  a <- sequence [makeTab 1, makeTab 2, makeTab 3]
-  tabs <- Mutable.make a
+  a <- sequence [makeTab 0]
+  tabs <- MutableArray.make a
 
   let group = { tabs }
 
@@ -35,14 +38,20 @@ root = do
     [ draggingView state
     , html "button"
         [ on "click" \_ -> do
-            tabs <- sequence ((1..200) >> map makeTab)
+            tab <- makeTab 0
             runTransaction do
-              group.tabs >> Mutable.set tabs ]
+              group.tabs >> MutableArray.deleteAt 0
+              group.tabs >> MutableArray.push tab ]
         [ text "Activate" ]
     , html "div"
         []
-        (view group.tabs >> streamArray >> map \tab ->
-          tabView state group tab) ]
+        -- TODO make this more efficient ?
+        (group.tabs >> streamArray >> mapWithIndex { index: _, tab: _ } >> Animation.animatedMap
+          (\animation { index, tab } -> tabView state group tab animation index)
+          { replace: [ Animation.Jump { to: 1.0 } ]
+          , insert: [ Animation.Tween { to: 1.0, duration: 2000.0 } ]
+          , update: []
+          , remove: [ Animation.Tween { to: 0.0, duration: 2000.0 } ] }) ]
 
 
 main :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) Unit
