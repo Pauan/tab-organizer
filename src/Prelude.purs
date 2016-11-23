@@ -17,11 +17,9 @@ module Pauan.Prelude
   , module Data.Int
   , (<<)
   , (>>)
-  , (|<)
-  , (>|)
-  , applyFlipped
   , ifJust
   , (++)
+  , map2
   , mapIf
   , mapIfTrue
   ) where
@@ -45,7 +43,6 @@ import Prelude
   , pure
   , unit
   , map
-  , apply
   , class Apply
   , Ordering(..)
   , (||)
@@ -102,16 +99,10 @@ import Prelude as Prelude'
 import Data.Function as Function'
 import Data.Monoid as Monoid'
 
-applyFlipped :: forall a b c. (Apply a) => a b -> a (b -> c) -> a c
-applyFlipped a b = apply b a
-
 infixr 5 Prelude'.append as ++
 
 infixr 1 Function'.apply as <<
 infixl 1 Function'.applyFlipped as >>
-
-infixl 0 Prelude'.apply as |<
-infixr 0 applyFlipped as >|
 
 
 ifJust :: forall a b. a -> a -> Maybe b -> a
@@ -126,6 +117,10 @@ mapIf yes no = map (\a -> if a then yes else no)
 -- TODO should this use mempty or something else ?
 mapIfTrue :: forall a f. (Monoid'.Monoid a, Prelude'.Functor f) => a -> f Boolean -> f a
 mapIfTrue yes = mapIf yes Monoid'.mempty
+
+
+map2 :: forall a b c f. (Apply f) => f a -> f b -> (a -> b -> c) -> f c
+map2 a b f = Prelude'.apply (map f a) b
 
 
 {- TODO

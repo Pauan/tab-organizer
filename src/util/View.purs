@@ -31,8 +31,8 @@ instance toStreamArrayView :: ToStreamArray (View (Array a)) a where
 
 
 -- TODO is this a good idea ?
-instance viewView :: ToView (View a) a where
-  view = id
+{-instance viewView :: ToView (View a) a where
+  view = id-}
 
 
 -- TODO verify that this is correct and follows the laws

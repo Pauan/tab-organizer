@@ -9,10 +9,9 @@ import Pauan.StreamArray.Class (StreamArray(..), ArrayDelta(..), class ToStreamA
 
 import Prelude
 import Pauan.Mutable as Mutable
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Pauan.View (View, view)
-import Data.Array (insertAt, updateAt, deleteAt)
-import Pauan.Stream (Stream, class ToStream, scanl, each)
+import Pauan.Stream (each)
 import Control.Monad.Eff (Eff)
 import Pauan.Resource (Resource)
 import Data.Function.Uncurried (Fn7, runFn7, Fn8, runFn8)

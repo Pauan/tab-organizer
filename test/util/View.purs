@@ -85,7 +85,7 @@ tests = suite "View" do
       a <- Mutable.make 1 >> toTest
       b <- Mutable.make 2 >> toTest
 
-      let v = a >> view >| b >> view >> map \c d -> c + d >> unsafeRunPush push2
+      let v = map2 (a >> view) (b >> view) \c d -> c + d >> unsafeRunPush push2
 
       v >> equalView 3
       v >> equalView 3
@@ -122,7 +122,7 @@ tests = suite "View" do
 
       let v2 = a >> view >> map \c -> c - 5 >> unsafeRunPush push3
 
-      let v3 = v1 >| v2 >> map \d e -> d + e >> unsafeRunPush push4
+      let v3 = map2 v1 v2 \d e -> d + e >> unsafeRunPush push4
 
       v3 >> equalView (-2)
       v3 >> equalView (-2)

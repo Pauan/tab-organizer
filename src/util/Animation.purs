@@ -5,6 +5,7 @@ module Pauan.Animation
   , range
   , rangeRound
   , rangeSuffix
+  , rangeRoundSuffix
   , easePow
   , easeSinusoidal
   , easeExponential
@@ -25,7 +26,6 @@ import Pauan.Transaction (Transaction, runTransaction, onCommit)
 import Data.Generic (class Generic, gEq, gShow, gCompare)
 import Pauan.Resource (Resource)
 import Data.Int (round, toNumber)
-import Data.Maybe (Maybe(..))
 import Data.Array (foldr)
 import Pauan.StreamArray (ArrayDelta(..), StreamArray, eachDelta, arrayDelta)
 import Data.Function.Uncurried (Fn9, runFn9)
@@ -111,6 +111,11 @@ rangeRound low high tween = round (range (toNumber low) (toNumber high) tween)
 rangeSuffix :: Number -> Number -> String -> Interval -> String
 -- TODO should this use show or something else ?
 rangeSuffix from to suffix t = show (range from to t) <> suffix
+
+
+rangeRoundSuffix :: Int -> Int -> String -> Interval -> String
+-- TODO should this use show or something else ?
+rangeRoundSuffix from to suffix t = show (rangeRound from to t) <> suffix
 
 
 foreign import easePow :: Number -> Interval -> Interval

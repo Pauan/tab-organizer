@@ -10,20 +10,21 @@ import Pauan.Animation as Animation
 import Pauan.StreamArray (mapWithIndex)
 
 
-makeTab :: forall eff. Int -> Eff (mutable :: Mutable.MUTABLE | eff) Tab
-makeTab i = do
+makeTab :: forall eff. String -> Eff (mutable :: Mutable.MUTABLE | eff) Tab
+makeTab title = do
   top <- Mutable.make Nothing
   matchedSearch <- Mutable.make true
   dragging <- Mutable.make false
-  selected <- Mutable.make true
-  pure { title: show i, url: "", matchedSearch, dragging, top, selected }
+  selected <- Mutable.make false
+  pure { title, url: "", matchedSearch, dragging, top, selected }
 
 
 root :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) HTML
 root = do
   state <- makeState
 
-  a <- sequence [makeTab 0]
+  a <- sequence
+    ((0..20) >> map \_ -> makeTab "Testing testing")
   tabs <- MutableArray.make a
 
   let group = { tabs }
@@ -38,20 +39,20 @@ root = do
     [ draggingView state
     , html "button"
         [ on "click" \_ -> do
-            tab <- makeTab 0
+            tab <- makeTab "Testing testing"
             runTransaction do
               group.tabs >> MutableArray.deleteAt 0
               group.tabs >> MutableArray.push tab ]
         [ text "Activate" ]
     , html "div"
-        []
+        [ style "overflow" "hidden" ]
         -- TODO make this more efficient ?
-        (group.tabs >> streamArray >> mapWithIndex { index: _, tab: _ } >> Animation.animatedMap
-          (\animation { index, tab } -> tabView state group tab animation index)
+        (group.tabs >> streamArray >> mapWithIndex (tabView state group) >> Animation.animatedMap
+          (\animation f -> f (animation >> map (Animation.easeInOut (Animation.easePow 2.0))))
           { replace: [ Animation.Jump { to: 1.0 } ]
-          , insert: [ Animation.Tween { to: 1.0, duration: 2000.0 } ]
+          , insert: [ Animation.Tween { to: 1.0, duration: 500.0 } ]
           , update: []
-          , remove: [ Animation.Tween { to: 0.0, duration: 2000.0 } ] }) ]
+          , remove: [ Animation.Tween { to: 0.0, duration: 500.0 } ] }) ]
 
 
 main :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) Unit
