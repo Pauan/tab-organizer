@@ -77,7 +77,8 @@ mapWithIndex :: forall a b. (View (Maybe Int) -> a -> b) -> StreamArray a -> Str
 mapWithIndex = runFn8 (runFn7 mapWithIndexImpl
   eachDelta
   arrayDelta
-  Mutable.make
+  -- TODO make this more efficient ?
+  (Mutable.make >>> runTransaction)
   view
   Mutable.modify
   Mutable.set

@@ -3,51 +3,91 @@ module Options.Main where
 import Pauan.Prelude
 import Pauan.Mutable as Mutable
 import Pauan.MutableArray as MutableArray
-import Pauan.Panel.Types (Tab, makeState)
+import Pauan.Panel.Types (Tab, Group, makeState)
 import Pauan.Panel.View.Tab (draggingTrait, draggingView, tabView)
 import Pauan.HTML (render)
+import Pauan.Panel.View.Group (groupView)
 import Pauan.Animation as Animation
 import Pauan.StreamArray (mapWithIndex)
 
 
-makeTab :: forall eff. String -> Eff (mutable :: Mutable.MUTABLE | eff) Tab
-makeTab title = do
+makeTab :: forall eff. Mutable.Mutable Int -> String -> Transaction (mutable :: Mutable.MUTABLE | eff) Tab
+makeTab id title = do
+  id >> Mutable.modify (_ + 1)
+  id' <- id >> Mutable.get
+
   top <- Mutable.make Nothing
   matchedSearch <- Mutable.make true
   dragging <- Mutable.make false
   selected <- Mutable.make false
-  pure { title, url: "", matchedSearch, dragging, top, selected }
+  unloaded <- Mutable.make false
+
+  pure { id: show id', title, url: "", matchedSearch, dragging, top, selected, unloaded }
+
+
+makeGroup :: forall eff. Mutable.Mutable Int -> Array String -> Transaction (mutable :: Mutable.MUTABLE | eff) Group
+makeGroup id a = do
+  a' <- a >> map (makeTab id) >> sequence
+  tabs <- MutableArray.make a'
+  height <- Mutable.make Nothing
+  pure { tabs, height }
 
 
 root :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) HTML
-root = do
+root = runTransaction do
   state <- makeState
 
-  a <- sequence
-    ((0..20) >> map \_ -> makeTab "Testing testing")
-  tabs <- MutableArray.make a
+  id <- Mutable.make 0
 
-  let group = { tabs }
+  group <- makeGroup id (((0..20) >> map \i -> "Testing testing "  ++ show i) ++
+   [ "Fable"
+   , "Null-checking considerations in F#"
+   , "options.html" ])
+
+  state.groups >> MutableArray.push group
 
   --setTimeout 1000 << runTransaction do
     --a >> Mutable.set [4, 5, 6]
   pure << html "div"
     [ draggingTrait state
+    , style "font-family" "sans-serif"
+    , style "font-size" "13px"
+    {-, style "padding" mutable.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return "5px 0px 0px 0px";
+      default:
+        return "2px 0px 0px 0px";
+      }
+    }),
+
+    "background-color": mutable.map(opt("groups.layout"), (x) => {
+      switch (x) {
+      case "horizontal":
+      case "grid":
+        return dom.hsl(0, 0, 98);
+      default:
+        return dom.hsl(0, 0, 100);
+      }
+    }),-}
+
     , style "width" "100%"
     , style "height" "100%"
-    , style "user-select" "none" ]
+    , style "white-space" "pre"
+    -- TODO this is a bit hacky, use an event instead ?
+    , style "user-select" "none"
+    , style "overflow-x" "hidden" ]
     [ draggingView state
     , html "button"
-        [ on "click" \_ -> do
-            tab <- makeTab "Testing testing"
-            runTransaction do
-              group.tabs >> MutableArray.deleteAt 0
-              group.tabs >> MutableArray.push tab ]
+        [ on "click" \_ -> runTransaction do
+            tab <- makeTab id "Testing testing"
+            group.tabs >> MutableArray.deleteAt 0
+            group.tabs >> MutableArray.push tab ]
         [ text "Activate" ]
     , html "div"
-        [ style "overflow" "hidden" ]
-        -- TODO make this more efficient ?
-        (group.tabs >> streamArray >> mapWithIndex (tabView state group) >> Animation.animatedMap
+        []
+        (state.groups >> streamArray >> mapWithIndex (groupView state) >> Animation.animatedMap
           (\animation f -> f (animation >> map (Animation.easeInOut (Animation.easePow 2.0))))
           { replace: [ Animation.Jump { to: 1.0 } ]
           , insert: [ Animation.Tween { to: 1.0, duration: 500.0 } ]

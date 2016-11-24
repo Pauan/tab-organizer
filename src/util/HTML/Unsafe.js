@@ -110,6 +110,7 @@ function setStylePrefixValues(style, prefix, key, value, important) {
           setStyle1(style, prefix, "-moz-" + value, important) ||
           setStyle1(style, prefix, "-ms-" + value, important) ||
           setStyle1(style, prefix, "-o-" + value, important))) {
+      // TODO should this throw an error ?
       console.warn("Invalid style value \"" + key + "\": \"" + value + "\"");
     }
 
@@ -128,6 +129,7 @@ function setStyle(style, key, value, important) {
         setStylePrefixValues(style, "-moz-" + key, key, value, important) ||
         setStylePrefixValues(style, "-ms-" + key, key, value, important) ||
         setStylePrefixValues(style, "-o-" + key, key, value, important))) {
+    // TODO should this throw an error ?
     console.warn("Invalid style key \"" + key + "\": \"" + value + "\"");
   }
 }
@@ -146,10 +148,12 @@ function setProperty(element, key, value) {
 
     // TODO better detection ?
     if (newValue === oldValue && oldValue !== value) {
+      // TODO should this throw an error ?
       console.warn("Invalid property value \"" + key + "\": \"" + value + "\"");
     }
 
   } else {
+    // TODO should this throw an error ?
     console.warn("Invalid property key \"" + key + "\": \"" + value + "\"");
   }
 }
@@ -180,8 +184,8 @@ exports.afterInsertImpl = function (unit) {
 
 
 exports.appendChildArray = function (unit) {
-  return function (state, e, children) {
-    setChildren(state, e, children);
+  return function (state, info, children) {
+    setChildren(state, info.element, children);
     return unit;
   };
 };
@@ -190,7 +194,9 @@ exports.appendChildArray = function (unit) {
 exports.appendChildStreamArray = function (eachDelta) {
   return function (arrayDelta) {
     return function (unit) {
-      return function (state, e, children) {
+      return function (state, info, children) {
+        var element = info.element;
+
         var childStates = [];
 
         function kill() {
@@ -217,12 +223,12 @@ exports.appendChildStreamArray = function (eachDelta) {
           if (childStates.length !== 0) {
             kill();
             // TODO can this be made faster ?
-            e.innerHTML = "";
+            element.innerHTML = "";
           }
 
           childStates = newStates;
 
-          e.appendChild(fragment);
+          element.appendChild(fragment);
 
           // TODO avoid looping twice ?
           for (var i = 0; i < length; ++i) {
@@ -242,13 +248,13 @@ exports.appendChildStreamArray = function (eachDelta) {
               childStates.push(newState);
 
               // TODO should this allow for arrays ?
-              e.appendChild(value(newState));
+              element.appendChild(value(newState));
 
             } else {
               childStates.splice(index, 0, newState);
 
               // TODO should this allow for arrays ?
-              e.insertBefore(value(newState), e.childNodes[index]);
+              element.insertBefore(value(newState), element.childNodes[index]);
             }
 
             triggerInsert(newState);
@@ -271,7 +277,7 @@ exports.appendChildStreamArray = function (eachDelta) {
             triggerRemove(oldState);
 
             // TODO should this allow for arrays ?
-            e.replaceChild(html, e.childNodes[index]);
+            element.replaceChild(html, element.childNodes[index]);
 
             triggerInsert(newState);
 
@@ -287,7 +293,7 @@ exports.appendChildStreamArray = function (eachDelta) {
 
           triggerRemove(oldState);
 
-          e.removeChild(e.childNodes[index]);
+          element.removeChild(element.childNodes[index]);
 
           return unit;
         }
@@ -379,14 +385,22 @@ exports.unsafeSetPropertyView = function (observe) {
 exports.unsafePropertyImpl = function (setProperty) {
   return function (key) {
     return function (value) {
-      return function (state, element) {
-        return setProperty(state, element, key, value);
+      return function (state, info) {
+        if (info.properties[key] == null) {
+          info.properties[key] = true;
+
+        } else {
+          throw new Error("Property already exists \"" + key + "\"");
+        }
+
+        return setProperty(state, info.element, key, value);
       };
     };
   };
 };
 
 
+// TODO receive the style rather than the element
 exports.unsafeSetStyleValue = function (state, element, key, value, important) {
   setStyle(element.style, key, value, important);
 };
@@ -394,6 +408,7 @@ exports.unsafeSetStyleValue = function (state, element, key, value, important) {
 
 exports.unsafeSetStyleView = function (observe) {
   return function (unit) {
+    // TODO receive the style rather than the element
     return function (state, element, key, value, important) {
       stateObserve(state, observe, value, function (value) {
         setStyle(element.style, key, value, important);

@@ -1,7 +1,6 @@
 module Pauan.MutableArray (MutableArray, make, get, set, insertAt, updateAt, deleteAt, push) where
 
 import Prelude
-import Control.Monad.Eff (Eff)
 import Data.Maybe (fromMaybe)
 import Pauan.StreamArray (ArrayDelta(..), class ToStreamArray, StreamArray(..))
 import Data.Array as Array
@@ -9,6 +8,7 @@ import Pauan.Stream as Stream
 import Pauan.Mutable as Mutable
 import Pauan.Events as Events
 import Pauan.Transaction (Transaction, onCommit, runTransaction)
+import Pauan.Transaction.Unsafe (unsafeLiftEff)
 
 
 data MutableArray a =
@@ -24,10 +24,12 @@ instance toStreamArrayMutableArray :: ToStreamArray (MutableArray a) a where
       Events.receive onValue events)
 
 
-make :: forall a eff. Array a -> Eff (mutable :: Mutable.MUTABLE | eff) (MutableArray a)
+make :: forall a eff. Array a -> Transaction (mutable :: Mutable.MUTABLE | eff) (MutableArray a)
 make value = do
   mutable <- Mutable.make value
-  events <- Events.make
+  -- TODO make this more efficient ?
+  -- TODO figure out another way of doing this ?
+  events <- unsafeLiftEff Events.make
   pure (MutableArray mutable events)
 
 

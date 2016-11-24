@@ -10,25 +10,30 @@ exports.runTransaction = function (transaction) {
     try {
       var value = transaction(state);
 
-      var id = globalTransactionId++;
-
       var length = state.length;
 
-      for (var i = 0; i < length; ++i) {
-        // TODO what if this throws an error ?
-        state[i].commit(id);
+      if (length !== 0) {
+        var id = globalTransactionId++;
+
+        for (var i = 0; i < length; ++i) {
+          // TODO what if this throws an error ?
+          state[i].commit(id);
+        }
+
+        // TODO better detection for whether the state has changed or not ?
+        // TODO is this needed ?
+        if (state.length !== length) {
+          throw new Error("Invalid transaction state");
+        }
       }
 
       return value;
 
     } catch (e) {
-      // TODO make this faster ?
-      // TODO is this correct ?
-      state.reverse();
+      var i = state.length;
 
-      var length = state.length;
-
-      for (var i = 0; i < length; ++i) {
+      // Must traverse it in reverse order
+      while (i--) {
         state[i].rollback();
       }
 

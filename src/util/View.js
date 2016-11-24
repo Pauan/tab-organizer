@@ -195,8 +195,8 @@ exports.bindImpl = function (parent) {
 };
 
 
-exports.value = function (view) {
-  return function () {
+exports.currentValue = function (view) {
+  return function (state) {
     return view.snapshot().value;
   };
 };

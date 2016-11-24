@@ -70,7 +70,7 @@ import Debug.Trace (spy)
 
 import Pauan.Stream (Stream, class ToStream, stream)
 import Pauan.StreamArray (StreamArray, class ToStreamArray, streamArray)
-import Pauan.View (View, class ToView, view)
+import Pauan.View (View, class ToView, view, currentValue)
 import Pauan.Transaction (Transaction, runTransaction)
 import Pauan.Math (hypot)
 

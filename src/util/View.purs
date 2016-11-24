@@ -1,17 +1,18 @@
-module Pauan.View (class ToView, View, view, observe, value) where
+module Pauan.View (class ToView, View, view, observe, currentValue) where
 
 import Prelude
 import Data.HeytingAlgebra (implies, ff, tt)
 import Control.Apply (lift2)
 import Control.Monad.Eff (Eff)
 import Pauan.Resource (Resource)
+import Pauan.Transaction (Transaction)
 import Pauan.Stream (class ToStream, make, stream)
 import Pauan.StreamArray.Class (class ToStreamArray, StreamArray(..), ArrayDelta(..))
 
 
 foreign import data View :: * -> *
 
-foreign import value :: forall a eff. View a -> Eff eff a
+foreign import currentValue :: forall a eff. View a -> Transaction eff a
 
 foreign import observe :: forall a eff. (a -> Eff eff Unit) -> View a -> Eff eff Resource
 

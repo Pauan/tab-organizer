@@ -5,7 +5,7 @@ exports.makeImpl = function (Events) {
   return function (receive) {
     return function (unit) {
       return function (value) {
-        return function () {
+        return function (state) {
           var self = {
             snapshot: {
               id: 0,

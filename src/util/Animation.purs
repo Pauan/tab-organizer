@@ -52,10 +52,10 @@ instance ordInterval :: Ord Interval where
 
 
 foreign import makeImpl :: forall eff.
-  Eff (mutable :: Mutable.MUTABLE | eff) (Mutable.Mutable Interval) ->
-  Eff (mutable :: Mutable.MUTABLE | eff) Animation
+  Transaction (mutable :: Mutable.MUTABLE | eff) (Mutable.Mutable Interval) ->
+  Transaction (mutable :: Mutable.MUTABLE | eff) Animation
 
-make :: forall eff. Eff (mutable :: Mutable.MUTABLE | eff) Animation
+make :: forall eff. Transaction (mutable :: Mutable.MUTABLE | eff) Animation
 make = makeImpl (Mutable.make (Interval 0.0))
 
 
@@ -194,7 +194,8 @@ animatedMap' :: forall a b eff.
   Animator eff ->
   StreamArray a ->
   StreamArray b
-animatedMap' = runFn9 animatedMapImpl eachDelta arrayDelta view Replace Insert Update Remove unit make
+-- TODO don't use runTransaction ?
+animatedMap' = runFn9 animatedMapImpl eachDelta arrayDelta view Replace Insert Update Remove unit (runTransaction make)
 
 animatedMap :: forall a b. (View Interval -> a -> b) -> AnimationSettings -> StreamArray a -> StreamArray b
 animatedMap f x = animatedMap'

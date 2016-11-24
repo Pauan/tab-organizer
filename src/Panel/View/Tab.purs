@@ -3,8 +3,7 @@ module Pauan.Panel.View.Tab where
 import Pauan.Prelude
 import Pauan.Mutable as Mutable
 import Pauan.Animation as Animation
-import Pauan.View (value)
-import Pauan.Panel.Types (State, Group, Tab, Dragging)
+import Pauan.Panel.Types (State, Group, Tab, Dragging, notDragging, updateDragging, stopDragging, isVisible)
 import Pauan.HTML (widget)
 import Pauan.MutableArray as MutableArray
 import Data.Array (mapWithIndex)
@@ -22,12 +21,28 @@ row = trait
   , style "align-items" "center" ]
 
 
-menuItemTrait :: State -> Trait
-menuItemTrait { dragging } = trait
-  [ style "cursor" (view dragging >> map (ifJust "" "pointer"))
-  , style "border-style" "solid"
+-- TODO move this someplace else
+stretch :: Trait
+stretch = trait
+  -- Needed to avoid min size constraints
+  -- http://stackoverflow.com/a/36247448/449477
+  [ style "min-width" "0"
+  , style "min-height" "0"
+  , style "flex" "1 1 0" ]
+
+
+menuItemTrait :: State -> View Boolean -> View Boolean -> Trait
+menuItemTrait state isHovering isSelected = trait
+  [ style "cursor" (state >> notDragging >> mapIf "pointer" "")
   , style "border-width" "1px"
-  {-"transition": mutable.latest([
+
+  , style "transition-timing-function" "ease-in-out, ease-out"
+  , style "transition-property" "background-color, transform"
+  , style "transition-duration"
+      (map2 isHovering (view state.draggingAnimate) \isHovering' draggingAnimate ->
+        (if isHovering' then "0ms" else "100ms") ++ ", " ++
+        (if draggingAnimate then "100ms" else "0ms"))
+  {- "transition": mutable.latest([
     opt("theme.animation"),
     dragging_animate
   ], (animation, dragging_animate) =>
@@ -36,14 +51,59 @@ menuItemTrait { dragging } = trait
           // TODO minor code duplication
           ? "background-color 100ms ease-in-out, transform 100ms ease-out"
           : "background-color 100ms ease-in-out")
-      : null)),-} ]
+      : null)), -}
 
+  , style "background-image"
+      (isHovering >> mapIfTrue
+        ("linear-gradient(to bottom, " ++
+           hsla 0 0 100 0.2 ++ " 0%, " ++
+           "transparent"    ++ " 49%, " ++
+           hsla 0 0   0 0.1 ++ " 50%, " ++
+           hsla 0 0 100 0.1 ++ " 80%, " ++
+           hsla 0 0 100 0.2 ++ " 100%)," ++
+         repeatingGradient))
 
-menuItemShadowTrait :: Trait
-menuItemShadowTrait =
-  style "box-shadow" ("1px 1px  1px " ++ hsla 0 0   0 0.25 ++ "," ++
-                "inset 0px 0px  3px " ++ hsla 0 0 100 1.0  ++ "," ++
-                "inset 0px 0px 10px " ++ hsla 0 0 100 0.25)
+  , style "color"
+      (isHovering >> mapIfTrue (hsla 211 100 99 0.95))
+
+  , style "background-color"
+      (map2 isHovering isSelected \isHovering' isSelected' ->
+        if isHovering' && isSelected'
+        then hsl 100 80 45
+        else if isSelected'
+        then hsl 100 78 80
+        else if isHovering'
+        then hsl 211 100 65
+        else "")
+
+  , style "border-color"
+      (map2 isHovering isSelected \isHovering' isSelected' ->
+        if isSelected'
+        then hsl 100 50 55 ++ " " ++
+             hsl 100 50 50 ++ " " ++
+             hsl 100 50 45 ++ " " ++
+             hsl 100 50 50
+        else if isHovering'
+        then hsl 211 38 62 ++ " " ++
+             hsl 211 38 57 ++ " " ++
+             hsl 211 38 52 ++ " " ++
+             hsl 211 38 57
+        else "transparent")
+
+  , style "text-shadow"
+      (isHovering >> mapIfTrue
+        ("1px 0px 1px " ++ hsla 0 0 0 0.2 ++ "," ++
+         "0px 0px 1px " ++ hsla 0 0 0 0.1 ++ "," ++
+         -- TODO why is it duplicated like this ?
+         "0px 1px 1px " ++ hsla 0 0 0 0.2))
+
+  , style "box-shadow"
+      (map2 isHovering isSelected \isHovering' isSelected' ->
+        if isHovering' || isSelected'
+        then       "1px 1px  1px " ++ hsla 0 0   0 0.25 ++ "," ++
+             "inset 0px 0px  3px " ++ hsla 0 0 100 1.0  ++ "," ++
+             "inset 0px 0px 10px " ++ hsla 0 0 100 0.25
+        else "") ]
 
 
 repeatingGradient :: String
@@ -55,39 +115,6 @@ repeatingGradient =
     hsla 0 0 100 0.05 ++ " 10px)"
 
 
-menuItemHoverTrait :: View Boolean -> Trait
-menuItemHoverTrait isHovering = trait
-  -- TODO a bit hacky
-  [ style "transition-duration"
-      (isHovering >> mapIfTrue "0ms")
-  , style "background-image"
-      (isHovering >> mapIfTrue
-        ("linear-gradient(to bottom, " ++
-           hsla 0 0 100 0.2 ++ " 0%, " ++
-           "transparent"    ++ " 49%, " ++
-           hsla 0 0   0 0.1 ++ " 50%, " ++
-           hsla 0 0 100 0.1 ++ " 80%, " ++
-           hsla 0 0 100 0.2 ++ " 100%)," ++
-         repeatingGradient))
-  , style "color"
-      (isHovering >> mapIfTrue (hsla 211 100 99 0.95))
-  , style "background-color"
-      (isHovering >> mapIfTrue (hsl 211 100 65))
-  , style "border-color"
-      (isHovering >> mapIf
-        (hsl 211 38 62 ++ " " ++
-         hsl 211 38 57 ++ " " ++
-         hsl 211 38 52 ++ " " ++
-         hsl 211 38 57)
-        "transparent")
-  , style "text-shadow"
-      (isHovering >> mapIfTrue
-        ("1px 0px 1px " ++ hsla 0 0 0 0.2 ++ "," ++
-         "0px 0px 1px " ++ hsla 0 0 0 0.1 ++ "," ++
-         -- TODO why is it duplicated like this ?
-         "0px 1px 1px " ++ hsla 0 0 0 0.2)) ]
-
-
 draggingView :: State -> HTML
 draggingView state =
   html "div"
@@ -97,7 +124,7 @@ draggingView state =
     , style "overflow" "visible"
     , style "width" (view dragging >> map width')
     , style "transform" (map2 (dragging >> view) (draggingPosition >> view) transform)
-    , hidden (view dragging >> map (not <<< isJust)) ]
+    , hidden (state >> notDragging) ]
     -- TODO make this more efficient ?
     (view dragging >> map selected' >> streamArray >> Animation.animatedMap
       (\animation f -> f (animation >> map (Animation.easeOut (Animation.easePow 3.0))))
@@ -129,12 +156,12 @@ draggingView state =
 
 
 draggingTrait :: State -> Trait
-draggingTrait { dragging } =
-  style "cursor" (view dragging >> map (ifJust "grabbing" ""))
+draggingTrait state =
+  style "cursor" (state >> notDragging >> mapIf "" "grabbing")
 
 
 draggable :: State -> Group -> Tab -> Trait
-draggable { dragging, draggingPosition } group tab = trait
+draggable state group tab = trait
   [ onDrag
       {-
         // TODO should also support dragging when the type is "tag"
@@ -145,7 +172,7 @@ draggable { dragging, draggingPosition } group tab = trait
       { threshold: \e -> pure <<
           hypot (e.startX - e.currentX >> toNumber) (e.startY - e.currentY >> toNumber) > 5.0
 
-      , start: \e -> do
+      , start: \e -> runTransaction do
           {-
           const tabs = record.get(group, "tabs");
 
@@ -190,61 +217,82 @@ draggable { dragging, draggingPosition } group tab = trait
           drag_start({ group, tab, height });
           -}
           -- TODO check for visible ?
-          isSelected <- tab.selected >> view >> value
+          isSelected <- tab.selected >> view >> currentValue
+
           selected <- if isSelected
             then do
               -- TODO make this faster ?
-              tabs <- group.tabs >> MutableArray.get >> runTransaction
-              tabs >> filterM \x -> (view x.selected && view x.matchedSearch) >> value
+              tabs <- group.tabs >> MutableArray.get
+              tabs >> filterM \x -> (view x.selected && view x.matchedSearch) >> currentValue
             else [tab] >> pure
-          runTransaction do
-            let len = length selected
-            -- TODO (mutable.get(opt("groups.layout")) !== "vertical");
-            let left = if false then Nothing else Just e.position.left
-            let width = e.position.width
-            -- TODO (tab_height + (Math["min"](list.size(selected), 4) * 3))
-            let height = if len == 1 then tabHeight else tabHeight + ((min len 4) * 3)
-            let offsetX = (width / 2)
-            let offsetY = (tabHeight / 2) + 1
-            for_ selected \a -> do
-              a.dragging >> Mutable.set true
-            dragging >> Mutable.set (Just { left, width, height, offsetX, offsetY, selected })
-            draggingPosition >> Mutable.set (Just e)
+
+          let len = length selected
+          -- TODO (mutable.get(opt("groups.layout")) !== "vertical");
+          let left = if false then Nothing else Just e.position.left
+          let width = e.position.width
+          -- TODO (tab_height + (Math["min"](list.size(selected), 4) * 3))
+          let height = if len == 1 then tabHeight else tabHeight + ((min len 4) * 3)
+          let offsetX = (width / 2)
+          let offsetY = (tabHeight / 2) + 1
+
+          for_ selected \a -> do
+            a.dragging >> Mutable.set true
+
+          state.dragging >> Mutable.set (Just { left, width, height, offsetX, offsetY, selected })
+          state.draggingPosition >> Mutable.set (Just e)
+
+          updateDragging state group tab height
 
       , move: \e -> runTransaction do
-          draggingPosition >> Mutable.set (Just e)
+          state.draggingPosition >> Mutable.set (Just e)
 
-      , end: \_ -> do
-          a <- dragging >> view >> value
-          runTransaction do
-            -- TODO a bit gross
-            case a of
-              Nothing -> pure unit
-              Just { selected } -> do
-                for_ selected \b -> do
-                  b.dragging >> Mutable.set false
-            dragging >> Mutable.set Nothing
-            draggingPosition >> Mutable.set Nothing } ]
+      , end: \_ -> runTransaction do
+          a <- state.dragging >> view >> currentValue
+          -- TODO a bit gross
+          case a of
+            Nothing -> pure unit
+            Just { selected } -> do
+              for_ selected \b -> do
+                b.dragging >> Mutable.set false
+
+          state.dragging >> Mutable.set Nothing
+          state.draggingPosition >> Mutable.set Nothing
+
+          stopDragging state group } ]
 
 
-tabView' :: State -> Tab -> View Boolean -> Trait -> HTML
-tabView' state tab isHovering trait = html "div"
+tabView' :: State -> Tab -> View Animation.Interval -> View Boolean -> View Boolean -> Trait -> HTML
+tabView' state tab animation isHovering visible trait = html "div"
   [ row
-  , menuItemTrait state
-  , menuItemHoverTrait isHovering
+  , hidden (not visible)
+  , menuItemTrait state isHovering (tab.selected >> view)
   , style "width" "100%"
-  , style "height" (show tabHeight ++ "px")
   , style "padding" "1px"
   , style "border-radius" "5px"
   , style "font-weight" (isHovering >> mapIfTrue "bold")
   , trait ]
-  [ text tab.title ]
+  [ html "div"
+      [ stretch
+      -- TODO what about dragging ?
+      , property "title" tab.title
+      , style "padding-left" "3px"
+      , style "padding-right" "1px"
+      -- TODO make this more efficient ?
+      , style "transform" (animation >> map (Animation.range (-90.0) 0.0 >>> \t -> "rotateX(" ++ show t ++ "deg)")) ]
+      [ text
+          (tab.unloaded >> view >> map \unloaded ->
+            if unloaded
+            then (if tab.title == ""
+              then "➔"
+              else "➔ " ++ tab.title)
+            else tab.title) ] ]
 
 
 tabViewDragging :: State -> Int -> Tab -> View Animation.Interval -> HTML
 tabViewDragging state index tab animation =
-  tabView' state tab (pure (index == 0)) << trait
-    [ style "z-index" (show (-index))
+  tabView' state tab (pure (Animation.Interval 1.0)) (pure (index == 0)) (pure true) << trait
+    [ style "height" (show tabHeight ++ "px")
+    , style "z-index" (show (-index))
     , style "opacity"
         (if index < 5
          then pure ""
@@ -271,7 +319,9 @@ tabView state group index tab animation = widget \state' -> do
     a >> Animation.tweenTo 0.0-}
 
   --state' >> keepUntil (a >> view >> is 0.0)
-  isHovering <- Mutable.make false
+
+  -- TODO don't use runTransaction ?
+  isHovering <- Mutable.make false >> runTransaction
 
   let height      = animation >> map (Animation.rangeRoundSuffix 0 tabHeight "px")
   let borderWidth = animation >> map (Animation.rangeRoundSuffix 0 1 "px")
@@ -280,7 +330,9 @@ tabView state group index tab animation = widget \state' -> do
   -- This needs to match the "margin-left" in "Group.purs"
   let marginLeft  = animation >> map (Animation.rangeRoundSuffix 12 0 "px")
 
-  pure << tabView' state tab (view isHovering) << trait
+  pure << tabView' state tab animation
+    (view isHovering && (state >> notDragging))
+    (isVisible tab) << trait
     [ onHoverSet isHovering
     , draggable state group tab
     , on "click" \_ -> do
@@ -302,22 +354,12 @@ tabView state group index tab animation = widget \state' -> do
     , style "opacity" opacity
     , style "margin-left" marginLeft
 
-    , style "background-color"
-        (view tab.selected >> mapIfTrue (hsl 100 78 80))
-    , style "border-color"
-        (view tab.selected >> mapIfTrue
-          (hsl 100 50 55 ++ " " ++
-           hsl 100 50 50 ++ " " ++
-           hsl 100 50 45 ++ " " ++
-           hsl 100 50 50))
-
     {-, style "background-color"
         (animation >> map \t ->
           hsl (Animation.rangeRound 0 360 t) 50 (Animation.rangeRound 50 100 t))-}
 
     -- TODO is this correct ?
     , style "overflow" "hidden"
-    , style "display" ((view tab.matchedSearch && not (view tab.dragging)) >> mapIf "flex" "none")
     , style "position" (view tab.top >> map (ifJust "absolute" ""))
     , style "transform" (view tab.top >> map transform) ]
     where

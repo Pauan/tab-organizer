@@ -89,6 +89,7 @@ function play(set, animation, duration, done) {
 
       var info = {
         startTime: startTime,
+        // TODO is this correct ?
         duration: Math.abs(end - start) * duration,
         start: start,
         end: end,
@@ -130,9 +131,9 @@ exports.rangeImpl = function (from) {
 
 
 exports.makeImpl = function (mutable) {
-  return function () {
+  return function (state) {
     return {
-      tween: mutable(),
+      tween: mutable(state),
       tweenTo: 0,
       playing: true,
       stop: null

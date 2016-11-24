@@ -19,9 +19,9 @@ foreign import makeImpl :: forall a eff.
   ((TransactionId -> Eff eff Unit) -> Events.Events TransactionId -> Eff eff Resource) ->
   Unit ->
   a ->
-  Eff (mutable :: MUTABLE | eff) (Mutable a)
+  Transaction (mutable :: MUTABLE | eff) (Mutable a)
 
-make :: forall a eff. a -> Eff (mutable :: MUTABLE | eff) (Mutable a)
+make :: forall a eff. a -> Transaction (mutable :: MUTABLE | eff) (Mutable a)
 make = makeImpl Events.make Events.receive unit
 
 

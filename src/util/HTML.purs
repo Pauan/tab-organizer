@@ -25,7 +25,7 @@ module Pauan.HTML
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Pauan.View (View, value)
+import Pauan.View (View, currentValue)
 import Pauan.Resource (Resource)
 import Pauan.Transaction (runTransaction)
 import Pauan.Mutable as Mutable
@@ -129,10 +129,12 @@ hidden = unsafeProperty "hidden"
 foreign import trait :: Array Trait -> Trait
 
 
+-- TODO maybe remove this ?
 sampleOn :: forall eff a. String -> View a -> (Event -> a -> Eff eff Unit) -> Trait
 sampleOn name view f =
   on name \e -> do
-    v <- value view
+    -- TODO make this more efficient ?
+    v <- runTransaction (currentValue view)
     f e v
 
 

@@ -3,9 +3,9 @@
 
 exports.onImpl = function (name) {
   return function (f) {
-    return function (state, element) {
+    return function (state, info) {
       // TODO should this use true or false ?
-      element.addEventListener(name, function (e) {
+      info.element.addEventListener(name, function (e) {
         f(e)();
       }, true);
     };
@@ -20,11 +20,11 @@ exports.widget = function (f) {
 };
 
 
-function setTraits(state, e, attrs) {
+function setTraits(state, info, attrs) {
   var length = attrs.length;
 
   for (var i = 0; i < length; ++i) {
-    attrs[i](state, e);
+    attrs[i](state, info);
   }
 }
 
@@ -33,14 +33,20 @@ exports.htmlImpl = function (appendChild) {
     return function (attrs) {
       return function (children) {
         return function (state) {
-          // TODO use createElementNS ?
-          var e = document.createElement(tag);
+          var element = document.createElement(tag);
+
+          var info = {
+            // TODO use createElementNS ?
+            element: element,
+            styles: {},
+            properties: {}
+          };
 
           // This must be before `setTraits`, because otherwise setting the `value` of a `<select>` doesn't work
-          appendChild(state, e, children);
-          setTraits(state, e, attrs);
+          appendChild(state, info, children);
+          setTraits(state, info, attrs);
 
-          return e;
+          return element;
         };
       };
     };
@@ -61,8 +67,16 @@ exports.styleImpl = function (setStyle) {
   return function (important) {
     return function (key) {
       return function (value) {
-        return function (state, element) {
-          return setStyle(state, element, key, value, important);
+        return function (state, info) {
+          if (info.styles[key] == null) {
+            info.styles[key] = true;
+
+          } else {
+            throw new Error("Style already exists \"" + key + "\"");
+          }
+
+          // TODO pass in the style rather than the element
+          return setStyle(state, info.element, key, value, important);
         };
       };
     };
@@ -76,8 +90,8 @@ exports.body = function () {
 
 
 exports.trait = function (traits) {
-  return function (state, element) {
-    setTraits(state, element, traits);
+  return function (state, info) {
+    setTraits(state, info, traits);
   };
 };
 
@@ -97,11 +111,14 @@ exports.onDragImpl = function (makeEvent) {
       return function (onStart) {
         return function (onMove) {
           return function (onEnd) {
-            return function (state, element) {
+            return function (state, info) {
+              var element = info.element;
               var initialX = null;
               var initialY = null;
               var dragging = false;
 
+              // TODO preventDefault ?
+              // TODO stopPropagation ?
               function mousemove(e) {
                 var event = getEvent(element, initialX, initialY, e);
 
@@ -114,6 +131,8 @@ exports.onDragImpl = function (makeEvent) {
                 }
               }
 
+              // TODO preventDefault ?
+              // TODO stopPropagation ?
               function mouseup(e) {
                 // TODO don't create this if dragging is false ?
                 var event = getEvent(element, initialX, initialY, e);
