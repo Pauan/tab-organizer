@@ -1,7 +1,7 @@
 "use strict";
 
 
-exports.makeImpl = function (Events) {
+exports.makeImpl = function (Broadcaster) {
   return function (receive) {
     return function (unit) {
       return function (value) {
@@ -12,7 +12,7 @@ exports.makeImpl = function (Events) {
               value: value
             },
 
-            listeners: Events(),
+            listeners: Broadcaster(),
 
             // TODO is this correct ?
             // TODO can this be made faster ?

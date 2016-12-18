@@ -335,16 +335,20 @@ tabView state group index tab animation = widget \state' -> do
     (isVisible tab) << trait
     [ onHoverSet isHovering
     , draggable state group tab
-    , on "click" \_ -> do
-        runTransaction do
-          tab.selected >> Mutable.modify not
-        {-i <- index >> value
-        case i of
-          Nothing ->
-            pure unit
-          Just i ->
-            runTransaction do
-              group.tabs >> MutableArray.deleteAt i-}
+    , onLeftClick \{ ctrl } -> runTransaction do
+        (if ctrl
+         then tab.selected >> Mutable.modify not
+         else pure unit)
+    , onMiddleClick \{ shift, ctrl, alt } -> runTransaction do
+        (if not shift && not ctrl && not alt
+         then do
+           i <- index >> currentValue
+           case i of
+             Nothing ->
+               pure unit
+             Just i ->
+               group.tabs >> MutableArray.deleteAt i
+         else pure unit)
 
     , style "height" height
     , style "border-top-width" borderWidth

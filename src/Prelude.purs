@@ -15,6 +15,8 @@ module Pauan.Prelude
   , module Data.Traversable
   , module Pauan.Math
   , module Data.Int
+  , module Data.Filterable
+  , module Data.Either
   , (<<)
   , (>>)
   , ifJust
@@ -58,6 +60,8 @@ import Prelude
   , const
   )
 
+import Data.Either (Either(..))
+import Data.Filterable (filter, filterMap, partition, partitionMap)
 import Data.Traversable (sequence)
 import Data.Foldable (for_)
 import Data.Array ((..), length, filterM)
@@ -83,6 +87,10 @@ import Pauan.HTML
   , hsla
   , text
   , on
+  , onLeftClick
+  , onMiddleClick
+  , onRightClick
+  , ClickEvent
   , onHoverSet
   , DragEvent
   , DOMPosition

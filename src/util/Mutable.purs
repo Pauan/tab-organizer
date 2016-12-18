@@ -15,14 +15,14 @@ foreign import data Mutable :: * -> *
 -- TODO Should this have an effect of MUTABLE ?
 -- TODO what should it use for the effect type of Events ?
 foreign import makeImpl :: forall a eff.
-  Eff eff (Events.Events TransactionId) ->
-  ((TransactionId -> Eff eff Unit) -> Events.Events TransactionId -> Eff eff Resource) ->
+  Eff eff (Events.Broadcaster TransactionId) ->
+  ((TransactionId -> Eff eff Unit) -> Events.Broadcaster TransactionId -> Eff eff Resource) ->
   Unit ->
   a ->
   Transaction (mutable :: MUTABLE | eff) (Mutable a)
 
 make :: forall a eff. a -> Transaction (mutable :: MUTABLE | eff) (Mutable a)
-make = makeImpl Events.make Events.receive unit
+make = makeImpl Events.makeBroadcaster (\f x -> Events.receive f (Events.events x)) unit
 
 
 foreign import viewImpl :: forall a. Mutable a -> View a
@@ -36,14 +36,14 @@ foreign import get :: forall a eff. Mutable a -> Transaction (mutable :: MUTABLE
 
 foreign import setImpl :: forall a eff.
   -- TODO is this type signature correct ?
-  (TransactionId -> Events.Events TransactionId -> Eff eff Unit) ->
+  (TransactionId -> Events.Broadcaster TransactionId -> Eff eff Unit) ->
   Unit ->
   a ->
   Mutable a ->
   Transaction (mutable :: MUTABLE | eff) Unit
 
 set :: forall a eff. a -> Mutable a -> Transaction (mutable :: MUTABLE | eff) Unit
-set = setImpl Events.send unit
+set = setImpl Events.broadcast unit
 
 
 modify :: forall a eff. (a -> a) -> Mutable a -> Transaction (mutable :: MUTABLE | eff) Unit

@@ -3,7 +3,7 @@ module Pauan.Test.View where
 import Pauan.Prelude.Test
 import Pauan.Resource (cleanup)
 import Pauan.Mutable as Mutable
-import Pauan.View (observe, value)
+import Pauan.View (observe)
 
 tests :: Tests
 tests = suite "View" do
@@ -11,7 +11,7 @@ tests = suite "View" do
     push <- makePush
 
     testUnit do
-      a <- Mutable.make 1
+      a <- Mutable.make 1 >> runTransaction
       resource <- a >> view >> observe (runPush push)
       u <- resource >> cleanup
       runTransaction do
@@ -25,14 +25,14 @@ tests = suite "View" do
   suite "Functor laws" do
     test "map id = id" do
       let v = pure 1
-      a <- v >> map id >> value >> toTest
-      b <- v >> id     >> value >> toTest
+      a <- v >> map id >> currentValue >> runTransaction >> toTest
+      b <- v >> id     >> currentValue >> runTransaction >> toTest
       b >> equal a
 
     test "map (f <<< g) = map f <<< map g" do
       let v = pure 1
-      a <- v >> map (id <<< id)     >> value >> toTest
-      b <- v >> (map id <<< map id) >> value >> toTest
+      a <- v >> map (id <<< id)     >> currentValue >> runTransaction >> toTest
+      b <- v >> (map id <<< map id) >> currentValue >> runTransaction >> toTest
       b >> equal a
 
 
@@ -53,7 +53,7 @@ tests = suite "View" do
     push1 <- makePush
     push2 <- makePush
 
-    a <- Mutable.make 1 >> toTest
+    a <- Mutable.make 1 >> runTransaction >> toTest
 
     let v = a >> view >> map \b -> b + 12 >> unsafeRunPush push2
 
@@ -82,8 +82,8 @@ tests = suite "View" do
       push1 <- makePush
       push2 <- makePush
 
-      a <- Mutable.make 1 >> toTest
-      b <- Mutable.make 2 >> toTest
+      a <- Mutable.make 1 >> runTransaction >> toTest
+      b <- Mutable.make 2 >> runTransaction >> toTest
 
       let v = map2 (a >> view) (b >> view) \c d -> c + d >> unsafeRunPush push2
 
@@ -116,7 +116,7 @@ tests = suite "View" do
       push3 <- makePush
       push4 <- makePush
 
-      a <- Mutable.make 1 >> toTest
+      a <- Mutable.make 1 >> runTransaction >> toTest
 
       let v1 = a >> view >> map \b -> b + 1 >> unsafeRunPush push2
 
@@ -151,8 +151,8 @@ tests = suite "View" do
     push2 <- makePush
     push3 <- makePush
 
-    a <- Mutable.make 1 >> toTest
-    b <- Mutable.make 2 >> toTest
+    a <- Mutable.make 1 >> runTransaction >> toTest
+    b <- Mutable.make 2 >> runTransaction >> toTest
 
     let va = a >> view
     let vb = b >> view

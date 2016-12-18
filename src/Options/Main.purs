@@ -85,6 +85,13 @@ root = runTransaction do
             group.tabs >> MutableArray.deleteAt 0
             group.tabs >> MutableArray.push tab ]
         [ text "Activate" ]
+    , html "button"
+        [ on "click" \_ -> runTransaction do
+            tabs <- group.tabs >> MutableArray.get
+            for_ tabs \tab -> do
+              group.tabs >> MutableArray.deleteAt 0
+            state.groups >> MutableArray.deleteAt 0 ]
+        [ text "Delete" ]
     , html "div"
         []
         (state.groups >> streamArray >> mapWithIndex (groupView state) >> Animation.animatedMap

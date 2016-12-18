@@ -33,7 +33,6 @@ import Test.QuickCheck ((===))
 import Control.Monad.Eff.Random (RANDOM)
 
 import Pauan.Mutable as Mutable
-import Pauan.View (value)
 import Data.Array (snoc)
 
 
@@ -73,7 +72,7 @@ type Push a = Mutable.Mutable (Array a)
 
 makePush :: forall a eff.
   Aff (mutable :: Mutable.MUTABLE | eff) (Push a)
-makePush = Mutable.make [] >> liftEff
+makePush = Mutable.make [] >> runTransaction >> liftEff
 
 
 runPush :: forall a eff.
@@ -108,7 +107,7 @@ equalPush expected var = do
 
 equalView :: forall a. (Eq a, Show a) => a -> View a -> TestAff Unit
 equalView expected a = do
-  actual <- a >> value >> toTest
+  actual <- a >> currentValue >> runTransaction >> toTest
   actual >> equal expected
 
 

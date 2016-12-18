@@ -1,12 +1,46 @@
 "use strict";
 
 
+function preventDefault(e) {
+  e.preventDefault();
+}
+
+
 exports.onImpl = function (name) {
   return function (f) {
     return function (state, info) {
       // TODO should this use true or false ?
       info.element.addEventListener(name, function (e) {
         f(e)();
+      }, true);
+    };
+  };
+};
+
+
+exports.onClickImpl = function (makeEvent, button) {
+  return function (f) {
+    return function (state, info) {
+      var element = info.element;
+
+      // TODO what about blur, etc. ?
+      function mouseup(e) {
+        removeEventListener("mouseup", mouseup, true);
+
+        // TODO is this correct ?
+        if (e.button === button && element.contains(e.target)) {
+          // TODO what about Macs ?
+          f(makeEvent(e.shiftKey)(e.ctrlKey)(e.altKey))();
+        }
+      }
+
+      if (button === 2) {
+        element.addEventListener("contextmenu", preventDefault, true);
+      }
+
+      // TODO should this use true or false ?
+      element.addEventListener("mousedown", function (e) {
+        addEventListener("mouseup", mouseup, true);
       }, true);
     };
   };
@@ -151,19 +185,24 @@ exports.onDragImpl = function (makeEvent) {
               }
 
               element.addEventListener("mousedown", function (e) {
-                initialX = e.clientX;
-                initialY = e.clientY;
+                // TODO support other buttons ?
+                // TODO support shift/ctrl/alt
+                // TODO what about Macs ?
+                if (e.button === 0 && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+                  initialX = e.clientX;
+                  initialY = e.clientY;
 
-                addEventListener("mousemove", mousemove, true);
-                // TODO what about `blur` or other events ?
-                addEventListener("mouseup", mouseup, true);
+                  addEventListener("mousemove", mousemove, true);
+                  // TODO what about `blur` or other events ?
+                  addEventListener("mouseup", mouseup, true);
 
-                var event = getEvent(element, initialX, initialY, e);
+                  var event = getEvent(element, initialX, initialY, e);
 
-                dragging = threshold(event)();
+                  dragging = threshold(event)();
 
-                if (dragging) {
-                  onStart(event)();
+                  if (dragging) {
+                    onStart(event)();
+                  }
                 }
               }, true);
             };

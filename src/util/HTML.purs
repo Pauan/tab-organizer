@@ -1,6 +1,10 @@
 module Pauan.HTML
   ( module Exports
   , on
+  , onLeftClick
+  , onMiddleClick
+  , onRightClick
+  , ClickEvent
   , onHoverSet
   , widget
   , html
@@ -29,7 +33,7 @@ import Pauan.View (View, currentValue)
 import Pauan.Resource (Resource)
 import Pauan.Transaction (runTransaction)
 import Pauan.Mutable as Mutable
-import Data.Function.Uncurried (Fn2, Fn3, Fn5)
+import Data.Function.Uncurried (Fn2, Fn3, Fn4, Fn5, runFn2)
 
 import Pauan.HTML.Unsafe
   ( Event
@@ -71,6 +75,28 @@ foreign import onImpl :: forall eff.
 
 on :: forall eff. String -> (Event -> Eff eff Unit) -> Trait
 on = onImpl
+
+
+type ClickEvent =
+  { shift :: Boolean
+  , ctrl :: Boolean
+  , alt :: Boolean }
+
+foreign import onClickImpl :: forall eff.
+  Fn2
+  (Boolean -> Boolean -> Boolean -> ClickEvent)
+  Int
+  ((ClickEvent -> Eff eff Unit) ->
+   Trait)
+
+onLeftClick :: forall eff. (ClickEvent -> Eff eff Unit) -> Trait
+onLeftClick = runFn2 onClickImpl { shift: _, ctrl: _, alt: _ } 0
+
+onMiddleClick :: forall eff. (ClickEvent -> Eff eff Unit) -> Trait
+onMiddleClick = runFn2 onClickImpl { shift: _, ctrl: _, alt: _ } 1
+
+onRightClick :: forall eff. (ClickEvent -> Eff eff Unit) -> Trait
+onRightClick = runFn2 onClickImpl { shift: _, ctrl: _, alt: _ } 2
 
 
 foreign import widget :: forall eff. (State -> Eff eff HTML) -> HTML

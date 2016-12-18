@@ -9,7 +9,7 @@ tests :: Tests
 tests = suite "Mutable" do
   test "get" do
     output <- toTest do
-      a <- Mutable.make 1
+      a <- Mutable.make 1 >> runTransaction
       runTransaction do
         a >> Mutable.get
     output >> equal 1
@@ -17,7 +17,7 @@ tests = suite "Mutable" do
 
   test "set" do
     output <- toTest do
-      a <- Mutable.make 1
+      a <- Mutable.make 1 >> runTransaction
       runTransaction do
         a >> Mutable.set 2
         a >> Mutable.get
@@ -26,7 +26,7 @@ tests = suite "Mutable" do
 
   test "modify" do
     output <- toTest do
-      a <- Mutable.make 1
+      a <- Mutable.make 1 >> runTransaction
       runTransaction do
         a >> Mutable.modify \b -> b + 12
         a >> Mutable.get
@@ -35,7 +35,7 @@ tests = suite "Mutable" do
 
   suite "view" do
     test "value" do
-      a <- Mutable.make 1 >> toTest
+      a <- Mutable.make 1 >> runTransaction >> toTest
       let v = a >> view
       v >> equalView 1
       toTest << runTransaction do
@@ -47,7 +47,7 @@ tests = suite "Mutable" do
       push <- makePush
 
       testUnit do
-        a <- Mutable.make 1
+        a <- Mutable.make 1 >> runTransaction
         resource <- a >> view >> observe (runPush push)
         u <- resource >> cleanup
         runTransaction do
@@ -57,7 +57,7 @@ tests = suite "Mutable" do
       push >> equalPush [1]
 
       testUnit do
-        a <- Mutable.make 3
+        a <- Mutable.make 3 >> runTransaction
         resource <- a >> view >> observe (runPush push)
         runTransaction do
           a >> Mutable.set 4

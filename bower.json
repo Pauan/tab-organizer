@@ -13,6 +13,7 @@
     "purescript-eff": "^2.0.0",
     "purescript-prelude": "^2.1.0",
     "purescript-psci-support": "^2.0.0",
-    "purescript-test-unit": "^10.0.1"
+    "purescript-test-unit": "^10.0.1",
+    "purescript-filterable": "^1.0.0"
   }
 }

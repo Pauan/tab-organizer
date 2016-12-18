@@ -1,30 +1,30 @@
 module Pauan.Test.Animation where
 
 import Pauan.Prelude.Test
-import Pauan.Animation (Tween(..), easePow, easeExponential, easeSinusoidal, easeCircular, easeOut, easeInOut, easeRepeat)
+import Pauan.Animation (Interval(..), easePow, easeExponential, easeSinusoidal, easeCircular, easeOut, easeInOut, easeRepeat)
 
-testBeginEnd :: (Tween -> Tween) -> TestAff Unit
+testBeginEnd :: (Interval -> Interval) -> TestAff Unit
 testBeginEnd f = do
-  f (Tween 0.0) >> equal (Tween 0.0)
-  f (Tween 1.0) >> equal (Tween 1.0)
+  f (Interval 0.0) >> equal (Interval 0.0)
+  f (Interval 1.0) >> equal (Interval 1.0)
 
-testEasing :: (Tween -> Tween) -> TestAff Unit
+testEasing :: (Interval -> Interval) -> TestAff Unit
 testEasing f = do
   testBeginEnd f
   testBeginEnd (easeOut f)
   testBeginEnd (easeInOut f)
 
   quickCheck \a ->
-    (easeRepeat a >>> f) (Tween 0.0) === (Tween 0.0)
+    (easeRepeat a >>> f) (Interval 0.0) === (Interval 0.0)
 
   quickCheck \a ->
-    (easeRepeat a >>> f) (Tween 1.0) === (Tween 1.0)
+    (easeRepeat a >>> f) (Interval 1.0) === (Interval 1.0)
 
   quickCheck \a ->
-    (f >>> easeRepeat a) (Tween 0.0) === (Tween 0.0)
+    (f >>> easeRepeat a) (Interval 0.0) === (Interval 0.0)
 
   quickCheck \a ->
-    (f >>> easeRepeat a) (Tween 1.0) === (Tween 1.0)
+    (f >>> easeRepeat a) (Interval 1.0) === (Interval 1.0)
 
 tests :: Tests
 tests = suite "Animation" do
