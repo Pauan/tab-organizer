@@ -1,44 +1,71 @@
 "use strict";
 
 
-var globalTransactionId = 0;
+// TODO https://github.com/purescript/purescript/issues/2290
+var globalTransactionId;
+
+globalTransactionId = 0;
+
+
+function runTransaction1(transaction) {
+  var state = [];
+
+  try {
+    var value = transaction(state);
+
+    var length = state.length;
+
+    if (length !== 0) {
+      var id = globalTransactionId++;
+
+      for (var i = 0; i < length; ++i) {
+        // TODO what if this throws an error ?
+        state[i].commit(id);
+      }
+
+      // TODO better detection for whether the state has changed or not ?
+      // TODO is this needed ?
+      if (state.length !== length) {
+        throw new Error("Invalid transaction state");
+      }
+    }
+
+    return value;
+
+  } catch (e) {
+    var i = state.length;
+
+    // Must traverse it in reverse order
+    while (i--) {
+      state[i].rollback();
+    }
+
+    throw e;
+  }
+}
 
 exports.runTransaction = function (transaction) {
   return function () {
-    var state = [];
+    return runTransaction1(transaction);
+  };
+};
 
-    try {
-      var value = transaction(state);
 
-      var length = state.length;
+exports.runTransactionsImpl = function (unit) {
+  return function (a) {
+    var length = a.length;
 
-      if (length !== 0) {
-        var id = globalTransactionId++;
-
-        for (var i = 0; i < length; ++i) {
-          // TODO what if this throws an error ?
-          state[i].commit(id);
-        }
-
-        // TODO better detection for whether the state has changed or not ?
-        // TODO is this needed ?
-        if (state.length !== length) {
-          throw new Error("Invalid transaction state");
-        }
+    function transaction(state) {
+      for (var i = 0; i < length; ++i) {
+        a[i](state);
       }
 
-      return value;
-
-    } catch (e) {
-      var i = state.length;
-
-      // Must traverse it in reverse order
-      while (i--) {
-        state[i].rollback();
-      }
-
-      throw e;
+      return unit;
     }
+
+    return function () {
+      return runTransaction1(transaction);
+    };
   };
 };
 

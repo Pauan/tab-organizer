@@ -20,9 +20,8 @@ module Pauan.Animation
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Data.Foldable (sequence_)
 import Pauan.View (class ToView, View, view)
-import Pauan.Transaction (Transaction, runTransaction, onCommit)
+import Pauan.Transaction (Transaction, runTransaction, runTransactions, onCommit)
 import Data.Generic (class Generic, gEq, gShow, gCompare)
 import Pauan.Resource (Resource)
 import Data.Int (round, toNumber)
@@ -80,8 +79,7 @@ jumpTo = jumpToImpl Mutable.set
 
 foreign import tweenToImpl :: forall eff.
   (Interval -> Mutable.Mutable Interval -> Transaction (mutable :: Mutable.MUTABLE | eff) Unit) ->
-  (Array (Transaction eff Unit) -> Transaction eff Unit) ->
-  (Transaction eff Unit -> Eff eff Unit) ->
+  (Array (Transaction eff Unit) -> Eff eff Unit) ->
   Unit ->
   Number ->
   Number ->
@@ -95,7 +93,7 @@ tweenTo :: forall eff.
   Animation ->
   Transaction (mutable :: Mutable.MUTABLE | eff) Unit ->
   Transaction (mutable :: Mutable.MUTABLE | eff) Unit
-tweenTo = tweenToImpl Mutable.set sequence_ runTransaction unit
+tweenTo = tweenToImpl Mutable.set runTransactions unit
 
 
 foreign import rangeImpl :: Number -> Number -> Interval -> Number

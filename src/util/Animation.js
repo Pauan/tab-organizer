@@ -2,7 +2,7 @@
 
 
 // TODO https://github.com/purescript/purescript/issues/2290
-var pending, animating, sequence_, runTransaction;
+var pending, animating, runTransactions;
 
 pending = false;
 animating = [];
@@ -13,39 +13,32 @@ animating = [];
 function nextFrame() {
   var now = performance.now();
 
-  // TODO precompute the size ?
-  var transactions = [];
-
   var length = animating.length;
 
+  var transactions = new Array(length);
+
+  var index = 0;
+
   // TODO should this run new animations or not ?
-  for (var i = 0; i < length;) {
-    var x = animating[i];
+  for (var i = 0; i < length; ++i) {
+    var x = animating[index];
 
     var diff = now - x.startTime;
     var duration = x.duration;
 
     if (diff >= duration) {
-      transactions.push(x.set(x.end)(x.tween));
-      transactions.push(x.done);
+      transactions[i] = x.done(x.end);
 
-      animating.splice(i, 1); // TODO make this faster ?
-      --length;
+      animating.splice(index, 1); // TODO make this faster ?
 
     } else {
-      transactions.push(x.set(range(diff / duration, x.start, x.end))(x.tween));
-      ++i;
+      transactions[i] = x.set(range(diff / duration, x.start, x.end));
+      ++index;
     }
   }
 
-  if (transactions.length === 1) {
-    // TODO make this faster ?
-    runTransaction(transactions[0])();
-
-  } else {
-    // TODO make this faster ?
-    runTransaction(sequence_(transactions))();
-  }
+  // TODO make this faster ?
+  runTransactions(transactions)();
 
   // Cannot use `length` because new animations might have been added
   if (animating.length === 0) {
@@ -73,7 +66,7 @@ function pause(animation) {
 
 
 // TODO test this
-function play(set, animation, duration, done) {
+function play(animation, duration, set, done) {
   var tween = animation.tween;
   var start = tween.snapshot.value; // TODO don't rely upon implementation details
   var end = animation.tweenTo;
@@ -93,7 +86,6 @@ function play(set, animation, duration, done) {
         duration: Math.abs(end - start) * duration,
         start: start,
         end: end,
-        tween: tween,
         set: set,
         done: done
       };
@@ -169,40 +161,51 @@ exports.jumpToImpl = function (set) {
 
 
 exports.tweenToImpl = function (set) {
-  return function (sequence_1) {
+  return function (runTransactions1) {
     // TODO hacky
-    sequence_ = sequence_1;
+    runTransactions = runTransactions1;
 
-    return function (runTransaction1) {
-      // TODO hacky
-      runTransaction = runTransaction1;
+    return function (unit) {
+      return function (tween) {
+        return function (duration) {
+          return function (animation) {
+            // TODO a bit hacky
+            function set1(interval) {
+              //TODO make this faster
+              return set(interval)(animation.tween);
+            }
 
-      return function (unit) {
-        return function (tween) {
-          return function (duration) {
-            return function (animation) {
-              return function (done) {
+            return function (done) {
+              // TODO a bit hacky
+              // TODO test this
+              function done1(interval) {
+                // TODO don't rely upon the implementation of Transaction ?
                 return function (state) {
+                  set1(interval)(state);
+                  return done(state);
+                };
+              }
+
+              return function (state) {
+                // TODO is this correct ?
+                if (animation.tweenTo !== tween) {
+                  animation.tweenTo = tween;
+
+                  if (animation.playing) {
+                    // TODO is this correct ?
+                    pause(animation);
+                    play(animation, duration, set1, done1);
+                    return unit;
+
                   // TODO is this correct ?
-                  if (animation.tweenTo !== tween) {
-                    animation.tweenTo = tween;
-
-                    if (animation.playing) {
-                      // TODO is this correct ?
-                      pause(animation);
-                      play(set, animation, duration, done);
-                      return unit;
-
-                    // TODO is this correct ?
-                    } else {
-                      return done(state);
-                    }
-
                   } else {
-                    // TODO is this correct ?
                     return done(state);
                   }
-                };
+
+                } else {
+                  // TODO is this correct ?
+                  return done(state);
+                }
               };
             };
           };

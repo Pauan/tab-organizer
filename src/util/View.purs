@@ -70,3 +70,6 @@ foreign import pureImpl :: forall a. Unit -> a -> View a
 
 instance applicativeView :: Applicative View where
   pure = pureImpl unit
+
+
+instance monadView :: Monad View

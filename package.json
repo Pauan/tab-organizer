@@ -5,14 +5,17 @@
   "devDependencies": {
     "bower": "^1.8.0",
     "pulp": "^10.0.0",
-    "purescript": "^0.10.2"
+    "purescript": "^0.10.2",
+    "rollup": "^0.38.0",
+    "rollup-plugin-node-resolve": "^2.0.0",
+    "rollup-plugin-purs": "Pauan/rollup-plugin-purs#cbf66562e59b5c162cfa2ed4f76f3ec290678d57"
   },
   "scripts": {
     "postinstall": "bower install && mkdir -p build/js && yarn run build",
-    "build": "yarn run build:panel && yarn run build:server && yarn run build:options",
+    "build": "pulp build -- --source-maps && yarn run build:options",
     "build:panel": "pulp build --main Panel.Main --optimise --to build/js/panel.js",
     "build:server": "pulp build --main Server.Main --optimise --to build/js/server.js",
-    "build:options": "pulp build --main Options.Main --optimise --to build/js/options.js",
+    "build:options": "rollup --config",
     "test": "pulp test",
     "psci": "pulp psci",
     "bower:install": "bower install --save-dev"

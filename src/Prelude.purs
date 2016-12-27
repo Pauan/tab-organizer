@@ -14,6 +14,7 @@ module Pauan.Prelude
   , module Data.Foldable
   , module Data.Traversable
   , module Pauan.Math
+  , module Pauan.Result
   , module Data.Int
   , module Data.Filterable
   , module Data.Either
@@ -72,6 +73,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Aff (Aff)
 import Debug.Trace (spy)
 
+import Pauan.Result (Result(..))
 import Pauan.Stream (Stream, class ToStream, stream)
 import Pauan.StreamArray (StreamArray, class ToStreamArray, streamArray)
 import Pauan.View (View, class ToView, view, currentValue)

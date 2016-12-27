@@ -1,4 +1,4 @@
-module Pauan.Transaction (Transaction, TransactionId, runTransaction, onCommit) where
+module Pauan.Transaction (Transaction, TransactionId, runTransaction, runTransactions, onCommit) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
@@ -9,6 +9,13 @@ foreign import data Transaction :: # ! -> * -> *
 foreign import data TransactionId :: *
 
 foreign import runTransaction :: forall a eff. Transaction eff a -> Eff eff a
+
+
+foreign import runTransactionsImpl :: forall eff. Unit -> Array (Transaction eff Unit) -> Eff eff Unit
+
+runTransactions :: forall eff. Array (Transaction eff Unit) -> Eff eff Unit
+runTransactions = runTransactionsImpl unit
+
 
 
 foreign import mapImpl :: forall a b eff. (a -> b) -> Transaction eff a -> Transaction eff b
