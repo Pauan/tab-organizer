@@ -7,7 +7,6 @@ import Control.Monad.Aff (Aff, makeAff)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (Nullable, toNullable)
 import Data.Function.Uncurried (Fn10, runFn10, Fn9, runFn9)
-import Pauan.Prelude (sleep, TIMER)
 
 
 foreign import data WindowsState :: *
@@ -97,10 +96,11 @@ windowCoordinates = windowCoordinatesImpl unit makeAff { left: _, top: _, width:
 foreign import closeWindowImpl :: forall e.
   Unit ->
   (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  WindowsState ->
   Window ->
   Aff e Unit
 
-closeWindow :: forall e. Window -> Aff e Unit
+closeWindow :: forall e. WindowsState -> Window -> Aff e Unit
 closeWindow = closeWindowImpl unit makeAff
 
 
@@ -189,6 +189,7 @@ windowTypeToString :: WindowType -> String
 windowTypeToString Normal = "normal"
 windowTypeToString Popup = "popup"
 
+
 foreign import windowTypeImpl :: WindowType -> WindowType -> Window -> WindowType
 
 windowType :: Window -> WindowType
@@ -207,18 +208,3 @@ windowIsPopup window =
   case windowType window of
     Popup -> true
     _ -> false
-
-
-getMaximizedWindowCoordinates :: forall e. WindowsState -> Aff (timer :: TIMER | e) Coordinates
-getMaximizedWindowCoordinates state = do
-  win <- makeNewWindow state
-    { type: Normal
-    , state: Maximized
-    , focused: true
-    , incognito: false
-    , tabs: [] }
-  -- TODO this probably isn't needed, but it's better safe than sorry
-  sleep 500
-  coords <- windowCoordinates win
-  closeWindow win
-  pure coords

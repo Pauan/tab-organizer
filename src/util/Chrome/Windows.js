@@ -1,5 +1,70 @@
 "use strict";
 
+/**
+ * @ Tab lifecycle
+ *
+ *  @ When opening a window
+ *    windows.onCreated
+ *    window.create
+ *
+ *   @ When removing a window
+ *     windows.remove
+ *     windows.onRemoved
+ *
+ *   @ When creating
+ *     @ If it's a new window
+ *       windows.onFocusChanged (old)
+ *       windows.onCreated
+ *     tabs.onCreated
+ *     tabs.onActivated
+ *     tabs.create
+ *     @ If it's not loaded from cache
+ *       tabs.onUpdated
+ *
+ *   @ When updating
+ *     tabs.update
+ *     tabs.onUpdated
+ *
+ *   @ When focusing a different tab
+ *     tabs.onActivated
+ *     tabs.update
+ *
+ *   @ When moving in the same window
+ *     tabs.onMoved
+ *     tabs.move
+ *
+ *   @ When moving to another window
+ *     @ If the old window still has tabs in it
+ *       windows.onCreated
+ *       tabs.onDetached
+ *       tabs.onActivated (old window)
+ *       tabs.onAttached
+ *       tabs.onActivated (new window)
+ *
+ *       tabs.onDetached
+ *       tabs.onAttached
+ *       tabs.onActivated (new window)
+ *       windows.onRemoved
+ *
+ *     @ If the old window does not still have tabs in it
+ *       tabs.onDetached
+ *       tabs.onAttached
+ *       tabs.onActivated (new window)
+ *       windows.onRemoved
+ *
+ *   @ When removing
+ *     tabs.onRemoved
+ *     @ If the old window still has tabs in it
+ *       tabs.onActivated
+ *       tabs.remove
+ *     @ If the old window does not still have tabs in it
+ *       tabs.remove
+ *       windows.onRemoved
+ *
+ *
+ * windows.onCreated
+ */
+
 
 function arrayRemove(array, value) {
   var index = array.indexOf(value);
@@ -129,6 +194,7 @@ function makeTab(state, tab, window) {
 function initialize(success, failure) {
   var state = {
     pending: [],
+    closingWindows: {},
     focusedWindow: null,
     windowIds: {},
     windows: []
@@ -139,8 +205,6 @@ function initialize(success, failure) {
     // TODO use a filter ?
     chrome.windows.onCreated.addListener(function (window) {
       throwError();
-
-      console.log("created", window);
 
       // TODO is this correct ?
       // TODO test this
@@ -160,6 +224,13 @@ function initialize(success, failure) {
 
         if (window != null) {
           removeWindow(state, window);
+
+          var closing = state.closingWindows[id];
+
+          if (closing != null) {
+            delete state.closingWindows[id];
+            closing();
+          }
         }
       });
     });
@@ -262,7 +333,6 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
           var err = getError();
 
           if (err === null) {
-            console.log("change", window);
             success(unit)();
 
           } else {
@@ -279,25 +349,28 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
 
 exports.closeWindowImpl = function (unit) {
   return function (makeAff) {
-    return function (window) {
-      return makeAff(function (failure) {
-        return function (success) {
-          return function () {
-            chrome.windows.remove(window.id, function () {
-              var err = getError();
+    return function (state) {
+      return function (window) {
+        return makeAff(function (failure) {
+          return function (success) {
+            return function () {
+              chrome.windows.remove(window.id, function () {
+                var err = getError();
 
-              if (err === null) {
-                success(unit)();
+                if (err === null) {
+                  console.assert(state.closingWindows[window.id] == null);
+                  state.closingWindows[window.id] = success(unit);
 
-              } else {
-                failure(err)();
-              }
-            });
+                } else {
+                  failure(err)();
+                }
+              });
 
-            return unit;
+              return unit;
+            };
           };
-        };
-      });
+        });
+      };
     };
   };
 };
@@ -353,8 +426,6 @@ exports.makeNewWindowImpl = function (unit) {
                               }
 
                               chrome.windows.create(info, function (info) {
-                                console.log("create", info);
-
                                 var err = getError();
 
                                 if (err === null) {
