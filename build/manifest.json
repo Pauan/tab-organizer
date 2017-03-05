@@ -4,6 +4,7 @@
   "version": "5.0",
   "description": "Manager for quickly finding and organizing all your tabs.",
   "default_locale": "en",
+  "incognito": "not_allowed",
   "icons": {
      "16": "data/icons/icon16.png",
      "32": "data/icons/icon32.png",

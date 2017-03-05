@@ -2,6 +2,7 @@ module Pauan.Prelude
   ( module Prelude
   , module Control.Monad.Eff
   , module Control.Monad.Eff.Class
+  , module Control.Monad.Eff.Exception
   , module Control.Monad.Aff
   , module Debug.Trace
   , module Pauan.View
@@ -18,6 +19,7 @@ module Pauan.Prelude
   , module Data.Int
   , module Data.Filterable
   , module Data.Either
+  , module Control.Monad.Eff.Timer
   , (<<)
   , (>>)
   , ifJust
@@ -25,6 +27,8 @@ module Pauan.Prelude
   , map2
   , mapIf
   , mapIfTrue
+  , mainAff
+  , sleep
   ) where
 
 import Prelude
@@ -63,15 +67,17 @@ import Prelude
 
 import Data.Either (Either(..))
 import Data.Filterable (filter, filterMap, partition, partitionMap)
-import Data.Traversable (sequence)
+import Data.Traversable (sequence, traverse_, traverse)
 import Data.Foldable (for_)
 import Data.Array ((..), length, filterM)
 import Data.Maybe (Maybe(Nothing, Just), fromMaybe, isJust, maybe)
 import Data.Int (toNumber, round)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Aff (Aff)
-import Debug.Trace (spy)
+import Debug.Trace (spy, traceAnyA)
+import Control.Monad.Eff.Timer (TIMER)
 
 import Pauan.Result (Result(..))
 import Pauan.Stream (Stream, class ToStream, stream)
@@ -108,6 +114,8 @@ import Pauan.HTML
 import Prelude as Prelude'
 import Data.Function as Function'
 import Data.Monoid as Monoid'
+import Control.Monad.Aff as Aff'
+import Control.Monad.Eff.Timer as Timer'
 
 infixr 5 Prelude'.append as ++
 
@@ -137,3 +145,16 @@ map2 a b f = Prelude'.apply (map f a) b
 flip :: forall a b c. a -> (b -> a -> c) -> b -> c
 flip a f b = f b a
 -}
+
+
+mainAff :: forall e. Aff e Unit -> Eff (err :: EXCEPTION | e) Unit
+mainAff a = void (Aff'.launchAff a)
+
+
+-- TODO test this
+sleep :: forall e. Int -> Aff (timer :: Timer'.TIMER | e) Unit
+sleep ms = Aff'.makeAff' \_ success -> do
+  id <- Timer'.setTimeout ms (success unit)
+  pure (Aff'.Canceler \_ -> do
+    liftEff (Timer'.clearTimeout id)
+    pure true)
