@@ -64,11 +64,14 @@ main = do
 
     a <- traverse (\window -> do
       traceAnyA "CREATING"
-      tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: true }
+      tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
       traceAnyA "FOCUSING"
+      Chrome.focusTab state tab
       Chrome.focusTab state tab
       --Chrome.changeTab { url: Nothing, pinned: Just true, focused: Nothing } tab
       ) (filter Chrome.windowIsNormal windows)
+
+    Chrome.closeWindow state win
 
     traceAnyA "HIIIIIIIIIII"
 

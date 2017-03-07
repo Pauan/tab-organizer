@@ -229,6 +229,8 @@ function focusTab(state, window, tab) {
 
 
 function removeWindow(state, window, events) {
+  assert(!window.closed);
+
   // TODO is this correct ?
   assert(state.focusingWindows[window.id] == null);
 
@@ -253,6 +255,8 @@ function removeWindow(state, window, events) {
   delete state.focusedTab[window.id];
   delete state.windowIds[window.id];
 
+  window.closed = true;
+
   if (events) {
     state.WindowClosed(window, index);
   }
@@ -275,6 +279,9 @@ function makeWindow(state, window, events) {
     if (window.tabs == null) {
       window.tabs = [];
     }
+
+    // TODO non-standard
+    window.closed = false;
 
     var index = state.windows.length;
     state.focusedTab[window.id] = null;
@@ -490,17 +497,18 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var window = state.windowIds[id];
 
         if (window != null) {
+          assert(!window.closed);
           assert(window.id === id);
 
           removeWindow(state, window, events);
 
-          var closing = state.closingWindows[id];
+          var pending = state.closingWindows[id];
 
-          if (closing != null) {
+          if (pending != null) {
             assert(events);
 
             delete state.closingWindows[id];
-            closing();
+            pending();
           }
 
         } else {
@@ -512,6 +520,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
     // TODO use a filter ?
     chrome.windows.onFocusChanged.addListener(callback(function (id) {
+      console.debug("chrome.windows.onFocusChanged", id);
+
       throwError();
 
       // TODO is this correct ?
@@ -523,6 +533,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           var window = state.windowIds[id];
 
           if (window != null) {
+            assert(!window.closed);
             assert(window.id === id);
 
             assert(window.focused === false);
@@ -591,6 +602,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onActivated.addListener(callback(function (info) {
+      console.debug("chrome.tabs.onActivated", info);
+
       throwError();
 
       // TODO is this correct ?
@@ -882,15 +895,22 @@ exports.closeWindowImpl = function (unit) {
                 var err = getError();
 
                 if (err === null) {
-                  assert(state.closingWindows[window.id] == null);
-
-                  // TODO this is super hacky, but necessary because Chrome
-                  //      calls the callback before windows.onRemoved
+                  // TODO is this needed ?
                   // TODO test this
-                  state.closingWindows[window.id] = timeout(10000, success(unit), function () {
-                    delete state.closingWindows[window.id];
-                    throw new Error("Waited for window " + window.id + " to close but it never did");
-                  });
+                  if (window.closed) {
+                    success(unit)();
+
+                  } else {
+                    assert(state.closingWindows[window.id] == null);
+
+                    // TODO this is super hacky, but necessary because Chrome
+                    //      calls the callback before windows.onRemoved
+                    // TODO test this
+                    state.closingWindows[window.id] = timeout(10000, success(unit), function () {
+                      delete state.closingWindows[window.id];
+                      throw new Error("Waited for window " + window.id + " to close but it never did");
+                    });
+                  }
 
                 } else {
                   failure(err)();
@@ -1439,6 +1459,7 @@ exports.focusTabImpl = function (unit) {
                   var err = getError();
 
                   if (err === null) {
+                    assert(tab.active);
                     done();
 
                   } else {
