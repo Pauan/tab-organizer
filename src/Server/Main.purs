@@ -24,6 +24,7 @@ getMaximizedWindowCoordinates state = do
 
 main :: Eff (err :: EXCEPTION, timer :: TIMER) Unit
 main = do
+  -- TODO have it change the badge color (or icon) rather than alerting
   Debug.onError Debug.alertError
 
   mainAff do
@@ -62,8 +63,12 @@ main = do
       pure windows
 
     a <- traverse (\window -> do
-      tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: false }
-      Chrome.changeTab { url: Nothing, pinned: Just true, focused: Nothing } tab) (filter Chrome.windowIsNormal windows)
+      traceAnyA "CREATING"
+      tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: true }
+      traceAnyA "FOCUSING"
+      Chrome.focusTab state tab
+      --Chrome.changeTab { url: Nothing, pinned: Just true, focused: Nothing } tab
+      ) (filter Chrome.windowIsNormal windows)
 
     traceAnyA "HIIIIIIIIIII"
 

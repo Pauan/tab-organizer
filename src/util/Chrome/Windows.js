@@ -136,6 +136,16 @@ function callback(f) {
 }
 
 
+function timeout(ms, done, error) {
+  var timer = setTimeout(error, ms);
+
+  return function () {
+    clearTimeout(timer);
+    return done.apply(this, arguments);
+  };
+}
+
+
 // TODO is this needed ?
 function onLoaded(f) {
   if (document.readyState === "complete") {
@@ -219,6 +229,9 @@ function focusTab(state, window, tab) {
 
 
 function removeWindow(state, window, events) {
+  // TODO is this correct ?
+  assert(state.focusingWindows[window.id] == null);
+
   if (window.focused) {
     // TODO use unfocusWindow ?
     assert(state.focusedWindow === window);
@@ -399,6 +412,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     pending: [],
 
     closingWindows: {},
+    focusingWindows: {},
     focusedWindow: null,
     windowIds: {},
     focusedTab: {},
@@ -488,6 +502,10 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
             delete state.closingWindows[id];
             closing();
           }
+
+        } else {
+          // TODO add more assertions
+          assert(state.closingWindows[id] == null);
         }
       });
     }));
@@ -515,6 +533,19 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
             if (events) {
               state.WindowFocused(window);
             }
+
+            var pending = state.focusingWindows[id];
+
+            if (pending != null) {
+              assert(events);
+
+              delete state.focusingWindows[id];
+              pending();
+            }
+
+          } else {
+            // TODO add more assertions
+            assert(state.focusingWindows[id] == null);
           }
         }
       });
@@ -792,22 +823,10 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 }
 
 
-exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, height, focused, drawAttention, window) {
+exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, height, drawAttention, window) {
   return makeAff(function (failure) {
     return function (success) {
       return function () {
-        // TODO it would be better if this was enforced statically
-        if (state === "minimized" && focused) {
-          failure(new Error("Minimized windows cannot be focused"))();
-          return unit;
-        }
-
-        // TODO it would be better if this was enforced statically
-        if (state === "maximized" && !focused) {
-          failure(new Error("Maximized windows cannot be unfocused"))();
-          return unit;
-        }
-
         var info = {};
 
         if (state != null) {
@@ -828,10 +847,6 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
 
         if (height != null) {
           info.height = height;
-        }
-
-        if (focused != null) {
-          info.focused = focused;
         }
 
         if (drawAttention != null) {
@@ -868,7 +883,14 @@ exports.closeWindowImpl = function (unit) {
 
                 if (err === null) {
                   assert(state.closingWindows[window.id] == null);
-                  state.closingWindows[window.id] = success(unit);
+
+                  // TODO this is super hacky, but necessary because Chrome
+                  //      calls the callback before windows.onRemoved
+                  // TODO test this
+                  state.closingWindows[window.id] = timeout(10000, success(unit), function () {
+                    delete state.closingWindows[window.id];
+                    throw new Error("Waited for window " + window.id + " to close but it never did");
+                  });
 
                 } else {
                   failure(err)();
@@ -1344,43 +1366,122 @@ exports.createNewTabImpl = function (unit) {
 exports.changeTabImpl = function (unit) {
   return function (makeAff) {
     return function (url) {
-      return function (focused) {
-        return function (pinned) {
-          return function (tab) {
-            return makeAff(function (failure) {
-              return function (success) {
-                return function () {
-                  var info = {};
+      return function (pinned) {
+        return function (tab) {
+          return makeAff(function (failure) {
+            return function (success) {
+              return function () {
+                var info = {};
 
-                  if (url != null) {
-                    info.url = url;
+                if (url != null) {
+                  info.url = url;
+                }
+
+                if (pinned != null) {
+                  info.pinned = pinned;
+                }
+
+                chrome.tabs.update(tab.id, info, callback(function (tab) {
+                  var err = getError();
+
+                  if (err === null) {
+                    success(unit)();
+
+                  } else {
+                    failure(err)();
                   }
+                }));
 
-                  if (focused != null) {
-                    info.active = focused;
+                return unit;
+              };
+            };
+          });
+        };
+      };
+    };
+  };
+};
+
+
+exports.focusTabImpl = function (unit) {
+  return function (makeAff) {
+    return function (state) {
+      return function (tab) {
+        return makeAff(function (failure) {
+          return function (success) {
+            return function () {
+              var errored = false;
+              var pending = 2;
+
+              function done() {
+                --pending;
+
+                if (pending === 0) {
+                  success(unit)();
+                }
+              }
+
+              // TODO throw the second error ?
+              function error(e) {
+                if (!errored) {
+                  errored = true;
+                  failure(err)();
+                }
+              }
+
+
+              // TODO is detached correct ?
+              if (tab.detached || tab.active) {
+                done();
+
+              } else {
+                chrome.tabs.update(tab.id, { active: true }, callback(function () {
+                  var err = getError();
+
+                  if (err === null) {
+                    done();
+
+                  } else {
+                    error(err);
                   }
+                }));
+              }
 
-                  if (pinned != null) {
-                    info.pinned = pinned;
-                  }
 
-                  chrome.tabs.update(tab.id, info, callback(function (tab) {
-                    var err = getError();
+              if (tab.detached || tab.window.focused) {
+                done();
 
-                    if (err === null) {
-                      success(unit)();
+              } else {
+                chrome.windows.update(tab.window.id, { focused: true }, callback(function () {
+                  var err = getError();
+
+                  if (err === null) {
+                    // TODO this is super hacky, but necessary because Chrome
+                    //      sometimes calls the callback before
+                    //      windows.onFocusChanged, and sometimes after
+                    if (tab.window.focused) {
+                      done();
 
                     } else {
-                      failure(err)();
-                    }
-                  }));
+                      assert(state.focusingWindows[tab.window.id] == null);
 
-                  return unit;
-                };
-              };
-            });
+                      // TODO test this
+                      state.focusingWindows[tab.window.id] = timeout(10000, done, function () {
+                        delete state.focusingWindows[tab.window.id];
+                        throw new Error("Waited for window " + tab.window.id + " to be focused but it never was");
+                      });
+                    }
+
+                  } else {
+                    error(err);
+                  }
+                }));
+              }
+
+              return unit;
+            };
           };
-        };
+        });
       };
     };
   };

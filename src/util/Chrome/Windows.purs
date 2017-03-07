@@ -6,7 +6,7 @@ import Control.Monad.Eff.Exception (Error)
 import Control.Monad.Aff (Aff, makeAff)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (Nullable, toNullable)
-import Data.Function.Uncurried (Fn10, runFn10)
+import Data.Function.Uncurried (Fn9, runFn9)
 import Pauan.Events as Events
 
 
@@ -203,7 +203,7 @@ createNewWindow state info =
     coords = windowStateToCoordinates info.state
 
 
-foreign import changeWindowImpl :: forall e. Fn10
+foreign import changeWindowImpl :: forall e. Fn9
   Unit
   (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit)
   (Nullable String)
@@ -212,18 +212,16 @@ foreign import changeWindowImpl :: forall e. Fn10
   (Nullable Int)
   (Nullable Int)
   (Nullable Boolean)
-  (Nullable Boolean)
   Window
   (Aff e Unit)
 
 changeWindow :: forall e.
   { state :: Maybe WindowState
-  , focused :: Maybe Boolean
   , drawAttention :: Maybe Boolean } ->
   Window ->
   Aff e Unit
 changeWindow info window =
-  runFn10 changeWindowImpl
+  runFn9 changeWindowImpl
     unit
     makeAff
     (toNullable $ map windowStateToString info.state)
@@ -232,7 +230,6 @@ changeWindow info window =
     (toNullable $ map _.top coords)
     (toNullable $ map _.width coords)
     (toNullable $ map _.height coords)
-    (toNullable info.focused)
     (toNullable info.drawAttention)
     window
   where
@@ -381,13 +378,11 @@ foreign import changeTabImpl :: forall e.
   (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
   Nullable String ->
   Nullable Boolean ->
-  Nullable Boolean ->
   Tab ->
   Aff e Unit
 
 changeTab :: forall e.
   { url :: Maybe String
-  , focused :: Maybe Boolean
   , pinned :: Maybe Boolean } ->
   Tab ->
   Aff e Unit
@@ -396,5 +391,15 @@ changeTab info =
     unit
     makeAff
     (toNullable info.url)
-    (toNullable info.focused)
     (toNullable info.pinned)
+
+
+foreign import focusTabImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  WindowsState ->
+  Tab ->
+  Aff e Unit
+
+focusTab :: forall e. WindowsState -> Tab -> Aff e Unit
+focusTab = focusTabImpl unit makeAff
