@@ -374,3 +374,27 @@ createNewTab state info =
     info.url
     info.focused
     info.pinned
+
+
+foreign import changeTabImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  Nullable String ->
+  Nullable Boolean ->
+  Nullable Boolean ->
+  Tab ->
+  Aff e Unit
+
+changeTab :: forall e.
+  { url :: Maybe String
+  , focused :: Maybe Boolean
+  , pinned :: Maybe Boolean } ->
+  Tab ->
+  Aff e Unit
+changeTab info =
+  changeTabImpl
+    unit
+    makeAff
+    (toNullable info.url)
+    (toNullable info.focused)
+    (toNullable info.pinned)

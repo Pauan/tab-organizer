@@ -1339,3 +1339,49 @@ exports.createNewTabImpl = function (unit) {
     };
   };
 };
+
+
+exports.changeTabImpl = function (unit) {
+  return function (makeAff) {
+    return function (url) {
+      return function (focused) {
+        return function (pinned) {
+          return function (tab) {
+            return makeAff(function (failure) {
+              return function (success) {
+                return function () {
+                  var info = {};
+
+                  if (url != null) {
+                    info.url = url;
+                  }
+
+                  if (focused != null) {
+                    info.active = focused;
+                  }
+
+                  if (pinned != null) {
+                    info.pinned = pinned;
+                  }
+
+                  chrome.tabs.update(tab.id, info, callback(function (tab) {
+                    var err = getError();
+
+                    if (err === null) {
+                      success(unit)();
+
+                    } else {
+                      failure(err)();
+                    }
+                  }));
+
+                  return unit;
+                };
+              };
+            });
+          };
+        };
+      };
+    };
+  };
+};

@@ -61,8 +61,9 @@ main = do
       traceAnyA windows
       pure windows
 
-    {-a <- traverse (\window ->
-      Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: false }) (filter Chrome.windowIsPopup windows)-}
+    a <- traverse (\window -> do
+      tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: false }
+      Chrome.changeTab { url: Nothing, pinned: Just true, focused: Nothing } tab) (filter Chrome.windowIsNormal windows)
 
     traceAnyA "HIIIIIIIIIII"
 
