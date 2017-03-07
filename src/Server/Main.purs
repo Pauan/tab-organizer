@@ -43,17 +43,31 @@ main = do
     coords <- getMaximizedWindowCoordinates state
     traceAnyA coords
 
+    traceAnyA "CREATING WINDOW 1"
     win <- Chrome.createNewWindow state
       { type: Chrome.Normal
       , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
-      , focused: true
+      , focused: false
       , incognito: false
       , tabs: [] }
 
+    tab <- Chrome.createNewTab state { window: win, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
+    tab <- Chrome.createNewTab state { window: win, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
+    tab <- Chrome.createNewTab state { window: win, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
+    tab <- Chrome.createNewTab state { window: win, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
+
+    tabs <- liftEff << Chrome.windowTabs win
+
+    traceAnyA "CLOSING TABS"
+    --Chrome.closeTabs state tabs
+
+    Chrome.closeWindow state win
+
+    {-traceAnyA "CREATING WINDOW 2"
     win <- Chrome.createNewWindow state
       { type: Chrome.Popup
       , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
-      , focused: true
+      , focused: false
       , incognito: false
       , tabs: [ Chrome.newTabPath ] }
 
@@ -63,17 +77,19 @@ main = do
       pure windows
 
     a <- traverse (\window -> do
-      traceAnyA "CREATING"
+      traceAnyA "CREATING TAB"
       tab <- Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: true, pinned: true }
-      traceAnyA "FOCUSING"
+      traceAnyA "FOCUSING TAB"
       Chrome.focusTab state tab
       Chrome.focusTab state tab
+      traceAnyA "CLOSING TAB"
+      Chrome.closeTab state tab
       --Chrome.changeTab { url: Nothing, pinned: Just true, focused: Nothing } tab
       ) (filter Chrome.windowIsNormal windows)
 
-    Chrome.closeWindow state win
+    Chrome.closeWindow state win-}
 
-    traceAnyA "HIIIIIIIIIII"
+    traceAnyA "DONE"
 
     pure unit
 

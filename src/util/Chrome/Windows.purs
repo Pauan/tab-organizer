@@ -403,3 +403,13 @@ foreign import focusTabImpl :: forall e.
 
 focusTab :: forall e. WindowsState -> Tab -> Aff e Unit
 focusTab = focusTabImpl unit makeAff
+
+
+foreign import closeTabsImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  Array Tab ->
+  Aff e Unit
+
+closeTabs :: forall e. Array Tab -> Aff e Unit
+closeTabs = closeTabsImpl unit makeAff

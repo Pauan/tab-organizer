@@ -478,6 +478,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
   onLoaded(function () {
     // TODO use a filter ?
     chrome.windows.onCreated.addListener(callback(function (window) {
+      console.debug("chrome.windows.onCreated", window);
+
       throwError();
 
       // TODO is this correct ?
@@ -489,6 +491,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
     // TODO use a filter ?
     chrome.windows.onRemoved.addListener(callback(function (id) {
+      console.debug("chrome.windows.onRemoved", id);
+
       throwError();
 
       // TODO is this correct ?
@@ -698,6 +702,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onRemoved.addListener(callback(function (id, info) {
+      console.debug("chrome.tabs.onRemoved", id, info);
+
       throwError();
 
       assert(typeof info.isWindowClosing === "boolean");
@@ -905,7 +911,6 @@ exports.closeWindowImpl = function (unit) {
 
                     // TODO this is super hacky, but necessary because Chrome
                     //      calls the callback before windows.onRemoved
-                    // TODO test this
                     state.closingWindows[window.id] = timeout(10000, success(unit), function () {
                       delete state.closingWindows[window.id];
                       throw new Error("Waited for window " + window.id + " to close but it never did");
@@ -1486,7 +1491,6 @@ exports.focusTabImpl = function (unit) {
                     } else {
                       assert(state.focusingWindows[tab.window.id] == null);
 
-                      // TODO test this
                       state.focusingWindows[tab.window.id] = timeout(10000, done, function () {
                         delete state.focusingWindows[tab.window.id];
                         throw new Error("Waited for window " + tab.window.id + " to be focused but it never was");
@@ -1504,6 +1508,35 @@ exports.focusTabImpl = function (unit) {
           };
         });
       };
+    };
+  };
+};
+
+
+exports.closeTabsImpl = function (unit) {
+  return function (makeAff) {
+    return function (tabs) {
+      return makeAff(function (failure) {
+        return function (success) {
+          return function () {
+            var ids = tabs.map(function (tab) { return tab.id; });
+
+            chrome.tabs.remove(ids, callback(function () {
+              var err = getError();
+
+              // TODO verify that all of the tabs have been closed
+              if (err === null) {
+                success(unit)();
+
+              } else {
+                failure(err)();
+              }
+            }));
+
+            return unit;
+          };
+        };
+      });
     };
   };
 };
