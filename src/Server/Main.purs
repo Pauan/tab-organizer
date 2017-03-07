@@ -2,11 +2,12 @@ module Server.Main where
 
 import Pauan.Prelude
 import Pauan.Chrome as Chrome
+import Pauan.Events as Events
 
 
 getMaximizedWindowCoordinates :: forall e. Chrome.WindowsState -> Aff (timer :: TIMER | e) Chrome.Coordinates
 getMaximizedWindowCoordinates state = do
-  win <- Chrome.makeNewWindow state
+  win <- Chrome.createNewWindow state
     { type: Chrome.Normal
     , state: Chrome.Maximized
     , focused: true
@@ -24,19 +25,19 @@ main = mainAff do
   traceAnyA "initializing"
   state <- Chrome.initialize
 
+  liftEff do
+    windows <- Chrome.windows state
+    traceAnyA windows
+
+    stop <- Chrome.events state >> Events.receive \event ->
+      traceAnyA event
+
+    pure unit
+
   coords <- getMaximizedWindowCoordinates state
   traceAnyA coords
 
-  a <- liftEff << Chrome.windows state
-  traceAnyA a
-  traceAnyA (filter Chrome.windowIsNormal a)
-
-  traverse_ (Chrome.changeWindow { state: Just << Chrome.Regular { left: 300, top: coords.top, width: coords.width - 300, height: coords.height }
-                                 , focused: Nothing
-                                 , drawAttention: Nothing })
-            (filter Chrome.windowIsNormal a)
-
-  win <- Chrome.makeNewWindow state
+  win <- Chrome.createNewWindow state
     { type: Chrome.Popup
     , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
     , focused: true

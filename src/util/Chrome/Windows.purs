@@ -6,7 +6,8 @@ import Control.Monad.Eff.Exception (Error)
 import Control.Monad.Aff (Aff, makeAff)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (Nullable, toNullable)
-import Data.Function.Uncurried (Fn10, runFn10, Fn9, runFn9)
+import Data.Function.Uncurried (Fn10, runFn10)
+import Pauan.Events as Events
 
 
 foreign import data WindowsState :: *
@@ -16,13 +17,55 @@ foreign import data Window :: *
 foreign import data Tab :: *
 
 
+data WindowsEvent
+  = WindowCreated Window
+  | WindowClosed Window
+  | WindowFocused Window
+  | WindowUnfocused Window
+  | TabCreated Window Tab
+  | TabFocused Window Tab
+  | TabUnfocused Window Tab
+  | TabClosed Window Tab
+
+
 foreign import initializeImpl :: forall e.
   Unit ->
   (((Error -> Eff e Unit) -> (WindowsState -> Eff e Unit) -> Eff e Unit) -> Aff e WindowsState) ->
+  Eff e (Events.Broadcaster WindowsEvent) ->
+  (WindowsEvent -> Events.Broadcaster WindowsEvent -> Eff e Unit) ->
+  (Window -> WindowsEvent) ->
+  (Window -> WindowsEvent) ->
+  (Window -> WindowsEvent) ->
+  (Window -> WindowsEvent) ->
+  (Window -> Tab -> WindowsEvent) ->
+  (Window -> Tab -> WindowsEvent) ->
+  (Window -> Tab -> WindowsEvent) ->
+  (Window -> Tab -> WindowsEvent) ->
   Aff e WindowsState
 
 initialize :: forall e. Aff e WindowsState
-initialize = initializeImpl unit makeAff
+initialize = initializeImpl
+  unit
+  makeAff
+  Events.makeBroadcaster
+  Events.broadcast
+  WindowCreated
+  WindowClosed
+  WindowFocused
+  WindowUnfocused
+  TabCreated
+  TabFocused
+  TabUnfocused
+  TabClosed
+
+
+foreign import eventsImpl ::
+  (Events.Broadcaster WindowsEvent -> Events.Events WindowsEvent) ->
+  WindowsState ->
+  Events.Events WindowsEvent
+
+events :: WindowsState -> Events.Events WindowsEvent
+events = eventsImpl Events.events
 
 
 foreign import windows :: forall e. WindowsState -> Eff e (Array Window)
@@ -104,7 +147,7 @@ closeWindow :: forall e. WindowsState -> Window -> Aff e Unit
 closeWindow = closeWindowImpl unit makeAff
 
 
-foreign import makeNewWindowImpl :: forall e.
+foreign import createNewWindowImpl :: forall e.
   Unit ->
   (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
   String ->
@@ -119,7 +162,7 @@ foreign import makeNewWindowImpl :: forall e.
   WindowsState ->
   Aff e Window
 
-makeNewWindow :: forall e.
+createNewWindow :: forall e.
   WindowsState ->
   { type :: WindowType
   , state :: WindowState
@@ -127,8 +170,8 @@ makeNewWindow :: forall e.
   , incognito :: Boolean
   , tabs :: Array String } ->
   Aff e Window
-makeNewWindow state info =
-  makeNewWindowImpl
+createNewWindow state info =
+  createNewWindowImpl
     unit
     makeAff
     (windowTypeToString info.type)
