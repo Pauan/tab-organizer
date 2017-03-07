@@ -3,6 +3,7 @@ module Server.Main where
 import Pauan.Prelude
 import Pauan.Chrome as Chrome
 import Pauan.Events as Events
+import Pauan.Debug as Debug
 
 
 getMaximizedWindowCoordinates :: forall e. Chrome.WindowsState -> Aff (timer :: TIMER | e) Chrome.Coordinates
@@ -21,49 +22,52 @@ getMaximizedWindowCoordinates state = do
 
 
 main :: Eff (err :: EXCEPTION, timer :: TIMER) Unit
-main = mainAff do
-  traceAnyA "initializing"
-  state <- Chrome.initialize
+main = do
+  Debug.onError Debug.alertError
 
-  liftEff do
-    windows <- Chrome.windows state
-    traceAnyA windows
+  mainAff do
+    traceAnyA "initializing"
+    state <- Chrome.initialize
 
-    stop <- Chrome.events state >> Events.receive \event ->
-      traceAnyA event
+    liftEff do
+      windows <- Chrome.windows state
+      traceAnyA windows
+
+      stop <- Chrome.events state >> Events.receive \event ->
+        traceAnyA event
+
+      pure unit
+
+    coords <- getMaximizedWindowCoordinates state
+    traceAnyA coords
+
+    win <- Chrome.createNewWindow state
+      { type: Chrome.Normal
+      , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
+      , focused: true
+      , incognito: false
+      , tabs: [] }
+
+    win <- Chrome.createNewWindow state
+      { type: Chrome.Popup
+      , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
+      , focused: true
+      , incognito: false
+      , tabs: [ Chrome.newTabPath ] }
+
+    liftEff do
+      windows <- Chrome.windows state
+      traceAnyA windows
 
     pure unit
 
-  coords <- getMaximizedWindowCoordinates state
-  traceAnyA coords
+    {-traverse_ (changeWindow { state: Just Maximized
+                            , focused: Nothing
+                            , drawAttention: Nothing }) a
 
-  win <- Chrome.createNewWindow state
-    { type: Chrome.Normal
-    , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
-    , focused: true
-    , incognito: false
-    , tabs: [] }
+    sleep 3000
 
-  win <- Chrome.createNewWindow state
-    { type: Chrome.Popup
-    , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
-    , focused: true
-    , incognito: false
-    , tabs: [ Chrome.newTabPath ] }
+    states <- traverse windowState a
+    traceAnyA states
 
-  liftEff do
-    windows <- Chrome.windows state
-    traceAnyA windows
-
-  pure unit
-
-  {-traverse_ (changeWindow { state: Just Maximized
-                          , focused: Nothing
-                          , drawAttention: Nothing }) a
-
-  sleep 3000
-
-  states <- traverse windowState a
-  traceAnyA states
-
-  traceAnyA a-}
+    traceAnyA a-}

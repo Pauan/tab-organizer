@@ -66,10 +66,17 @@
  */
 
 
+function assert(bool) {
+  if (!bool) {
+    throw new Error("Assertion failed");
+  }
+}
+
+
 function arrayRemove(array, value) {
   var index = array.indexOf(value);
 
-  console.assert(index !== -1);
+  assert(index !== -1);
 
   array.splice(index, 1);
 
@@ -141,7 +148,7 @@ function unfocusWindow(state, events) {
   var focused = state.focusedWindow;
 
   if (focused !== null) {
-    console.assert(focused.focused === true);
+    assert(focused.focused === true);
     focused.focused = false;
     state.focusedWindow = null;
 
@@ -153,8 +160,8 @@ function unfocusWindow(state, events) {
 
 
 function focusWindow(state, window) {
-  console.assert(window.focused === true);
-  console.assert(state.focusedWindow !== window);
+  assert(window.focused === true);
+  assert(state.focusedWindow !== window);
 
   state.focusedWindow = window;
 }
@@ -164,7 +171,7 @@ function unfocusFocusedTab(state, window, events) {
   var focused = state.focusedTabs[window.id];
 
   if (focused !== null) {
-    console.assert(focused.active === true);
+    assert(focused.active === true);
     focused.active = false;
     state.focusedTabs[window.id] = null;
 
@@ -179,18 +186,18 @@ function unfocusTab(state, window, tab, events) {
   var focused = state.focusedTabs[window.id];
 
   if (tab.active) {
-    console.assert(focused === tab);
+    assert(focused === tab);
     unfocusFocusedTab(state, window, events);
 
   } else {
-    console.assert(focused !== tab);
+    assert(focused !== tab);
   }
 }
 
 
 function focusTab(state, window, tab) {
-  console.assert(tab.active === true);
-  console.assert(state.focusedTabs[window.id] !== tab);
+  assert(tab.active === true);
+  assert(state.focusedTabs[window.id] !== tab);
 
   state.focusedTabs[window.id] = tab;
 }
@@ -199,12 +206,12 @@ function focusTab(state, window, tab) {
 function removeWindow(state, window, events) {
   if (window.focused) {
     // TODO use unfocusWindow ?
-    console.assert(state.focusedWindow === window);
+    assert(state.focusedWindow === window);
     window.focused = false;
     state.focusedWindow = null;
 
   } else {
-    console.assert(state.focusedWindow !== window);
+    assert(state.focusedWindow !== window);
   }
 
   // TODO make this faster ?
@@ -222,8 +229,8 @@ function removeWindow(state, window, events) {
 function makeWindow(state, window, events) {
   if (window.type === "normal" ||
       window.type === "popup") {
-    console.assert(state.focusedTabs[window.id] == null);
-    console.assert(state.windowIds[window.id] == null);
+    assert(state.focusedTabs[window.id] == null);
+    assert(state.windowIds[window.id] == null);
 
     // TODO is this order correct ?
     if (window.focused) {
@@ -242,7 +249,7 @@ function makeWindow(state, window, events) {
     state.windows.push(window);
 
     window.tabs.forEach(function (tab, i) {
-      console.assert(tab.index === i);
+      assert(tab.index === i);
       makeTab(state, window, tab, false, false);
     });
 
@@ -271,7 +278,7 @@ function coerceTab(tab) {
 
 
 function makeTab(state, window, tab, insert, events) {
-  console.assert(state.tabIds[tab.id] == null);
+  assert(state.tabIds[tab.id] == null);
 
   // TODO is this order correct ?
   // TODO is this needed ?
@@ -440,14 +447,14 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var window = state.windowIds[id];
 
         if (window != null) {
-          console.assert(window.id === id);
+          assert(window.id === id);
 
           removeWindow(state, window, events);
 
           var closing = state.closingWindows[id];
 
           if (closing != null) {
-            console.assert(events);
+            assert(events);
 
             delete state.closingWindows[id];
             closing();
@@ -469,9 +476,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           var window = state.windowIds[id];
 
           if (window != null) {
-            console.assert(window.id === id);
+            assert(window.id === id);
 
-            console.assert(window.focused === false);
+            assert(window.focused === false);
             window.focused = true;
 
             focusWindow(state, window);
@@ -493,7 +500,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var window = state.windowIds[tab.windowId];
 
         if (window != null) {
-          console.assert(window.id === tab.windowId);
+          assert(window.id === tab.windowId);
 
           makeTab(state, window, tab, true, events);
         }
@@ -510,13 +517,12 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
         if (tab != null) {
           // TODO is this correct ?
-          console.assert(!tab.detached);
-          console.assert(tab.id === id);
-          console.assert(info.id === id);
-          console.assert(tab.windowId === info.windowId);
-          console.assert(tab.index === info.index);
-          console.assert(tab.incognito === info.incognito);
-          console.assert(tab.active === info.active);
+          assert(!tab.detached);
+          assert(tab.id === id);
+          assert(info.id === id);
+          assert(tab.windowId === info.windowId);
+          assert(tab.index === info.index);
+          assert(tab.incognito === info.incognito);
 
           updateTab(state, tab, info, events);
         }
@@ -532,14 +538,14 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[info.tabId];
 
         if (tab != null) {
-          console.assert(!tab.detached);
-          console.assert(tab.id === info.tabId);
-          console.assert(tab.windowId === info.windowId);
+          assert(!tab.detached);
+          assert(tab.id === info.tabId);
+          assert(tab.windowId === info.windowId);
 
           var window = state.windowIds[tab.windowId];
 
-          console.assert(window != null);
-          console.assert(window.id === tab.windowId);
+          assert(window != null);
+          assert(window.id === tab.windowId);
 
           unfocusFocusedTab(state, window, events);
 
@@ -570,10 +576,10 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
         if (tab != null) {
           // TODO is this correct ?
-          console.assert(!tab.detached);
-          console.assert(newId !== oldId);
-          console.assert(tab.id === oldId);
-          console.assert(state.tabIds[newId] == null);
+          assert(!tab.detached);
+          assert(newId !== oldId);
+          assert(tab.id === oldId);
+          assert(state.tabIds[newId] == null);
 
           tab.id = newId;
           delete state.tabIds[oldId];
@@ -591,18 +597,18 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[id];
 
         if (tab != null) {
-          console.assert(!tab.detached);
-          console.assert(tab.id === id);
-          console.assert(tab.windowId === info.windowId);
-          console.assert(tab.index === info.fromIndex);
-          console.assert(info.fromIndex !== info.toIndex);
+          assert(!tab.detached);
+          assert(tab.id === id);
+          assert(tab.windowId === info.windowId);
+          assert(tab.index === info.fromIndex);
+          assert(info.fromIndex !== info.toIndex);
 
           var window = state.windowIds[tab.windowId];
 
-          console.assert(window != null);
-          console.assert(window.id === tab.windowId);
+          assert(window != null);
+          assert(window.id === tab.windowId);
 
-          console.assert(window.tabs[tab.index] === tab);
+          assert(window.tabs[tab.index] === tab);
 
           arrayRemoveIndex(window.tabs, tab.index);
 
@@ -627,7 +633,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     chrome.tabs.onRemoved.addListener(function (id, info) {
       throwError();
 
-      console.assert(typeof info.isWindowClosing === "boolean");
+      assert(typeof info.isWindowClosing === "boolean");
 
       if (!info.isWindowClosing) {
         // TODO is this correct ?
@@ -637,16 +643,16 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
           if (tab != null) {
             // TODO is this correct ?
-            console.assert(!tab.detached);
-            console.assert(tab.id === id);
-            console.assert(tab.windowId === info.windowId);
+            assert(!tab.detached);
+            assert(tab.id === id);
+            assert(tab.windowId === info.windowId);
 
             var window = state.windowIds[tab.windowId];
 
-            console.assert(window != null);
-            console.assert(window.id === info.windowId);
+            assert(window != null);
+            assert(window.id === info.windowId);
 
-            console.assert(window.tabs[tab.index] === tab);
+            assert(window.tabs[tab.index] === tab);
 
             // TODO should this send events ?
             unfocusTab(state, window, tab, false);
@@ -673,27 +679,27 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[id];
 
         if (tab != null) {
-          console.assert(!tab.detached);
-          console.assert(tab.id === id);
-          console.assert(tab.windowId === info.oldWindowId);
-          console.assert(tab.index === info.oldPosition);
+          assert(!tab.detached);
+          assert(tab.id === id);
+          assert(tab.windowId === info.oldWindowId);
+          assert(tab.index === info.oldPosition);
 
           var window = state.windowIds[tab.windowId];
 
-          console.assert(window != null);
-          console.assert(window.id === tab.windowId);
+          assert(window != null);
+          assert(window.id === tab.windowId);
 
-          console.assert(window.tabs[tab.index] === tab);
+          assert(window.tabs[tab.index] === tab);
 
           // TODO code duplication with unfocusTab
           var focused = state.focusedTabs[window.id];
 
           if (tab.active) {
-            console.assert(focused === tab);
+            assert(focused === tab);
             state.focusedTabs[window.id] = null;
 
           } else {
-            console.assert(focused !== tab);
+            assert(focused !== tab);
           }
 
           tab.detached = true;
@@ -713,18 +719,18 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[id];
 
         if (tab != null) {
-          console.assert(tab.detached);
-          console.assert(tab.id === id);
-          console.assert(tab.windowId !== info.newWindowId);
+          assert(tab.detached);
+          assert(tab.id === id);
+          assert(tab.windowId !== info.newWindowId);
 
           var oldWindow = state.windowIds[tab.windowId];
           var newWindow = state.windowIds[info.newWindowId];
 
-          console.assert(oldWindow != null);
-          console.assert(oldWindow.id === tab.windowId);
+          assert(oldWindow != null);
+          assert(oldWindow.id === tab.windowId);
 
-          console.assert(newWindow != null);
-          console.assert(newWindow.id === info.newWindowId);
+          assert(newWindow != null);
+          assert(newWindow.id === info.newWindowId);
 
           var oldIndex = tab.index;
 
@@ -843,7 +849,7 @@ exports.closeWindowImpl = function (unit) {
                 var err = getError();
 
                 if (err === null) {
-                  console.assert(state.closingWindows[window.id] == null);
+                  assert(state.closingWindows[window.id] == null);
                   state.closingWindows[window.id] = success(unit);
 
                 } else {
@@ -923,8 +929,8 @@ exports.createNewWindowImpl = function (unit) {
                                 if (err === null) {
                                   var window = windows.windowIds[info.id];
 
-                                  console.assert(window != null);
-                                  console.assert(window.id === info.id);
+                                  assert(window != null);
+                                  assert(window.id === info.id);
 
                                   success(window)();
 
@@ -1019,7 +1025,7 @@ exports.windowStateImpl = function (unit) {
                             success(fullscreen)();
 
                           } else {
-                            console.assert(false);
+                            assert(false);
                           }
 
                         } else {
@@ -1111,7 +1117,7 @@ exports.windowTypeImpl = function (normal) {
         return popup;
 
       } else {
-        console.assert(false);
+        assert(false);
       }
     };
   };
@@ -1255,7 +1261,7 @@ exports.tabStatusImpl = function (Loading) {
           return Complete;
 
         } else {
-          console.assert(false);
+          assert(false);
         }
       };
     };
