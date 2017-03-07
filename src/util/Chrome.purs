@@ -3,6 +3,6 @@ module Pauan.Chrome
   , module Pauan.Chrome.Util
   ) where
 
-import Pauan.Chrome.Windows (WindowsState, Coordinates, initialize, windows, createNewWindow, changeWindow, WindowType(..), WindowState(..), windowInfo, windowIsPopup, closeWindow, windowIsNormal, events)
+import Pauan.Chrome.Windows (WindowsState, Coordinates, initialize, windows, createNewWindow, changeWindow, WindowType(..), WindowState(..), windowInfo, windowIsPopup, closeWindow, windowIsNormal, events, createNewTab)
 
 import Pauan.Chrome.Util (resolvePath, newTabPath)

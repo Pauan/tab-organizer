@@ -121,6 +121,21 @@ function throwError() {
 }
 
 
+// TODO remove this once Chrome bugs 357568 and 143281 are fixed
+function callback(f) {
+  return function () {
+    try {
+      return f.apply(this, arguments);
+
+    } catch (e) {
+      setTimeout(function () {
+        throw e;
+      }, 0);
+    }
+  };
+}
+
+
 // TODO is this needed ?
 function onLoaded(f) {
   if (document.readyState === "complete") {
@@ -216,7 +231,6 @@ function removeWindow(state, window, events) {
 
   window.tabs.forEach(function (tab) {
     assert(!tab.detached);
-    console.log(state.tabIds[tab.id]);
     removeTab(state, window, tab);
   });
 
@@ -442,7 +456,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
   // TODO is this needed ?
   onLoaded(function () {
     // TODO use a filter ?
-    chrome.windows.onCreated.addListener(function (window) {
+    chrome.windows.onCreated.addListener(callback(function (window) {
       throwError();
 
       // TODO is this correct ?
@@ -450,10 +464,10 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
       onInit(state, function (events) {
         makeWindow(state, window, events);
       });
-    });
+    }));
 
     // TODO use a filter ?
-    chrome.windows.onRemoved.addListener(function (id) {
+    chrome.windows.onRemoved.addListener(callback(function (id) {
       throwError();
 
       // TODO is this correct ?
@@ -476,10 +490,10 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         }
       });
-    });
+    }));
 
     // TODO use a filter ?
-    chrome.windows.onFocusChanged.addListener(function (id) {
+    chrome.windows.onFocusChanged.addListener(callback(function (id) {
       throwError();
 
       // TODO is this correct ?
@@ -504,9 +518,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         }
       });
-    });
+    }));
 
-    chrome.tabs.onCreated.addListener(function (tab) {
+    chrome.tabs.onCreated.addListener(callback(function (tab) {
       throwError();
 
       // TODO is this correct ?
@@ -520,9 +534,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           makeTab(state, window, tab, true, events);
         }
       });
-    });
+    }));
 
-    chrome.tabs.onUpdated.addListener(function (id, changed, info) {
+    chrome.tabs.onUpdated.addListener(callback(function (id, changed, info) {
       throwError();
 
       // TODO is this correct ?
@@ -543,9 +557,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           updateTab(state, tab, info, events);
         }
       });
-    });
+    }));
 
-    chrome.tabs.onActivated.addListener(function (info) {
+    chrome.tabs.onActivated.addListener(callback(function (info) {
       throwError();
 
       // TODO is this correct ?
@@ -577,9 +591,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         }
       });
-    });
+    }));
 
-    chrome.tabs.onReplaced.addListener(function (newId, oldId) {
+    chrome.tabs.onReplaced.addListener(callback(function (newId, oldId) {
       throwError();
 
       // TODO is this correct ?
@@ -599,9 +613,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           state.tabIds[newId] = tab;
         }
       });
-    });
+    }));
 
-    chrome.tabs.onMoved.addListener(function (id, info) {
+    chrome.tabs.onMoved.addListener(callback(function (id, info) {
       throwError();
 
       // TODO is this correct ?
@@ -637,9 +651,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         }
       });
-    });
+    }));
 
-    chrome.tabs.onRemoved.addListener(function (id, info) {
+    chrome.tabs.onRemoved.addListener(callback(function (id, info) {
       throwError();
 
       assert(typeof info.isWindowClosing === "boolean");
@@ -673,9 +687,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         });
       }
-    });
+    }));
 
-    chrome.tabs.onDetached.addListener(function (id, info) {
+    chrome.tabs.onDetached.addListener(callback(function (id, info) {
       throwError();
 
       // TODO is this correct ?
@@ -709,9 +723,9 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           updateIndexes(tab.window.tabs, tab.index, tab.window.tabs.length, -1);
         }
       });
-    });
+    }));
 
-    chrome.tabs.onAttached.addListener(function (id, info) {
+    chrome.tabs.onAttached.addListener(callback(function (id, info) {
       throwError();
 
       // TODO is this correct ?
@@ -748,11 +762,11 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           }
         }
       });
-    });
+    }));
 
     chrome.windows.getAll({
       populate: true
-    }, function (a) {
+    }, callback(function (a) {
       var err = getError();
 
       if (err === null) {
@@ -773,7 +787,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
       } else {
         failure(err)();
       }
-    });
+    }));
   });
 }
 
@@ -784,12 +798,14 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
       return function () {
         // TODO it would be better if this was enforced statically
         if (state === "minimized" && focused) {
-          throw new Error("Minimized windows cannot be focused");
+          failure(new Error("Minimized windows cannot be focused"))();
+          return unit;
         }
 
         // TODO it would be better if this was enforced statically
         if (state === "maximized" && !focused) {
-          throw new Error("Maximized windows cannot be unfocused");
+          failure(new Error("Maximized windows cannot be unfocused"))();
+          return unit;
         }
 
         var info = {};
@@ -822,7 +838,7 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
           info.drawAttention = drawAttention;
         }
 
-        chrome.windows.update(window.id, info, function (window) {
+        chrome.windows.update(window.id, info, callback(function (window) {
           var err = getError();
 
           if (err === null) {
@@ -831,7 +847,7 @@ exports.changeWindowImpl = function (unit, makeAff, state, left, top, width, hei
           } else {
             failure(err)();
           }
-        });
+        }));
 
         return unit;
       };
@@ -847,7 +863,7 @@ exports.closeWindowImpl = function (unit) {
         return makeAff(function (failure) {
           return function (success) {
             return function () {
-              chrome.windows.remove(window.id, function () {
+              chrome.windows.remove(window.id, callback(function () {
                 var err = getError();
 
                 if (err === null) {
@@ -857,7 +873,7 @@ exports.closeWindowImpl = function (unit) {
                 } else {
                   failure(err)();
                 }
-              });
+              }));
 
               return unit;
             };
@@ -893,12 +909,14 @@ exports.createNewWindowImpl = function (unit) {
                             return function () {
                               // TODO it would be better if this was enforced statically
                               if (state === "minimized" && focused) {
-                                throw new Error("Minimized windows cannot be focused");
+                                failure(new Error("Minimized windows cannot be focused"))();
+                                return unit;
                               }
 
                               // TODO it would be better if this was enforced statically
                               if (state === "maximized" && !focused) {
-                                throw new Error("Maximized windows cannot be unfocused");
+                                failure(new Error("Maximized windows cannot be unfocused"))();
+                                return unit;
                               }
 
                               var info = {
@@ -925,7 +943,7 @@ exports.createNewWindowImpl = function (unit) {
                                 info.height = height;
                               }
 
-                              chrome.windows.create(info, function (info) {
+                              chrome.windows.create(info, callback(function (info) {
                                 var err = getError();
 
                                 if (err === null) {
@@ -939,7 +957,7 @@ exports.createNewWindowImpl = function (unit) {
                                 } else {
                                   failure(err)();
                                 }
-                              });
+                              }));
 
                               return unit;
                             };
@@ -972,7 +990,7 @@ exports.windowInfoImpl = function (unit) {
                     return makeAff(function (failure) {
                       return function (success) {
                         return function () {
-                          chrome.windows.get(window.id, { populate: false }, function (window) {
+                          chrome.windows.get(window.id, { populate: false }, callback(function (window) {
                             var err = getError();
 
                             if (err === null) {
@@ -1004,7 +1022,7 @@ exports.windowInfoImpl = function (unit) {
                             } else {
                               failure(err)();
                             }
-                          });
+                          }));
 
                           return unit;
                         };
@@ -1259,6 +1277,64 @@ exports.tabWindowImpl = function (Just) {
         } else {
           return Just(tab.window);
         }
+      };
+    };
+  };
+};
+
+
+exports.createNewTabImpl = function (unit) {
+  return function (makeAff) {
+    return function (state) {
+      return function (window) {
+        return function (index) {
+          return function (url) {
+            return function (focused) {
+              return function (pinned) {
+                return makeAff(function (failure) {
+                  return function (success) {
+                    return function () {
+                      // TODO it would be better if this was enforced statically
+                      if (window.type === "popup" && window.tabs.length > 0) {
+                        failure(new Error("Cannot create a tab in a popup that already has a tab"))();
+                        return unit;
+                      }
+
+                      var info = {
+                        windowId: window.id,
+                        url: url,
+                        active: focused,
+                        pinned: pinned
+                      };
+
+                      if (index != null) {
+                        info.index = index;
+                      }
+
+                      chrome.tabs.create(info, callback(function (info) {
+                        var err = getError();
+
+                        if (err === null) {
+                          var tab = state.tabIds[info.id];
+
+                          assert(tab != null);
+                          assert(tab.id === info.id);
+
+                          success(tab)();
+
+                        } else {
+                          failure(err)();
+                        }
+                      }));
+
+                      return unit;
+                    };
+                  };
+                });
+              };
+            };
+          };
+        };
       };
     };
   };

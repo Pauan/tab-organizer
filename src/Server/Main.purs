@@ -4,6 +4,7 @@ import Pauan.Prelude
 import Pauan.Chrome as Chrome
 import Pauan.Events as Events
 import Pauan.Debug as Debug
+import Control.Monad.Aff (attempt)
 
 
 getMaximizedWindowCoordinates :: forall e. Chrome.WindowsState -> Aff (timer :: TIMER | e) Chrome.Coordinates
@@ -55,9 +56,15 @@ main = do
       , incognito: false
       , tabs: [ Chrome.newTabPath ] }
 
-    liftEff do
+    windows <- liftEff do
       windows <- Chrome.windows state
       traceAnyA windows
+      pure windows
+
+    {-a <- traverse (\window ->
+      Chrome.createNewTab state { window, url: Chrome.newTabPath, index: Just 0, focused: false, pinned: false }) (filter Chrome.windowIsPopup windows)-}
+
+    traceAnyA "HIIIIIIIIIII"
 
     pure unit
 

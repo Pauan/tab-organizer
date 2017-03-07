@@ -163,7 +163,7 @@ closeWindow = closeWindowImpl unit makeAff
 -- TODO support passing in a Tab rather than an Array of URLs
 foreign import createNewWindowImpl :: forall e.
   Unit ->
-  (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  (((Error -> Eff e Unit) -> (Window -> Eff e Unit) -> Eff e Unit) -> Aff e Window) ->
   String ->
   String ->
   Nullable Int ->
@@ -342,3 +342,35 @@ foreign import tabStatusImpl :: forall e.
 
 tabStatus :: forall e. Tab -> Eff e TabStatus
 tabStatus = tabStatusImpl Loading Complete
+
+
+foreign import createNewTabImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (Tab -> Eff e Unit) -> Eff e Unit) -> Aff e Tab) ->
+  WindowsState ->
+  Window ->
+  Nullable Int ->
+  String ->
+  Boolean ->
+  Boolean ->
+  Aff e Tab
+
+createNewTab :: forall e.
+  WindowsState ->
+  { window :: Window
+  , index :: Maybe Int
+  -- TODO maybe make this optional ?
+  , url :: String
+  , focused :: Boolean
+  , pinned :: Boolean } ->
+  Aff e Tab
+createNewTab state info =
+  createNewTabImpl
+    unit
+    makeAff
+    state
+    info.window
+    (toNullable info.index)
+    info.url
+    info.focused
+    info.pinned
