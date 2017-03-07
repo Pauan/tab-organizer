@@ -18,14 +18,18 @@ foreign import data Tab :: *
 
 
 data WindowsEvent
-  = WindowCreated Window
-  | WindowClosed Window
-  | WindowFocused Window
-  | WindowUnfocused Window
-  | TabCreated Window Tab
-  | TabFocused Window Tab
-  | TabUnfocused Window Tab
-  | TabClosed Window Tab
+  = WindowCreated { window :: Window, index :: Int }
+  | WindowClosed { window :: Window, index :: Int }
+  | WindowFocused { window :: Window }
+  | WindowUnfocused { window :: Window }
+
+  | TabCreated { tab :: Tab, window :: Window, index :: Int }
+  | TabClosed { tab :: Tab, window :: Window, index :: Int }
+  | TabFocused { tab :: Tab }
+  | TabUnfocused { tab :: Tab }
+  | TabMovedInSameWindow { tab :: Tab, window :: Window, oldIndex :: Int, newIndex :: Int }
+  | TabMovedToOtherWindow { tab :: Tab, oldWindow :: Window, newWindow :: Window, oldIndex :: Int, newIndex :: Int }
+  | TabChanged { tab :: Tab }
 
 
 foreign import initializeImpl :: forall e.
@@ -33,14 +37,20 @@ foreign import initializeImpl :: forall e.
   (((Error -> Eff e Unit) -> (WindowsState -> Eff e Unit) -> Eff e Unit) -> Aff e WindowsState) ->
   Eff e (Events.Broadcaster WindowsEvent) ->
   (WindowsEvent -> Events.Broadcaster WindowsEvent -> Eff e Unit) ->
+
+  (Window -> Int -> WindowsEvent) ->
+  (Window -> Int -> WindowsEvent) ->
   (Window -> WindowsEvent) ->
   (Window -> WindowsEvent) ->
-  (Window -> WindowsEvent) ->
-  (Window -> WindowsEvent) ->
-  (Window -> Tab -> WindowsEvent) ->
-  (Window -> Tab -> WindowsEvent) ->
-  (Window -> Tab -> WindowsEvent) ->
-  (Window -> Tab -> WindowsEvent) ->
+
+  (Tab -> Window -> Int -> WindowsEvent) ->
+  (Tab -> Window -> Int -> WindowsEvent) ->
+  (Tab -> WindowsEvent) ->
+  (Tab -> WindowsEvent) ->
+  (Tab -> Window -> Int -> Int -> WindowsEvent) ->
+  (Tab -> Window -> Window -> Int -> Int -> WindowsEvent) ->
+  (Tab -> WindowsEvent) ->
+
   Aff e WindowsState
 
 initialize :: forall e. Aff e WindowsState
@@ -49,14 +59,19 @@ initialize = initializeImpl
   makeAff
   Events.makeBroadcaster
   Events.broadcast
-  WindowCreated
-  WindowClosed
-  WindowFocused
-  WindowUnfocused
-  TabCreated
-  TabFocused
-  TabUnfocused
-  TabClosed
+
+  (\window index -> WindowCreated { window, index })
+  (\window index -> WindowClosed { window, index })
+  (\window -> WindowFocused { window })
+  (\window -> WindowUnfocused { window })
+
+  (\tab window index -> TabCreated { tab, window, index })
+  (\tab window index -> TabClosed { tab, window, index })
+  (\tab -> TabFocused { tab })
+  (\tab -> TabUnfocused { tab })
+  (\tab window oldIndex newIndex -> TabMovedInSameWindow { tab, window, oldIndex, newIndex })
+  (\tab oldWindow newWindow oldIndex newIndex -> TabMovedToOtherWindow { tab, oldWindow, newWindow, oldIndex, newIndex })
+  (\tab -> TabChanged { tab })
 
 
 foreign import eventsImpl ::
@@ -251,3 +266,70 @@ windowIsPopup window =
   case windowType window of
     Popup -> true
     _ -> false
+
+
+foreign import tabId :: forall e. Tab -> Eff e Int
+
+foreign import tabIsFocused :: forall e. Tab -> Eff e Boolean
+
+foreign import tabIsPinned :: forall e. Tab -> Eff e Boolean
+
+foreign import tabIsAudible :: forall e. Tab -> Eff e Boolean
+
+foreign import tabIsDiscarded :: forall e. Tab -> Eff e Boolean
+
+foreign import tabCanAutoDiscard :: forall e. Tab -> Eff e Boolean
+
+foreign import tabIsIncognito :: Tab -> Boolean
+
+
+foreign import tabIndexImpl :: forall e.
+  (Int -> Maybe Int) ->
+  Maybe Int ->
+  Tab ->
+  Eff e (Maybe Int)
+
+tabIndex :: forall e. Tab -> Eff e (Maybe Int)
+tabIndex = tabIndexImpl Just Nothing
+
+
+foreign import tabUrlImpl :: forall e.
+  (String -> Maybe String) ->
+  Maybe String ->
+  Tab ->
+  Eff e (Maybe String)
+
+tabUrl :: forall e. Tab -> Eff e (Maybe String)
+tabUrl = tabUrlImpl Just Nothing
+
+
+foreign import tabTitleImpl :: forall e.
+  (String -> Maybe String) ->
+  Maybe String ->
+  Tab ->
+  Eff e (Maybe String)
+
+tabTitle :: forall e. Tab -> Eff e (Maybe String)
+tabTitle = tabTitleImpl Just Nothing
+
+
+foreign import tabFaviconUrlImpl :: forall e.
+  (String -> Maybe String) ->
+  Maybe String ->
+  Tab ->
+  Eff e (Maybe String)
+
+tabFaviconUrl :: forall e. Tab -> Eff e (Maybe String)
+tabFaviconUrl = tabFaviconUrlImpl Just Nothing
+
+
+data TabStatus = Loading | Complete
+
+foreign import tabStatusImpl :: forall e.
+  TabStatus ->
+  TabStatus ->
+  Tab ->
+  Eff e TabStatus
+
+tabStatus :: forall e. Tab -> Eff e TabStatus
+tabStatus = tabStatusImpl Loading Complete

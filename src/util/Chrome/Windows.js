@@ -72,6 +72,8 @@ function arrayRemove(array, value) {
   console.assert(index !== -1);
 
   array.splice(index, 1);
+
+  return index;
 }
 
 
@@ -85,12 +87,10 @@ function arrayInsertIndex(array, index, value) {
 }
 
 
-function updateIndexes(array, index, add) {
-  var length = array.length;
-
-  while (index < length) {
-    array[index] += add;
-    ++index;
+function updateIndexes(array, start, end, add) {
+  while (start < end) {
+    array[start].index += add;
+    ++start;
   }
 }
 
@@ -160,7 +160,7 @@ function focusWindow(state, window) {
 }
 
 
-function unfocusTab(state, window, events) {
+function unfocusFocusedTab(state, window, events) {
   var focused = state.focusedTabs[window.id];
 
   if (focused !== null) {
@@ -169,8 +169,21 @@ function unfocusTab(state, window, events) {
     state.focusedTabs[window.id] = null;
 
     if (events) {
-      state.TabUnfocused(window, focused);
+      state.TabUnfocused(focused);
     }
+  }
+}
+
+
+function unfocusTab(state, window, tab, events) {
+  var focused = state.focusedTabs[window.id];
+
+  if (tab.active) {
+    console.assert(focused === tab);
+    unfocusFocusedTab(state, window, events);
+
+  } else {
+    console.assert(focused !== tab);
   }
 }
 
@@ -195,13 +208,13 @@ function removeWindow(state, window, events) {
   }
 
   // TODO make this faster ?
-  arrayRemove(state.windows, window);
+  var index = arrayRemove(state.windows, window);
 
   delete state.focusedTabs[window.id];
   delete state.windowIds[window.id];
 
   if (events) {
-    state.WindowClosed(window);
+    state.WindowClosed(window, index);
   }
 }
 
@@ -212,6 +225,7 @@ function makeWindow(state, window, events) {
     console.assert(state.focusedTabs[window.id] == null);
     console.assert(state.windowIds[window.id] == null);
 
+    // TODO is this order correct ?
     if (window.focused) {
       // TODO is this order correct ?
       unfocusWindow(state, events);
@@ -222,6 +236,7 @@ function makeWindow(state, window, events) {
       window.tabs = [];
     }
 
+    var index = state.windows.length;
     state.focusedTabs[window.id] = null;
     state.windowIds[window.id] = window;
     state.windows.push(window);
@@ -232,21 +247,13 @@ function makeWindow(state, window, events) {
     });
 
     if (events) {
-      state.WindowCreated(window);
+      state.WindowCreated(window, index);
     }
   }
 }
 
 
-function makeTab(state, window, tab, insert, events) {
-  console.assert(state.tabIds[tab.id] == null);
-
-  if (tab.active) {
-    // TODO is this order correct ?
-    unfocusTab(state, window, events);
-    focusTab(state, window, tab);
-  }
-
+function coerceTab(tab) {
   // TODO is this necessary ?
   if (!tab.url) {
     tab.url = null;
@@ -260,21 +267,95 @@ function makeTab(state, window, tab, insert, events) {
   if (!tab.favIconUrl) {
     tab.favIconUrl = null;
   }
+}
+
+
+function makeTab(state, window, tab, insert, events) {
+  console.assert(state.tabIds[tab.id] == null);
+
+  // TODO is this order correct ?
+  if (tab.active) {
+    // TODO is this order correct ?
+    unfocusFocusedTab(state, window, events);
+    focusTab(state, window, tab);
+  }
+
+  tab.detached = false;
+
+  coerceTab(tab);
 
   state.tabIds[tab.id] = tab;
 
   if (insert) {
-    updateIndexes(window.tabs, tab.index, 1);
+    updateIndexes(window.tabs, tab.index, window.tabs.length, 1);
     arrayInsertIndex(window.tabs, tab.index, tab);
   }
 
   if (events) {
-    state.TabCreated(window, tab);
+    state.TabCreated(tab, window, tab.index);
   }
 }
 
 
-function initialize(success, failure, Broadcaster, broadcast, WindowCreated, WindowClosed, WindowFocused, WindowUnfocused, TabCreated, TabFocused, TabUnfocused, TabClosed) {
+// TODO openerTabId ?
+// TODO mutedInfo ?
+// TODO width ?
+// TODO height ?
+// TODO sessionId ?
+// TODO highlighted ?
+function updateTab(state, tab, info, events) {
+  coerceTab(info);
+
+  var changed = false;
+
+  if (tab.pinned !== info.pinned) {
+    tab.pinned = info.pinned;
+    changed = true;
+  }
+
+  // TODO is this correct ?
+  if (tab.audible !== info.audible) {
+    tab.audible = info.audible;
+    changed = true;
+  }
+
+  if (tab.discarded !== info.discarded) {
+    tab.discarded = info.discarded;
+    changed = true;
+  }
+
+  if (tab.autoDiscardable !== info.autoDiscardable) {
+    tab.autoDiscardable = info.autoDiscardable;
+    changed = true;
+  }
+
+  if (tab.url !== info.url) {
+    tab.url = info.url;
+    changed = true;
+  }
+
+  if (tab.title !== info.title) {
+    tab.title = info.title;
+    changed = true;
+  }
+
+  if (tab.favIconUrl !== info.favIconUrl) {
+    tab.favIconUrl = info.favIconUrl;
+    changed = true;
+  }
+
+  if (tab.status !== info.status) {
+    tab.status = info.status;
+    changed = true;
+  }
+
+  if (changed && events) {
+    state.TabChanged(tab);
+  }
+}
+
+
+function initialize(success, failure, Broadcaster, broadcast, WindowCreated, WindowClosed, WindowFocused, WindowUnfocused, TabCreated, TabClosed, TabFocused, TabUnfocused, TabMovedInSameWindow, TabMovedToOtherWindow, TabChanged) {
   var events = Broadcaster();
 
   var state = {
@@ -290,37 +371,49 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
     events: events,
 
-    WindowCreated: function (a) {
-      broadcast(WindowCreated(a))(events)();
+    WindowCreated: function (window, index) {
+      broadcast(WindowCreated(window)(index))(events)();
     },
 
-    WindowClosed: function (a) {
-      broadcast(WindowClosed(a))(events)();
+    WindowClosed: function (window, index) {
+      broadcast(WindowClosed(window)(index))(events)();
     },
 
-    WindowFocused: function (a) {
-      broadcast(WindowFocused(a))(events)();
+    WindowFocused: function (window) {
+      broadcast(WindowFocused(window))(events)();
     },
 
-    WindowUnfocused: function (a) {
-      broadcast(WindowUnfocused(a))(events)();
+    WindowUnfocused: function (window) {
+      broadcast(WindowUnfocused(window))(events)();
     },
 
-    TabCreated: function (window, tab) {
-      broadcast(TabCreated(window)(tab))(events)();
+    TabCreated: function (tab, window, index) {
+      broadcast(TabCreated(tab)(window)(index))(events)();
     },
 
-    TabFocused: function (window, tab) {
-      broadcast(TabFocused(window)(tab))(events)();
+    TabClosed: function (tab, window, index) {
+      broadcast(TabClosed(tab)(window)(index))(events)();
     },
 
-    TabUnfocused: function (window, tab) {
-      broadcast(TabUnfocused(window)(tab))(events)();
+    TabFocused: function (tab) {
+      broadcast(TabFocused(tab))(events)();
     },
 
-    TabClosed: function (window, tab) {
-      broadcast(TabClosed(window)(tab))(events)();
-    }
+    TabUnfocused: function (tab) {
+      broadcast(TabUnfocused(tab))(events)();
+    },
+
+    TabMovedInSameWindow: function (tab, window, from, to) {
+      broadcast(TabMovedInSameWindow(tab)(window)(from)(to))(events)();
+    },
+
+    TabMovedToOtherWindow: function (tab, oldWindow, newWindow, oldIndex, newIndex) {
+      broadcast(TabMovedToOtherWindow(tab)(oldWindow)(newWindow)(oldIndex)(newIndex))(events)();
+    },
+
+    TabChanged: function (tab) {
+      broadcast(TabChanged(tab))(events)();
+    },
   };
 
   // TODO is this needed ?
@@ -406,6 +499,29 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
       });
     });
 
+    chrome.tabs.onUpdated.addListener(function (id, changed, info) {
+      throwError();
+
+      // TODO is this correct ?
+      // TODO test this
+      onInit(state, function (events) {
+        var tab = state.tabIds[id];
+
+        if (tab != null) {
+          // TODO is this correct ?
+          console.assert(!tab.detached);
+          console.assert(tab.id === id);
+          console.assert(info.id === id);
+          console.assert(tab.windowId === info.windowId);
+          console.assert(tab.index === info.index);
+          console.assert(tab.incognito === info.incognito);
+          console.assert(tab.active === info.active);
+
+          updateTab(state, tab, info, events);
+        }
+      });
+    });
+
     chrome.tabs.onActivated.addListener(function (info) {
       throwError();
 
@@ -415,6 +531,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[info.tabId];
 
         if (tab != null) {
+          console.assert(!tab.detached);
           console.assert(tab.id === info.tabId);
           console.assert(tab.windowId === info.windowId);
 
@@ -423,7 +540,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           console.assert(window != null);
           console.assert(window.id === tab.windowId);
 
-          unfocusTab(state, window, events);
+          unfocusFocusedTab(state, window, events);
 
           console.assert(tab.active === false);
           tab.active = true;
@@ -431,7 +548,7 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           focusTab(state, window, tab);
 
           if (events) {
-            state.TabFocused(window, tab);
+            state.TabFocused(tab);
           }
         }
       });
@@ -446,6 +563,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
         var tab = state.tabIds[oldId];
 
         if (tab != null) {
+          // TODO is this correct ?
+          console.assert(!tab.detached);
           console.assert(newId !== oldId);
           console.assert(tab.id === oldId);
           console.assert(state.tabIds[newId] == null);
@@ -453,6 +572,48 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           tab.id = newId;
           delete state.tabIds[oldId];
           state.tabIds[newId] = tab;
+        }
+      });
+    });
+
+    chrome.tabs.onMoved.addListener(function (id, info) {
+      throwError();
+
+      // TODO is this correct ?
+      // TODO test this
+      onInit(state, function (events) {
+        var tab = state.tabIds[id];
+
+        if (tab != null) {
+          console.assert(!tab.detached);
+          console.assert(tab.id === id);
+          console.assert(tab.windowId === info.windowId);
+          console.assert(tab.index === info.fromIndex);
+          console.assert(info.fromIndex !== info.toIndex);
+
+          var window = state.windowIds[tab.windowId];
+
+          console.assert(window != null);
+          console.assert(window.id === tab.windowId);
+
+          console.assert(window.tabs[tab.index] === tab);
+
+          arrayRemoveIndex(window.tabs, tab.index);
+
+          if (info.fromIndex < info.toIndex) {
+            updateIndexes(window.tabs, info.fromIndex, info.toIndex, -1);
+
+          } else {
+            updateIndexes(window.tabs, info.toIndex, info.fromIndex, 1);
+          }
+
+          tab.index = info.toIndex;
+
+          arrayInsertIndex(window.tabs, tab.index, tab);
+
+          if (events) {
+            state.TabMovedInSameWindow(tab, window, info.fromIndex, info.toIndex);
+          }
         }
       });
     });
@@ -469,6 +630,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
           var tab = state.tabIds[id];
 
           if (tab != null) {
+            // TODO is this correct ?
+            console.assert(!tab.detached);
             console.assert(tab.id === id);
             console.assert(tab.windowId === info.windowId);
 
@@ -479,27 +642,91 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
             console.assert(window.tabs[tab.index] === tab);
 
-            if (tab.active) {
-              // TODO use unfocusTab ?
-              console.assert(state.focusedTabs[window.id] === tab);
-              tab.active = false;
-              state.focusedTabs[window.id] = null;
-
-            } else {
-              console.assert(state.focusedTabs[window.id] !== tab);
-            }
+            // TODO should this send events ?
+            unfocusTab(state, window, tab, false);
 
             arrayRemoveIndex(window.tabs, tab.index);
-            updateIndexes(window.tabs, tab.index, -1);
+            updateIndexes(window.tabs, tab.index, window.tabs.length, -1);
 
             delete state.tabIds[id];
 
             if (events) {
-              state.TabClosed(window, tab);
+              state.TabClosed(tab, window, tab.index);
             }
           }
         });
       }
+    });
+
+    chrome.tabs.onDetached.addListener(function (id, info) {
+      throwError();
+
+      // TODO is this correct ?
+      // TODO test this
+      onInit(state, function (events) {
+        var tab = state.tabIds[id];
+
+        if (tab != null) {
+          console.assert(!tab.detached);
+          console.assert(tab.id === id);
+          console.assert(tab.windowId === info.oldWindowId);
+          console.assert(tab.index === info.oldPosition);
+
+          var window = state.windowIds[tab.windowId];
+
+          console.assert(window != null);
+          console.assert(window.id === tab.windowId);
+
+          console.assert(window.tabs[tab.index] === tab);
+
+          tab.detached = true;
+
+          arrayRemoveIndex(window.tabs, tab.index);
+          updateIndexes(window.tabs, tab.index, window.tabs.length, -1);
+
+          // TODO should this send events ?
+          // TODO is this order correct ?
+          unfocusTab(state, window, tab, events);
+        }
+      });
+    });
+
+    chrome.tabs.onAttached.addListener(function (id, info) {
+      throwError();
+
+      // TODO is this correct ?
+      // TODO test this
+      onInit(state, function (events) {
+        var tab = state.tabIds[id];
+
+        if (tab != null) {
+          console.assert(tab.detached);
+          console.assert(tab.id === id);
+          console.assert(tab.windowId !== info.newWindowId);
+
+          var oldWindow = state.windowIds[tab.windowId];
+          var newWindow = state.windowIds[info.newWindowId];
+
+          console.assert(oldWindow != null);
+          console.assert(oldWindow.id === tab.windowId);
+
+          console.assert(newWindow != null);
+          console.assert(newWindow.id === info.newWindowId);
+
+          var oldIndex = tab.index;
+
+          tab.windowId = info.newWindowId;
+          tab.index = info.newPosition;
+          tab.detached = false;
+
+          updateIndexes(newWindow.tabs, tab.index, newWindow.tabs.length, 1);
+          arrayInsertIndex(newWindow.tabs, tab.index, tab);
+
+          if (events) {
+            state.TabMovedToOtherWindow(tab, oldWindow, newWindow, oldIndex, tab.index);
+          }
+        }
+      });
     });
 
     chrome.windows.getAll({
@@ -654,16 +881,12 @@ exports.createNewWindowImpl = function (unit) {
                               }
 
                               var info = {
+                                url: tabs,
                                 focused: focused,
                                 incognito: incognito,
                                 type: type,
                                 state: state
                               };
-
-                              // TODO is this a good idea ?
-                              if (tabs.length !== 0) {
-                                info.url = tabs;
-                              }
 
                               if (left != null) {
                                 info.left = left;
@@ -813,30 +1036,39 @@ exports.initializeImpl = function (unit) {
             return function (WindowFocused) {
               return function (WindowUnfocused) {
                 return function (TabCreated) {
-                  return function (TabFocused) {
-                    return function (TabUnfocused) {
-                      return function (TabClosed) {
-                        return makeAff(function (failure) {
-                          return function (success) {
-                            return function () {
-                              initialize(
-                                success,
-                                failure,
-                                Broadcaster,
-                                broadcast,
-                                WindowCreated,
-                                WindowClosed,
-                                WindowFocused,
-                                WindowUnfocused,
-                                TabCreated,
-                                TabFocused,
-                                TabUnfocused,
-                                TabClosed
-                              );
-                              return unit;
+                  return function (TabClosed) {
+                    return function (TabFocused) {
+                      return function (TabUnfocused) {
+                        return function (TabMovedInSameWindow) {
+                          return function (TabMovedToOtherWindow) {
+                            return function (TabChanged) {
+                              return makeAff(function (failure) {
+                                return function (success) {
+                                  return function () {
+                                    initialize(
+                                      success,
+                                      failure,
+                                      Broadcaster,
+                                      broadcast,
+                                      WindowCreated,
+                                      WindowClosed,
+                                      WindowFocused,
+                                      WindowUnfocused,
+                                      TabCreated,
+                                      TabClosed,
+                                      TabFocused,
+                                      TabUnfocused,
+                                      TabMovedInSameWindow,
+                                      TabMovedToOtherWindow,
+                                      TabChanged
+                                    );
+                                    return unit;
+                                  };
+                                };
+                              });
                             };
                           };
-                        });
+                        };
                       };
                     };
                   };
@@ -898,4 +1130,126 @@ exports.windowIsFocused = function (window) {
   return function () {
     return window.focused;
   };
+};
+
+
+exports.tabId = function (tab) {
+  return function () {
+    return tab.id;
+  };
+};
+
+exports.tabIndexImpl = function (Just) {
+  return function (Nothing) {
+    return function (tab) {
+      return function () {
+        // TODO is this needed ?
+        if (tab.detached) {
+          return Nothing;
+
+        } else {
+          return Just(tab.index);
+        }
+      };
+    };
+  };
+};
+
+exports.tabIsFocused = function (tab) {
+  return function () {
+    return tab.active;
+  };
+};
+
+exports.tabIsPinned = function (tab) {
+  return function () {
+    return tab.pinned;
+  };
+};
+
+exports.tabIsAudible = function (tab) {
+  return function () {
+    // TODO is this correct ?
+    return !!tab.audible;
+  };
+};
+
+exports.tabIsDiscarded = function (tab) {
+  return function () {
+    return tab.discarded;
+  };
+};
+
+exports.tabCanAutoDiscard = function (tab) {
+  return function () {
+    return tab.autoDiscardable;
+  };
+};
+
+exports.tabUrlImpl = function (Just) {
+  return function (Nothing) {
+    return function (tab) {
+      return function () {
+        if (tab.url == null) {
+          return Nothing;
+
+        } else {
+          return Just(tab.url);
+        }
+      };
+    };
+  };
+};
+
+exports.tabTitleImpl = function (Just) {
+  return function (Nothing) {
+    return function (tab) {
+      return function () {
+        if (tab.title == null) {
+          return Nothing;
+
+        } else {
+          return Just(tab.title);
+        }
+      };
+    };
+  };
+};
+
+exports.tabFaviconUrlImpl = function (Just) {
+  return function (Nothing) {
+    return function (tab) {
+      return function () {
+        if (tab.favIconUrl == null) {
+          return Nothing;
+
+        } else {
+          return Just(tab.favIconUrl);
+        }
+      };
+    };
+  };
+};
+
+exports.tabStatusImpl = function (Loading) {
+  return function (Complete) {
+    return function (tab) {
+      return function () {
+        if (tab.status === "loading") {
+          return Loading;
+
+        } else if (tab.status === "complete") {
+          return Complete;
+
+        } else {
+          console.assert(false);
+        }
+      };
+    };
+  };
+};
+
+// TODO is this guaranteed to be pure ?
+exports.tabIsIncognito = function (tab) {
+  return tab.incognito;
 };

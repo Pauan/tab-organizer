@@ -38,11 +38,22 @@ main = mainAff do
   traceAnyA coords
 
   win <- Chrome.createNewWindow state
-    { type: Chrome.Popup
+    { type: Chrome.Normal
     , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
     , focused: true
     , incognito: false
     , tabs: [] }
+
+  win <- Chrome.createNewWindow state
+    { type: Chrome.Popup
+    , state: Chrome.Regular { left: coords.left, top: coords.top, width: 300, height: coords.height }
+    , focused: true
+    , incognito: false
+    , tabs: [ Chrome.newTabPath ] }
+
+  liftEff do
+    windows <- Chrome.windows state
+    traceAnyA windows
 
   pure unit
 
