@@ -274,6 +274,7 @@ function makeTab(state, window, tab, insert, events) {
   console.assert(state.tabIds[tab.id] == null);
 
   // TODO is this order correct ?
+  // TODO is this needed ?
   if (tab.active) {
     // TODO is this order correct ?
     unfocusFocusedTab(state, window, events);
@@ -542,13 +543,18 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
           unfocusFocusedTab(state, window, events);
 
-          console.assert(tab.active === false);
-          tab.active = true;
+          // This is only true when detaching + attaching a focused tab
+          if (tab.active) {
+            focusTab(state, window, tab);
 
-          focusTab(state, window, tab);
+          } else {
+            tab.active = true;
 
-          if (events) {
-            state.TabFocused(tab);
+            focusTab(state, window, tab);
+
+            if (events) {
+              state.TabFocused(tab);
+            }
           }
         }
       });
@@ -679,14 +685,21 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
           console.assert(window.tabs[tab.index] === tab);
 
+          // TODO code duplication with unfocusTab
+          var focused = state.focusedTabs[window.id];
+
+          if (tab.active) {
+            console.assert(focused === tab);
+            state.focusedTabs[window.id] = null;
+
+          } else {
+            console.assert(focused !== tab);
+          }
+
           tab.detached = true;
 
           arrayRemoveIndex(window.tabs, tab.index);
           updateIndexes(window.tabs, tab.index, window.tabs.length, -1);
-
-          // TODO should this send events ?
-          // TODO is this order correct ?
-          unfocusTab(state, window, tab, events);
         }
       });
     });
