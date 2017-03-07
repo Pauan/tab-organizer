@@ -16,9 +16,9 @@ getMaximizedWindowCoordinates state = do
     , tabs: [ Chrome.resolvePath "data/empty.html" ] }
   -- TODO this probably isn't needed, but it's better safe than sorry
   sleep 500
-  coords <- Chrome.windowCoordinates win
+  { coordinates } <- Chrome.windowInfo win
   Chrome.closeWindow state win
-  pure coords
+  pure coordinates
 
 
 main :: Eff (err :: EXCEPTION, timer :: TIMER) Unit

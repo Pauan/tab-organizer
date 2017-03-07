@@ -7,8 +7,6 @@ exports.onErrorImpl = function (unit) {
       var crashed = false;
 
       window.addEventListener("error", function (e) {
-        console.info(e);
-
         if (!crashed) {
           crashed = true;
 

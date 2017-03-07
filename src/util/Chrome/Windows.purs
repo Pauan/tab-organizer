@@ -120,35 +120,33 @@ windowStateToCoordinates (Docked a) = Just a
 windowStateToCoordinates _ = Nothing
 
 
-foreign import windowStateImpl :: forall e.
-  Unit ->
-  (((Error -> Eff e Unit) -> (WindowState -> Eff e Unit) -> Eff e Unit) -> Aff e WindowState) ->
-  (Int -> Int -> Int -> Int -> WindowState) ->
-  (Int -> Int -> Int -> Int -> WindowState) ->
-  WindowState ->
-  WindowState ->
-  WindowState ->
-  Window ->
-  Aff e WindowState
+type WindowInfo =
+  { state :: WindowState
+  , coordinates :: Coordinates
+  , alwaysOnTop :: Boolean }
 
-windowState :: forall e. Window -> Aff e WindowState
-windowState = windowStateImpl unit makeAff
+foreign import windowInfoImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (WindowInfo -> Eff e Unit) -> Eff e Unit) -> Aff e WindowInfo) ->
+  (Int -> Int -> Int -> Int -> WindowState) ->
+  (Int -> Int -> Int -> Int -> WindowState) ->
+  WindowState ->
+  WindowState ->
+  WindowState ->
+  (Int -> Int -> Int -> Int -> Coordinates) ->
+  (WindowState -> Coordinates -> Boolean -> WindowInfo) ->
+  Window ->
+  Aff e WindowInfo
+
+windowInfo :: forall e. Window -> Aff e WindowInfo
+windowInfo = windowInfoImpl unit makeAff
   (\left top width height -> Regular { left, top, width, height })
   (\left top width height -> Docked { left, top, width, height })
   Minimized
   Maximized
   Fullscreen
-
-
-foreign import windowCoordinatesImpl :: forall e.
-  Unit ->
-  (((Error -> Eff e Unit) -> (Coordinates -> Eff e Unit) -> Eff e Unit) -> Aff e Coordinates) ->
-  (Int -> Int -> Int -> Int -> Coordinates) ->
-  Window ->
-  Aff e Coordinates
-
-windowCoordinates :: forall e. Window -> Aff e Coordinates
-windowCoordinates = windowCoordinatesImpl unit makeAff { left: _, top: _, width: _, height: _ }
+  { left: _, top: _, width: _, height: _ }
+  { state: _, coordinates: _, alwaysOnTop: _ }
 
 
 foreign import closeWindowImpl :: forall e.
@@ -162,6 +160,7 @@ closeWindow :: forall e. WindowsState -> Window -> Aff e Unit
 closeWindow = closeWindowImpl unit makeAff
 
 
+-- TODO support passing in a Tab rather than an Array of URLs
 foreign import createNewWindowImpl :: forall e.
   Unit ->
   (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
@@ -281,6 +280,16 @@ foreign import tabIsDiscarded :: forall e. Tab -> Eff e Boolean
 foreign import tabCanAutoDiscard :: forall e. Tab -> Eff e Boolean
 
 foreign import tabIsIncognito :: Tab -> Boolean
+
+
+foreign import tabWindowImpl :: forall e.
+  (Window -> Maybe Window) ->
+  Maybe Window ->
+  Tab ->
+  Eff e (Maybe Window)
+
+tabWindow :: forall e. Tab -> Eff e (Maybe Window)
+tabWindow = tabWindowImpl Just Nothing
 
 
 foreign import tabIndexImpl :: forall e.
