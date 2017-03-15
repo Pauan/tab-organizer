@@ -479,8 +479,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
   onLoaded(function () {
     // TODO use a filter ?
     chrome.windows.onCreated.addListener(callback(function (window) {
-      console.debug("chrome.windows.onCreated", window);
-
       throwError();
 
       // TODO is this correct ?
@@ -492,8 +490,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
     // TODO use a filter ?
     chrome.windows.onRemoved.addListener(callback(function (id) {
-      console.debug("chrome.windows.onRemoved", id);
-
       throwError();
 
       // TODO is this correct ?
@@ -525,8 +521,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
 
     // TODO use a filter ?
     chrome.windows.onFocusChanged.addListener(callback(function (id) {
-      console.debug("chrome.windows.onFocusChanged", id);
-
       throwError();
 
       // TODO is this correct ?
@@ -607,8 +601,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onActivated.addListener(callback(function (info) {
-      console.debug("chrome.tabs.onActivated", info);
-
       throwError();
 
       // TODO is this correct ?
@@ -665,8 +657,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onMoved.addListener(callback(function (id, info) {
-      console.debug("chrome.tabs.onMoved", id, info);
-
       throwError();
 
       // TODO is this correct ?
@@ -705,8 +695,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onRemoved.addListener(callback(function (id, info) {
-      console.debug("chrome.tabs.onRemoved", id, info);
-
       throwError();
 
       assert(typeof info.isWindowClosing === "boolean");
@@ -743,8 +731,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onDetached.addListener(callback(function (id, info) {
-      console.debug("chrome.tabs.onDetached", id, info);
-
       throwError();
 
       // TODO is this correct ?
@@ -781,8 +767,6 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onAttached.addListener(callback(function (id, info) {
-      console.debug("chrome.tabs.onAttached", id, info);
-
       throwError();
 
       // TODO is this correct ?
@@ -1614,20 +1598,29 @@ exports.moveTabsImpl = function (unit) {
                     }
                   }
 
+                  var windowTabs = window.tabs.slice();
+
                   // TODO move multiple tabs at once rather than one at a time
                   // TODO this is necessary because Chrome has buggy behavior with chrome.tabs.move
                   tabs.forEach(function (tab) {
+                    var tabIndex = windowTabs.indexOf(tab);
+
                     if (tab.window === window) {
+                      assert(tabIndex !== -1);
+
                       // This is to prevent unnecessary moves
-                      if (tab.index === index) {
+                      if (tabIndex === index) {
                         ++index;
                         done();
 
                       // This is to prevent unnecessary moves
-                      } else if (tab.index === index - 1) {
+                      } else if (tabIndex === index - 1) {
                         done();
 
-                      } else if (tab.index > index) {
+                      } else if (tabIndex > index) {
+                        arrayRemoveIndex(windowTabs, tabIndex);
+                        arrayInsertIndex(windowTabs, index, tab);
+
                         chrome.tabs.move(tab.id, {
                           windowId: window.id,
                           index: index
@@ -1636,6 +1629,9 @@ exports.moveTabsImpl = function (unit) {
                         ++index;
 
                       } else {
+                        arrayRemoveIndex(windowTabs, tabIndex);
+                        arrayInsertIndex(windowTabs, index - 1, tab);
+
                         chrome.tabs.move(tab.id, {
                           windowId: window.id,
                           index: index - 1
@@ -1643,6 +1639,10 @@ exports.moveTabsImpl = function (unit) {
                       }
 
                     } else {
+                      assert(tabIndex === -1);
+
+                      arrayInsertIndex(windowTabs, index, tab);
+
                       chrome.tabs.move(tab.id, {
                         windowId: window.id,
                         index: index
@@ -1651,88 +1651,6 @@ exports.moveTabsImpl = function (unit) {
                       ++index;
                     }
                   });
-
-                  /*var ids = tabs.map(function (tab) { return tab.id; });
-
-                  var info = {
-                    windowId: window.id,
-                    index: index
-                  };
-
-                  chrome.tabs.move(ids, info, callback(function () {
-                    console.debug("chrome.tabs.move", ids);
-
-                    var err = getError();
-
-                    // TODO verify that all of the tabs have been moved properly
-                    if (err === null) {
-                      success(unit)();
-
-                    } else {
-                      failure(err)();
-                    }
-                  }));
-                  return unit;*/
-
-
-
-                  /*var indexes = tabs.map(function (tab) {
-                    if (tab.window === window) {
-                      return tab.index;
-
-                    } else {
-                      return null;
-                    }
-                  });
-
-                  // TODO move multiple tabs at once rather than one at a time
-                  tabs.forEach(function (tab, i) {
-                    var tabIndex = indexes[i];
-
-                    if (tabIndex !== null && tabIndex === index) {
-                      ++index;
-                      // TODO make this faster ?
-                      done();
-
-                    } else {
-                      chrome.tabs.move(tab.id, {
-                        windowId: window.id,
-                        index: index
-                      }, done);
-
-                      if (tabIndex !== null) {
-                        if (tabIndex < index) {
-                          tabs.forEach(function (tab, i) {
-                            if (indexes[i] !== null && indexes[i] > tabIndex && indexes[i] <= index) {
-                              --indexes[i];
-                            }
-                          });
-
-                          indexes[i] = index;
-
-                        } else {
-                          tabs.forEach(function (tab, i) {
-                            if (indexes[i] !== null && indexes[i] < tabIndex && indexes[i] >= index) {
-                              ++indexes[i];
-                            }
-                          });
-
-                          indexes[i] = index;
-
-                          ++index;
-                        }
-
-                      } else {
-                        tabs.forEach(function (tab, i) {
-                          if (indexes[i] !== null && indexes[i] >= index) {
-                            ++indexes[i];
-                          }
-                        });
-
-                        ++index;
-                      }
-                    }
-                  });*/
                 }
 
                 return unit;

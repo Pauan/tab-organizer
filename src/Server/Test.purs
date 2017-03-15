@@ -145,58 +145,35 @@ runTests = runTest do
             testTabs win1 [tab2, tab3, tab4, tab1, tab6, tab5]
 
 
-            failure "All tests passed"
-            {-[0, 1, 2, 3, 4, 5, 6] [0, 1, 2, 3] -> 0
-            [0, 1, 2, 3, 4, 5, 6]
+            testEvents state
+              [ Chrome.TabMovedInSameWindow { tab: tab5, window: win1, oldIndex: 5, newIndex: 0 }
+              , Chrome.TabMovedInSameWindow { tab: tab6, window: win1, oldIndex: 5, newIndex: 1 }
+              , Chrome.TabMovedInSameWindow { tab: tab1, window: win1, oldIndex: 5, newIndex: 2 }
+              , Chrome.TabMovedInSameWindow { tab: tab4, window: win1, oldIndex: 5, newIndex: 3 }
+              , Chrome.TabMovedInSameWindow { tab: tab3, window: win1, oldIndex: 5, newIndex: 4 } ] do
+              Chrome.moveTabs { window: win1, index: Just 0 } [tab5, tab6, tab1, tab4, tab3, tab2]
 
-            [0, 1, 2, 3, 4, 5, 6] [0, 1, 2, 3] -> 3
-            [1, 2, 0, 3, 4, 5, 6]
-            [2, 0, 1, 3, 4, 5, 6]
-            [0, 1, 2, 3, 4, 5, 6]
-            [0, 1, 2, 3, 4, 5, 6]
-
-
-            [0, 1, 2, 3, 4, 5, 6] [1, 5, 6] -> 3  1-4
-            [0, 2, 1, 5, 6, 3, 4]
-
-            [0, 1, 2, 3, 4, 5, 6] [1, 4, 5] -> 3  1-4
-            [0, 2, 1, 4, 5, 3, 6]
+            testTabs win1 [tab5, tab6, tab1, tab4, tab3, tab2]
 
 
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 0
+            testEvents state
+              [ Chrome.TabMovedToOtherWindow { tab: tab6, oldWindow: win1, newWindow: win2, oldIndex: 1, newIndex: 0 }
+              , Chrome.TabMovedToOtherWindow { tab: tab4, oldWindow: win1, newWindow: win2, oldIndex: 2, newIndex: 1 }
+              , Chrome.TabMovedToOtherWindow { tab: tab3, oldWindow: win1, newWindow: win2, oldIndex: 2, newIndex: 2 } ] do
+              Chrome.moveTabs { window: win2, index: Just 0 } [tab6, tab4, tab3]
+
+            testTabs win1 [tab5, tab1, tab2]
+            testTabs win2 [tab6, tab4, tab3, tab7]
 
 
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 1
+            testEvents state
+              [ Chrome.TabMovedToOtherWindow { tab: tab3, oldWindow: win2, newWindow: win1, oldIndex: 2, newIndex: 3 }
+              , Chrome.TabMovedInSameWindow { tab: tab1, window: win1, oldIndex: 1, newIndex: 3 }
+              , Chrome.TabMovedToOtherWindow { tab: tab6, oldWindow: win2, newWindow: win1, oldIndex: 0, newIndex: 4 } ] do
+              Chrome.moveTabs { window: win1, index: Nothing } [tab2, tab3, tab1, tab6]
 
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 2
-
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 3  1-5
-
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 4
-
-            [0, 1, 2, 3, 4, 5, 6] [1, 2, 3, 4] -> 5  1-5
-
-
-            [0, 5, 1, 2, 3, 4, 6] [1, 2, 3, 4] -> 6
-
-
-            [0, 1, 2, 3, 4, 5, 6] [0, 3, 4, 6] -> 3
-
-            [1, 2, 0, 3, 4, 5, 6]
-
-            [1, 2, 0, 3, 4, 5, 6]
-
-            [1, 2, 0, 3, 4, 5, 6]
-
-            [1, 2, 0, 3, 4, 6, 5]
-
-            [0, 1, 2, 3, 4, 5, 6] [3, 2, 1, 0] -> 3
-
-            [3, 2, 1, 0, 4, 5, 6]
-
-            [0, 1, 2, 3, 4, 5, 6] [3, 4, 5] -> 0
-
-            [3, 4, 5, 0, 1, 2, 6]-}
+            testTabs win1 [tab5, tab2, tab3, tab1, tab6]
+            testTabs win2 [tab4, tab7]
 
           _, _ ->
             failure "Pattern match failed"
