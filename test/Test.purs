@@ -24,7 +24,7 @@ import Pauan.Prelude
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import Test.Unit (suite, test, TestSuite)
+import Test.Unit (suite, test, TestSuite, failure)
 import Test.Unit.Assert (equal)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)

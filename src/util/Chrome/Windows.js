@@ -244,8 +244,9 @@ function removeWindow(state, window, events) {
     assert(state.focusedWindow !== window);
   }
 
-  window.tabs.forEach(function (tab) {
+  window.tabs.forEach(function (tab, i) {
     assert(!tab.detached);
+    assert(tab.index === i);
     removeTab(state, window, tab);
   });
 
@@ -664,6 +665,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onMoved.addListener(callback(function (id, info) {
+      console.debug("chrome.tabs.onMoved", id, info);
+
       throwError();
 
       // TODO is this correct ?
@@ -740,6 +743,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onDetached.addListener(callback(function (id, info) {
+      console.debug("chrome.tabs.onDetached", id, info);
+
       throwError();
 
       // TODO is this correct ?
@@ -776,6 +781,8 @@ function initialize(success, failure, Broadcaster, broadcast, WindowCreated, Win
     }));
 
     chrome.tabs.onAttached.addListener(callback(function (id, info) {
+      console.debug("chrome.tabs.onAttached", id, info);
+
       throwError();
 
       // TODO is this correct ?
@@ -1447,7 +1454,7 @@ exports.focusTabImpl = function (unit) {
               }
 
               // TODO throw the second error ?
-              function error(e) {
+              function error(err) {
                 if (!errored) {
                   errored = true;
                   failure(err)();
@@ -1539,4 +1546,214 @@ exports.closeTabsImpl = function (unit) {
       });
     };
   };
+};
+
+
+// TODO thoroughly test this
+exports.moveTabsImpl = function (unit) {
+  return function (makeAff) {
+    return function (window) {
+      return function (index) {
+        return function (tabs) {
+          return makeAff(function (failure) {
+            return function (success) {
+              return function () {
+                // TODO test this
+                if (window.type !== "normal") {
+                  failure(new Error("Tabs can only be moved into normal windows"))();
+
+                // TODO throw an error instead ?
+                } else if (tabs.length === 0) {
+                  success(unit)();
+
+                } else {
+                  if (index == null) {
+                    index = window.tabs.length;
+                  }
+
+                  var errored = false;
+                  var pending = tabs.length;
+
+                  var done = callback(function () {
+                    var err = getError();
+
+                    if (err === null) {
+                      --pending;
+
+                      if (pending === 0) {
+                        success(unit)();
+                      }
+
+                    // TODO throw the second error ?
+                    } else if (!errored) {
+                      errored = true;
+                      failure(err)();
+                    }
+                  });
+
+                  var start = tabs[0].index;
+                  var length = tabs.length;
+                  var end = start + length;
+
+                  // TODO make this faster ?
+                  // This is to prevent unnecessary moves
+                  if (index > start && index <= end) {
+                    for (var i = 1; i < length; ++i) {
+                      var tab = tabs[i];
+
+                      if (tab.index === start + i) {
+                        --index;
+
+                        if (index === start) {
+                          break;
+                        }
+
+                      } else {
+                        break;
+                      }
+                    }
+                  }
+
+                  // TODO move multiple tabs at once rather than one at a time
+                  // TODO this is necessary because Chrome has buggy behavior with chrome.tabs.move
+                  tabs.forEach(function (tab) {
+                    if (tab.window === window) {
+                      // This is to prevent unnecessary moves
+                      if (tab.index === index) {
+                        ++index;
+                        done();
+
+                      // This is to prevent unnecessary moves
+                      } else if (tab.index === index - 1) {
+                        done();
+
+                      } else if (tab.index > index) {
+                        chrome.tabs.move(tab.id, {
+                          windowId: window.id,
+                          index: index
+                        }, done);
+
+                        ++index;
+
+                      } else {
+                        chrome.tabs.move(tab.id, {
+                          windowId: window.id,
+                          index: index - 1
+                        }, done);
+                      }
+
+                    } else {
+                      chrome.tabs.move(tab.id, {
+                        windowId: window.id,
+                        index: index
+                      }, done);
+
+                      ++index;
+                    }
+                  });
+
+                  /*var ids = tabs.map(function (tab) { return tab.id; });
+
+                  var info = {
+                    windowId: window.id,
+                    index: index
+                  };
+
+                  chrome.tabs.move(ids, info, callback(function () {
+                    console.debug("chrome.tabs.move", ids);
+
+                    var err = getError();
+
+                    // TODO verify that all of the tabs have been moved properly
+                    if (err === null) {
+                      success(unit)();
+
+                    } else {
+                      failure(err)();
+                    }
+                  }));
+                  return unit;*/
+
+
+
+                  /*var indexes = tabs.map(function (tab) {
+                    if (tab.window === window) {
+                      return tab.index;
+
+                    } else {
+                      return null;
+                    }
+                  });
+
+                  // TODO move multiple tabs at once rather than one at a time
+                  tabs.forEach(function (tab, i) {
+                    var tabIndex = indexes[i];
+
+                    if (tabIndex !== null && tabIndex === index) {
+                      ++index;
+                      // TODO make this faster ?
+                      done();
+
+                    } else {
+                      chrome.tabs.move(tab.id, {
+                        windowId: window.id,
+                        index: index
+                      }, done);
+
+                      if (tabIndex !== null) {
+                        if (tabIndex < index) {
+                          tabs.forEach(function (tab, i) {
+                            if (indexes[i] !== null && indexes[i] > tabIndex && indexes[i] <= index) {
+                              --indexes[i];
+                            }
+                          });
+
+                          indexes[i] = index;
+
+                        } else {
+                          tabs.forEach(function (tab, i) {
+                            if (indexes[i] !== null && indexes[i] < tabIndex && indexes[i] >= index) {
+                              ++indexes[i];
+                            }
+                          });
+
+                          indexes[i] = index;
+
+                          ++index;
+                        }
+
+                      } else {
+                        tabs.forEach(function (tab, i) {
+                          if (indexes[i] !== null && indexes[i] >= index) {
+                            ++indexes[i];
+                          }
+                        });
+
+                        ++index;
+                      }
+                    }
+                  });*/
+                }
+
+                return unit;
+              };
+            };
+          });
+        };
+      };
+    };
+  };
+};
+
+
+exports.unsafeEq = function (a) {
+  return function (b) {
+    return a === b;
+  };
+};
+
+
+// TODO this is impure
+exports.showTabImpl = function (a) {
+  return "(Tab " + a.id + ")";
 };

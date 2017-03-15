@@ -1,6 +1,7 @@
 module Pauan.Chrome.Windows where
 
 import Prelude
+import Data.Generic (class Generic, gShow, GenericSpine(..), GenericSignature(..))
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (Error)
 import Control.Monad.Aff (Aff, makeAff)
@@ -17,6 +18,35 @@ foreign import data Window :: *
 foreign import data Tab :: *
 
 
+foreign import unsafeEq :: forall a. a -> a -> Boolean
+
+foreign import showTabImpl :: Tab -> String
+
+-- TODO hacky
+instance genericWindow :: Generic Window where
+  fromSpine _ = Nothing
+  toSignature _ = SigProd "Window" []
+  toSpine _ = SProd "Window" []
+
+-- TODO hacky
+instance genericTab :: Generic Tab where
+  fromSpine _ = Nothing
+  toSignature _ = SigProd "Tab" []
+  toSpine _ = SProd "Tab" []
+
+instance eqWindow :: Eq Window where
+  eq = unsafeEq
+
+instance eqTab :: Eq Tab where
+  eq = unsafeEq
+
+instance showWindow :: Show Window where
+  show window = "(Window " <> show (windowId window) <> ")"
+
+instance showTab :: Show Tab where
+  show = showTabImpl
+
+
 data WindowsEvent
   = WindowCreated { window :: Window, index :: Int }
   | WindowClosed { window :: Window, index :: Int }
@@ -30,6 +60,15 @@ data WindowsEvent
   | TabMovedInSameWindow { tab :: Tab, window :: Window, oldIndex :: Int, newIndex :: Int }
   | TabMovedToOtherWindow { tab :: Tab, oldWindow :: Window, newWindow :: Window, oldIndex :: Int, newIndex :: Int }
   | TabChanged { tab :: Tab }
+
+-- TODO hacky
+derive instance genericWindowsEvent :: Generic WindowsEvent
+
+derive instance eqWindowsEvent :: Eq WindowsEvent
+
+-- TODO hacky
+instance showWindowsEvent :: Show WindowsEvent where
+  show = gShow
 
 
 foreign import initializeImpl :: forall e.
@@ -413,3 +452,15 @@ foreign import closeTabsImpl :: forall e.
 
 closeTabs :: forall e. Array Tab -> Aff e Unit
 closeTabs = closeTabsImpl unit makeAff
+
+
+foreign import moveTabsImpl :: forall e.
+  Unit ->
+  (((Error -> Eff e Unit) -> (Unit -> Eff e Unit) -> Eff e Unit) -> Aff e Unit) ->
+  Window ->
+  Nullable Int ->
+  Array Tab ->
+  Aff e Unit
+
+moveTabs :: forall e. { window :: Window, index :: Maybe Int } -> Array Tab -> Aff e Unit
+moveTabs info = moveTabsImpl unit makeAff info.window (toNullable info.index)

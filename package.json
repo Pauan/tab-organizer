@@ -12,7 +12,7 @@
   },
   "scripts": {
     "postinstall": "bower install && mkdir -p build/js && yarn run build",
-    "build": "pulp build -- --source-maps && yarn run build:server",
+    "build": "pulp build --include test -- --source-maps && yarn run build:server",
     "build:panel": "pulp build --main Panel.Main --optimise --to build/js/panel.js",
     "build:server": "rollup --config build.server.js",
     "build:options": "rollup --config build.options.js",

@@ -27,7 +27,7 @@ module Pauan.Prelude
   , map2
   , mapIf
   , mapIfTrue
-  , mainAff
+  , runAff
   , sleep
   ) where
 
@@ -75,7 +75,7 @@ import Data.Int (toNumber, round)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (EXCEPTION)
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff (Aff, finally)
 import Debug.Trace (spy, traceAnyA)
 import Control.Monad.Eff.Timer (TIMER)
 
@@ -147,8 +147,8 @@ flip a f b = f b a
 -}
 
 
-mainAff :: forall e. Aff e Unit -> Eff (err :: EXCEPTION | e) Unit
-mainAff a = void (Aff'.launchAff a)
+runAff :: forall e. Aff e Unit -> Eff (err :: EXCEPTION | e) Unit
+runAff a = void (Aff'.launchAff a)
 
 
 -- TODO test this
