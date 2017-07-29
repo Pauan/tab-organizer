@@ -7,36 +7,37 @@ If you're a normal user, you should *NOT* be using this repository. Instead, ins
 
 But if you're a developer, or you want to try the absolute latest version before release, you can follow these steps:
 
-* Make sure you have ``git``, `Node.js <http://nodejs.org/>`_, and `npm <https://www.npmjs.com/>`_.
-* ``git clone --branch ecmascript6 https://github.com/Pauan/tab-organizer.git``
-* ``cd tab-organizer``
-* ``npm run-script build``
-* In Google Chrome, go to the URL ``chrome://extensions/``
-* Make sure ``Developer mode`` (in the upper-right) is checked.
-* Click the ``Load unpacked extension...`` button.
-* Navigate to the ``tab-organizer/build`` folder, then click ``Open`` or ``OK``.
+1. Make sure you have ``git`` and `Nix <https://nixos.org/nix/>`_ installed.
+2. ``git clone --branch haxe https://github.com/Pauan/tab-organizer.git``
+3. ``cd tab-organizer``
+4. ``nix-build``
+5. In Google Chrome, go to the URL ``chrome://extensions/``
+6. Make sure ``Developer mode`` (in the upper-right) is checked.
+7. Click the ``Load unpacked extension...`` button.
+8. Navigate to the ``tab-organizer/result`` folder, then click ``Open`` or ``OK``.
 
 How to update
 =============
 
-* ``cd tab-organizer``
-* ``git pull``
-* ``npm run-script build``
-* In Google Chrome, go to the URL ``chrome://extensions/``
-* Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
+1. ``cd tab-organizer``
+2. ``git pull``
+3. ``nix-build``
+4. In Google Chrome, go to the URL ``chrome://extensions/``
+5. Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
 
 How to develop
 ==============
 
-* ``cd tab-organizer``
-* ``git pull``
-* ``npm run-script watch``
-* Make your changes to the code. When any of the files change, it will
-  automatically recompile.
-* In Google Chrome, go to the URL ``chrome://extensions/``
-* Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
+1. Make your changes to the code.
+2. ``nix-build``
+3. In Google Chrome, go to the URL ``chrome://extensions/``
+4. Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
 
-How to test
-===========
+How to run tests
+================
 
-* ``npm test``
+1. ``nix-build --arg test true``
+2. In Google Chrome, go to the URL ``chrome://extensions/``
+3. Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
+4. After it finishes loading, click on the ``server.html`` link.
+5. Check the console for any errors.
