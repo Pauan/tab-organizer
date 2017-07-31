@@ -10,7 +10,7 @@ But if you're a developer, or you want to try the absolute latest version before
 1. Make sure you have ``git`` and `Nix <https://nixos.org/nix/>`_ installed.
 2. ``git clone --branch haxe https://github.com/Pauan/tab-organizer.git``
 3. ``cd tab-organizer``
-4. ``nix-build``
+4. ``nix-build`` (this might take a long time)
 5. In Google Chrome, go to the URL ``chrome://extensions/``
 6. Make sure ``Developer mode`` (in the upper-right) is checked.
 7. Click the ``Load unpacked extension...`` button.
@@ -29,14 +29,14 @@ How to develop
 ==============
 
 1. Make your changes to the code.
-2. ``nix-build``
+2. ``nix-build --arg production false``
 3. In Google Chrome, go to the URL ``chrome://extensions/``
 4. Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
 
 How to run tests
 ================
 
-1. ``nix-build --arg test true``
+1. ``nix-build --arg production false --arg test true``
 2. In Google Chrome, go to the URL ``chrome://extensions/``
 3. Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
 4. After it finishes loading, click on the ``server.html`` link.
