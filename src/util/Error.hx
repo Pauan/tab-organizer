@@ -1,0 +1,1 @@
+typedef Error = js.Error;

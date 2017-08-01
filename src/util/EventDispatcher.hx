@@ -1,11 +1,11 @@
 import TestTools.assert;
-import Disposer;
 
+using DisposerTools;
 using ArrayTools;
 using IterableTools;
 
 
-private class EventListener<T> implements Disposer {
+private class EventListener<T> implements IDisposer {
     private var dispatcher: EventDispatcher<T>;
 
     public var active: Bool = true;

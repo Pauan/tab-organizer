@@ -88,12 +88,11 @@ let
       -cp src/${name} \
       -cp src/util \
       -lib chrome-extension \
-      -lib tink_unittest \
       -js build/js/${name}.js \
       -dce full \
       -D js-flatten \
       -D analyzer \
-      -D js-source-map \
+      -D source-map \
       ${flags}
   '';
 in
@@ -105,8 +104,8 @@ in
     buildInputs = [
       haxe
       lib.chrome-extension
-      lib.tink_core
-      lib.tink_unittest
+      /*lib.tink_core
+      lib.tink_unittest*/
     ];
 
     phases = [ "unpackPhase" "buildPhase" "installPhase" ];

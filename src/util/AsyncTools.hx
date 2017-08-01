@@ -1,58 +1,106 @@
-import Outcome;//import Outcome;
+import haxe.ds.Either;
+import haxe.ds.Option;
 import TestTools.assert;
+import PairTools.pair;
 
+using DisposerTools;
+using OutcomeTools;
 using ArrayTools;
+using NothingTools;
 
 
-interface Async<T> {
-    function get(fn: T -> Void): Void;
-
-    function cancel(): Void;
+interface IAsync<T> extends IDisposer {
+    function get(fn: Outcome<T, Error> -> Void): Void;
 }
 
 
-class AsyncValue<T> implements Async<T> {
-    private var value: T;
+abstract Async<T>(Void -> IAsync<T>) {
+    public inline function new(v: Void -> IAsync<T>) {
+        this = v;
+    }
 
-    public inline function new(a: T) {
+    public inline function run(fn: Outcome<T, Error> -> Void): Disposer {
+        var async = this();
+        async.get(fn);
+        return async;
+    }
+
+    /*@:from
+    public static inline function fromValue<T>(value: T): Async<T> {
+        var v = new AsyncValue(Success(value));
+        return new Async(function () return v);
+    }*/
+}
+
+
+private class AsyncValue<T> implements IAsync<T> {
+    private var value: Outcome<T, Error>;
+
+    public inline function new(a: Outcome<T, Error>) {
         value = a;
     }
 
-    public inline function get(fn: T -> Void): Void {
+    public inline function get(fn: Outcome<T, Error> -> Void): Void {
         return fn(value);
     }
 
-    public inline function cancel(): Void {}
+    public inline function dispose(): Void {}
 }
 
 
-class AsyncDispatcher<T> implements Async<T> {
-    private var value: T;
-    private var pending: Array<T -> Void> = [];
-    private var onCancel: Void -> Void;
+private interface IAsyncDispatcher<T> {
+    function set(a: Outcome<T, Error>): Void;
+    function success(a: T): Void;
+    function error(a: Error): Void;
+}
 
-    public function new(fn: Void -> Void) {
-        assert(fn != null);
+class AsyncDispatcher<T> implements IAsyncDispatcher<T> implements IAsync<T> {
+    private var value: Outcome<T, Error>;
+    private var pending: Array<Outcome<T, Error> -> Void> = [];
+    private var onCancel: Disposer;
 
-        onCancel = fn;
+    public function new(fn: IAsyncDispatcher<T> -> Disposer) {
+        onCancel = fn(this);
+
+        assert(onCancel != null);
     }
 
     // TODO this is not exception safe if the pending callbacks throw an exception
-    public function set(a: T): Void {
-        assert(pending != null);
-        assert(onCancel != null);
+    public function set(a: Outcome<T, Error>): Void {
+        assert(value == null);
 
-        var array = pending;
+        if (onCancel == null) {
+            assert(pending == null);
 
-        value = a;
-        pending = null;
+            switch (a) {
+            case Failure(a):
+                throw a;
+            default:
+            }
 
-        for (f in array.fixedIterator()) {
-            f(a);
+        } else {
+            assert(pending != null);
+
+            var array = pending;
+
+            value = a;
+            pending = null;
+
+            for (f in new FixedArrayIterator(array)) {
+                f(a);
+            }
         }
     }
 
-    public function get(fn: T -> Void): Void {
+    public inline function success(a: T): Void {
+        return set(Success(a));
+    }
+
+    public inline function error(a: Error): Void {
+        return set(Failure(a));
+    }
+
+    public function get(fn: Outcome<T, Error> -> Void): Void {
         assert(onCancel != null);
 
         if (pending == null) {
@@ -63,7 +111,7 @@ class AsyncDispatcher<T> implements Async<T> {
         }
     }
 
-    public function cancel(): Void {
+    public function dispose(): Void {
         assert(onCancel != null);
 
         var fn = onCancel;
@@ -74,53 +122,85 @@ class AsyncDispatcher<T> implements Async<T> {
             value = null;
 
         } else {
+            assert(value == null);
+
             pending = null;
 
-            return fn();
+            return fn.dispose();
         }
     }
 }
 
 
 class AsyncTools {
-    public static inline function wrap<A>(v: A): Async<A> {
-        return new AsyncValue(v);
+    public static inline function async<T>(value: T): Async<T> {
+        return asyncOutcome(Success(value));
+    }
+
+    public static inline function asyncOutcome<A>(input: Outcome<A, Error>): Async<A> {
+        var x = new AsyncValue(input);
+        return new Async(function () return x);
     }
 
 
-    public static function map<A, B>(async: Async<A>, fn: A -> B): Async<B> {
-        var out = new AsyncDispatcher(async.cancel);
-
-        async.get(function (a) {
-            out.set(fn(a));
+    public static inline function asyncFunction<A>(fn: Void -> A): Async<A> {
+        return new Async(function () {
+            return new AsyncValue(fn.tryFunction0());
         });
+    }
 
-        return out;
+
+    public static inline function asyncFunctionVoid<A>(fn: Void -> Void): Async<Nothing> {
+        return new Async(function () {
+            return new AsyncValue(fn.tryFunctionVoid());
+        });
+    }
+
+
+    public static function map<A, B>(input: Async<A>, fn: A -> B): Async<B> {
+        return new Async(function () {
+            return new AsyncDispatcher(function (out) {
+                return input.run(function (a) {
+                    switch (a) {
+                    case Success(a):
+                        out.set(fn.tryFunction1(a));
+
+                    case Failure(a):
+                        out.error(a);
+                    }
+                });
+            });
+        });
     }
 
 
     public static function flatten<A>(async: Async<Async<A>>): Async<A> {
-        var inner = null;
+        return new Async(function () {
+            return new AsyncDispatcher(function (out) {
+                var inner: Disposer = null;
 
-        var out = new AsyncDispatcher(function () {
-            // TODO is this correct ?
-            async.cancel();
+                var outer: Disposer = async.run(function (a) {
+                    switch (a) {
+                    case Success(a):
+                        // TODO test whether it's faster to use a closure or not
+                        inner = a.run(out.set);
 
-            // TODO should this be cancelled first or second ?
-            if (inner != null) {
-                inner.cancel();
-            }
-        });
+                    case Failure(a):
+                        out.error(a);
+                    }
+                });
 
-        async.get(function (a) {
-            inner = a;
+                return function () {
+                    // TODO is this correct ?
+                    outer.dispose();
 
-            a.get(function (a) {
-                out.set(a);
+                    // TODO should this be disposed first or second ?
+                    if (inner != null) {
+                        inner.dispose();
+                    }
+                };
             });
         });
-
-        return out;
     }
 
 
@@ -130,98 +210,166 @@ class AsyncTools {
 
 
     public static function concurrent<A>(input: Array<Async<A>>): Async<Array<A>> {
-        // TODO use a Vector instead ?
-        var asyncs = new Array();
-        var values = new Array();
+        return new Async(function () {
+            return new AsyncDispatcher(function (out) {
+                // TODO use a Vector instead ?
+                var disposers: Array<Disposer> = new Array();
+                var values: Array<A> = new Array();
 
-        var pending: Int = input.length;
+                var failed: Bool = false;
 
-        var index: Int = 0;
+                var pending: Int = input.length;
 
-        var out = new AsyncDispatcher(function () {
-            for (async in asyncs.fixedIterator()) {
-                async.cancel();
-            }
-        });
+                var index: Int = 0;
 
-        for (async in input.fixedIterator()) {
-            asyncs.push(async);
-            values.push(null);
+                for (async in new FixedArrayIterator(input)) {
+                    assert(!failed);
 
-            var i = index;
+                    values.push(null);
 
-            async.get(function (a) {
-                --pending;
+                    var i = index;
 
-                values[i] = a;
+                    disposers.push(async.run(function (a) {
+                        assert(!failed);
 
-                if (pending == 0) {
-                    out.set(values);
+                        --pending;
+
+                        switch (a) {
+                        case Success(b):
+                            values[i] = b;
+
+                            if (pending == 0) {
+                                out.success(values);
+                            }
+
+                        case Failure(b):
+                            failed = true;
+
+                            for (disposer in new FixedArrayIterator(disposers)) {
+                                disposer.dispose();
+                            }
+
+                            out.error(b);
+                        }
+                    }));
+
+                    if (failed) {
+                        break;
+
+                    } else {
+                        ++index;
+                    }
                 }
+
+                return function () {
+                    for (disposer in new FixedArrayIterator(disposers)) {
+                        disposer.dispose();
+                    }
+                };
             });
-
-            ++index;
-        }
-
-        return out;
+        });
     }
 
 
-    public static function concurrentCancel<E, A>(input: Array<Async<Outcome<A, E>>>): Async<Outcome<Array<A>, E>> {
-        // TODO use a Vector instead ?
-        var asyncs = new Array();
-        var values = new Array();
+    public static function map2<A, B, C>(left: Async<A>, right: Async<B>, fn: A -> B -> C): Async<C> {
+        return new Async(function () {
+            return new AsyncDispatcher(function (out) {
+                // We can't use null because the asyncs might return null
+                var leftValue = None;
+                var rightValue = None;
 
-        var failed: Bool = false;
+                var failed = false;
 
-        var pending: Int = input.length;
+                var rightDisposer: Disposer = null;
 
-        var index: Int = 0;
-
-        var out = new AsyncDispatcher(function () {
-            for (async in asyncs.fixedIterator()) {
-                async.cancel();
-            }
-        });
-
-        for (async in input.fixedIterator()) {
-            if (failed) {
-                break;
-
-            } else {
-                asyncs.push(async);
-                values.push(null);
-
-                var i = index;
-
-                async.get(function (a) {
-                    assert(!failed);
-
-                    --pending;
-
+                var leftDisposer: Disposer = left.run(function (a) {
                     switch (a) {
-                    case Success(b):
-                        values[i] = b;
-
-                        if (pending == 0) {
-                            out.set(Success(values));
+                    case Success(a):
+                        switch (rightValue) {
+                        case Some(b):
+                            out.set(fn.tryFunction2(a, b));
+                        case None:
+                            leftValue = Some(a);
                         }
-
-                    case Failure(b):
+                    case Failure(a):
                         failed = true;
 
-                        for (async in asyncs.fixedIterator()) {
-                            async.cancel();
+                        if (rightDisposer != null) {
+                            rightDisposer.dispose();
                         }
 
-                        out.set(Failure(b));
+                        out.error(a);
                     }
                 });
 
-                ++index;
-            }
-        }
+                if (!failed) {
+                    rightDisposer = right.run(function (a) {
+                        switch (a) {
+                        case Success(b):
+                            switch (leftValue) {
+                            case Some(a):
+                                out.set(fn.tryFunction2(a, b));
+                            case None:
+                                rightValue = Some(b);
+                            }
+                        case Failure(a):
+                            leftDisposer.dispose();
+                            out.error(a);
+                        }
+                    });
+                }
 
-        return out;
+                return function () {
+                    leftDisposer.dispose();
+
+                    if (rightDisposer != null) {
+                        rightDisposer.dispose();
+                    }
+                };
+            });
+        });
+    }
+
+
+    public static inline function map3<A, B, C, D>(a: Async<A>, b: Async<B>, c: Async<C>, fn: A -> B -> C -> D): Async<D> {
+        return map2(map2(a, b, pair), c, function (a, b) {
+            return fn(a.left, a.right, b);
+        });
+    }
+
+
+    public static function fastest<A, B>(left: Async<A>, right: Async<B>): Async<Either<A, B>> {
+        return new Async(function () {
+            return new AsyncDispatcher(function (out) {
+                var done = false;
+
+                var rightDisposer: Disposer = null;
+
+                var leftDisposer: Disposer = left.run(function (a) {
+                    done = true;
+
+                    if (rightDisposer != null) {
+                        rightDisposer.dispose();
+                    }
+
+                    out.set(a.map(Left));
+                });
+
+                if (!done) {
+                    rightDisposer = right.run(function (a) {
+                        done = true;
+                        leftDisposer.dispose();
+                        out.set(a.map(Right));
+                    });
+                }
+
+                return function () {
+                    if (!done) {
+                        leftDisposer.dispose();
+                        rightDisposer.dispose();
+                    }
+                };
+            });
+        });
     }
 }
