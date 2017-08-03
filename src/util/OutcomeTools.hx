@@ -1,4 +1,6 @@
-using NothingTools;
+package util;
+
+using util.NothingTools;
 
 
 enum Outcome<A, E> {

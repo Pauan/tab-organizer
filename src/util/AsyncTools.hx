@@ -1,12 +1,14 @@
+package util;
+
 import haxe.ds.Either;
 import haxe.ds.Option;
-import TestTools.assert;
-import PairTools.pair;
+import util.TestTools.assert;
+import util.PairTools.pair;
 
-using DisposerTools;
-using OutcomeTools;
-using ArrayTools;
-using NothingTools;
+using util.DisposerTools;
+using util.OutcomeTools;
+using util.IterableTools;
+using util.NothingTools;
 
 
 interface IAsync<T> extends IDisposer {

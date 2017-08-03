@@ -83,12 +83,11 @@ let
 
   flags = builtins.concatStringsSep " " (testFlags ++ productionFlags);
 
-  build = name: ''
-    haxe -main ${name} \
-      -cp src/${name} \
-      -cp src/util \
+  build = path: name: ''
+    haxe -main '${path}.${name}' \
+      -cp 'src' \
       -lib chrome-extension \
-      -js build/js/${name}.js \
+      -js 'build/js/${name}.js' \
       -dce full \
       -D js-flatten \
       -D analyzer \
@@ -111,9 +110,9 @@ in
     phases = [ "unpackPhase" "buildPhase" "installPhase" ];
 
     buildPhase = ''
-      ${build "Server"}
-      ${build "Panel"}
-      ${build "Options"}
+      ${build "server" "Server"}
+      ${build "panel" "Panel"}
+      ${build "options" "Options"}
     '';
 
     installPhase = ''

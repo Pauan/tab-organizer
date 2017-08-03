@@ -1,15 +1,10 @@
+package util;
+
 import haxe.macro.Expr;
 
 using haxe.macro.ExprTools;
 using Lambda;
 
-typedef FlatMap<A> = {
-    function wrap(): FlatMap<A>;
-
-    function map<B>(fn: A -> B): FlatMap<B>;
-
-    function flatten(value: FlatMap<FlatMap<A>>): FlatMap<A>;
-}
 
 class FlatMapTools {
     static private function convert(x: Expr): Expr {
@@ -55,7 +50,7 @@ class FlatMapTools {
                             var expr = convert(left);
 
                             // TODO use a proper anonymous variable here
-                            macro $expr.map(function (______: NothingTools.Nothing) return $right).flatten();
+                            macro $expr.map(function (______: util.NothingTools.Nothing) return $right).flatten();
                     }
                 }, last);
             }

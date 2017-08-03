@@ -1,4 +1,10 @@
+package util;
+
 import haxe.ds.Option;
+
+
+// TODO hacky, figure out a better way
+typedef Option<A> = haxe.ds.Option<A>;
 
 
 class OptionTools {

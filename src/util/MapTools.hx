@@ -1,10 +1,12 @@
+package util;
+
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import PairTools.Pair;
+import util.PairTools.Pair;
 
 using haxe.macro.ExprTools;
 using Lambda;
-using TreeTools;
+using util.TreeTools;
 
 /*
 [a]                      => a
@@ -86,7 +88,7 @@ class MapTools {
             return value.expr;
 
         case Branch(left, right):
-            return macro ${pairMap2(left)}.map2(${pairMap2(right)}, PairTools.pair);
+            return macro ${pairMap2(left)}.map2(${pairMap2(right)}, util.PairTools.pair);
         }
     }
 

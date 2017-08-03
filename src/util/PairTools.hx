@@ -1,3 +1,6 @@
+package util;
+
+
 class Pair<A, B> {
     public var left: A;
     public var right: B;

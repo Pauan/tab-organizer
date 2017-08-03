@@ -1,3 +1,6 @@
+package util;
+
+
 enum Tree<A> {
     Leaf(value: A);
     Branch(left: Tree<A>, right: Tree<A>);

@@ -1,9 +1,12 @@
-import TestTools.assert;
+package util;
 
-using ArrayTools;
-using NothingTools;
-using AsyncTools;
-using IntTools;
+import util.TestTools.assert;
+
+using util.ArrayTools;
+using util.NothingTools;
+using util.AsyncTools;
+using util.IntTools;
+
 
 class EventDispatcher_Test implements TestTools.ITest {
     private static function testEvents<A>(expected: Array<A>, isEqual: A -> A -> Bool, fn: EventDispatcher<A> -> Async<Nothing>): Async<Nothing> {

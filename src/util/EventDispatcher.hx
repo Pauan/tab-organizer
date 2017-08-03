@@ -1,8 +1,10 @@
-import TestTools.assert;
+package util;
 
-using DisposerTools;
-using ArrayTools;
-using IterableTools;
+import util.TestTools.assert;
+
+using util.DisposerTools;
+using util.ArrayTools;
+using util.IterableTools;
 
 
 private class EventListener<T> implements IDisposer {
@@ -31,7 +33,7 @@ private class EventListener<T> implements IDisposer {
 }
 
 
-@:allow(EventListener)
+@:allow(util.EventListener)
 class EventDispatcher<T> {
     private var listeners: Array<EventListener<T>> = [];
     private var killed: Array<EventListener<T>> = [];

@@ -1,17 +1,19 @@
+package util;
+
 import haxe.macro.Expr;
 import haxe.macro.Context;
 using haxe.macro.Tools;
-using ArrayTools;
+using util.ArrayTools;
 
 
 #if !macro
-import Error;
+import util.Error;
 
-using AsyncTools;
-using NothingTools;
-using OutcomeTools;
+using util.AsyncTools;
+using util.NothingTools;
+using util.OutcomeTools;
 
-@:autoBuild(TestTools.build())
+@:autoBuild(util.TestTools.build())
 interface ITest {
     var __tests__: Array<Async<Nothing>>;
 }
@@ -35,12 +37,12 @@ class TestTools {
                     if (meta[0].name == "sync") {
                         // TODO the `clear` implementation is probably wrong
                         meta.clear();
-                        tests.push(macro @:pos(field.pos) AsyncTools.asyncFunctionVoid($i{field.name}));
+                        tests.push(macro @:pos(field.pos) util.AsyncTools.asyncFunctionVoid($i{field.name}));
 
                     } else if (meta[0].name == "async") {
                         // TODO the `clear` implementation is probably wrong
                         meta.clear();
-                        tests.push(macro @:pos(field.pos) AsyncTools.flatten(AsyncTools.asyncFunction($i{field.name})));
+                        tests.push(macro @:pos(field.pos) util.AsyncTools.flatten(util.AsyncTools.asyncFunction($i{field.name})));
                     }
                 }
             default:
@@ -64,7 +66,7 @@ class TestTools {
 
         var str = macro @:pos(pos) $v{outer.toString()};
 
-        return macro @:pos(pos) TestTools.assert_string(${expr}, ${str});
+        return macro @:pos(pos) util.TestTools.assert_string(${expr}, ${str});
     }
 
     #if !macro

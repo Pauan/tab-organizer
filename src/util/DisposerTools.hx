@@ -1,4 +1,6 @@
-import TestTools.assert;
+package util;
+
+import util.TestTools.assert;
 
 
 interface IDisposer {
