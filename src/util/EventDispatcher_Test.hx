@@ -39,7 +39,7 @@ class EventDispatcher_Test implements TestTools.ITest {
             events.send(1);
             events.send(2);
             events.send(3);
-            return Nothing.async();
+            return Nothing.wrap();
         });
     }
 }

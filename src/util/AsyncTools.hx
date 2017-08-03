@@ -133,9 +133,10 @@ class AsyncDispatcher<T> implements IAsyncDispatcher<T> implements IAsync<T> {
 
 
 class AsyncTools {
-    public static inline function async<T>(value: T): Async<T> {
+    public static inline function wrap<T>(value: T): Async<T> {
         return asyncOutcome(Success(value));
     }
+
 
     public static inline function asyncOutcome<A>(input: Outcome<A, Error>): Async<A> {
         var x = new AsyncValue(input);
@@ -327,13 +328,6 @@ class AsyncTools {
                     }
                 };
             });
-        });
-    }
-
-
-    public static inline function map3<A, B, C, D>(a: Async<A>, b: Async<B>, c: Async<C>, fn: A -> B -> C -> D): Async<D> {
-        return map2(map2(a, b, pair), c, function (a, b) {
-            return fn(a.left, a.right, b);
         });
     }
 
