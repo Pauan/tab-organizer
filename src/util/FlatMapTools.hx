@@ -41,10 +41,10 @@ class FlatMapTools {
 
                             exprs.fold(function (left, right) {
                                 return switch (left) {
-                                    case { name: name, expr: left }:
+                                    case { name: name, expr: left, type: type }:
                                         var expr = convert(left);
 
-                                        macro $expr.map(function ($name) return $right).flatten();
+                                        macro $expr.map(function ($name: $type) return $right).flatten();
 
                                     default:
                                         throw 'Invalid $left';
@@ -55,7 +55,7 @@ class FlatMapTools {
                             var expr = convert(left);
 
                             // TODO use a proper anonymous variable here
-                            macro $expr.map(function (_) return $right).flatten();
+                            macro $expr.map(function (______: NothingTools.Nothing) return $right).flatten();
                     }
                 }, last);
             }

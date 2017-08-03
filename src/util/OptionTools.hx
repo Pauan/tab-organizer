@@ -28,4 +28,13 @@ class OptionTools {
             return None;
         }
     }
+
+    public static function flatten<A>(option: Option<Option<A>>): Option<A> {
+        switch (option) {
+        case Some(Some(value)):
+            return Some(value);
+        default:
+            return None;
+        }
+    }
 }

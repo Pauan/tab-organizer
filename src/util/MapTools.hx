@@ -1,13 +1,10 @@
+import haxe.macro.Context;
 import haxe.macro.Expr;
 import PairTools.Pair;
 
 using haxe.macro.ExprTools;
 using Lambda;
-
-enum Tree<A> {
-    Leaf(value: A);
-    Branch(left: Tree<A>, right: Tree<A>);
-}
+using TreeTools;
 
 /*
 [a]                      => a
@@ -58,110 +55,39 @@ enum Tree<A> {
                             var h = ___u1___.right.right.right;
 */
 class MapTools {
-    static private function pairNames(names: Array<String>): Array<Expr> {
-        // TODO pretty hacky
-        var exprs = binaryMap(names, function (a) {
-            return {
-                name: a,
-                // TODO proper support for gensyms
-                expr: macro ___u1___
-            };
-        }, function (a) {
-            return {
-                name: a.name,
-                expr: macro ${a.expr}.left
-            };
-        }, function (a) {
-            return {
-                name: a.name,
-                expr: macro ${a.expr}.right
-            };
-        });
+    static private function pairNames1(root: String, tree: Tree<Var>, out: Array<Var>, apply: Expr -> Expr): Void {
+        switch (tree) {
+        case Leaf(x):
+            out.push({
+                name: x.name,
+                expr: apply(macro $i{root}),
+                type: x.type
+            });
 
-        return [for (x in exprs) {
-            var name = x.name;
-            var expr = x.expr;
-            macro var $name = $expr;
-        }];
-    }
+        case Branch(left, right):
+            pairNames1(root, left, out, function (x) {
+                return macro ${apply(x)}.left;
+            });
 
-
-    private static function fromArray1<A>(array: Array<A>, start: Int, end: Int): Tree<A> {
-        if (end == start) {
-            throw 'Array cannot be empty';
-
-        } else if (end - start == 1) {
-            return Leaf(array[start]);
-
-        } else {
-            // TODO use `(start + end) >> 1` instead ?
-            var middle = Math.floor((start + end) / 2);
-
-            return Branch(
-                fromArray1(array, start, middle),
-                fromArray1(array, middle, end)
-            );
+            pairNames1(root, right, out, function (x) {
+                return macro ${apply(x)}.right;
+            });
         }
     }
 
-    private static inline function fromArray<A>(array: Array<A>): Tree<A> {
-        return fromArray1(array, 0, array.length);
+    static private inline function pairNames(root: String, tree: Tree<Var>, out: Array<Var>): Void {
+        pairNames1(root, tree, out, function (a) return a);
     }
 
 
-    private static function binaryFold1<A>(a: Array<A>, start: Int, end: Int, fn: A -> A -> Bool -> A): A {
-        if (end == start) {
-            throw 'Array cannot be empty';
+    static private function pairMap2(tree: Tree<Var>): Expr {
+        switch (tree) {
+        case Leaf(value):
+            return value.expr;
 
-        } else if (end - start == 1) {
-            return a[start];
-
-        } else {
-            // TODO use `(start + end) >> 1` instead ?
-            var middle = Math.floor((start + end) / 2);
-            var left = binaryFold1(a, start, middle, fn);
-            var right = binaryFold1(a, middle, end, fn);
-            trace(start, middle, end, a.length);
-            return fn(left, right, false);
+        case Branch(left, right):
+            return macro ${pairMap2(left)}.map2(${pairMap2(right)}, PairTools.pair);
         }
-    }
-
-    // TODO this is a useful generic utility
-    private static function binaryFold<A>(a: Array<A>, fn: A -> A -> Bool -> A): A {
-        return binaryFold1(a, 0, a.length, fn);
-    }
-
-
-    private static function binaryMap1<A, B>(array: Array<A>, start: Int, end: Int, leaf: A -> B, left: B -> B, right: B -> B, apply: B -> B, out: Array<B>): Void {
-        if (end == start) {
-            throw 'Array cannot be empty';
-
-        } else if (end - start == 1) {
-            out.push(apply(leaf(array[start])));
-
-        } else {
-            // TODO use `(start + end) >> 1` instead ?
-            var middle = Math.floor((start + end) / 2);
-
-            binaryMap1(array, start, middle, leaf, left, right, function (a) {
-                return left(apply(a));
-            }, out);
-
-            binaryMap1(array, middle, end, leaf, left, right, function (a) {
-                return right(apply(a));
-            }, out);
-        }
-    }
-
-    // TODO this is a useful generic utility
-    private static function binaryMap<A, B>(array: Array<A>, leaf: A -> B, left: B -> B, right: B -> B): Array<B> {
-        var out = [];
-
-        binaryMap1(array, 0, array.length, leaf, left, right, function (a) {
-            return a;
-        }, out);
-
-        return out;
     }
 
 
@@ -189,38 +115,56 @@ class MapTools {
                     throw "Must have one or more var, and a body";
 
                 } else {
-                    var varExprs: Array<Expr> = vars.map(function (x) {
-                        return x.expr;
-                    });
+                    var tree: Tree<Var> = vars.fromArray();
 
-                    var last = vars.pop();
-
-                    var lastName = last.name;
-
+                    switch (tree) {
                     // This is for 1 argument map
-                    if (vars.empty()) {
-                        return macro ${last.expr}.map(function ($lastName) return $body);
+                    case Leaf({ name: name, expr: expr, type: type }):
+                        macro $expr.map(function ($name: $type) return $body);
 
-                    // This is for 2+ argument map
-                    } else {
-                        var names: Array<String> = vars.map(function (x) {
-                            return x.name;
-                        });
+                    case Branch(left, right):
+                        var l = pairMap2(left);
+                        var r = pairMap2(right);
 
-                        var nameAssigns: Array<Expr> = pairNames(names);
+                        var names: Array<Var> = [];
 
-                        return binaryFold(varExprs, function (left, right, isLast) {
-                            if (isLast) {
-                                // TODO proper support for gensyms
-                                return macro $left.map2($right, function (___u1___, $lastName) {
-                                    $a{nameAssigns};
-                                    return $body;
-                                });
+                        // TODO use proper gensyms
+                        var lName = "___u1___";
+                        var rName = "___u2___";
 
-                            } else {
-                                return macro $left.map2($right, PairTools.pair);
-                            }
-                        });
+                        var lType = null;
+                        var rType = null;
+
+                        switch (left) {
+                        case Leaf({ name: name, type: type }):
+                            lName = name;
+                            lType = type;
+                        default:
+                            pairNames(lName, left, names);
+                        }
+
+                        switch (right) {
+                        case Leaf({ name: name, type: type }):
+                            rName = name;
+                            rType = type;
+                        default:
+                            pairNames(rName, right, names);
+                        }
+
+                        if (names.length == 0) {
+                            macro $l.map2($r, function ($lName: $lType, $rName: $rType) return $body);
+
+                        } else {
+                            var assigns: Expr = {
+                                expr: EVars(names),
+                                pos: Context.currentPos() // TODO better pos ?
+                            };
+
+                            macro $l.map2($r, function ($lName: $lType, $rName: $rType) {
+                                ${assigns}
+                                return $body;
+                            });
+                        }
                     }
                 }
             }
