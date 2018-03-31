@@ -11,9 +11,12 @@
     "128": "data/icons/icon128.png"
   },
   "background": {
-    "page": "server.html"
+    "scripts": ["js/background.js"]
   },
-  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html",
+    "browser_style": true
+  },
   "browser_action": {
     "default_icon": {
       "19": "data/icons/icon19.png"
@@ -28,9 +31,7 @@
     }
   },
   "permissions": [
-    "chrome://favicon/",
     "tabs",
-    "bookmarks",
     "storage",
     "unlimitedStorage"
   ]

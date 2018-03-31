@@ -1,4 +1,3 @@
-/node_modules
-/build/lib
 /build/js
-/build/map
+/target
+**/*.rs.bk
