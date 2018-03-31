@@ -7,9 +7,10 @@ If you're a normal user, you should *NOT* be using this repository. Instead, ins
 
 But if you're a developer, or you want to try the absolute latest version before release, you can follow these steps:
 
-* Make sure you have ``git``, `Node.js <http://nodejs.org/>`_, and `npm <https://www.npmjs.com/>`_.
-* ``git clone --branch ecmascript6 https://github.com/Pauan/tab-organizer.git``
+* Make sure you have ``git``, `Node.js <http://nodejs.org/>`_, `npm <https://www.npmjs.com/>`_, and `Nightly Rust <https://www.rust-lang.org/en-US/install.html>`_.
+* ``git clone --branch rust https://github.com/Pauan/tab-organizer.git``
 * ``cd tab-organizer``
+* ``cargo install cargo-web``
 * ``npm run-script build``
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Make sure ``Developer mode`` (in the upper-right) is checked.
@@ -21,6 +22,7 @@ How to update
 
 * ``cd tab-organizer``
 * ``git pull``
+* ``cargo install --force cargo-web``
 * ``npm run-script build``
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
@@ -30,9 +32,8 @@ How to develop
 
 * ``cd tab-organizer``
 * ``git pull``
-* ``npm run-script watch``
-* Make your changes to the code. When any of the files change, it will
-  automatically recompile.
+* Make your changes to the code.
+* ``npm run-script build``
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Find the Tab Organizer extension in the list, then click the ``Reload (Ctrl+R)`` link.
 
