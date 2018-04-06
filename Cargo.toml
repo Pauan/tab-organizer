@@ -6,6 +6,10 @@ authors = ["Pauan"]
 [dependencies]
 futures = "0.1.18"
 discard = "1.0.3"
+serde = "1.0.36"
+serde_derive = "1.0.36"
+serde_json = "1.0.13"
+futures-await = "0.1.0"
 web-extensions = { path = "./web-extensions" }
 
 [profile.release]

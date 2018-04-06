@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use stdweb;
 use stdweb::{PromiseFuture, JsSerialize, Value};
 use stdweb::unstable::{TryFrom, TryInto};
 use stdweb::private::ConversionError;
@@ -16,9 +17,11 @@ pub trait StorageAreaRead {
         js!( return @{Self::get_storage_area()}.getBytesInUse(null); ).try_into().unwrap()
     }
 
+    // TODO this should return Some for null
+    // TODO this should return Option<A>
     fn get<A>(&self, key: &str) -> PromiseFuture<A>
+        // TODO figure out a better way of doing this
         where A: TryFrom<Value> + 'static,
-              // TODO this is a bit gross
               A::Error: ::std::fmt::Debug {
         js!(
             var key = @{key};
@@ -130,6 +133,7 @@ impl TryFrom<Value> for StorageChange {
     type Error = ConversionError;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
+        /*
         // TODO make this more efficient somehow
         fn lookup<A, B>(input: A, key: &str) -> Option<B>
             where A: JsSerialize,
@@ -154,7 +158,7 @@ impl TryFrom<Value> for StorageChange {
                 Value::Null => None,
                 a => Some(js!( return @{a}[0]; ).try_into().unwrap()),
             }
-        }
+        }*/
 
 
 
@@ -186,21 +190,10 @@ pub enum StorageAreaType {
     Managed,
 }
 
-impl TryFrom<Value> for StorageAreaType {
-    type Error = ConversionError;
-
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::String(string) => match string.as_str() {
-                "sync" => Ok(StorageAreaType::Sync),
-                "local" => Ok(StorageAreaType::Local),
-                "managed" => Ok(StorageAreaType::Managed),
-                _ => Err(ConversionError::Custom("Expected \"sync\", \"local\", or \"managed\"".to_owned())),
-            },
-            // TODO use ConversionError::type_mismatch(&value)
-            _ => Err(ConversionError::Custom("Wrong type".to_owned()))
-        }
-    }
+enum_boilerplate! { StorageAreaType,
+    "sync" => Sync,
+    "local" => Local,
+    "managed" => Managed,
 }
 
 
