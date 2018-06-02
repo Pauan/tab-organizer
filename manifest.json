@@ -26,5 +26,5 @@
    "name": "Tab Organizer",
    "options_page": "options.html",
    "permissions": [ "chrome://favicon/", "bookmarks", "history", "tabs", "idle" ],
-   "version": "4.3"
+   "version": "4.3.1"
 }
