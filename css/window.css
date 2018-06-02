@@ -1,0 +1,589 @@
+@charset "UTF-8";
+body {
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+
+    max-width: 100%;
+
+    padding: 0px;
+    margin: 0px;
+
+    font: menu;
+    font-size: 13px;
+    color: black;
+
+    background-color: #fbfdfd;
+
+    cursor: default;
+    outline: none !important;
+}
+
+[data-selected] {
+    outline: 5px auto -webkit-focus-ring-color;
+}
+
+#URL-bar {
+    -webkit-box-shadow: gainsboro 1px 1px 5px;
+
+    position: fixed;
+    left: 0px;
+    bottom: 0px;
+    padding: 0px 5px 2px 3px;
+    max-width: 100%;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    /*! background-color: #eff2f2; */
+    background-color: #fafafa;
+
+    border: 1px solid dimgray;
+    border-bottom: none;
+    border-left: none;
+    border-top-right-radius: 3px;
+
+    white-space: nowrap;
+    z-index: 9001;
+}
+#URL-bar .protocol[data-secure] {
+    color: darkgreen;
+}
+#URL-bar .domain {
+    font-weight: bold;
+}
+#URL-bar .query {
+    color: darkred;
+    font-weight: bold;
+}
+#URL-bar .fragment {
+    color: black;
+    font-weight: bold;
+}
+
+#placeholder {
+    display: block !important;
+    position: relative;
+    z-index: 9001;
+
+    width: 100%;
+    height: 7px;
+
+    padding-right: 2px;
+    margin-top: -4px;
+    margin-bottom: -3px;
+    margin-left: -1px;
+
+    background-image: url(/images/context-menu-arrow.png),
+                      url(/images/context-menu-arrow-left.png);
+
+    background-repeat: no-repeat,
+                       no-repeat;
+
+    background-position: 0 0,
+                         100% 0;
+}
+
+#toolbar {
+    -webkit-box-sizing: border-box;
+
+    display: -webkit-box;
+
+    position: fixed;
+    z-index: 2; /** Do not go higher than 2! See issue 60 */
+    left: 0px;
+    top: 0px;
+
+    background: inherit;
+
+    width: 100%;
+    height: 69px;
+    padding: 15px 27px 0px 25px; /** 15px 27px 22px 65px */
+}
+#toolbar .separator {
+    margin: 0px 7px;
+}
+#button-menu {
+    padding-left: 11px;
+    padding-right: 8px;
+
+    margin: 0px;
+    margin-right: 12px;
+}
+#button-menu-arrow {
+    margin-left: 6px;
+    margin-bottom: 2px;
+}
+#button-menu > .UI-contextMenu {
+    margin-top: -3px;
+    margin-left: -14px;
+}
+
+#Undo-bar {
+    display: -webkit-box;
+    -webkit-box-pack: center;
+    -webkit-box-align: start;
+    -webkit-box-flex: 1;
+
+    margin: 0px 7px;
+}
+#Undo-bar-div {
+    -webkit-transition-property: opacity, visibility;
+    -webkit-transition-duration: 1s;
+    -webkit-transition-timing-function: ease;
+
+    padding: 2px 5px;
+    margin-top: 3px;
+
+    background-color: #FFF1A8;
+    border: 1px solid dimgray;
+    border-radius: 5px;
+
+    font-weight: bold;
+}
+#Undo-bar-button {
+    margin-left: 10px;
+    font-weight: bold;
+}
+
+#search-box {
+    position: relative;
+
+    width: 241px; /*! 200px 225px */
+    margin-top: 3px;
+
+    white-space: nowrap;
+}
+#search-input/*, #search-autocomplete-input*/ {
+    -webkit-appearance: textfield;
+
+    width: 100%;
+    padding: 1px 2px;
+    margin: 0px;
+
+    border-width: 1px;
+}
+#search-input {
+    -webkit-box-shadow: inset 1px 1px 1px #f5f5f5;
+
+    position: relative;
+
+    background-color: transparent;
+
+    border-color: #999 #CCC #CCC; /** #e1e1e1 */
+    border-radius: 2px;
+}
+/*#search-autocomplete-mask, #search-autocomplete-input {
+    position: absolute;
+
+    left: 0px;
+    top: 0px;
+
+    background-color: white;
+}
+#search-autocomplete-mask {
+    width: 20px;
+    height: 20px;
+}
+#search-autocomplete-input {
+    color: dimgray;
+    border-color: transparent;
+}*/
+#search-past {
+    -webkit-box-shadow: dimgray 0px 2px 3px;
+
+    margin: 0px 1px 0px 1px;
+
+    background-color: white;
+    outline: 1px solid dimgray;
+    /*border-top: none;*/
+
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+.search-past-item {
+    display: -webkit-box;
+    padding: 2px 6px 2px;
+    margin: 0px -1px;
+/*    margin-top: -1px;*/
+/*    margin-bottom: 0px;*/
+    border: 1px solid transparent;
+}
+input[data-special], .search-past-item[data-special] {
+    color: darkred;
+}
+.search-past-item[data-selected] {
+    color: white;
+
+/*    background-color: #5fa0f0;*/
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#99c5fb), to(#5fa0f0));
+    border: 1px solid #375C89;
+    outline: none;
+}
+.search-past-item-text {
+    -webkit-box-flex: 1;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.past-queries-close {
+    display: none;
+/*
+    outline: 1px solid red;*/
+
+    padding: 4px;
+    margin: -1px;
+    margin-top: -2px;
+    margin-bottom: -3px;
+    margin-right: -6px;
+
+    vertical-align: top;
+
+    cursor: pointer;
+}
+.search-past-item[data-selected]:hover > .past-queries-close {
+    display: inline;
+}
+
+#views-list {
+    position: fixed;
+    z-index: 3;
+    width: 40px;
+    height: 100%;
+
+    padding: 5px;
+    padding-top: 25px;
+    padding-right: 0px;
+
+    overflow: hidden;
+
+    background-color: white;
+    border-right: 2px ridge dimgray;
+
+    cursor: default;
+}
+.views-item {
+    display: -webkit-box;
+    -webkit-box-pack: center;
+    -webkit-box-align: center;
+
+    height: 40px;
+    margin-bottom: 5px;
+
+    border: 1px solid transparent;
+    border-right: none;
+    border-radius: 10px;
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
+    cursor: pointer;
+}
+.views-item[data-selected] {
+    border-color: red;
+    outline: none;
+    cursor: default;
+}
+
+.window-list {
+    -webkit-box-sizing: border-box;
+
+    position: absolute;
+
+    width: 100%;
+    height: 100%;
+    padding: 70px 0px 30px 18px; /** 70px 0px 30px 58px */
+}
+
+.window {
+    -webkit-box-flex: 1;
+    -webkit-box-orient: vertical;
+
+    display: -webkit-box;
+    position: relative;
+
+    outline: none;
+}
+
+.tab-icon-border, .tab-list-border {
+    -webkit-box-shadow: gainsboro 0px 1px 7px;
+}
+.tab-icon-border, .tab-icon {
+    height: 30px;
+}
+.tab-icon, .tab-list {
+    margin: 7px;
+}
+
+.window[data-selected] > .tab-icon-border,
+.window[data-selected] > .tab-list-border {
+    outline: 5px auto -webkit-focus-ring-color;
+}
+
+.tab-list-border {
+    -webkit-box-flex: 1;
+
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+
+    position: relative;
+
+    margin-top: -10px;
+
+    border-radius: 4px;
+    border-top-left-radius: 0px;
+}
+.tab-list {
+    -webkit-box-flex: 1;
+
+    padding: 2px;
+
+    background-color: white;
+    outline: none;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.tab-icon-border {
+    -webkit-box-sizing: border-box;
+
+    width: 105px;
+
+    margin-bottom: 9px;
+
+    border-bottom: none;
+    border-radius: 4px;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+.tab-icon-container {
+    position: relative;
+    z-index: 1;
+
+    height: 22px;
+
+    background-color: inherit;
+}
+.tab-icon {
+    -webkit-box-sizing: border-box;
+
+    display: -webkit-box;
+    -webkit-box-align: start;
+
+    padding: 1px 2px;
+
+    background-color: white;
+
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.03);
+    border-bottom: none;
+    border-radius: 2px;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+.tab-icon-text {
+    -webkit-box-flex: 1;
+
+    display: block;
+    padding: 0px;
+
+    background-color: transparent;
+
+    border: none;
+    outline: none;
+
+    font-size: 0.9em;
+}
+.window:not([data-focused]) .tab-icon-text {
+    cursor: default;
+}
+
+.tab-icon-dropdown, .tab-button-close, .window-button-close {
+    background-position: center;
+    background-repeat: no-repeat;
+
+    cursor: pointer;
+}
+
+.window-button-close, .tab-icon-dropdown {
+    position: absolute;
+    top: 10px;
+    left: 75px; /** 105 - 1 - 17 - 10 */
+
+    height: 16px;
+
+    border: 1px solid transparent;
+    border-radius: 5px;
+}
+
+.window-button-close {
+    z-index: 1;
+    width: 16px;
+
+    margin-left: 1px;
+
+    background-image: url(/images/button-close.png);
+    background-color: white;
+    /*background-color: rgba(255, 255, 255, 0.75);*/
+
+    /*width: 50px;
+    background-color: red;*/
+}
+
+.window-button-close:not([hidden]) + .tab-icon-dropdown {
+    margin-left: -18px;
+}
+
+.tab-icon-dropdown {
+    display: none;
+
+    z-index: 2;
+    width: 17px;
+
+    background-color: white;
+}
+
+.window[data-focused] .tab-icon-dropdown {
+    display: table-cell; /** This fixes a bug with the context menu. */
+}
+
+/*! hacky; should find a better way... */
+/*.tab-icon-dropdown:hover + .window-button-close {
+    display: none;
+}*/
+
+.tab-icon-dropdown:hover, .window-button-close:hover {
+    /*! -webkit-box-shadow: rgba(0, 0, 0, 0.1) 0px 1px 10px;*/
+    border: 1px solid gainsboro;
+}
+
+.tab-button-close:active {
+    border: 1px inset lightgray;
+    background-position: center 2px;
+}
+.tab-button-close {
+    width: 16px;
+
+    background-image: url(/images/button-close.png);
+    background-color: rgba(255, 255, 255, 0.75);
+
+    border: 1px solid transparent;
+    border-radius: 3px;
+}
+.tab-button-close[data-display-hover] {
+    display: none;
+}
+.tab:hover > .tab-button-close[data-display-hover] {
+    display: block;
+}
+.tab-button-close:hover {
+    background-color: white !important;
+}
+
+.tab {
+    display: -webkit-box;
+    /*! display: table;*/
+
+    padding: 2px 3px;
+    padding-right: 2px;
+
+    border: 1px solid transparent;
+    border-radius: 3px;
+
+    cursor: pointer;
+    outline: none;
+}
+
+.tab-favorite {
+    display: none;
+    background-image: url(/images/unfavorite.png);
+}
+.tab[data-favorited] > .tab-favorite {
+    display: block;
+    background-image: url(/images/favorite.png);
+}
+
+.tab-favicon, .tab-favorite {
+    width: 16px;
+    height: 16px;
+}
+.tab-favicon {
+    vertical-align: top;
+}
+.tab-text {
+    -webkit-box-flex: 1;
+    padding-left: 6px;
+    padding-right: 2px;
+
+    white-space: nowrap;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tab:hover {
+    /*! background-color: rgba(153, 197, 251, 0.6);*/
+    /*! background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgba(153, 197, 251, 0.6)), to(rgba(95, 160, 240, 0.6)));*/
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgb(153, 197, 251)), to(rgb(95, 160, 240)));
+    border: 1px solid #375C89;
+    color: white;
+    font-weight: bold;
+}
+
+.tab:hover > .tab-favicon,
+.tab[data-favorited] > .tab-favicon {
+    display: none;
+}
+.tab:hover > .tab-favorite {
+    display: block;
+}
+
+.tab[data-focused]:hover {
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#edbc5d), to(#d5a03a));
+    border: 1px solid #b7590d;
+}
+.tab[data-selected]:hover {
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#96e45c), to(#7acb31));
+}
+.tab[data-selected][data-focused]:hover {
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#d3e34e), to(#bfbd23));
+}
+.tab[data-focused] {
+    background-color: oldlace;
+    border: 1px solid goldenrod;
+}
+.tab[data-dropindent] {
+    border: 1px solid black;
+}
+.tab[data-selected] {
+    /*! background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(rgba(124, 252, 0, 0.4)), to(rgba(124, 252, 0, 0.5)));*/
+    /*! background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(transparent),
+                                       color-stop(0.1, rgba(0, 0, 0, 0.02)),
+                                       color-stop(0.9, rgba(0, 0, 0, 0.05)),
+                                       to(rgba(0, 0, 0, 0.1)));*/
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(transparent),
+                                       color-stop(0.1, rgba(0, 0, 0, 0.02)),
+                                       color-stop(0.8, transparent),
+                                       color-stop(0.9, rgba(0, 0, 0, 0.03)),
+                                       to(rgba(0, 0, 0, 0.04)));
+
+    /*! background-color: rgba(124, 252, 0, 0.35);*/
+    background-color: rgba(114, 255, 0, 0.3); /*! -> d4ffb3 */
+    border: 1px solid darkgreen !important;
+    border-radius: 0px;
+}
+.tab[data-selected][data-focused] {
+    background-color: #ecff94;
+}
+.tab[data-selected] + .tab[data-selected] {
+    border-top: 1px solid transparent !important;
+}
+
+/*!.url-input {
+    width: 100%;
+    padding: 0px;
+    margin: 0px;
+
+    text-indent: 2px;
+    border: none;
+    outline: 1px inset rgba(0, 0, 0, 0.1);
+    outline-offset: -1px;
+}*/

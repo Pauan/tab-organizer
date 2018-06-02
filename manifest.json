@@ -1,0 +1,30 @@
+{
+   "manifest_version": 2,
+   "content_security_policy": "script-src 'self' https://ssl.google-analytics.com; object-src 'self'",
+   "background": {
+      "page": "background.html",
+      "persistent": true
+   },
+   "browser_action": {
+      "default_icon": "icons/icon19.png",
+      "default_title": "Tab Organizer"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "lib/Keyboard.js" ],
+      "matches": [ "http://*/*", "https://*/*", "ftp://*/*" ],
+      "run_at": "document_end"
+   } ],
+   "default_locale": "en",
+   "description": "Manager for quickly finding and organizing all your tabs.",
+   "icons": {
+      "128": "icons/icon128.png",
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+   },
+   "name": "Tab Organizer",
+   "options_page": "options.html",
+   "permissions": [ "chrome://favicon/", "bookmarks", "history", "tabs", "idle" ],
+   "version": "4.3"
+}

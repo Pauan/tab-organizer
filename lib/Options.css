@@ -1,0 +1,248 @@
+@charset "UTF-8";
+
+/**
+ *   Copyright © 2010 Paul Chapman <pcxunlimited@gmail.com>
+ *
+ *   This file is part of Options.
+ *
+ *   Options is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU Lesser General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   Options is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU Lesser General Public License for more details.
+ *
+ *   You should have received a copy of the GNU Lesser General Public License
+ *   along with Options.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+[hidden] {
+    display: none !important;
+}
+
+button.Options-button {
+    -webkit-box-shadow: rgba(0, 0, 0, 0.1) 1px 1px 4px;
+
+    position: relative;
+    z-index: 9002;
+    height: 32px;
+    min-height: 22px;
+    padding: 2px 14px;
+    margin-left: 10px;
+
+    border: 1px outset dimgray;
+    border-radius: 3px;
+
+    color: black;
+    font: menu;
+    font-size: 14px;
+    text-shadow: white 0px 1px 0px;
+
+    background-color: #feffff;
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(transparent),
+                                       color-stop(0.2, rgba(0, 0, 0, 0.04)),
+                                       color-stop(0.7, rgba(0, 0, 0, 0.05)),
+                                       to(rgba(0, 0, 0, 0.1)));
+
+    vertical-align: middle;
+    cursor: pointer;
+}
+button.Options-button:not(:disabled):active,
+button.Options-button:not(:disabled):hover {
+    background-color: #ebf5ff; /*! #e6f0ff */
+}
+button.Options-button:not(:disabled):active {
+    -webkit-box-shadow: none;
+
+    padding-bottom: 0px;
+    border: 1px inset dimgray;
+
+    background-image: -webkit-gradient(linear, 0% 100%, 0% 0%,
+                                       from(transparent),
+                                       color-stop(0.05, rgba(0, 0, 0, 0.05)),
+                                       color-stop(0.95, rgba(0, 0, 0, 0.05)),
+                                       to(rgba(0, 0, 0, 0.1)));
+}
+button.Options-button:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+input[data-options-changed],
+select[data-options-changed] {
+    border-color: blue !important;
+}
+input[type="checkbox"] {
+    margin-top: 2px !important;
+}
+input[type="checkbox"], input[type="radio"] {
+    top: 1px;
+    margin-right: 5px !important;
+}
+input[type="checkbox"][data-options-changed] + span,
+input[type="radio"][data-options-changed] + span {
+    color: blue !important;
+}
+
+.Options-group {
+    display: -webkit-box;
+}
+.Options-indent {
+    margin-left: 15px;
+}
+
+#Options-tooltip, #Options-root {
+    font: menu;
+    font-size: 14px;
+    text-align: center;
+}
+#Options-tooltip {
+    -webkit-box-shadow: gainsboro 1px 1px 5px;
+
+    position: fixed;
+    background-color: #fcfeff;
+    border: 1px solid midnightblue;
+    padding: 2px 4px;
+    z-index: 9001;
+}
+#Options-tooltip-text {
+    color: firebrick;
+}
+
+#Options-root input {
+    -webkit-box-shadow: lightgray 0px 0px 5px;
+
+    position: relative;
+    z-index: 9001;
+
+    margin: 0px 3px;
+    text-align: center;
+    border: 1px solid dimgray;
+    border-radius: 3px;
+}
+#Options-root select {
+    -webkit-box-shadow: lightgray 0px 0px 5px;
+
+    position: relative;
+    z-index: 9001;
+
+    padding: 1px 2px;
+    margin: 0px 5px;
+    margin-top: -1px;
+
+    border: 1px solid dimgray;
+    border-radius: 3px;
+
+    background-color: #feffff;
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(transparent),
+                                       color-stop(0.2, rgba(0, 0, 0, 0.04)),
+                                       color-stop(0.7, rgba(0, 0, 0, 0.05)),
+                                       to(rgba(0, 0, 0, 0.1)));
+}
+
+
+#Options-root {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+
+    background: #6BACCF repeat-x top left;
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(rgba(0, 0, 0, 0.1)),
+                                       to(transparent));
+
+    cursor: default;
+}
+#Options-wrapper {
+    vertical-align: middle;
+}
+#Options-outer {
+    -webkit-box-shadow: dimgray 1px 1px 10px;
+
+    display: inline-block;
+    padding: 15px;
+    padding-top: 5px;
+
+    text-align: left;
+
+    background-color: #fafafa;
+    border: 1px outset black;
+    border-radius: 4px;
+}
+#Options-title {
+    display: none;
+
+    font-size: 13px;
+    font-variant: small-caps;
+    text-align: right;
+    letter-spacing: 2px;
+}
+#Options-inner {
+    width: 100%;
+    height: 100%;
+    max-height: 600px;
+
+    margin: 10px 0px 10px;
+    padding: 0px 0px 15px;
+    border-bottom: 1px inset #eeeeee;
+
+    vertical-align: top;
+}
+#Options-inner hr {
+    border-top: none;
+    border-left: none;
+}
+#Options-list {
+    position: relative;
+    z-index: 9001;
+
+    height: 100%;
+    padding: 0px;
+    margin: 0px;
+    margin-right: 18px;
+
+    background-color: #f9fcff;
+    background-color: white;
+    border: 1px inset grey;
+
+    white-space: nowrap;
+    list-style: none;
+}
+.Options-list-item {
+    padding: 5px 25px;
+    margin: -1px;
+
+    border: 1px solid transparent;
+
+    cursor: pointer;
+}
+.Options-list-item[data-selected] {
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%,
+                                       from(rgb(153, 197, 251)),
+                                       to(rgb(95, 160, 240)));
+    border-color: dimgray;
+    color: white;
+
+    cursor: default;
+}
+.Options-list-separator {
+    border-color: lightgrey;
+    margin: 5px 0px;
+}
+#Options-content {
+    width: 100%;
+    padding: 5px 0px;
+}
+#Options-buttons {
+    float: right;
+    margin-top: 10px;
+    margin-left: 20px;
+}

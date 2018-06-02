@@ -1,0 +1,33 @@
+@charset "UTF-8";
+.tab-icon-border {
+    background-color: #b5b5b5;
+}
+.tab-list-border {
+    background-image: -webkit-gradient(linear, 0% 0%, 5% 100%, from(#b5b5b5), to(#e3e3e3));
+}
+
+.window[data-focused] .tab-icon-border {
+    background-color: #e3e3e3;
+}
+.window[data-focused] .tab-list-border {
+    background-image: -webkit-gradient(linear, 0% 0%, 5% 100%, from(#e3e3e3), to(#b5b5b5));
+}
+
+.tab-icon-border, .tab-list-border {
+    border: 1px outset #535353;
+}
+.tab-icon, .tab-list {
+    border: 1px inset #969696;
+}
+
+.tab-icon-text {
+    color: dimgray;
+}
+
+.tab-icon-dropdown {
+    background-image: url('Grey-button-menu.png');
+}
+
+button.Options-button:active, button.Options-button:hover {
+    background-color: #f0f0f0 !important;
+}

@@ -1,0 +1,27 @@
+@charset "UTF-8";
+body {
+    overflow-y: hidden;
+}
+
+.window-list {
+    display: -webkit-box;
+    -webkit-box-pack: center;
+}
+
+.window {
+    min-width: 89px; /** 105px */
+    max-width: 400px;
+    padding-right: 32px;
+}
+.window[data-selected] {
+    position: relative;
+    z-index: 2;
+}
+.window[data-last] {
+    padding-right: 18px;
+    min-width: 400px;
+}
+
+.tab-list-border {
+    width: 400px;
+}

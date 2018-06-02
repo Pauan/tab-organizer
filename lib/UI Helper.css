@@ -1,0 +1,192 @@
+@charset "UTF-8";
+
+.UI-link {
+    display: inline-block;
+    color: #00C;
+    cursor: pointer;
+    text-decoration: underline;
+    white-space: nowrap;
+}
+button.UI-link {
+    padding: 0px;
+    margin: 0px;
+    background-color: transparent;
+    border: none;
+}
+
+.UI-contextMenu-submenu-list, .UI-contextMenu {
+    -webkit-box-shadow: dimgray 0px 1px 5px; /*! 1px 1px 4px */
+
+    padding: 2px 2px;
+
+    background-color: white;
+    border: 1px solid dimgray;
+
+    list-style: none;
+    cursor: default;
+}
+
+.UI-contextMenu-submenu-list {
+    -webkit-box-sizing: border-box;
+
+    height: 100%;
+
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.UI-contextMenu {
+    position: absolute;
+
+    top: 100%;
+    margin-left: -2px;
+    margin-top: -2px;
+
+    font: menu;
+    font-size: 13px;
+
+    text-shadow: none;
+
+    text-align: left;
+    white-space: nowrap;
+}
+
+.UI-contextMenu-space {
+    margin: 2px 0px;
+}
+.UI-contextMenu-separator {
+    border: none;
+    border-top: 1px solid #dcdcdc; /*! #acacac */
+    margin: 3px 4px;
+}
+
+.UI-contextMenu-item {
+    cursor: pointer;
+
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.UI-contextMenu-item,
+.UI-contextMenu-submenu {
+    padding: 1px 6px 2px;
+    border: 1px solid transparent;
+    color: black;
+}
+
+.UI-contextMenu-item[data-selected], .UI-contextMenu-submenu[data-selected] {
+    color: white;
+    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#99c5fb), to(#5fa0f0));
+    border-color: #375C89;
+    outline: none;
+}
+
+.UI-contextMenu-item[data-disabled],
+.UI-contextMenu-submenu[data-disabled] {
+    opacity: 0.33333333;
+    cursor: default;
+}
+
+.UI-contextMenu-submenu {
+    position: relative;
+    margin: 0px -3px;
+    padding-left: 9px;
+    padding-right: 9px;
+
+    outline: none !important;
+}
+
+.UI-contextMenu-arrow {
+    float: right;
+    margin-left: 4px;
+    margin-top: 5px;
+    margin-right: -4px;
+}
+
+/*!
+.UI-contextMenu-submenu-padding,
+.UI-contextMenu-submenu-mask {
+    outline: 1px solid red;
+}*/
+
+.UI-contextMenu-submenu-padding {
+    -webkit-box-sizing: border-box;
+
+    position: absolute;
+    z-index: 2;
+    left: 100%;
+    top: 0px;
+
+    padding: 14px;
+    margin-left: -15px;
+    margin-top: -18px;
+}
+.UI-contextMenu-submenu-padding[data-overflow-x] {
+    left: auto;
+    right: 100%;
+    margin-right: -15px;
+}
+
+.UI-contextMenu-submenu-mask {
+    position: absolute;
+    z-index: 1;
+    left: 0px;
+    top: 0px;
+
+    width: 100%;
+    height: 100%;
+
+    padding: 0px;
+/*!
+    padding: 7px;
+    margin-top: -7px;
+    margin-left: -7px;*/
+}
+
+
+.UI-contextMenu-submenu-list,
+.UI-contextMenu-submenu-mask,
+.UI-contextMenu-submenu-padding {
+    -webkit-transition: visibility 0s 0.5s;
+    -webkit-transition: opacity 0.1s 0.4s;
+
+    visibility: hidden;
+    opacity: 0;
+}
+.UI-contextMenu-submenu[data-selected] .UI-contextMenu-submenu-list,
+.UI-contextMenu-submenu[data-selected] .UI-contextMenu-submenu-mask,
+.UI-contextMenu-submenu[data-selected] .UI-contextMenu-submenu-padding {
+    -webkit-transition: visibility 0s 0.1s;
+    -webkit-transition: opacity 0.105s;
+
+    visibility: visible;
+    opacity: 1;
+}
+
+
+.UI-scrollBar {
+    position: absolute;
+    top: 0px;
+    z-index: 9001;
+
+    width: 20px;
+    height: 100%;
+
+}
+.UI-scrollBar-marker {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    height: 2px;
+    margin-top: -1px;
+    background-color: black;
+}
+.UI-scrollBar-track {
+    position: absolute;
+
+    width: 100%;
+    height: 100px;
+
+    background-color: red;
+    opacity: 0.5;
+}

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <title>-</title>
+
+    <script>
+        "use strict";
+
+        chrome.tabs.getCurrent(function (tab) {
+            chrome.tabs.remove(tab.id);
+        });
+    </script>
+</head>
+</html>

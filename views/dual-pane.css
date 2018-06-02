@@ -1,0 +1,28 @@
+@charset "UTF-8";
+body {
+    display: -webkit-box;
+    padding: 0px 20px !important;
+}
+
+.window-list {
+    position: static !important;
+
+    -webkit-box-flex: 1;
+
+    height: 426px !important;
+
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+    padding-top: 0px !important;
+    margin-top: 70px;
+
+    overflow: hidden;
+}
+
+.window {
+    margin-bottom: 40px;
+    padding: 0px !important;
+}
+.window[data-last] {
+    margin-bottom: 0px;
+}
