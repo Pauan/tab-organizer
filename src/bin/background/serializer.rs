@@ -1,12 +1,12 @@
 use serde;
 use serde_json;
-use stdweb::{PromiseFuture, Once};
+use stdweb::Once;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::cell::{RefMut, RefCell};
-use futures::Future;
-use web_extensions;
+use web_extensions::storage;
 use web_extensions::traits::*;
+use tab_organizer::spawn;
 
 
 #[derive(Debug)]
@@ -31,6 +31,8 @@ impl<'a, A> DerefMut for Transaction<'a, A> {
 #[derive(Debug)]
 struct SerializerState<A> {
     value: A,
+    timer: u32,
+    name: &'static str,
     changed: bool,
     is_pending: bool,
 }
@@ -38,6 +40,7 @@ struct SerializerState<A> {
 #[derive(Debug)]
 pub struct Serializer<A>(Rc<RefCell<SerializerState<A>>>);
 
+// TODO figure out a way to make derive work
 impl<A> Clone for Serializer<A> {
     fn clone(&self) -> Self {
         Serializer(self.0.clone())
@@ -45,9 +48,11 @@ impl<A> Clone for Serializer<A> {
 }
 
 impl<A> Serializer<A> {
-    pub fn new(value: A) -> Self {
+    pub fn new(value: A, timer: u32, name: &'static str) -> Self {
         Serializer(Rc::new(RefCell::new(SerializerState {
             value,
+            timer,
+            name,
             changed: false,
             is_pending: false,
         })))
@@ -57,16 +62,11 @@ impl<A> Serializer<A> {
 impl<A> Serializer<A> where A: serde::Serialize + 'static {
     fn flush(&self) {
         let mut borrow = self.0.borrow_mut();
-
         borrow.changed = false;
         borrow.is_pending = false;
 
         let serialized = serde_json::to_string(&borrow.value).unwrap();
-
-        PromiseFuture::spawn(
-            web_extensions::storage::Local.set("state", serialized)
-                .map_err(|e| console!(error, e))
-        );
+        spawn(storage::Local.set(borrow.name, serialized));
     }
 
     pub fn transaction<B, F>(&self, f: F) -> B where F: FnOnce(Transaction<A>) -> B {
@@ -84,7 +84,7 @@ impl<A> Serializer<A> where A: serde::Serialize + 'static {
 
                 setTimeout(function () {
                     callback();
-                }, 1000);
+                }, @{borrow.timer});
             }
         }
 

@@ -24,8 +24,12 @@ function replace(s) {
     return s.replace(/fetch\( *"([^"]+)" *\)/g, "fetch(chrome.runtime.getURL(\"js/$1\"))");
 }
 
+function bin(name) {
+    mv_map("target/wasm32-unknown-unknown/" + type + "/" + name + ".js", "build/js/" + name + ".js", replace);
+    mv("target/wasm32-unknown-unknown/" + type + "/" + name + ".wasm", "build/js/" + name + ".wasm");
+}
+
 
 mkdir("build/js");
-mv_map("target/wasm32-unknown-unknown/" + type + "/background.js", "build/js/background.js", replace);
-mv("target/wasm32-unknown-unknown/" + type + "/background.wasm", "build/js/background.wasm");
-
+bin("background");
+bin("sidebar");

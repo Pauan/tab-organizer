@@ -1,4 +1,4 @@
-#![feature(proc_macro, conservative_impl_trait, generators)]
+/*#![feature(proc_macro, proc_macro_non_items, generators, pin)]
 
 #[macro_use]
 extern crate tab_organizer;
@@ -6,44 +6,19 @@ extern crate tab_organizer;
 extern crate stdweb;
 extern crate web_extensions;
 extern crate discard;
-extern crate futures_await as futures;
+extern crate futures;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
+extern crate uuid;
 
-use futures::future::Future;
 use discard::DiscardOnDrop;
-use stdweb::PromiseFuture;
-
 
 mod migrate;
 mod state;
 mod serializer;
-
-
-use futures::prelude::{async, await};
-use stdweb::web::error::Error;
-use web_extensions::windows;
-
-#[async]
-fn initialize() -> Result<(), Error> {
-    let (state, windows) = await!(
-        migrate::initialize().join(
-        windows::get_all(true, &[windows::WindowKind::Normal]))
-    )?;
-
-    console!(log, windows);
-
-    let state = serializer::Serializer::new(state);
-
-    state.transaction(|state| {
-        log!("{:#?}", *state);
-    });
-
-    Ok(())
-}
-
+mod initialize;
 
 fn main() {
     console!(log, "Hi!!!");
@@ -52,7 +27,10 @@ fn main() {
         log!("{:#?} {:#?}", changes, kind);
     }));
 
-    PromiseFuture::spawn(
-        initialize().map_err(|e| console!(error, e))
-    );
+    tab_organizer::spawn(initialize::initialize())
+}
+*/
+
+fn main() {
+
 }
