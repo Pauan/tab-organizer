@@ -11,7 +11,7 @@ use dominator::traits::*;
 use dominator::text;
 use dominator::animation::{Percentage, MutableAnimation, AnimatedMapBroadcaster};
 use dominator::animation::easing;
-use dominator::events::MouseOverEvent;
+use dominator::events::{MouseDownEvent, MouseOverEvent, MouseMoveEvent, MouseUpEvent, IMouseEvent};
 use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
@@ -38,148 +38,137 @@ impl Tab {
 }
 
 
-struct Dragging {
-    tab_index: Option<usize>,
+enum DragState {
+    DragStart { x: i32, y: i32, tab_id: usize },
+    // TODO maybe this should be usize rather than Option<usize>
+    Dragging { tab_index: Option<usize> },
 }
 
 struct State {
     tabs: MutableVec<Rc<Tab>>,
-    dragging: Mutable<Option<Dragging>>,
+    dragging: Mutable<Option<DragState>>,
 }
 
 impl State {
-    fn with_dragging_indexes<A, F, D>(&self, id: usize, f: F, default: D) -> A
-        where F: FnOnce(&[Rc<Tab>], usize, usize) -> A,
-              D: FnOnce() -> A {
-
+    fn get_dragging_index(&self) -> Option<usize> {
         self.dragging.with_ref(|dragging| {
-            if let Some(dragging) = dragging {
-                self.tabs.with_slice(|slice| {
-                    // The index of the tab which is being dragged
-                    let mut old_index = None;
-
-                    // The index of the tab which has the id `id`
-                    let mut new_index = None;
-
-                    let old_index = dragging.tab_index.unwrap_or_else(|| slice.len());
-                    let new_index = slice.iter().position(|tab| tab.id == id).unwrap();
-
-                    for (index, tab) in slice.iter().enumerate() {
-                        let old_done = if let None = old_index {
-                            if dragging.tab.map(|id| tab.id == id).unwrap_or(false) {
-                                old_index = Some(index);
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            true
-                        };
-
-                        let new_done = if let None = new_index {
-                            if tab.id == id {
-                                new_index = Some(index);
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            true
-                        };
-
-                        if old_done && new_done {
-                            break;
-                        }
-                    }
-
-                    let old_index = old_index.unwrap_or_else(|| slice.len());
-                    let new_index = new_index.unwrap();
-
-                    f(slice, old_index, new_index)
-                })
+            if let Some(DragState::Dragging { tab_index }) = dragging {
+                Some(tab_index.unwrap_or_else(|| self.tabs.len()))
 
             } else {
-                default()
+                None
             }
         })
     }
 
-    fn should_be_dragging(&self, id: usize) -> bool {
-        self.with_dragging_indexes(id, |_slice, old_index, new_index| {
-            new_index > old_index
-        }, || false)
+    fn should_be_dragging(&self, new_index: usize) -> bool {
+        self.get_dragging_index().map(|old_index| new_index > old_index).unwrap_or(false)
     }
 
-    fn get_dragging(&self, id: usize) -> Dragging {
-        self.with_dragging_indexes(id, |slice, old_index, new_index| {
-            if old_index <= new_index {
-                let new_index = new_index + 1;
-
-                if new_index < slice.len() {
-                    Dragging {
-                        tab: Some(slice[new_index].id),
-                    }
-
-                } else {
-                    Dragging {
-                        tab: None,
-                    }
-                }
-
-            } else {
-                Dragging {
-                    tab: Some(id),
-                }
-            }
-
-        }, || {
-            Dragging {
-                tab: Some(id),
-            }
-        })
-    }
-
-    fn update_dragging_tabs(&self, tab: Option<usize>) {
+    fn update_dragging_tabs<F>(&self, tab_index: Option<usize>, mut f: F) where F: FnMut(&Tab, Percentage) {
         self.tabs.with_slice(|slice| {
-            if let Some(id) = tab {
+            if let Some(tab_index) = tab_index {
                 let mut seen = false;
 
-                for tab in slice.iter() {
-                    if tab.id == id {
+                for (index, tab) in slice.iter().enumerate() {
+                    if index == tab_index {
                         seen = true;
-                        tab.drag_over.animate_to(Percentage::new(1.0));
+                        f(&tab, Percentage::new(1.0));
 
                     } else if seen {
-                        tab.drag_over.animate_to(Percentage::new(1.0));
+                        f(&tab, Percentage::new(1.0));
 
                     } else {
-                        tab.drag_over.animate_to(Percentage::new(0.0));
+                        f(&tab, Percentage::new(0.0));
                     }
                 }
 
             } else {
                 for tab in slice.iter() {
-                    tab.drag_over.animate_to(Percentage::new(0.0));
+                    f(&tab, Percentage::new(0.0));
                 }
             }
         });
     }
 
-    fn drag_over(&self, id: usize) {
-        let dragging = self.get_dragging(id);
+    fn drag_start(&self, x: i32, y: i32, tab_id: usize) {
+        let is_dragging = self.dragging.with_ref(|dragging| dragging.is_some());
 
-        let tab = dragging.tab;
+        if !is_dragging {
+            self.dragging.set(Some(DragState::DragStart { x, y, tab_id }));
+        }
+    }
 
-        self.dragging.set(Some(dragging));
+    fn drag_move(&self, new_x: i32, new_y: i32) {
+        let tab_index = self.dragging.with_ref(|dragging| {
+            if let Some(DragState::DragStart { x, y, tab_id }) = dragging {
+                let x = (x - new_x) as f64;
+                let y = (y - new_y) as f64;
 
-        self.update_dragging_tabs(tab);
+                if x.hypot(y) > 5.0 {
+                    let tab_id = *tab_id;
+                    // TODO what if this is None ?
+                    self.tabs.with_slice(|slice| slice.iter().position(|tab| tab.id == tab_id))
+
+                } else {
+                    None
+                }
+
+            } else {
+                None
+            }
+        });
+
+        if let Some(tab_index) = tab_index {
+            let tab_index = Some(tab_index);
+
+            self.dragging.set(Some(DragState::Dragging { tab_index }));
+
+            self.update_dragging_tabs(tab_index, |tab, percentage| {
+                tab.drag_over.jump_to(percentage);
+            });
+        }
+    }
+
+    fn drag_over(&self, new_index: usize) {
+        if let Some(old_index) = self.get_dragging_index() {
+            let tab_index = if old_index <= new_index {
+                let new_index = new_index + 1;
+
+                if new_index < self.tabs.len() {
+                    Some(new_index)
+
+                } else {
+                    None
+                }
+
+            } else {
+                Some(new_index)
+            };
+
+            self.dragging.set(Some(DragState::Dragging { tab_index }));
+
+            self.update_dragging_tabs(tab_index, |tab, percentage| {
+                tab.drag_over.animate_to(percentage);
+            });
+        }
+    }
+
+    fn drag_end(&self) {
+        self.dragging.set(None);
+
+        self.tabs.with_slice(|slice| {
+            for tab in slice.iter() {
+                tab.drag_over.jump_to(Percentage::new(0.0));
+            }
+        });
     }
 }
 
 
 fn main() {
     let state = Rc::new(State {
-        tabs: MutableVec::new_with_values((0..5000).map(|id| {
+        tabs: MutableVec::new_with_values((0..10).map(|id| {
             Rc::new(Tab::new(id, "foo", "foo"))
         }).collect()),
         dragging: Mutable::new(None),
@@ -191,9 +180,28 @@ fn main() {
         setInterval(@{clone!(state => move || {
             state.tabs.remove(0);
             state.tabs.insert_cloned(0, Rc::new(Tab::new(top_id, "foo", "foo")));
+
+            top_id += 1;
+
+            state.tabs.pop().unwrap();
+            state.tabs.push_cloned(Rc::new(Tab::new(top_id, "foo", "foo")));
+
             top_id += 1;
         })}, 550);
     }
+
+    stylesheet!("html, body", {
+        style("-moz-user-select", "none");
+
+        style_signal("cursor", state.dragging.signal_map(|dragging| {
+            if let Some(DragState::Dragging { .. }) = dragging {
+                Some("grabbing")
+
+            } else {
+                None
+            }
+        }));
+    });
 
     let group_style = class! {
         style("border", "1px solid black");
@@ -212,6 +220,15 @@ fn main() {
         style("border-radius", "5px");
         style("height", "20px");
         //style("transform", "translate3d(0px, 0px, 0px)");
+
+        style_signal("cursor", state.dragging.signal_map(|dragging| {
+            if let Some(DragState::Dragging { .. }) = dragging {
+                None
+
+            } else {
+                Some("pointer")
+            }
+        }));
     };
 
     let tab_text_style = class! {
@@ -223,10 +240,16 @@ fn main() {
 
     dominator::append_dom(&dominator::body(),
         html!("div", {
+            // TODO only attach this when dragging
+            global_event(clone!(state => move |_: MouseUpEvent| {
+                state.drag_end();
+            }));
+
+
             class(&group_style);
 
             style_signal("padding-bottom", state.dragging.signal_map(|dragging| {
-                if dragging.is_some() {
+                if let Some(DragState::Dragging { .. }) = dragging {
                     Some("25px")
 
                 } else {
@@ -234,9 +257,11 @@ fn main() {
                 }
             }));
 
-            children_signal_vec(state.tabs.signal_vec_cloned().animated_map(500.0, move |tab, height| {
-                if state.should_be_dragging(tab.id) {
-                    tab.drag_over.jump_to(Percentage::new(1.0));
+            children_signal_vec(state.tabs.signal_vec_cloned().enumerate().animated_map(500.0, move |(index, tab), height| {
+                if let Some(index) = index.get() {
+                    if state.should_be_dragging(index) {
+                        tab.drag_over.jump_to(Percentage::new(1.0));
+                    }
                 }
 
                 fn px(t: Option<Percentage>, min: f64, max: f64) -> Option<String> {
@@ -279,8 +304,21 @@ fn main() {
                         }),
                     ]);
 
-                    event(clone!(state => move |_: MouseOverEvent| {
-                        state.drag_over(tab.id);
+                    event(clone!(state, index => move |_: MouseOverEvent| {
+                        if let Some(index) = index.get() {
+                            state.drag_over(index);
+                        }
+                    }));
+
+                    event(clone!(state, index => move |e: MouseDownEvent| {
+                        if let Some(_) = index.get() {
+                            state.drag_start(e.client_x(), e.client_y(), tab.id);
+                        }
+                    }));
+
+                    // TODO only attach this when dragging
+                    global_event(clone!(state => move |e: MouseMoveEvent| {
+                        state.drag_move(e.client_x(), e.client_y());
                     }));
                 })
             }));

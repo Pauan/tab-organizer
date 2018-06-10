@@ -117,7 +117,7 @@ source = "git+https://github.com/rust-lang-nursery/futures-rs#7ed029c8763bc9b6ad
 [[package]]
 name = "futures-signals"
 version = "0.1.0"
-source = "git+https://github.com/Pauan/rust-signals#7632d0096e9fba9f069ae0f875094e400a5301d7"
+source = "git+https://github.com/Pauan/rust-signals#37ef4b81a1132c87ad8e0a089fa360f4e64e1104"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs)",
