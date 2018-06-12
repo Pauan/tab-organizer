@@ -16,7 +16,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "dominator"
 version = "0.1.1"
-source = "git+https://github.com/Pauan/rust-dominator#b203b0e030f47512977dfc9630c94b83db7ada36"
+source = "git+https://github.com/Pauan/rust-dominator#b8e18b3d25cbb6fdc293f1e37afabba2036b290c"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-core 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs)",
@@ -117,7 +117,7 @@ source = "git+https://github.com/rust-lang-nursery/futures-rs#7ed029c8763bc9b6ad
 [[package]]
 name = "futures-signals"
 version = "0.1.0"
-source = "git+https://github.com/Pauan/rust-signals#37ef4b81a1132c87ad8e0a089fa360f4e64e1104"
+source = "git+https://github.com/Pauan/rust-signals#be5cfba1ec88800d1ea5cc2f12e81e9501cd9074"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs)",
