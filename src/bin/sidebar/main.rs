@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate futures_signals;
 #[macro_use]
 extern crate dominator;
@@ -75,6 +76,7 @@ struct Tab {
     favicon_url: Mutable<Option<Arc<String>>>,
     title: Mutable<Option<Arc<String>>>,
     url: Mutable<Option<Arc<String>>>,
+    unloaded: Mutable<bool>,
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
     drag_over: MutableAnimation,
@@ -87,6 +89,7 @@ impl Tab {
             favicon_url: Mutable::new(None),
             title: Mutable::new(Some(Arc::new(title.to_owned()))),
             url: Mutable::new(Some(Arc::new(url.to_owned()))),
+            unloaded: Mutable::new(true),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             drag_over: MutableAnimation::new(125.0),
@@ -328,12 +331,19 @@ lazy_static! {
     static ref STATE: Arc<State> = Arc::new(State {
         groups: MutableVec::new_with_values((0..3).map(|id| {
             Arc::new(Group::new(id, (0..10).map(|id| {
-                Arc::new(Tab::new(id, "foo", "foo"))
+                Arc::new(Tab::new(id, "Foo", "Bar"))
             }).collect()))
         }).collect()),
 
         dragging: Dragging::new(),
     });
+
+    static ref TOP_STYLE: String = class! {
+        style("font-family", "sans-serif");
+        style("font-size", "13px");
+        style("width", "100%");
+        style("height", "100%");
+    };
 
     static ref GROUP_STYLE: String = class! {
         style("border", "1px solid black");
@@ -375,6 +385,11 @@ lazy_static! {
                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)");
     };
 
+    static ref TAB_UNLOADED_STYLE: String = class! {
+        style("color", "hsl(0, 0%, 30%)");
+        style("opacity", "0.75");
+    };
+
     static ref TAB_SELECTED_STYLE: String = class! {
         style("background-color", "hsl(100, 78%, 80%)");
         style("border-color", "hsl(100, 50%, 55%) hsl(100, 50%, 50%) hsl(100, 50%, 45%) hsl(100, 50%, 50%)");
@@ -395,7 +410,7 @@ lazy_static! {
         style("padding-right", "1px");
     };
 
-    static ref TAB_DRAGGING_STYLE: String = class! {
+    static ref DRAGGING_STYLE: String = class! {
         style("position", "fixed");
         style("left", "0px");
         style("top", "0px");
@@ -403,6 +418,10 @@ lazy_static! {
         style("pointer-events", "none");
         style("opacity", "0.98");
         style("z-index", HIGHEST_ZINDEX);
+    };
+
+    static ref TAB_DRAGGING_STYLE: String = class! {
+        style("opacity", "1");
     };
 }
 
@@ -439,7 +458,42 @@ fn main() {
         }}, 550);
     }
 
+    stylesheet!("*", {
+        style("text-overflow", "ellipsis");
+
+        style("vertical-align", "middle"); /* TODO I can probably get rid of this */
+
+        /* TODO is this correct ?*/
+        style("background-repeat", "no-repeat");
+        style("background-size", "100% 100%");
+        style("cursor", "inherit");
+        style("position", "relative");
+
+        style("box-sizing", "border-box");
+
+        /* TODO are these a good idea ? */
+        style("outline-width", "0px");
+        style("outline-color", "transparent");
+        style("outline-style", "solid");
+
+        style("border-width", "0px");
+        style("border-color", "transparent");
+        style("border-style", "solid");
+
+        style("margin", "0px");
+        style("padding", "0px");
+
+        style("background-color", "transparent");
+
+        style("flex-shrink", "0"); /* 1 */
+        style("flex-grow", "0"); /* 1 */
+        style("flex-basis", "auto"); /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
+    });
+
     stylesheet!("html, body", {
+        style("width", "100%");
+        style("height", "100%");
+
         style("-moz-user-select", "none");
 
         style_signal("cursor", STATE.dragging.state.signal_ref(|dragging| {
@@ -463,6 +517,8 @@ fn main() {
             class(&TAB_FAVICON_STYLE);
             class(&ICON_STYLE);
 
+            class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal());
+
             attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
 
             mixin(mixin);
@@ -474,6 +530,23 @@ fn main() {
             class(&TAB_TEXT_STYLE);
 
             children(&mut [
+                text_signal(map_ref! {
+                    let title = tab.title.signal_cloned(),
+                    let unloaded = tab.unloaded.signal() => {
+                        if *unloaded {
+                            if title.is_some() {
+                                "➔ "
+
+                            } else {
+                                "➔"
+                            }
+
+                        } else {
+                            ""
+                        }
+                    }
+                }),
+
                 text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
             ]);
 
@@ -481,8 +554,22 @@ fn main() {
         })
     }
 
+    fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
+        html!("div", {
+            class(&TAB_STYLE);
+
+            class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal());
+
+            children(&mut [favicon, text]);
+
+            mixin(mixin);
+        })
+    }
+
     dominator::append_dom(&dominator::body(),
         html!("div", {
+            class(&TOP_STYLE);
+
             // TODO only attach this when dragging
             global_event(move |_: MouseUpEvent| {
                 STATE.drag_end();
@@ -495,7 +582,7 @@ fn main() {
 
             children(&mut [
                 html!("div", {
-                    class(&TAB_DRAGGING_STYLE);
+                    class(&DRAGGING_STYLE);
 
                     style_signal("display", STATE.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { .. }) = dragging {
@@ -532,41 +619,38 @@ fn main() {
                             animation.animate_to(Percentage::new(1.0));
 
                             Dom::with_state(animation, |animation| {
-                                html!("div", {
-                                    class(&TAB_STYLE);
-                                    class(&TAB_SELECTED_STYLE);
-                                    class(&TAB_SHADOW_STYLE);
+                                tab_template(&tab,
+                                    tab_favicon(&tab, |dom| dom),
+                                    tab_text(&tab, |dom| dom),
+                                    |dom: DomBuilder<HtmlElement>| dom
+                                        .class(&TAB_SELECTED_STYLE)
+                                        .class(&TAB_SHADOW_STYLE)
+                                        .class(&TAB_DRAGGING_STYLE)
 
-                                    style("z-index", &format!("-{}", index));
+                                        .style("z-index", &format!("-{}", index))
 
-                                    // TODO use ease-out easing
-                                    style_signal("margin-top", animation.signal().map(move |t| {
-                                        if index == 0 {
-                                            None
+                                        // TODO use ease-out easing
+                                        .style_signal("margin-top", animation.signal().map(move |t| {
+                                            if index == 0 {
+                                                None
 
-                                        } else if index < 5 {
-                                            px(t.none_if(0.0), 0.0, -18.0)
+                                            } else if index < 5 {
+                                                px(t.none_if(0.0), 0.0, -18.0)
 
-                                        } else {
-                                            px(t.none_if(0.0), 0.0, -20.0)
-                                        }
-                                    }));
+                                            } else {
+                                                px(t.none_if(0.0), 0.0, -20.0)
+                                            }
+                                        }))
 
-                                    // TODO use ease-out easing
-                                    style_signal("opacity", animation.signal().map(move |t| {
-                                        if index < 5 {
-                                            None
+                                        // TODO use ease-out easing
+                                        .style_signal("opacity", animation.signal().map(move |t| {
+                                            if index < 5 {
+                                                None
 
-                                        } else {
-                                            px(t.none_if(0.0), 1.0, 0.0)
-                                        }
-                                    }));
-
-                                    children(&mut [
-                                        tab_favicon(&tab, |dom| dom),
-                                        tab_text(&tab, |dom| dom),
-                                    ]);
-                                })
+                                            } else {
+                                                px(t.none_if(0.0), 1.0, 0.0)
+                                            }
+                                        })))
                             })
                         }).collect()
                     }).to_signal_vec());
@@ -610,82 +694,78 @@ fn main() {
                                     height.signal().map(move |t| px(t.none_if(1.0), min, max))
                                 }
 
-                                html!("div", {
-                                    class(&TAB_STYLE);
+                                tab_template(&tab,
+                                    tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
+                                        dom.style_signal("height", height_signal(&height, 0.0, 16.0))
+                                    }),
 
-                                    class_signal(&TAB_SELECTED_STYLE, tab.selected.signal());
+                                    tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
+                                        dom.style_signal("transform", height.signal().map(|t| {
+                                            t.none_if(1.0).map(|t| format!("rotateX({}deg)", easing::in_out(t, easing::cubic).range_inclusive(-90.0, 0.0)))
+                                        }))
+                                    }),
 
-                                    style_signal("margin-left", height_signal(&height, 12.0, 0.0));
-                                    style_signal("height", height_signal(&height, 0.0, 20.0));
-                                    style_signal("padding-top", height_signal(&height, 0.0, 1.0));
-                                    style_signal("padding-bottom", height_signal(&height, 0.0, 1.0));
-                                    style_signal("border-top-width", height_signal(&height, 0.0, 1.0));
-                                    style_signal("border-bottom-width", height_signal(&height, 0.0, 1.0));
+                                    |dom: DomBuilder<HtmlElement>| dom
+                                        .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
 
-                                    style_signal("display", tab.dragging.signal().map(|is_dragging| {
-                                        if is_dragging {
-                                            Some("none")
+                                        .style_signal("margin-left", height_signal(&height, 12.0, 0.0))
+                                        .style_signal("height", height_signal(&height, 0.0, 20.0))
+                                        .style_signal("padding-top", height_signal(&height, 0.0, 1.0))
+                                        .style_signal("padding-bottom", height_signal(&height, 0.0, 1.0))
+                                        .style_signal("border-top-width", height_signal(&height, 0.0, 1.0))
+                                        .style_signal("border-bottom-width", height_signal(&height, 0.0, 1.0))
 
-                                        } else {
-                                            None
-                                        }
-                                    }));
+                                        .style_signal("display", tab.dragging.signal().map(|is_dragging| {
+                                            if is_dragging {
+                                                Some("none")
 
-                                    style_signal("opacity", height.signal().map(|t| {
-                                        t.none_if(1.0).map(|t| easing::in_out(t, easing::cubic).range_inclusive(0.0, 1.0).to_string())
-                                    }));
-
-                                    style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, 20.0)));
-
-                                    children(&mut [
-                                        tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
-                                            dom.style_signal("height", height_signal(&height, 0.0, 16.0))
-                                        }),
-
-                                        tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
-                                            dom.style_signal("transform", height.signal().map(|t| {
-                                                t.none_if(1.0).map(|t| format!("rotateX({}deg)", easing::in_out(t, easing::cubic).range_inclusive(-90.0, 0.0)))
-                                            }))
-                                        }),
-                                    ]);
-
-                                    // TODO hacky
-                                    with_element(|dom, element: HtmlElement| {
-                                        dom
-                                            .event(clone!(index, group, element => move |_: MouseOverEvent| {
-                                                if let Some(index) = index.get() {
-                                                    let rect = element.get_bounding_client_rect();
-                                                    STATE.drag_over(rect, group.clone(), index);
-                                                }
-                                            }))
-                                            .event(clone!(index, group, tab => move |e: MouseDownEvent| {
-                                                if let Some(index) = index.get() {
-                                                    let rect = element.get_bounding_client_rect();
-                                                    console!(log, &rect);
-                                                    STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
-                                                }
-                                            }))
-                                    });
-
-                                    // TODO replace with MouseClickEvent
-                                    event(clone!(index, tab => move |e: MouseUpEvent| {
-                                        if index.get().is_some() {
-                                            let shift = e.shift_key();
-                                            // TODO is this correct ?
-                                            // TODO test this, especially on Mac
-                                            // TODO what if both of these are true ?
-                                            let ctrl = e.ctrl_key() || e.meta_key();
-                                            let alt = e.alt_key();
-
-                                            match e.button() {
-                                                MouseButton::Left => if ctrl && !shift && !alt {
-                                                    tab.toggle_selected();
-                                                },
-                                                _ => {},
+                                            } else {
+                                                None
                                             }
-                                        }
-                                    }));
-                                })
+                                        }))
+
+                                        .style_signal("opacity", height.signal().map(|t| {
+                                            t.none_if(1.0).map(|t| easing::in_out(t, easing::cubic).range_inclusive(0.0, 1.0).to_string())
+                                        }))
+
+                                        .style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, 20.0)))
+
+                                        // TODO hacky
+                                        .with_element(|dom, element: HtmlElement| {
+                                            dom
+                                                .event(clone!(index, group, element => move |_: MouseOverEvent| {
+                                                    if let Some(index) = index.get() {
+                                                        let rect = element.get_bounding_client_rect();
+                                                        STATE.drag_over(rect, group.clone(), index);
+                                                    }
+                                                }))
+                                                .event(clone!(index, group, tab => move |e: MouseDownEvent| {
+                                                    if let Some(index) = index.get() {
+                                                        let rect = element.get_bounding_client_rect();
+                                                        console!(log, &rect);
+                                                        STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                    }
+                                                }))
+                                        })
+
+                                        // TODO replace with MouseClickEvent
+                                        .event(clone!(index, tab => move |e: MouseUpEvent| {
+                                            if index.get().is_some() {
+                                                let shift = e.shift_key();
+                                                // TODO is this correct ?
+                                                // TODO test this, especially on Mac
+                                                // TODO what if both of these are true ?
+                                                let ctrl = e.ctrl_key() || e.meta_key();
+                                                let alt = e.alt_key();
+
+                                                match e.button() {
+                                                    MouseButton::Left => if ctrl && !shift && !alt {
+                                                        tab.toggle_selected();
+                                                    },
+                                                    _ => {},
+                                                }
+                                            }
+                                        })))
                             }));
                         })
                     }));
