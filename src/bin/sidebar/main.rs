@@ -10,7 +10,7 @@ extern crate lazy_static;
 
 use std::sync::Arc;
 use dominator::traits::*;
-use dominator::{Dom, text_signal, HIGHEST_ZINDEX, DerefFn};
+use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, AnimatedMapBroadcaster};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseOverEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
@@ -35,37 +35,37 @@ impl Group {
     }
 
     fn tabs_each<F>(&self, mut f: F) where F: FnMut(&Tab) {
-        self.tabs.with_slice(|slice| {
-            for tab in slice.iter() {
-                f(&tab);
-            }
-        });
+        let slice = self.tabs.lock_slice();
+
+        for tab in slice.iter() {
+            f(&tab);
+        }
     }
 
     fn update_dragging_tabs<F>(&self, tab_index: Option<usize>, mut f: F) where F: FnMut(&Tab, Percentage) {
-        self.tabs.with_slice(|slice| {
-            if let Some(tab_index) = tab_index {
-                let mut seen = false;
+        let slice = self.tabs.lock_slice();
 
-                for (index, tab) in slice.iter().enumerate() {
-                    if index == tab_index {
-                        seen = true;
-                        f(&tab, Percentage::new(1.0));
+        if let Some(tab_index) = tab_index {
+            let mut seen = false;
 
-                    } else if seen {
-                        f(&tab, Percentage::new(1.0));
+            for (index, tab) in slice.iter().enumerate() {
+                if index == tab_index {
+                    seen = true;
+                    f(&tab, Percentage::new(1.0));
 
-                    } else {
-                        f(&tab, Percentage::new(0.0));
-                    }
-                }
+                } else if seen {
+                    f(&tab, Percentage::new(1.0));
 
-            } else {
-                for tab in slice.iter() {
+                } else {
                     f(&tab, Percentage::new(0.0));
                 }
             }
-        });
+
+        } else {
+            for tab in slice.iter() {
+                f(&tab, Percentage::new(0.0));
+            }
+        }
     }
 }
 
@@ -178,12 +178,10 @@ impl State {
                     let tab_index = Some(tab_index);
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
-                        group.tabs.with_slice(|tabs| {
-                            tabs.iter()
-                                .filter(|x| x.selected.get())
-                                .cloned()
-                                .collect()
-                        })
+                        group.tabs.lock_slice().iter()
+                            .filter(|x| x.selected.get())
+                            .cloned()
+                            .collect()
 
                     } else {
                         vec![tab.clone()]
@@ -257,42 +255,42 @@ impl State {
                 *tab_index = new_tab_index;
 
             } else {
-                self.groups.with_slice(|groups| {
-                    // TODO gross, improve this
-                    let old_group_index = groups.iter().position(|x| x.id == group.id).unwrap();
-                    let new_group_index = groups.iter().position(|x| x.id == new_group.id).unwrap();
+                let groups = self.groups.lock_slice();
 
-                    let new_tab_index = if new_index == (new_group.tabs.len() - 1) {
-                        None
+                // TODO gross, improve this
+                let old_group_index = groups.iter().position(|x| x.id == group.id).unwrap();
+                let new_group_index = groups.iter().position(|x| x.id == new_group.id).unwrap();
 
-                    } else if old_group_index <= new_group_index {
-                        let new_index = new_index + 1;
+                let new_tab_index = if new_index == (new_group.tabs.len() - 1) {
+                    None
 
-                        if new_index < new_group.tabs.len() {
-                            Some(new_index)
+                } else if old_group_index <= new_group_index {
+                    let new_index = new_index + 1;
 
-                        } else {
-                            None
-                        }
+                    if new_index < new_group.tabs.len() {
+                        Some(new_index)
 
                     } else {
-                        Some(new_index)
-                    };
+                        None
+                    }
 
-                    group.drag_over.animate_to(Percentage::new(0.0));
-                    new_group.drag_over.animate_to(Percentage::new(1.0));
+                } else {
+                    Some(new_index)
+                };
 
-                    group.tabs_each(|tab| {
-                        tab.drag_over.animate_to(Percentage::new(0.0));
-                    });
+                group.drag_over.animate_to(Percentage::new(0.0));
+                new_group.drag_over.animate_to(Percentage::new(1.0));
 
-                    new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
-                        tab.drag_over.animate_to(percentage);
-                    });
-
-                    *group = new_group;
-                    *tab_index = new_tab_index;
+                group.tabs_each(|tab| {
+                    tab.drag_over.animate_to(Percentage::new(0.0));
                 });
+
+                new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
+                    tab.drag_over.animate_to(percentage);
+                });
+
+                *group = new_group;
+                *tab_index = new_tab_index;
             }
 
             *rect = new_rect;
@@ -342,6 +340,13 @@ lazy_static! {
         style("overflow", "hidden");
     };
 
+    static ref ICON_STYLE: String = class! {
+        style("height", "16px");
+        style("border-radius", "4px");
+        style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)");
+        style("background-color", "hsla(0, 0%, 100%, 0.35)");
+    };
+
     static ref TAB_STYLE: String = class! {
         style("cursor", "pointer");
         style("display", "flex");
@@ -375,6 +380,16 @@ lazy_static! {
         style("border-color", "hsl(100, 50%, 55%) hsl(100, 50%, 50%) hsl(100, 50%, 45%) hsl(100, 50%, 50%)");
     };
 
+    static ref TAB_FAVICON_STYLE: String = class! {
+        style("width", "16px");
+        style("margin-left", "2px");
+        style("margin-right", "1px");
+    };
+
+    static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
+        style("filter", "grayscale(100%)");
+    };
+
     static ref TAB_TEXT_STYLE: String = class! {
         style("padding-left", "3px");
         style("padding-right", "1px");
@@ -404,21 +419,25 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
 
 
 fn main() {
-    /*let mut top_id = 999999;
+    let mut top_id = 999999;
 
     js! { @(no_return)
         setInterval(@{move || {
-            STATE.tabs.remove(0);
-            STATE.tabs.insert_cloned(0, Arc::new(Tab::new(top_id, "foo", "foo")));
+            let groups = STATE.groups.lock_slice();
+
+            let group = &groups[0];
+
+            group.tabs.remove(0);
+            group.tabs.insert_cloned(0, Arc::new(Tab::new(top_id, "foo", "foo")));
 
             top_id += 1;
 
-            STATE.tabs.pop().unwrap();
-            STATE.tabs.push_cloned(Arc::new(Tab::new(top_id, "foo", "foo")));
+            group.tabs.pop().unwrap();
+            group.tabs.push_cloned(Arc::new(Tab::new(top_id, "foo", "foo")));
 
             top_id += 1;
         }}, 550);
-    }*/
+    }
 
     stylesheet!("html, body", {
         style("-moz-user-select", "none");
@@ -437,6 +456,29 @@ fn main() {
 
     fn px(t: Option<Percentage>, min: f64, max: f64) -> Option<String> {
         t.map(|t| format!("{}px", easing::in_out(t, easing::cubic).range_inclusive(min, max).round()))
+    }
+
+    fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+        html!("img", {
+            class(&TAB_FAVICON_STYLE);
+            class(&ICON_STYLE);
+
+            attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
+
+            mixin(mixin);
+        })
+    }
+
+    fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+        html!("div", {
+            class(&TAB_TEXT_STYLE);
+
+            children(&mut [
+                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
+            ]);
+
+            mixin(mixin);
+        })
     }
 
     dominator::append_dom(&dominator::body(),
@@ -521,13 +563,8 @@ fn main() {
                                     }));
 
                                     children(&mut [
-                                        html!("div", {
-                                            class(&TAB_TEXT_STYLE);
-
-                                            children(&mut [
-                                                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-                                            ]);
-                                        }),
+                                        tab_favicon(&tab, |dom| dom),
+                                        tab_text(&tab, |dom| dom),
                                     ]);
                                 })
                             })
@@ -601,20 +638,14 @@ fn main() {
                                     style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, 20.0)));
 
                                     children(&mut [
-                                        html!("img", {
-                                            attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
+                                        tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
+                                            dom.style_signal("height", height_signal(&height, 0.0, 16.0))
                                         }),
 
-                                        html!("div", {
-                                            class(&TAB_TEXT_STYLE);
-
-                                            style_signal("transform", height.signal().map(|t| {
+                                        tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
+                                            dom.style_signal("transform", height.signal().map(|t| {
                                                 t.none_if(1.0).map(|t| format!("rotateX({}deg)", easing::in_out(t, easing::cubic).range_inclusive(-90.0, 0.0)))
-                                            }));
-
-                                            children(&mut [
-                                                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-                                            ]);
+                                            }))
                                         }),
                                     ]);
 
