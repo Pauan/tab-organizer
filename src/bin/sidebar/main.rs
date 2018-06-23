@@ -10,11 +10,12 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
+use tab_organizer::{and, or, not};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, AnimatedMapBroadcaster};
 use dominator::animation::easing;
-use dominator::events::{MouseDownEvent, MouseOverEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
+use dominator::events::{MouseDownEvent, MouseOverEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
 use stdweb::web::{HtmlElement, Rect, IHtmlElement};
 use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
@@ -79,6 +80,7 @@ struct Tab {
     unloaded: Mutable<bool>,
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
+    hovered: Mutable<bool>,
     drag_over: MutableAnimation,
 }
 
@@ -92,12 +94,17 @@ impl Tab {
             unloaded: Mutable::new(true),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
+            hovered: Mutable::new(false),
             drag_over: MutableAnimation::new(125.0),
         }
     }
 
     fn toggle_selected(&self) {
         self.selected.replace_with(|selected| !*selected);
+    }
+
+    fn is_hovered(&self) -> impl Signal<Item = bool> {
+        and(self.hovered.signal(), not(STATE.is_dragging()))
     }
 }
 
@@ -324,6 +331,17 @@ impl State {
             *selected_tabs = vec![];
         }
     }
+
+    fn is_dragging(&self) -> impl Signal<Item = bool> {
+        self.dragging.state.signal_ref(|dragging| {
+            if let Some(DragState::Dragging { .. }) = dragging {
+                true
+
+            } else {
+                false
+            }
+        })
+    }
 }
 
 
@@ -357,20 +375,13 @@ lazy_static! {
         style("background-color", "hsla(0, 0%, 100%, 0.35)");
     };
 
-    static ref TAB_STYLE: String = class! {
-        style("cursor", "pointer");
-        style("display", "flex");
-        style("box-sizing", "border-box");
-        style("position", "relative");
-        style("background-color", "white");
-        style("border", "1px solid transparent");
-        style("padding", "1px");
-        style("overflow", "hidden");
-        style("border-radius", "5px");
-        style("height", "20px");
+    static ref MENU_ITEM_STYLE: String = class! {
+        style("border-width", "1px");
 
-        style_signal("cursor", STATE.dragging.state.signal_ref(|dragging| {
-            if let Some(DragState::Dragging { .. }) = dragging {
+        style("transition", "background-color 100ms ease-in-out");
+
+        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+            if is_dragging {
                 None
 
             } else {
@@ -379,10 +390,54 @@ lazy_static! {
         }));
     };
 
-    static ref TAB_SHADOW_STYLE: String = class! {
-        style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25),
-                             inset 0px 0px  3px hsla(0, 0%, 100%, 1   ),
+    static ref MENU_ITEM_SHADOW_STYLE: String = class! {
+        style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
+                             inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)");
+    };
+
+    static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
+                                                       transparent             0px, \
+                                                       transparent             4px, \
+                                                       hsla(0, 0%, 100%, 0.05) 6px, \
+                                                       hsla(0, 0%, 100%, 0.05) 10px)";
+
+    static ref MENU_ITEM_HOVER_STYLE: String = class! {
+        // TODO a bit hacky
+        style("transition-duration", "0ms");
+        style("color", "hsla(211, 100%, 99%, 0.95)");
+        style("background-color", "hsl(211, 100%, 65%)");
+        style("border-color", "hsl(211, 38%, 62%) \
+                               hsl(211, 38%, 57%) \
+                               hsl(211, 38%, 52%) \
+                               hsl(211, 38%, 57%)");
+        style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
+                              0px 0px 1px hsla(0, 0%, 0%, 0.1), \
+                              0px 1px 1px hsla(0, 0%, 0%, 0.2)");
+        style("background-image", &format!("linear-gradient(to bottom, \
+                                                hsla(0, 0%, 100%, 0.2) 0%, \
+                                                transparent            49%, \
+                                                hsla(0, 0%,   0%, 0.1) 50%, \
+                                                hsla(0, 0%, 100%, 0.1) 80%, \
+                                                hsla(0, 0%, 100%, 0.2) 100%), {}",
+                                           *REPEATING_GRADIENT));
+    };
+
+    static ref ROW_STYLE: String = class! {
+        style("display", "flex");
+        style("flex-direction", "row");
+        style("align-items", "center"); // TODO get rid of this ?
+    };
+
+    static ref TAB_STYLE: String = class! {
+        style("padding", "1px");
+        style("overflow", "hidden");
+        style("border-radius", "5px");
+        style("height", "20px");
+    };
+
+    static ref TAB_HOVER_STYLE: String = class! {
+        style("font-weight", "bold");
     };
 
     static ref TAB_UNLOADED_STYLE: String = class! {
@@ -392,7 +447,10 @@ lazy_static! {
 
     static ref TAB_SELECTED_STYLE: String = class! {
         style("background-color", "hsl(100, 78%, 80%)");
-        style("border-color", "hsl(100, 50%, 55%) hsl(100, 50%, 50%) hsl(100, 50%, 45%) hsl(100, 50%, 50%)");
+        style("border-color", "hsl(100, 50%, 55%) \
+                               hsl(100, 50%, 50%) \
+                               hsl(100, 50%, 45%) \
+                               hsl(100, 50%, 50%)");
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
@@ -407,6 +465,13 @@ lazy_static! {
 
     static ref TAB_TEXT_STYLE: String = class! {
         style("padding-left", "3px");
+        style("padding-right", "1px");
+    };
+
+    static ref TAB_CLOSE_STYLE: String = class! {
+        style("width", "18px");
+        style("border-width", "1px");
+        style("padding-left", "1px");
         style("padding-right", "1px");
     };
 
@@ -496,8 +561,8 @@ fn main() {
 
         style("-moz-user-select", "none");
 
-        style_signal("cursor", STATE.dragging.state.signal_ref(|dragging| {
-            if let Some(DragState::Dragging { .. }) = dragging {
+        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+            if is_dragging {
                 Some("grabbing")
 
             } else {
@@ -508,8 +573,12 @@ fn main() {
 
     log!("Starting");
 
+    fn px_easing<F>(t: Option<Percentage>, min: f64, max: f64, easing: F) -> Option<String> where F: FnOnce(Percentage) -> Percentage {
+        t.map(|t| format!("{}px", easing(t).range_inclusive(min, max).round()))
+    }
+
     fn px(t: Option<Percentage>, min: f64, max: f64) -> Option<String> {
-        t.map(|t| format!("{}px", easing::in_out(t, easing::cubic).range_inclusive(min, max).round()))
+        px_easing(t, min, max, |t| easing::in_out(t, easing::cubic))
     }
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -556,7 +625,9 @@ fn main() {
 
     fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
         html!("div", {
+            class(&ROW_STYLE);
             class(&TAB_STYLE);
+            class(&MENU_ITEM_STYLE);
 
             class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal());
 
@@ -584,8 +655,8 @@ fn main() {
                 html!("div", {
                     class(&DRAGGING_STYLE);
 
-                    style_signal("display", STATE.dragging.state.signal_ref(|dragging| {
-                        if let Some(DragState::Dragging { .. }) = dragging {
+                    style_signal("display", STATE.is_dragging().map(|is_dragging| {
+                        if is_dragging {
                             None
 
                         } else {
@@ -624,7 +695,7 @@ fn main() {
                                     tab_text(&tab, |dom| dom),
                                     |dom: DomBuilder<HtmlElement>| dom
                                         .class(&TAB_SELECTED_STYLE)
-                                        .class(&TAB_SHADOW_STYLE)
+                                        .class(&MENU_ITEM_SHADOW_STYLE)
                                         .class(&TAB_DRAGGING_STYLE)
 
                                         .style("z-index", &format!("-{}", index))
@@ -707,6 +778,9 @@ fn main() {
 
                                     |dom: DomBuilder<HtmlElement>| dom
                                         .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
+                                        .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
+                                        .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
+                                        .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
 
                                         .style_signal("margin-left", height_signal(&height, 12.0, 0.0))
                                         .style_signal("height", height_signal(&height, 0.0, 20.0))
@@ -733,7 +807,10 @@ fn main() {
                                         // TODO hacky
                                         .with_element(|dom, element: HtmlElement| {
                                             dom
-                                                .event(clone!(index, group, element => move |_: MouseOverEvent| {
+                                                .event(clone!(index, group, tab, element => move |_: MouseOverEvent| {
+                                                    // TODO should this be inside of the if ?
+                                                    tab.hovered.set(true);
+
                                                     if let Some(index) = index.get() {
                                                         let rect = element.get_bounding_client_rect();
                                                         STATE.drag_over(rect, group.clone(), index);
@@ -742,11 +819,15 @@ fn main() {
                                                 .event(clone!(index, group, tab => move |e: MouseDownEvent| {
                                                     if let Some(index) = index.get() {
                                                         let rect = element.get_bounding_client_rect();
-                                                        console!(log, &rect);
                                                         STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
                                                     }
                                                 }))
                                         })
+
+                                        .event(clone!(tab => move |_: MouseOutEvent| {
+                                            // TODO should this check the index, like MouseOverEvent ?
+                                            tab.hovered.set(false);
+                                        }))
 
                                         // TODO replace with MouseClickEvent
                                         .event(clone!(index, tab => move |e: MouseUpEvent| {

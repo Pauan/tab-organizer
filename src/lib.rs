@@ -4,12 +4,15 @@ extern crate lazy_static;
 extern crate stdweb;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate futures_signals;
 extern crate futures;
 extern crate uuid;
 extern crate web_extensions;
 
 use stdweb::{PromiseFuture, JsSerialize, Reference};
 use stdweb::unstable::TryInto;
+use futures_signals::signal::{Signal, SignalExt};
 use futures::future::IntoFuture;
 use futures::FutureExt;
 use uuid::Uuid;
@@ -57,4 +60,31 @@ pub fn generate_uuid() -> Uuid {
     let mut bytes = [0; 16];
     bytes.copy_from_slice(&generate_random_bytes());
     Uuid::from_random_bytes(bytes)
+}
+
+
+// TODO only poll right if left is false
+pub fn or<A, B>(left: A, right: B) -> impl Signal<Item = bool>
+    where A: Signal<Item = bool>,
+          B: Signal<Item = bool> {
+    map_ref! {
+        let left = left,
+        let right = right =>
+        *left || *right
+    }
+}
+
+// TODO only poll right if left is true
+pub fn and<A, B>(left: A, right: B) -> impl Signal<Item = bool>
+    where A: Signal<Item = bool>,
+          B: Signal<Item = bool> {
+    map_ref! {
+        let left = left,
+        let right = right =>
+        *left && *right
+    }
+}
+
+pub fn not<A>(signal: A) -> impl Signal<Item = bool> where A: Signal<Item = bool> {
+    signal.map(|x| !x)
 }
