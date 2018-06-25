@@ -3,6 +3,14 @@ name = "tab-organizer"
 version = "5.0.0"
 authors = ["Pauan"]
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+debug-assertions = true
+lto = true
+
 [dependencies]
 discard = "1.0.3"
 serde = "1.0.36"
@@ -15,9 +23,6 @@ uuid = { version = "0.6.2", features = ["serde"] }
 stdweb = { version = "0.4.0", features = ["experimental_features_which_may_break_on_minor_version_bumps"] }
 dominator = { git = "https://github.com/Pauan/rust-dominator" }
 futures-signals = { git = "https://github.com/Pauan/rust-signals" }
-
-[profile.release]
-panic = "abort"
 
 [patch.crates-io]
 futures = { git = "https://github.com/rust-lang-nursery/futures-rs" }

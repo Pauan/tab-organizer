@@ -88,3 +88,14 @@ pub fn and<A, B>(left: A, right: B) -> impl Signal<Item = bool>
 pub fn not<A>(signal: A) -> impl Signal<Item = bool> where A: Signal<Item = bool> {
     signal.map(|x| !x)
 }
+
+
+pub fn set_panic_hook() {
+    fn hook(info: &std::panic::PanicInfo) {
+        js! { @(no_return)
+            console.error(@{info.to_string()});
+        }
+    }
+
+    std::panic::set_hook(Box::new(hook));
+}

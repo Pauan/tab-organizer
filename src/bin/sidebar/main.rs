@@ -21,6 +21,10 @@ use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
 
+const DRAG_ANIMATION_DURATION: f64 = 100.0;
+const DRAG_GAP_PX: f64 = 32.0;
+
+
 struct Group {
     id: usize,
     tabs: MutableVec<Arc<Tab>>,
@@ -32,7 +36,7 @@ impl Group {
         Self {
             id,
             tabs: MutableVec::new_with_values(tabs),
-            drag_over: MutableAnimation::new(125.0),
+            drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
         }
     }
 
@@ -95,7 +99,7 @@ impl Tab {
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
-            drag_over: MutableAnimation::new(125.0),
+            drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
         }
     }
 
@@ -503,6 +507,8 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
 
 
 fn main() {
+    tab_organizer::set_panic_hook();
+
     let mut top_id = 999999;
 
     js! { @(no_return)
@@ -732,7 +738,7 @@ fn main() {
                         html!("div", {
                             class(&GROUP_STYLE);
 
-                            style_signal("padding-bottom", group.drag_over.signal().map(move |t| px(t.none_if(0.0), 0.0, 20.0)));
+                            style_signal("padding-bottom", group.drag_over.signal().map(move |t| px(t.none_if(0.0), 0.0, DRAG_GAP_PX)));
 
                             /*map_ref! {
                                 let drag_over = group.drag_over.signal(),
@@ -802,7 +808,7 @@ fn main() {
                                             t.none_if(1.0).map(|t| easing::in_out(t, easing::cubic).range_inclusive(0.0, 1.0).to_string())
                                         }))
 
-                                        .style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, 20.0)))
+                                        .style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, DRAG_GAP_PX)))
 
                                         // TODO hacky
                                         .with_element(|dom, element: HtmlElement| {
