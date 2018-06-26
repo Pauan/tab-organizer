@@ -22,6 +22,7 @@ use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
 
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
+const TAB_HEIGHT: f64 = 20.0;
 const DRAG_GAP_PX: f64 = 32.0;
 
 
@@ -29,6 +30,7 @@ struct Group {
     id: usize,
     tabs: MutableVec<Arc<Tab>>,
     drag_over: MutableAnimation,
+    drag_top: MutableAnimation,
 }
 
 impl Group {
@@ -37,6 +39,7 @@ impl Group {
             id,
             tabs: MutableVec::new_with_values(tabs),
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
+            drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
         }
     }
 
@@ -55,16 +58,18 @@ impl Group {
             let mut seen = false;
 
             for (index, tab) in slice.iter().enumerate() {
-                if index == tab_index {
+                let percentage = if index == tab_index {
                     seen = true;
-                    f(&tab, Percentage::new(1.0));
+                    Percentage::new(1.0)
 
                 } else if seen {
-                    f(&tab, Percentage::new(1.0));
+                    Percentage::new(1.0)
 
                 } else {
-                    f(&tab, Percentage::new(0.0));
-                }
+                    Percentage::new(0.0)
+                };
+
+                f(&tab, percentage);
             }
 
         } else {
@@ -157,6 +162,27 @@ struct State {
 }
 
 impl State {
+    fn update_dragging_groups<F>(&self, group_id: usize, mut f: F) where F: FnMut(&Group, Percentage) {
+        let groups = self.groups.lock_slice();
+
+        let mut seen = false;
+
+        for x in groups.iter() {
+            let percentage = if x.id == group_id {
+                seen = true;
+                Percentage::new(0.0)
+
+            } else if seen {
+                Percentage::new(1.0)
+
+            } else {
+                Percentage::new(0.0)
+            };
+
+            f(&x, percentage);
+        }
+    }
+
     fn get_dragging_index(&self) -> Option<usize> {
         let dragging = self.dragging.state.lock_ref();
 
@@ -203,6 +229,10 @@ impl State {
 
                     if selected_tabs.len() != 0 {
                         group.drag_over.jump_to(Percentage::new(1.0));
+
+                        self.update_dragging_groups(group.id, |group, percentage| {
+                            group.drag_top.jump_to(percentage);
+                        });
 
                         group.update_dragging_tabs(tab_index, |tab, percentage| {
                             tab.drag_over.jump_to(percentage);
@@ -295,6 +325,10 @@ impl State {
                 group.drag_over.animate_to(Percentage::new(0.0));
                 new_group.drag_over.animate_to(Percentage::new(1.0));
 
+                self.update_dragging_groups(new_group.id, |group, percentage| {
+                    group.drag_top.animate_to(percentage);
+                });
+
                 group.tabs_each(|tab| {
                     tab.drag_over.animate_to(Percentage::new(0.0));
                 });
@@ -316,6 +350,14 @@ impl State {
         let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
+            {
+                let groups = self.groups.lock_slice();
+
+                for group in groups.iter() {
+                    group.drag_top.jump_to(Percentage::new(0.0));
+                }
+            }
+
             group.drag_over.jump_to(Percentage::new(0.0));
 
             group.tabs_each(|tab| {
@@ -346,6 +388,17 @@ impl State {
             }
         })
     }
+
+    /*fn is_dragging_group(&self, group_id: usize) -> impl Signal<Item = bool> {
+        self.dragging.state.signal_ref(move |dragging| {
+            if let Some(DragState::Dragging { group, .. }) = dragging {
+                group.id == group_id
+
+            } else {
+                false
+            }
+        })
+    }*/
 }
 
 
@@ -368,7 +421,7 @@ lazy_static! {
     };
 
     static ref GROUP_STYLE: String = class! {
-        style("border", "1px solid black");
+        style("border-top", "1px solid black");
         style("overflow", "hidden");
     };
 
@@ -725,7 +778,7 @@ fn main() {
                                                 None
 
                                             } else {
-                                                px(t.none_if(0.0), 1.0, 0.0)
+                                                t.none_if(0.0).map(|t| easing::in_out(t, easing::cubic).range_inclusive(1.0, 0.0).to_string())
                                             }
                                         })))
                             })
@@ -738,7 +791,40 @@ fn main() {
                         html!("div", {
                             class(&GROUP_STYLE);
 
+                            /*style_signal("padding-bottom", STATE.is_dragging_group(group.id).map(move |is_dragging| {
+                                if is_dragging {
+                                    // TODO make this more efficient
+                                    Some(format!("{}px", DRAG_GAP_PX))
+
+                                } else {
+                                    None
+                                }
+                            }));
+
+                            style_signal("margin-bottom", STATE.is_dragging_group(group.id).map(move |is_dragging| {
+                                if is_dragging {
+                                    // TODO make this more efficient
+                                    Some(format!("{}px", -DRAG_GAP_PX))
+
+                                } else {
+                                    None
+                                }
+                            }));*/
+
+                            style_signal("top", group.drag_top.signal().map(|t| px(t.none_if(0.0), 0.0, DRAG_GAP_PX)));
+
                             style_signal("padding-bottom", group.drag_over.signal().map(move |t| px(t.none_if(0.0), 0.0, DRAG_GAP_PX)));
+
+                            style_signal("margin-bottom", group.drag_over.signal().map(move |t| px(t.none_if(0.0), 0.0, -DRAG_GAP_PX)));
+
+                            /*style_signal("padding-bottom", STATE.is_dragging().map(|is_dragging| {
+                                if is_dragging {
+                                    Some(format!("{}px", DRAG_GAP_PX))
+
+                                } else {
+                                    None
+                                }
+                            }));*/
 
                             /*map_ref! {
                                 let drag_over = group.drag_over.signal(),
