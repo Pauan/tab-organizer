@@ -25,7 +25,7 @@ dominator = { git = "https://github.com/Pauan/rust-dominator" }
 futures-signals = { git = "https://github.com/Pauan/rust-signals" }
 
 [patch.crates-io]
-futures = { git = "https://github.com/rust-lang-nursery/futures-rs" }
-futures-core = { git = "https://github.com/rust-lang-nursery/futures-rs" }
-futures-util = { git = "https://github.com/rust-lang-nursery/futures-rs" }
-futures-channel = { git = "https://github.com/rust-lang-nursery/futures-rs" }
+futures = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
+futures-core = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
+futures-util = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
+futures-channel = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }

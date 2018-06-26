@@ -269,11 +269,11 @@ impl State {
         }
     }
 
-    fn drag_over(&self, new_rect: Rect, new_group: Arc<Group>, new_index: usize) {
+    fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
         let mut dragging = self.dragging.state.lock_mut();
 
         // TODO verify that this doesn't notify if it isn't dragging
-        if let Some(DragState::Dragging { ref mut group, ref mut tab_index, ref mut rect, .. }) = *dragging {
+        if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
             if new_group.id == group.id {
                 // TODO code duplication with get_dragging_index
                 let old_index = tab_index.unwrap_or_else(|| group.tabs.len());
@@ -340,8 +340,6 @@ impl State {
                 *group = new_group;
                 *tab_index = new_tab_index;
             }
-
-            *rect = new_rect;
         }
     }
 
@@ -896,25 +894,24 @@ fn main() {
 
                                         .style_signal("top", tab.drag_over.signal().map(|t| px(t.none_if(0.0), 0.0, DRAG_GAP_PX)))
 
-                                        // TODO hacky
+                                        // TODO a bit hacky
                                         .with_element(|dom, element: HtmlElement| {
-                                            dom
-                                                .event(clone!(index, group, tab, element => move |_: MouseOverEvent| {
-                                                    // TODO should this be inside of the if ?
-                                                    tab.hovered.set(true);
-
-                                                    if let Some(index) = index.get() {
-                                                        let rect = element.get_bounding_client_rect();
-                                                        STATE.drag_over(rect, group.clone(), index);
-                                                    }
-                                                }))
-                                                .event(clone!(index, group, tab => move |e: MouseDownEvent| {
-                                                    if let Some(index) = index.get() {
-                                                        let rect = element.get_bounding_client_rect();
-                                                        STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
-                                                    }
-                                                }))
+                                            dom.event(clone!(index, group, tab => move |e: MouseDownEvent| {
+                                                if let Some(index) = index.get() {
+                                                    let rect = element.get_bounding_client_rect();
+                                                    STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                }
+                                            }))
                                         })
+
+                                        .event(clone!(index, group, tab => move |_: MouseOverEvent| {
+                                            // TODO should this be inside of the if ?
+                                            tab.hovered.set(true);
+
+                                            if let Some(index) = index.get() {
+                                                STATE.drag_over(group.clone(), index);
+                                            }
+                                        }))
 
                                         .event(clone!(tab => move |_: MouseOutEvent| {
                                             // TODO should this check the index, like MouseOverEvent ?
