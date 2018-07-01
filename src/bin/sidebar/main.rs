@@ -1,3 +1,5 @@
+#![warn(unreachable_pub)]
+
 extern crate futures;
 #[macro_use]
 extern crate futures_signals;
@@ -205,19 +207,39 @@ impl State {
         }
     }
 
-    fn get_dragging_index(&self) -> Option<usize> {
+    fn get_dragging_index(&self, group_id: usize) -> Option<usize> {
         let dragging = self.dragging.state.lock_ref();
 
         if let Some(DragState::Dragging { ref group, tab_index, .. }) = *dragging {
-            Some(tab_index.unwrap_or_else(|| group.tabs.len()))
+            if group.id == group_id {
+                Some(tab_index.unwrap_or_else(|| group.tabs.len()))
+
+            } else {
+                None
+            }
 
         } else {
             None
         }
     }
 
-    fn should_be_dragging(&self, new_index: usize) -> bool {
-        self.get_dragging_index().map(|old_index| new_index > old_index).unwrap_or(false)
+    fn should_be_dragging_group(&self, new_index: usize) -> bool {
+        let dragging = self.dragging.state.lock_ref();
+
+        if let Some(DragState::Dragging { ref group, .. }) = *dragging {
+            let groups = self.groups.lock_slice();
+
+            let old_index = groups.iter().position(|x| x.id == group.id).unwrap_or_else(|| groups.len());
+
+            new_index > old_index
+
+        } else {
+            false
+        }
+    }
+
+    fn should_be_dragging_tab(&self, group_id: usize, new_index: usize) -> bool {
+        self.get_dragging_index(group_id).map(|old_index| new_index > old_index).unwrap_or(false)
     }
 
     fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: Rect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
@@ -292,68 +314,63 @@ impl State {
     }
 
     fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
-        let mut dragging = self.dragging.state.lock_mut();
+        let groups = self.groups.lock_slice();
 
-        // TODO verify that this doesn't notify if it isn't dragging
-        if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
-            if new_group.id == group.id {
-                // TODO code duplication with get_dragging_index
-                let old_index = tab_index.unwrap_or_else(|| group.tabs.len());
+        // TODO is this correct ?
+        if let Some(new_group_index) = groups.iter().position(|x| x.id == new_group.id) {
+            let mut dragging = self.dragging.state.lock_mut();
 
-                let new_tab_index = if old_index <= new_index {
-                    let new_index = new_index + 1;
+            // TODO verify that this doesn't notify if it isn't dragging
+            if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
+                let new_tab_index = if new_group.id == group.id {
+                    // TODO code duplication with get_dragging_index
+                    let old_index = tab_index.unwrap_or_else(|| new_group.tabs.len());
 
-                    if new_index < group.tabs.len() {
-                        Some(new_index)
+                    if old_index <= new_index {
+                        let new_index = new_index + 1;
+
+                        if new_index < new_group.tabs.len() {
+                            Some(new_index)
+
+                        } else {
+                            None
+                        }
 
                     } else {
-                        None
+                        Some(new_index)
                     }
 
                 } else {
-                    Some(new_index)
-                };
+                    group.drag_over.animate_to(Percentage::new(0.0));
+                    new_group.drag_over.animate_to(Percentage::new(1.0));
 
-                group.update_dragging_tabs(new_tab_index, |tab, percentage| {
-                    tab.drag_over.animate_to(percentage);
-                });
+                    self.update_dragging_groups(new_group.id, |group, percentage| {
+                        group.drag_top.animate_to(percentage);
+                    });
 
-                *tab_index = new_tab_index;
+                    group.tabs_each(|tab| {
+                        tab.drag_over.animate_to(Percentage::new(0.0));
+                    });
 
-            } else {
-                let groups = self.groups.lock_slice();
+                    let old_group_index = groups.iter().position(|x| x.id == group.id).unwrap_or_else(|| groups.len());
 
-                // TODO gross, improve this
-                let old_group_index = groups.iter().position(|x| x.id == group.id).unwrap();
-                let new_group_index = groups.iter().position(|x| x.id == new_group.id).unwrap();
+                    if new_index == (new_group.tabs.len() - 1) {
+                        None
 
-                let new_tab_index = if new_index == (new_group.tabs.len() - 1) {
-                    None
+                    } else if old_group_index <= new_group_index {
+                        let new_index = new_index + 1;
 
-                } else if old_group_index <= new_group_index {
-                    let new_index = new_index + 1;
+                        if new_index < new_group.tabs.len() {
+                            Some(new_index)
 
-                    if new_index < new_group.tabs.len() {
-                        Some(new_index)
+                        } else {
+                            None
+                        }
 
                     } else {
-                        None
+                        Some(new_index)
                     }
-
-                } else {
-                    Some(new_index)
                 };
-
-                group.drag_over.animate_to(Percentage::new(0.0));
-                new_group.drag_over.animate_to(Percentage::new(1.0));
-
-                self.update_dragging_groups(new_group.id, |group, percentage| {
-                    group.drag_top.animate_to(percentage);
-                });
-
-                group.tabs_each(|tab| {
-                    tab.drag_over.animate_to(Percentage::new(0.0));
-                });
 
                 new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
                     tab.drag_over.animate_to(percentage);
@@ -370,19 +387,21 @@ impl State {
         let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
-            {
-                let groups = self.groups.lock_slice();
-
-                for group in groups.iter() {
-                    group.drag_top.jump_to(Percentage::new(0.0));
-                }
-            }
-
             group.drag_over.jump_to(Percentage::new(0.0));
 
             group.tabs_each(|tab| {
                 tab.drag_over.jump_to(Percentage::new(0.0));
             });
+
+            let groups = self.groups.lock_slice();
+
+            for group in groups.iter() {
+                group.drag_top.jump_to(Percentage::new(0.0));
+            }
+
+            if groups.iter().any(|x| x.id == group.id) {
+                self.drag_tabs_to(&group, &**selected_tabs);
+            }
         }
 
         if dragging.is_some() {
@@ -396,6 +415,10 @@ impl State {
 
             *selected_tabs = vec![];
         }
+    }
+
+    fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
+
     }
 
     fn is_dragging(&self) -> impl Signal<Item = bool> {
@@ -674,7 +697,7 @@ fn main() {
         style("width", "100%");
         style("height", "100%");
 
-        style("-moz-user-select", "none");
+        style(["-moz-user-select", "user-select"], "none");
 
         style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
@@ -858,9 +881,15 @@ fn main() {
                 }),
 
                 html!("div", {
-                    children_signal_vec(STATE.groups.signal_vec_cloned()
-                        .delay_remove(|group| delay_animation(&group.insert_animation))
-                        .map(move |group| {
+                    children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
+                        .delay_remove(|(_, group)| delay_animation(&group.insert_animation))
+                        .map(move |(index, group)| {
+                            if let Some(index) = index.get() {
+                                if STATE.should_be_dragging_group(index) {
+                                    group.drag_top.jump_to(Percentage::new(1.0));
+                                }
+                            }
+
                             html!("div", {
                                 class(&GROUP_STYLE);
 
@@ -874,7 +903,7 @@ fn main() {
                                     .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation))
                                     .map(move |(index, tab)| {
                                         if let Some(index) = index.get() {
-                                            if STATE.should_be_dragging(index) {
+                                            if STATE.should_be_dragging_tab(group.id, index) {
                                                 tab.drag_over.jump_to(Percentage::new(1.0));
                                             }
                                         }
