@@ -38,6 +38,7 @@ struct Group {
     drag_over: MutableAnimation,
     drag_top: MutableAnimation,
     insert_animation: MutableAnimation,
+    last_selected_tab: Mutable<Option<Arc<Tab>>>,
 }
 
 impl Group {
@@ -48,6 +49,7 @@ impl Group {
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
+            last_selected_tab: Mutable::new(None),
         }
     }
 
@@ -93,6 +95,67 @@ impl Group {
             }
         }
     }
+
+    fn click_tab(&self, tab: &Tab) {
+        {
+            let tabs = self.tabs.lock_slice();
+
+            for tab in tabs.iter() {
+                tab.selected.set(false);
+            }
+        }
+
+        self.last_selected_tab.set(None);
+    }
+
+    fn ctrl_select_tab(&self, tab: &Arc<Tab>) {
+        let mut selected = tab.selected.lock_mut();
+
+        *selected = !*selected;
+
+        if *selected {
+            self.last_selected_tab.set(Some(tab.clone()));
+
+        } else {
+            self.last_selected_tab.set(None);
+        }
+    }
+
+    fn shift_select_tab(&self, tab: &Arc<Tab>) {
+        let mut last_selected_tab = self.last_selected_tab.lock_mut();
+
+        let selected = if let Some(ref last_selected_tab) = *last_selected_tab {
+            let tabs = self.tabs.lock_slice();
+            let mut seen = false;
+
+            for x in tabs.iter() {
+                if x.id == last_selected_tab.id ||
+                   x.id == tab.id {
+                    x.selected.set(true);
+
+                    if tab.id != last_selected_tab.id {
+                        seen = !seen;
+                    }
+
+                } else if seen {
+                    x.selected.set(true);
+
+                } else {
+                    x.selected.set(false);
+                }
+            }
+
+            true
+
+        } else {
+            false
+        };
+
+        if !selected {
+            tab.selected.set(true);
+            *last_selected_tab = Some(tab.clone());
+        }
+    }
 }
 
 
@@ -130,10 +193,6 @@ impl Tab {
         tab.insert_animation.jump_to(Percentage::new(0.0));
         tab.insert_animation.animate_to(Percentage::new(1.0));
         tab
-    }
-
-    fn toggle_selected(&self) {
-        self.selected.replace_with(|selected| !*selected);
     }
 
     fn is_hovered(&self) -> impl Signal<Item = bool> {
@@ -606,7 +665,7 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
 fn main() {
     tab_organizer::set_panic_hook();
 
-    let mut top_id = 999999;
+    /*let mut top_id = 999999;
 
     js! { @(no_return)
         setInterval(@{move || {
@@ -659,7 +718,7 @@ fn main() {
                 }
             }
         }}, @{INSERT_ANIMATION_DURATION + 50.0});
-    }
+    }*/
 
     stylesheet!("*", {
         style("text-overflow", "ellipsis");
@@ -969,7 +1028,7 @@ fn main() {
                                                 }))
 
                                                 // TODO replace with MouseClickEvent
-                                                .event(clone!(index, tab => move |e: MouseUpEvent| {
+                                                .event(clone!(index, group, tab => move |e: MouseUpEvent| {
                                                     if index.get().is_some() {
                                                         let shift = e.shift_key();
                                                         // TODO is this correct ?
@@ -980,7 +1039,13 @@ fn main() {
 
                                                         match e.button() {
                                                             MouseButton::Left => if ctrl && !shift && !alt {
-                                                                tab.toggle_selected();
+                                                                group.ctrl_select_tab(&tab);
+
+                                                            } else if !ctrl && shift && !alt {
+                                                                group.shift_select_tab(&tab);
+
+                                                            } else if !ctrl && !shift && !alt {
+                                                                group.click_tab(&tab);
                                                             },
                                                             _ => {},
                                                         }
