@@ -24,15 +24,42 @@
     	html, body {
     		padding: 0px;
     		margin: 0px;
+            width: 100%;
+            height: 100%;
     	}
 	</style>
   </head>
   <body>
+    <div style="height: 24px"></div>
     <!--<script defer src="js/sidebar.js"></script>-->
-    <div id="foo"></div>
+    <!--<div id="foo"></div>
     <div id="bar"></div>
-    <div id="qux"></div>
+    <div id="qux"></div>-->
     <script>
+        var x = document.createElement("div");
+        x.style.overflow = "auto";
+        x.style.height = "calc(100% - 24px)";
+
+        var y = document.createElement("div");
+
+        var z = document.createElement("div");
+
+        z.textContent = new Array(10000).join("foooooo\n");
+
+        y.appendChild(z);
+
+        x.appendChild(y);
+
+        document.body.appendChild(x);
+
+        x.scrollTop = 3000;
+
+        //Promise.resolve().then(function () {
+            console.log(y.clientHeight);
+
+        //});
+    </script>
+    <!--<script>
     	var foo = document.getElementById("foo");
     	var bar = document.getElementById("bar");
     	var qux = document.getElementById("qux");
@@ -131,6 +158,6 @@
     		move(qux);
     		update();
     	};
-    </script>
+    </script>-->
   </body>
 </html>

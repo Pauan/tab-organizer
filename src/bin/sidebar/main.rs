@@ -19,7 +19,7 @@ use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseOverEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
-use stdweb::web::{HtmlElement, Rect, IHtmlElement};
+use stdweb::web::{HtmlElement, Rect, IHtmlElement, window};
 use futures::{Future, Never};
 use futures::future::FutureExt;
 use futures_signals::signal::{Signal, Mutable, SignalExt};
@@ -243,6 +243,9 @@ impl Dragging {
 
 
 struct State {
+    is_loaded: Mutable<bool>,
+    scroll_x: Mutable<f64>,
+    scroll_y: Mutable<f64>,
     groups: MutableVec<Arc<Group>>,
     dragging: Dragging,
 }
@@ -509,7 +512,12 @@ impl State {
 
 lazy_static! {
     static ref STATE: Arc<State> = Arc::new(State {
-        groups: MutableVec::new_with_values((0..3).map(|id| {
+        is_loaded: Mutable::new(false),
+
+        scroll_x: Mutable::new(0.0),
+        scroll_y: Mutable::new(500.0),
+
+        groups: MutableVec::new_with_values((0..10).map(|id| {
             Arc::new(Group::new(id, (0..10).map(|id| {
                 Arc::new(Tab::new(id, "Foo", "Bar"))
             }).collect()))
@@ -552,6 +560,10 @@ lazy_static! {
         style("height", "calc(100% - 24px)");
         style("padding-top", "1px");
         style("overflow", "auto");
+    };
+
+    static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
+        style("overflow", "hidden");
     };
 
     static ref GROUP_STYLE: String = class! {
@@ -746,24 +758,25 @@ fn main() {
                 }
             }
 
-            if let Some(group) = STATE.groups.pop() {
-                group.insert_animation.animate_to(Percentage::new(0.0));
+            let group = STATE.groups.remove(2);
+            group.insert_animation.animate_to(Percentage::new(0.0));
 
-                STATE.groups.push_cloned(Arc::new(Group::new_animated(top_id, vec![])));
-                top_id += 1;
+            STATE.groups.insert_cloned(2, Arc::new(Group::new_animated(top_id, vec![])));
+            top_id += 1;
 
-                {
-                    let groups = STATE.groups.lock_slice();
+            //STATE.scroll_y.set(top_id as f64);
 
-                    let group = &groups[2];
+            {
+                let groups = STATE.groups.lock_slice();
 
-                    for id in 0..10 {
-                        let tab = Arc::new(Tab::new_animated(id, "Foo", "Bar"));
-                        group.tabs.push_cloned(tab);
-                    }
+                let group = &groups[2];
+
+                for id in 0..10 {
+                    let tab = Arc::new(Tab::new_animated(id, "Foo", "Bar"));
+                    group.tabs.push_cloned(tab);
                 }
             }
-        }}, @{INSERT_ANIMATION_DURATION + 50.0});
+        }}, @{INSERT_ANIMATION_DURATION + 100.0});
     }
 
     stylesheet!("*", {
@@ -841,6 +854,20 @@ fn main() {
 
     fn delay_animation(animation: &MutableAnimation) -> impl Future<Item = (), Error = Never> {
         animation.signal().wait_for(Percentage::new(0.0)).map(|_| ())
+    }
+
+    fn scroll<A>(signal: A) -> impl Signal<Item = Option<f64>> where A: Signal<Item = f64> {
+        map_ref! {
+            let loaded = STATE.is_loaded.signal(),
+            let scroll = signal => {
+                if *loaded {
+                    Some(*scroll)
+
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -994,158 +1021,173 @@ fn main() {
                 html!("div", {
                     class(&GROUP_LIST_STYLE);
 
-                    children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
-                        .delay_remove(|(_, group)| delay_animation(&group.insert_animation))
-                        .map(move |(index, group)| {
-                            if let Some(index) = index.get() {
-                                if STATE.should_be_dragging_group(index) {
-                                    group.drag_top.jump_to(Percentage::new(1.0));
-                                }
-                            }
+                    scroll_left_signal(scroll(STATE.scroll_x.signal()));
+                    scroll_top_signal(scroll(STATE.scroll_y.signal()));
 
-                            html!("div", {
-                                class(&GROUP_STYLE);
+                    children(&mut [
+                        // TODO this is pretty hacky, but I don't know a better way to make it work
+                        html!("div", {
+                            class(&GROUP_LIST_CHILDREN_STYLE);
 
-                                style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
-                                style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
-                                style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX));
+                            children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
+                                .delay_remove(|(_, group)| delay_animation(&group.insert_animation))
+                                .map(move |(index, group)| {
+                                    if let Some(index) = index.get() {
+                                        if STATE.should_be_dragging_group(index) {
+                                            group.drag_top.jump_to(Percentage::new(1.0));
+                                        }
+                                    }
 
-                                style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
-                                style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 1.0));
-                                style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
-
-                                children(&mut [
                                     html!("div", {
-                                        class(&ROW_STYLE);
-                                        class(&GROUP_HEADER_STYLE);
+                                        class(&GROUP_STYLE);
 
-                                        style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 16.0));
-                                        style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0));
+                                        style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0));
+                                        style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
+                                        style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX));
+
+                                        style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
+                                        style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 1.0));
+                                        style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
 
                                         children(&mut [
-                                            text_signal(map_ref! {
-                                                    let name = group.name.signal_cloned(),
-                                                    let index = index.signal() => {
-                                                        // TODO improve the efficiency of this ?
-                                                        name.clone().or_else(|| {
-                                                            index.map(|index| Arc::new(format!("{}", index)))
-                                                        })
-                                                    }
-                                                }
-                                                // This causes it to remember the previous value if it returns `None`
-                                                // TODO dedicated method for this ?
-                                                .filter_map(|x| x)
-                                                .map(|x| option_str_default(x, ""))),
+                                            html!("div", {
+                                                class(&ROW_STYLE);
+                                                class(&GROUP_HEADER_STYLE);
+
+                                                style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 16.0));
+                                                style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0));
+
+                                                children(&mut [
+                                                    text_signal(map_ref! {
+                                                            let name = group.name.signal_cloned(),
+                                                            let index = index.signal() => {
+                                                                // TODO improve the efficiency of this ?
+                                                                name.clone().or_else(|| {
+                                                                    index.map(|index| Arc::new(format!("{}", index)))
+                                                                })
+                                                            }
+                                                        }
+                                                        // This causes it to remember the previous value if it returns `None`
+                                                        // TODO dedicated method for this ?
+                                                        .filter_map(|x| x)
+                                                        .map(|x| option_str_default(x, ""))),
+                                                ]);
+                                            }),
+
+                                            html!("div", {
+                                                class(&GROUP_TABS_STYLE);
+
+                                                style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
+
+                                                children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
+                                                    .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation))
+                                                    .map(move |(index, tab)| {
+                                                        if let Some(index) = index.get() {
+                                                            if STATE.should_be_dragging_tab(group.id, index) {
+                                                                tab.drag_over.jump_to(Percentage::new(1.0));
+                                                            }
+                                                        }
+
+                                                        tab_template(&tab,
+                                                            tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
+                                                                dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 16.0))
+                                                            }),
+
+                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
+                                                                dom.style_signal("transform", tab.insert_animation.signal().map(|t| {
+                                                                    t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
+                                                                }))
+                                                            }),
+
+                                                            |dom: DomBuilder<HtmlElement>| dom
+                                                                .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
+                                                                .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
+                                                                .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
+                                                                .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
+
+                                                                .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
+                                                                .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
+                                                                .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
+                                                                .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
+                                                                .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
+                                                                .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
+                                                                .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
+
+                                                                .style_signal("display", tab.dragging.signal().map(|is_dragging| {
+                                                                    if is_dragging {
+                                                                        Some("none")
+
+                                                                    } else {
+                                                                        None
+                                                                    }
+                                                                }))
+
+                                                                .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
+
+                                                                // TODO a bit hacky
+                                                                .with_element(|dom, element: HtmlElement| {
+                                                                    dom.event(clone!(index, group, tab => move |e: MouseDownEvent| {
+                                                                        if let Some(index) = index.get() {
+                                                                            let rect = element.get_bounding_client_rect();
+                                                                            STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                                        }
+                                                                    }))
+                                                                })
+
+                                                                .event(clone!(index, group, tab => move |_: MouseOverEvent| {
+                                                                    // TODO should this be inside of the if ?
+                                                                    tab.hovered.set(true);
+
+                                                                    if let Some(index) = index.get() {
+                                                                        STATE.drag_over(group.clone(), index);
+                                                                    }
+                                                                }))
+
+                                                                .event(clone!(tab => move |_: MouseOutEvent| {
+                                                                    // TODO should this check the index, like MouseOverEvent ?
+                                                                    tab.hovered.set(false);
+                                                                }))
+
+                                                                // TODO replace with MouseClickEvent
+                                                                .event(clone!(index, group, tab => move |e: MouseUpEvent| {
+                                                                    if index.get().is_some() {
+                                                                        let shift = e.shift_key();
+                                                                        // TODO is this correct ?
+                                                                        // TODO test this, especially on Mac
+                                                                        // TODO what if both of these are true ?
+                                                                        let ctrl = e.ctrl_key() || e.meta_key();
+                                                                        let alt = e.alt_key();
+
+                                                                        match e.button() {
+                                                                            MouseButton::Left => if ctrl && !shift && !alt {
+                                                                                group.ctrl_select_tab(&tab);
+
+                                                                            } else if !ctrl && shift && !alt {
+                                                                                group.shift_select_tab(&tab);
+
+                                                                            } else if !ctrl && !shift && !alt {
+                                                                                group.click_tab(&tab);
+                                                                            },
+                                                                            _ => {},
+                                                                        }
+                                                                    }
+                                                                })))
+                                                    }));
+                                            }),
                                         ]);
-                                    }),
-
-                                    html!("div", {
-                                        class(&GROUP_TABS_STYLE);
-
-                                        style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
-
-                                        children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                            .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation))
-                                            .map(move |(index, tab)| {
-                                                if let Some(index) = index.get() {
-                                                    if STATE.should_be_dragging_tab(group.id, index) {
-                                                        tab.drag_over.jump_to(Percentage::new(1.0));
-                                                    }
-                                                }
-
-                                                tab_template(&tab,
-                                                    tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
-                                                        dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 16.0))
-                                                    }),
-
-                                                    tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
-                                                        dom.style_signal("transform", tab.insert_animation.signal().map(|t| {
-                                                            t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
-                                                        }))
-                                                    }),
-
-                                                    |dom: DomBuilder<HtmlElement>| dom
-                                                        .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
-                                                        .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
-                                                        .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
-                                                        .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
-
-                                                        .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
-                                                        .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
-                                                        .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                        .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                        .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                        .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                        .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
-
-                                                        .style_signal("display", tab.dragging.signal().map(|is_dragging| {
-                                                            if is_dragging {
-                                                                Some("none")
-
-                                                            } else {
-                                                                None
-                                                            }
-                                                        }))
-
-                                                        .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
-
-                                                        // TODO a bit hacky
-                                                        .with_element(|dom, element: HtmlElement| {
-                                                            dom.event(clone!(index, group, tab => move |e: MouseDownEvent| {
-                                                                if let Some(index) = index.get() {
-                                                                    let rect = element.get_bounding_client_rect();
-                                                                    STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
-                                                                }
-                                                            }))
-                                                        })
-
-                                                        .event(clone!(index, group, tab => move |_: MouseOverEvent| {
-                                                            // TODO should this be inside of the if ?
-                                                            tab.hovered.set(true);
-
-                                                            if let Some(index) = index.get() {
-                                                                STATE.drag_over(group.clone(), index);
-                                                            }
-                                                        }))
-
-                                                        .event(clone!(tab => move |_: MouseOutEvent| {
-                                                            // TODO should this check the index, like MouseOverEvent ?
-                                                            tab.hovered.set(false);
-                                                        }))
-
-                                                        // TODO replace with MouseClickEvent
-                                                        .event(clone!(index, group, tab => move |e: MouseUpEvent| {
-                                                            if index.get().is_some() {
-                                                                let shift = e.shift_key();
-                                                                // TODO is this correct ?
-                                                                // TODO test this, especially on Mac
-                                                                // TODO what if both of these are true ?
-                                                                let ctrl = e.ctrl_key() || e.meta_key();
-                                                                let alt = e.alt_key();
-
-                                                                match e.button() {
-                                                                    MouseButton::Left => if ctrl && !shift && !alt {
-                                                                        group.ctrl_select_tab(&tab);
-
-                                                                    } else if !ctrl && shift && !alt {
-                                                                        group.shift_select_tab(&tab);
-
-                                                                    } else if !ctrl && !shift && !alt {
-                                                                        group.click_tab(&tab);
-                                                                    },
-                                                                    _ => {},
-                                                                }
-                                                            }
-                                                        })))
-                                            }));
-                                    }),
-                                ]);
-                            })
-                        }));
+                                    })
+                                }));
+                        }),
+                    ]);
                 }),
             ]);
         }),
     );
 
     log!("Finished");
+
+    // TODO a little hacky, needed to ensure that scrolling happens after everything is created
+    window().request_animation_frame(|_| {
+        STATE.is_loaded.set(true);
+    });
 }
