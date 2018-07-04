@@ -4,6 +4,9 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate stdweb;
+// TODO remove this
+#[macro_use]
+extern crate stdweb_derive;
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
@@ -13,6 +16,7 @@ extern crate uuid;
 extern crate web_extensions;
 
 use stdweb::{PromiseFuture, JsSerialize, Reference};
+use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
 use futures_signals::signal::{Signal, SignalExt};
 use futures::future::IntoFuture;
@@ -100,4 +104,17 @@ pub fn set_panic_hook() {
     }
 
     std::panic::set_hook(Box::new(hook));
+}
+
+
+// TODO move this into stdweb
+#[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
+#[reference(instance_of = "UIEvent")] // TODO: Better type check.
+//#[reference(subclass_of(Event, UiEvent))]
+pub struct ScrollEvent(Reference);
+
+impl IEvent for ScrollEvent {}
+impl IUiEvent for ScrollEvent {}
+impl ConcreteEvent for ScrollEvent {
+    const EVENT_TYPE: &'static str = "scroll";
 }

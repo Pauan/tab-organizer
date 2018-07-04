@@ -13,13 +13,13 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{and, or, not};
+use tab_organizer::{and, or, not, ScrollEvent};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseOverEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
-use stdweb::web::{HtmlElement, Rect, IHtmlElement, window};
+use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
 use futures::{Future, Never};
 use futures::future::FutureExt;
 use futures_signals::signal::{Signal, Mutable, SignalExt};
@@ -1023,6 +1023,14 @@ fn main() {
 
                     scroll_left_signal(scroll(STATE.scroll_x.signal()));
                     scroll_top_signal(scroll(STATE.scroll_y.signal()));
+
+                    with_element(|dom, element: HtmlElement| {
+                        dom.event(move |_: ScrollEvent| {
+                            // TODO also update these when groups/tabs are added/removed ?
+                            STATE.scroll_x.set(element.scroll_left());
+                            STATE.scroll_y.set(element.scroll_top());
+                        })
+                    });
 
                     children(&mut [
                         // TODO this is pretty hacky, but I don't know a better way to make it work

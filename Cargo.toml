@@ -21,6 +21,8 @@ lazy_static = "1.0.0"
 web-extensions = { path = "./web-extensions" }
 uuid = { version = "0.6.2", features = ["serde"] }
 stdweb = { version = "0.4.0", features = ["experimental_features_which_may_break_on_minor_version_bumps"] }
+# TODO remove this
+stdweb-derive = "0.4.0"
 dominator = { git = "https://github.com/Pauan/rust-dominator" }
 futures-signals = { git = "https://github.com/Pauan/rust-signals" }
 
