@@ -244,8 +244,6 @@ impl Dragging {
 
 struct State {
     is_loaded: Mutable<bool>,
-    scroll_x: Mutable<f64>,
-    scroll_y: Mutable<f64>,
     groups: MutableVec<Arc<Group>>,
     dragging: Dragging,
 }
@@ -513,9 +511,6 @@ impl State {
 lazy_static! {
     static ref STATE: Arc<State> = Arc::new(State {
         is_loaded: Mutable::new(false),
-
-        scroll_x: Mutable::new(0.0),
-        scroll_y: Mutable::new(500.0),
 
         groups: MutableVec::new_with_values((0..10).map(|id| {
             Arc::new(Group::new(id, (0..10).map(|id| {
@@ -856,18 +851,17 @@ fn main() {
         animation.signal().wait_for(Percentage::new(0.0)).map(|_| ())
     }
 
-    fn scroll<A>(signal: A) -> impl Signal<Item = Option<f64>> where A: Signal<Item = f64> {
-        map_ref! {
-            let loaded = STATE.is_loaded.signal(),
-            let scroll = signal => {
-                if *loaded {
-                    Some(*scroll)
+    fn scroll(name: &'static str) -> impl Signal<Item = Option<f64>> {
+        STATE.is_loaded.signal().map(move |loaded| {
+            if loaded {
+                window().local_storage().get(name).map(|value| {
+                    value.parse().unwrap()
+                })
 
-                } else {
-                    None
-                }
+            } else {
+                None
             }
-        }
+        })
     }
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -924,6 +918,13 @@ fn main() {
 
             mixin(mixin);
         })
+    }
+
+    // Disables the browser scroll restoration
+    js! { @(no_return)
+        if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+        }
     }
 
     dominator::append_dom(&dominator::body(),
@@ -1021,14 +1022,20 @@ fn main() {
                 html!("div", {
                     class(&GROUP_LIST_STYLE);
 
-                    scroll_left_signal(scroll(STATE.scroll_x.signal()));
-                    scroll_top_signal(scroll(STATE.scroll_y.signal()));
+                    scroll_left_signal(scroll("tab-organizer.scroll.x"));
+                    scroll_top_signal(scroll("tab-organizer.scroll.y"));
 
                     with_element(|dom, element: HtmlElement| {
+                        // TODO also update these when groups/tabs are added/removed ?
                         dom.event(move |_: ScrollEvent| {
-                            // TODO also update these when groups/tabs are added/removed ?
-                            STATE.scroll_x.set(element.scroll_left());
-                            STATE.scroll_y.set(element.scroll_top());
+                            if STATE.is_loaded.get() {
+                                let local_storage = window().local_storage();
+                                let x = element.scroll_left();
+                                let y = element.scroll_top();
+                                // TODO is there a more efficient way of converting to a string ?
+                                local_storage.insert("tab-organizer.scroll.x", &x.to_string()).unwrap();
+                                local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
+                            }
                         })
                     });
 
