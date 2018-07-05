@@ -18,8 +18,10 @@ use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
-use dominator::events::{MouseDownEvent, MouseOverEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
+use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
+use stdweb::PromiseFuture;
 use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
+use stdweb::web::html_element::InputElement;
 use futures::{Future, Never};
 use futures::future::FutureExt;
 use futures_signals::signal::{Signal, Mutable, SignalExt};
@@ -41,6 +43,7 @@ struct Group {
     drag_top: MutableAnimation,
     insert_animation: MutableAnimation,
     last_selected_tab: Mutable<Option<Arc<Tab>>>,
+    matches_search: Mutable<bool>,
 }
 
 impl Group {
@@ -53,6 +56,7 @@ impl Group {
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
             last_selected_tab: Mutable::new(None),
+            matches_search: Mutable::new(false),
         }
     }
 
@@ -171,6 +175,7 @@ struct Tab {
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
     hovered: Mutable<bool>,
+    matches_search: Mutable<bool>,
     drag_over: MutableAnimation,
     insert_animation: MutableAnimation,
 }
@@ -186,6 +191,7 @@ impl Tab {
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
+            matches_search: Mutable::new(false),
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
         }
@@ -243,6 +249,8 @@ impl Dragging {
 
 
 struct State {
+    search_box: Mutable<Arc<String>>,
+    failed: Mutable<Option<Arc<String>>>,
     is_loaded: Mutable<bool>,
     groups: MutableVec<Arc<Group>>,
     dragging: Dragging,
@@ -505,11 +513,57 @@ impl State {
             }
         })
     }*/
+
+    // TODO debounce this
+    fn search(&self) {
+        let search_box = self.search_box.get_cloned();
+
+        let groups = self.groups.lock_slice();
+
+        for group in groups.iter() {
+            let mut visible = false;
+
+            {
+                let tabs = group.tabs.lock_slice();
+
+                // TODO what if there aren't any tabs in the group ?
+                for tab in tabs.iter() {
+                    let title = tab.title.lock_ref();
+                    let url = tab.url.lock_ref();
+
+                    // TODO make this more efficient ?
+                    let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
+                    let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
+
+                    // TODO proper parser
+                    if title == search_box.as_str() ||
+                       url == search_box.as_str() {
+                        visible = true;
+                        tab.matches_search.set(true);
+
+                    } else {
+                        tab.matches_search.set(false);
+                    }
+                }
+            }
+
+            if visible {
+                group.matches_search.set(true);
+
+            } else {
+                group.matches_search.set(false);
+            }
+        }
+    }
 }
 
 
 lazy_static! {
     static ref STATE: Arc<State> = Arc::new(State {
+        search_box: Mutable::new(Arc::new(window().local_storage().get("tab-organizer.search").unwrap_or_else(|| "".to_string()))),
+
+        failed: Mutable::new(None),
+
         is_loaded: Mutable::new(false),
 
         groups: MutableVec::new_with_values((0..10).map(|id| {
@@ -524,7 +578,7 @@ lazy_static! {
     static ref TOP_STYLE: String = class! {
         style("font-family", "sans-serif");
         style("font-size", "13px");
-        style("width", "100%");
+        style("width", "300px"); // 100%
         style("height", "100%");
         style("padding-top", "2px");
         style("background-color", "hsl(0, 0%, 100%)");
@@ -549,6 +603,34 @@ lazy_static! {
                                hsl(0, 0%, 40%) \
                                hsl(0, 0%, 50%)");
         style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)");
+    };
+
+    static ref SEARCH_STYLE: String = class! {
+        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+            if is_dragging {
+                None
+
+            } else {
+                Some("auto")
+            }
+        }));
+
+        style("padding-top", "2px");
+        style("padding-bottom", "2px");
+        style("padding-left", "5px");
+        style("padding-right", "5px");
+        style("height", "100%");
+
+        style_signal("background-color", STATE.failed.signal_cloned().map(|failed| {
+            if failed.is_some() {
+                Some("hsl(5, 100%, 90%)")
+
+            } else {
+                None
+            }
+        }));
+
+        style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)");
     };
 
     static ref GROUP_LIST_STYLE: String = class! {
@@ -642,6 +724,12 @@ lazy_static! {
         style("align-items", "center"); // TODO get rid of this ?
     };
 
+    static ref STRETCH_STYLE: String = class! {
+        style("flex-shrink", "1");
+        style("flex-grow", "1");
+        style("flex-basis", "0%");
+    };
+
     static ref TAB_STYLE: String = class! {
         style("padding", "1px");
         style("overflow", "hidden");
@@ -716,7 +804,11 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
 
 
 fn main() {
-    tab_organizer::set_panic_hook();
+    tab_organizer::set_panic_hook(|message| {
+        let message = Arc::new(message);
+        STATE.failed.set(Some(message.clone()));
+        PromiseFuture::print_error_panic(&*message);
+    });
 
     let mut top_id = 999999;
 
@@ -771,8 +863,12 @@ fn main() {
                     group.tabs.push_cloned(tab);
                 }
             }
+
+            STATE.search();
         }}, @{INSERT_ANIMATION_DURATION + 100.0});
     }
+
+    STATE.search();
 
     stylesheet!("*", {
         style("text-overflow", "ellipsis");
@@ -1017,6 +1113,31 @@ fn main() {
                 html!("div", {
                     class(&ROW_STYLE);
                     class(&TOOLBAR_STYLE);
+
+                    children(&mut [
+                        html!("input" => InputElement, {
+                            class(&SEARCH_STYLE);
+                            class(&STRETCH_STYLE);
+
+                            attribute("type", "text");
+                            attribute("autofocus", "");
+                            attribute("autocomplete", "off");
+                            attribute("placeholder", "Search");
+
+                            attribute_signal("title", STATE.failed.signal_cloned().map(|x| option_str_default(x, "")));
+
+                            attribute_signal("value", STATE.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())));
+
+                            with_element(|dom, element: InputElement| {
+                                dom.event(move |_: InputEvent| {
+                                    let value = Arc::new(element.raw_value());
+                                    window().local_storage().insert("tab-organizer.search", &value).unwrap();
+                                    STATE.search_box.set(value);
+                                    STATE.search();
+                                })
+                            });
+                        }),
+                    ]);
                 }),
 
                 html!("div", {
@@ -1063,6 +1184,15 @@ fn main() {
                                         style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
                                         style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 1.0));
                                         style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
+
+                                        style_signal("display", group.matches_search.signal().map(|matches_search| {
+                                            if matches_search {
+                                                None
+
+                                            } else {
+                                                Some("none")
+                                            }
+                                        }));
 
                                         children(&mut [
                                             html!("div", {
@@ -1128,14 +1258,17 @@ fn main() {
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
                                                                 .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                                                                .style_signal("display", tab.dragging.signal().map(|is_dragging| {
-                                                                    if is_dragging {
-                                                                        Some("none")
+                                                                .style_signal("display", map_ref! {
+                                                                    let matches_search = tab.matches_search.signal(),
+                                                                    let is_dragging = tab.dragging.signal() => {
+                                                                        if *is_dragging || !matches_search {
+                                                                            Some("none")
 
-                                                                    } else {
-                                                                        None
+                                                                        } else {
+                                                                            None
+                                                                        }
                                                                     }
-                                                                }))
+                                                                })
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 

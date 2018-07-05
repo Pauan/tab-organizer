@@ -96,14 +96,10 @@ pub fn not<A>(signal: A) -> impl Signal<Item = bool> where A: Signal<Item = bool
 }
 
 
-pub fn set_panic_hook() {
-    fn hook(info: &std::panic::PanicInfo) {
-        js! { @(no_return)
-            console.error(@{info.to_string()});
-        }
-    }
-
-    std::panic::set_hook(Box::new(hook));
+pub fn set_panic_hook<F>(hook: F) where F: Fn(String) + Send + Sync + 'static {
+    std::panic::set_hook(Box::new(move |info| {
+        hook(info.to_string());
+    }));
 }
 
 
