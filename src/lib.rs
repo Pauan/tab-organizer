@@ -26,6 +26,23 @@ use uuid::Uuid;
 pub mod state;
 
 
+#[inline]
+pub fn performance_now() -> f64 {
+    js!( return performance.now(); ).try_into().unwrap()
+}
+
+#[macro_export]
+macro_rules! time {
+    ($name:expr, $value:expr) => {{
+        let old = $crate::performance_now();
+        let value = $value;
+        let new = $crate::performance_now();
+        log!("{} took {}ms", $name, new - old);
+        value
+    }}
+}
+
+
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
@@ -113,4 +130,35 @@ impl IEvent for ScrollEvent {}
 impl IUiEvent for ScrollEvent {}
 impl ConcreteEvent for ScrollEvent {
     const EVENT_TYPE: &'static str = "scroll";
+}
+
+
+// TODO move this into stdweb
+#[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
+#[reference(instance_of = "RegExp")]
+pub struct RegExp(Reference);
+
+impl RegExp {
+    #[inline]
+    pub fn new(pattern: &str, flags: &str) -> Self {
+        js!( return new RegExp(@{pattern}, @{flags}); ).try_into().unwrap()
+    }
+
+    #[inline]
+    pub fn is_match(&self, input: &str) -> bool {
+        js!(
+            var self = @{self};
+            var is_match = self.test(@{input});
+            self.lastIndex = 0;
+            return is_match;
+        ).try_into().unwrap()
+    }
+
+    // TODO implement this more efficiently
+    // TODO verify that this is correct
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+    #[inline]
+    pub fn escape(input: &str) -> String {
+        js!( return @{input}.replace(new RegExp("[.*+?^${}()|[\\]\\\\]", "g"), "\\$&"); ).try_into().unwrap()
+    }
 }

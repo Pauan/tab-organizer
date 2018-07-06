@@ -20,12 +20,14 @@ use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
+use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window, Date};
 use stdweb::web::html_element::InputElement;
 use futures::{Future, Never};
 use futures::future::FutureExt;
 use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
+
+mod parse;
 
 
 const INSERT_ANIMATION_DURATION: f64 = 500.0; // 500.0
@@ -250,6 +252,7 @@ impl Dragging {
 
 struct State {
     search_box: Mutable<Arc<String>>,
+    search_parser: Mutable<parse::Parsed>,
     failed: Mutable<Option<Arc<String>>>,
     is_loaded: Mutable<bool>,
     groups: MutableVec<Arc<Group>>,
@@ -516,7 +519,7 @@ impl State {
 
     // TODO debounce this
     fn search(&self) {
-        let search_box = self.search_box.get_cloned();
+        let search_parser = self.search_parser.lock_ref();
 
         let groups = self.groups.lock_slice();
 
@@ -528,16 +531,7 @@ impl State {
 
                 // TODO what if there aren't any tabs in the group ?
                 for tab in tabs.iter() {
-                    let title = tab.title.lock_ref();
-                    let url = tab.url.lock_ref();
-
-                    // TODO make this more efficient ?
-                    let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
-                    let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
-
-                    // TODO proper parser
-                    if title == search_box.as_str() ||
-                       url == search_box.as_str() {
+                    if search_parser.matches_tab(tab) {
                         visible = true;
                         tab.matches_search.set(true);
 
@@ -559,21 +553,26 @@ impl State {
 
 
 lazy_static! {
-    static ref STATE: Arc<State> = Arc::new(State {
-        search_box: Mutable::new(Arc::new(window().local_storage().get("tab-organizer.search").unwrap_or_else(|| "".to_string()))),
+    static ref STATE: Arc<State> = {
+        let search_value = window().local_storage().get("tab-organizer.search").unwrap_or_else(|| "".to_string());
 
-        failed: Mutable::new(None),
+        Arc::new(State {
+            search_parser: Mutable::new(parse::Parsed::new(&search_value)),
+            search_box: Mutable::new(Arc::new(search_value)),
 
-        is_loaded: Mutable::new(false),
+            failed: Mutable::new(None),
 
-        groups: MutableVec::new_with_values((0..10).map(|id| {
-            Arc::new(Group::new(id, (0..10).map(|id| {
-                Arc::new(Tab::new(id, "Foo", "Bar"))
-            }).collect()))
-        }).collect()),
+            is_loaded: Mutable::new(false),
 
-        dragging: Dragging::new(),
-    });
+            groups: MutableVec::new_with_values((0..10).map(|id| {
+                Arc::new(Group::new(id, (0..100).map(|id| {
+                    Arc::new(Tab::new(id, "Foo", "Bar"))
+                }).collect()))
+            }).collect()),
+
+            dragging: Dragging::new(),
+        })
+    };
 
     static ref TOP_STYLE: String = class! {
         style("font-family", "sans-serif");
@@ -810,7 +809,7 @@ fn main() {
         PromiseFuture::print_error_panic(&*message);
     });
 
-    let mut top_id = 999999;
+    /*let mut top_id = 999999;
 
     js! { @(no_return)
         setInterval(@{move || {
@@ -866,7 +865,7 @@ fn main() {
 
             STATE.search();
         }}, @{INSERT_ANIMATION_DURATION + 100.0});
-    }
+    }*/
 
     STATE.search();
 
@@ -1130,10 +1129,13 @@ fn main() {
 
                             with_element(|dom, element: InputElement| {
                                 dom.event(move |_: InputEvent| {
-                                    let value = Arc::new(element.raw_value());
-                                    window().local_storage().insert("tab-organizer.search", &value).unwrap();
-                                    STATE.search_box.set(value);
-                                    STATE.search();
+                                    time!("Searching", {
+                                        let value = Arc::new(element.raw_value());
+                                        window().local_storage().insert("tab-organizer.search", &value).unwrap();
+                                        STATE.search_parser.set(parse::Parsed::new(&value));
+                                        STATE.search_box.set(value);
+                                        STATE.search();
+                                    })
                                 })
                             });
                         }),
@@ -1337,5 +1339,6 @@ fn main() {
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
     window().request_animation_frame(|_| {
         STATE.is_loaded.set(true);
+        log!("Loaded");
     });
 }
