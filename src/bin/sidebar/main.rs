@@ -18,9 +18,9 @@ use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
-use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent};
+use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window, Date};
+use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
 use stdweb::web::html_element::InputElement;
 use futures::{Future, Never};
 use futures::future::FutureExt;
@@ -28,11 +28,12 @@ use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
 mod parse;
+mod waiter;
 
 
 const INSERT_ANIMATION_DURATION: f64 = 500.0; // 500.0
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
-const TAB_HEIGHT: f64 = 20.0;
+const TAB_HEIGHT: f64 = 16.0;
 const DRAG_GAP_PX: f64 = 32.0;
 const INSERT_LEFT_MARGIN: f64 = 12.0;
 
@@ -46,6 +47,9 @@ struct Group {
     insert_animation: MutableAnimation,
     last_selected_tab: Mutable<Option<Arc<Tab>>>,
     matches_search: Mutable<bool>,
+
+    visible: Mutable<bool>,
+    tabs_padding: Mutable<f64>, // TODO use u32 instead ?
 }
 
 impl Group {
@@ -59,6 +63,8 @@ impl Group {
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
             last_selected_tab: Mutable::new(None),
             matches_search: Mutable::new(false),
+            visible: Mutable::new(false),
+            tabs_padding: Mutable::new(0.0),
         }
     }
 
@@ -178,6 +184,7 @@ struct Tab {
     dragging: Mutable<bool>,
     hovered: Mutable<bool>,
     matches_search: Mutable<bool>,
+    visible: Mutable<bool>,
     drag_over: MutableAnimation,
     insert_animation: MutableAnimation,
 }
@@ -194,6 +201,7 @@ impl Tab {
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
             matches_search: Mutable::new(false),
+            visible: Mutable::new(false),
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
         }
@@ -253,6 +261,11 @@ impl Dragging {
 struct State {
     search_box: Mutable<Arc<String>>,
     search_parser: Mutable<parse::Parsed>,
+
+    scroll_height: Mutable<f64>,
+    scroll_y: Mutable<f64>,
+    groups_padding: Mutable<f64>, // TODO use u32 instead ?
+
     failed: Mutable<Option<Arc<String>>>,
     is_loaded: Mutable<bool>,
     groups: MutableVec<Arc<Group>>,
@@ -518,54 +531,145 @@ impl State {
     }*/
 
     // TODO debounce this
-    fn search(&self) {
+    fn update(&self, should_search: bool) {
         let search_parser = self.search_parser.lock_ref();
 
         let groups = self.groups.lock_slice();
 
+        let top_y = self.scroll_y.get();
+        let bottom_y = top_y + (window().inner_height() - 26) as f64;
+
+        let mut padding: Option<f64> = None;
+        let mut current_height: f64 = 0.0;
+
         for group in groups.iter() {
             let mut visible = false;
+
+            let old_height = current_height;
+
+            let mut tabs_padding: Option<f64> = None;
+
+            let percentage = group.insert_animation.current_percentage().into_f64();
+
+            // TODO hacky
+            // TODO what about when it's dragging ?
+            current_height +=
+                (3.0 * percentage).round() +
+                (1.0 * percentage).round() +
+                (16.0 * percentage).round();
+
+            let tabs_height = current_height;
 
             {
                 let tabs = group.tabs.lock_slice();
 
                 // TODO what if there aren't any tabs in the group ?
                 for tab in tabs.iter() {
-                    if search_parser.matches_tab(tab) {
+                    if should_search {
+                        if search_parser.matches_tab(tab) {
+                            tab.matches_search.set(true);
+
+                        } else {
+                            tab.matches_search.set(false);
+                        }
+                    }
+
+                    // TODO what about if all the tabs are being dragged ?
+                    if tab.matches_search.get() && !tab.dragging.get() {
                         visible = true;
-                        tab.matches_search.set(true);
+
+                        let old_height = current_height;
+
+                        let percentage = tab.insert_animation.current_percentage().into_f64();
+
+                        // TODO hacky
+                        // TODO take into account the padding/border as well ?
+                        current_height +=
+                            (1.0 * percentage).round() +
+                            (1.0 * percentage).round() +
+                            (TAB_HEIGHT * percentage).round() +
+                            (1.0 * percentage).round() +
+                            (1.0 * percentage).round();
+
+                        if old_height < bottom_y && current_height > top_y {
+                            if let None = tabs_padding {
+                                tabs_padding = Some(old_height);
+                            }
+
+                            tab.visible.set(true);
+
+                        } else {
+                            tab.visible.set(false);
+                            tab.hovered.set(false);
+                        }
 
                     } else {
-                        tab.matches_search.set(false);
+                        tab.visible.set(false);
+                        tab.hovered.set(false);
                     }
                 }
             }
 
+            if should_search {
+                if visible {
+                    group.matches_search.set(true);
+
+                } else {
+                    group.matches_search.set(false);
+                }
+            }
+
             if visible {
-                group.matches_search.set(true);
+                // TODO hacky
+                // TODO what about when it's dragging ?
+                current_height += (3.0 * percentage).round();
+
+                if old_height < bottom_y && current_height > top_y {
+                    group.tabs_padding.set(tabs_padding.map(|padding| padding - tabs_height).unwrap_or(0.0));
+
+                    if let None = padding {
+                        padding = Some(old_height);
+                    }
+
+                    group.visible.set(true);
+
+                } else {
+                    group.visible.set(false);
+                }
 
             } else {
-                group.matches_search.set(false);
+                current_height = old_height;
+                group.visible.set(false);
             }
         }
+
+        self.groups_padding.set(padding.unwrap_or(0.0));
+        self.scroll_height.set(current_height);
     }
 }
 
 
 lazy_static! {
     static ref STATE: Arc<State> = {
-        let search_value = window().local_storage().get("tab-organizer.search").unwrap_or_else(|| "".to_string());
+        let local_storage = window().local_storage();
+
+        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
+        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
         Arc::new(State {
             search_parser: Mutable::new(parse::Parsed::new(&search_value)),
             search_box: Mutable::new(Arc::new(search_value)),
 
+            scroll_y: Mutable::new(scroll_y),
+            scroll_height: Mutable::new(0.0),
+            groups_padding: Mutable::new(0.0),
+
             failed: Mutable::new(None),
 
             is_loaded: Mutable::new(false),
 
-            groups: MutableVec::new_with_values((0..10).map(|id| {
-                Arc::new(Group::new(id, (0..100).map(|id| {
+            groups: MutableVec::new_with_values((0..10000).map(|id| {
+                Arc::new(Group::new(id, (0..10).map(|id| {
                     Arc::new(Tab::new(id, "Foo", "Bar"))
                 }).collect()))
             }).collect()),
@@ -592,7 +696,7 @@ lazy_static! {
 
     static ref TOOLBAR_STYLE: String = class! {
         style("margin", "0px 2px 0px 2px");
-        style("height", "24px");
+        style("height", "22px");
         style("background-color", "hsl(0, 0%, 100%)");
         style("z-index", "3");
         style("border-radius", "2px");
@@ -733,7 +837,7 @@ lazy_static! {
         style("padding", "1px");
         style("overflow", "hidden");
         style("border-radius", "5px");
-        style("height", "20px");
+        style("height", &format!("{}px", TAB_HEIGHT));
     };
 
     static ref TAB_HOVER_STYLE: String = class! {
@@ -803,13 +907,16 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
 
 
 fn main() {
+    log!("Starting");
+
     tab_organizer::set_panic_hook(|message| {
         let message = Arc::new(message);
         STATE.failed.set(Some(message.clone()));
         PromiseFuture::print_error_panic(&*message);
     });
 
-    /*let mut top_id = 999999;
+
+    let mut top_id = 999999;
 
     js! { @(no_return)
         setInterval(@{move || {
@@ -863,11 +970,10 @@ fn main() {
                 }
             }
 
-            STATE.search();
+            //STATE.update(true);
         }}, @{INSERT_ANIMATION_DURATION + 100.0});
-    }*/
+    }
 
-    STATE.search();
 
     stylesheet!("*", {
         style("text-overflow", "ellipsis");
@@ -879,8 +985,6 @@ fn main() {
         style("background-size", "100% 100%");
         style("cursor", "inherit");
         style("position", "relative");
-
-        style("box-sizing", "border-box");
 
         /* TODO are these a good idea ? */
         style("outline-width", "0px");
@@ -917,8 +1021,6 @@ fn main() {
         }));
     });
 
-    log!("Starting");
-
     fn px(t: f64) -> String {
         // TODO find which spots should be rounded and which shouldn't ?
         format!("{}px", t.round())
@@ -942,21 +1044,11 @@ fn main() {
         signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
     }
 
-    fn delay_animation(animation: &MutableAnimation) -> impl Future<Item = (), Error = Never> {
-        animation.signal().wait_for(Percentage::new(0.0)).map(|_| ())
-    }
-
-    fn scroll(name: &'static str) -> impl Signal<Item = Option<f64>> {
-        STATE.is_loaded.signal().map(move |loaded| {
-            if loaded {
-                window().local_storage().get(name).map(|value| {
-                    value.parse().unwrap()
-                })
-
-            } else {
-                None
-            }
-        })
+    fn delay_animation(animation: &MutableAnimation, visible: &Mutable<bool>) -> impl Future<Item = (), Error = Never> {
+        animation.signal().wait_for(Percentage::new(0.0)).select(visible.signal().wait_for(false))
+            // TODO a bit gross
+            .map(|_| ())
+            .map_err(|_| unreachable!())
     }
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -1036,6 +1128,15 @@ fn main() {
             global_event(move |e: MouseMoveEvent| {
                 STATE.drag_move(e.client_x(), e.client_y());
             });
+
+            global_event(move |_: ResizeEvent| {
+                STATE.update(false);
+            });
+
+            future(waiter::waiter(&STATE, move |should_search| {
+                log!("UPDATING");
+                STATE.update(should_search);
+            }));
 
             children(&mut [
                 html!("div", {
@@ -1134,7 +1235,7 @@ fn main() {
                                         window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                         STATE.search_parser.set(parse::Parsed::new(&value));
                                         STATE.search_box.set(value);
-                                        STATE.search();
+                                        STATE.update(true);
                                     })
                                 })
                             });
@@ -1145,19 +1246,27 @@ fn main() {
                 html!("div", {
                     class(&GROUP_LIST_STYLE);
 
-                    scroll_left_signal(scroll("tab-organizer.scroll.x"));
-                    scroll_top_signal(scroll("tab-organizer.scroll.y"));
+                    scroll_top_signal(map_ref! {
+                        let loaded = STATE.is_loaded.signal(),
+                        let scroll_y = STATE.scroll_y.signal() => {
+                            if *loaded {
+                                Some(*scroll_y)
+
+                            } else {
+                                None
+                            }
+                        }
+                    });
 
                     with_element(|dom, element: HtmlElement| {
                         // TODO also update these when groups/tabs are added/removed ?
                         dom.event(move |_: ScrollEvent| {
                             if STATE.is_loaded.get() {
                                 let local_storage = window().local_storage();
-                                let x = element.scroll_left();
                                 let y = element.scroll_top();
                                 // TODO is there a more efficient way of converting to a string ?
-                                local_storage.insert("tab-organizer.scroll.x", &x.to_string()).unwrap();
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
+                                STATE.scroll_y.set(y);
                             }
                         })
                     });
@@ -1167,8 +1276,13 @@ fn main() {
                         html!("div", {
                             class(&GROUP_LIST_CHILDREN_STYLE);
 
+                            style_signal("padding-top", STATE.groups_padding.signal().map(px));
+
+                            style_signal("height", STATE.scroll_height.signal().map(px));
+
                             children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
-                                .delay_remove(|(_, group)| delay_animation(&group.insert_animation))
+                                .delay_remove(|(_, group)| delay_animation(&group.insert_animation, &group.visible))
+                                .filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(move |(index, group)| {
                                     if let Some(index) = index.get() {
                                         if STATE.should_be_dragging_group(index) {
@@ -1186,15 +1300,6 @@ fn main() {
                                         style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
                                         style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 1.0));
                                         style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
-
-                                        style_signal("display", group.matches_search.signal().map(|matches_search| {
-                                            if matches_search {
-                                                None
-
-                                            } else {
-                                                Some("none")
-                                            }
-                                        }));
 
                                         children(&mut [
                                             html!("div", {
@@ -1224,10 +1329,12 @@ fn main() {
                                             html!("div", {
                                                 class(&GROUP_TABS_STYLE);
 
+                                                style_signal("padding-top", group.tabs_padding.signal().map(px));
                                                 style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
 
                                                 children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation))
+                                                    .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation, &tab.visible))
+                                                    .filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(move |(index, tab)| {
                                                         if let Some(index) = index.get() {
                                                             if STATE.should_be_dragging_tab(group.id, index) {
@@ -1259,18 +1366,6 @@ fn main() {
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
                                                                 .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
-
-                                                                .style_signal("display", map_ref! {
-                                                                    let matches_search = tab.matches_search.signal(),
-                                                                    let is_dragging = tab.dragging.signal() => {
-                                                                        if *is_dragging || !matches_search {
-                                                                            Some("none")
-
-                                                                        } else {
-                                                                            None
-                                                                        }
-                                                                    }
-                                                                })
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 
