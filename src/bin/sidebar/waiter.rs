@@ -1,10 +1,10 @@
 use {State, Group, Tab};
 use std::sync::Arc;
-use dominator::animation::{Percentage, MutableAnimation, MutableAnimationSignal};
-use futures::{Future, FutureExt, Poll, Async, Never};
+use dominator::animation::MutableAnimationSignal;
+use futures::{Future, Poll, Async, Never};
 use futures::task::Context;
-use futures_signals::signal::{Signal, SignalExt, Mutable, MutableSignal};
-use futures_signals::signal_vec::{SignalVec, SignalVecExt, VecDiff};
+use futures_signals::signal::{Signal, MutableSignal};
+use futures_signals::signal_vec::{SignalVec, VecDiff};
 
 
 /*pub(crate) fn delay_animation(animation: &MutableAnimation, visible: &Mutable<bool>) -> impl Future<Item = (), Error = Never> {

@@ -29,7 +29,7 @@ mod parse;
 mod waiter;
 
 
-const INSERT_ANIMATION_DURATION: f64 = 500.0; // 500.0
+const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
 const TAB_HEIGHT: f64 = 16.0;
 const DRAG_GAP_PX: f64 = 32.0;
@@ -548,7 +548,7 @@ impl State {
                 false
 
             } else {
-                let mut visible = false;
+                let mut matches_search = false;
 
                 let old_height = current_height;
 
@@ -560,8 +560,8 @@ impl State {
                 // TODO hacky
                 // TODO what about when it's dragging ?
                 current_height +=
-                    (3.0 * percentage).round() +
                     (1.0 * percentage).round() +
+                    (3.0 * percentage).round() +
                     (16.0 * percentage).round();
 
                 let tabs_height = current_height;
@@ -582,29 +582,35 @@ impl State {
                         }
 
                         // TODO what about if all the tabs are being dragged ?
-                        if tab.matches_search.get() && !tab.dragging.get() {
-                            visible = true;
+                        if tab.matches_search.get() {
+                            matches_search = true;
 
-                            let old_height = current_height;
+                            if !tab.dragging.get() {
+                                let old_height = current_height;
 
-                            let percentage = tab.insert_animation.current_percentage().into_f64();
-                            //let percentage: f64 = 1.0;
+                                let percentage = tab.insert_animation.current_percentage().into_f64();
+                                //let percentage: f64 = 1.0;
 
-                            // TODO hacky
-                            // TODO take into account the padding/border as well ?
-                            current_height +=
-                                (1.0 * percentage).round() +
-                                (1.0 * percentage).round() +
-                                (TAB_HEIGHT * percentage).round() +
-                                (1.0 * percentage).round() +
-                                (1.0 * percentage).round();
+                                // TODO hacky
+                                // TODO take into account the padding/border as well ?
+                                current_height +=
+                                    (1.0 * percentage).round() +
+                                    (1.0 * percentage).round() +
+                                    (TAB_HEIGHT * percentage).round() +
+                                    (1.0 * percentage).round() +
+                                    (1.0 * percentage).round();
 
-                            if old_height < bottom_y && current_height > top_y {
-                                if let None = tabs_padding {
-                                    tabs_padding = Some(old_height);
+                                if old_height < bottom_y && current_height > top_y {
+                                    if let None = tabs_padding {
+                                        tabs_padding = Some(old_height);
+                                    }
+
+                                    tab.visible.set(true);
+
+                                } else {
+                                    tab.visible.set(false);
+                                    tab.hovered.set(false);
                                 }
-
-                                tab.visible.set(true);
 
                             } else {
                                 tab.visible.set(false);
@@ -621,7 +627,7 @@ impl State {
                 });
 
                 if should_search {
-                    if visible {
+                    if matches_search {
                         group.matches_search.set(true);
 
                     } else {
@@ -629,7 +635,7 @@ impl State {
                     }
                 }
 
-                if visible {
+                if matches_search {
                     // TODO hacky
                     // TODO what about when it's dragging ?
                     current_height += (3.0 * percentage).round();
@@ -751,12 +757,13 @@ lazy_static! {
 
     static ref GROUP_LIST_STYLE: String = class! {
         style("height", "calc(100% - 24px)");
-        style("padding-top", "1px");
         style("overflow", "auto");
     };
 
     static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
+        style("box-sizing", "border-box");
         style("overflow", "hidden");
+        style("top", "1px");
     };
 
     static ref GROUP_STYLE: String = class! {
