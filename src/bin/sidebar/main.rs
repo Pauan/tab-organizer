@@ -22,8 +22,6 @@ use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEven
 use stdweb::PromiseFuture;
 use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
 use stdweb::web::html_element::InputElement;
-use futures::{Future, Never};
-use futures::future::FutureExt;
 use futures_signals::signal::{Signal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
@@ -48,6 +46,7 @@ struct Group {
     last_selected_tab: Mutable<Option<Arc<Tab>>>,
     matches_search: Mutable<bool>,
 
+    removing: Mutable<bool>,
     visible: Mutable<bool>,
     tabs_padding: Mutable<f64>, // TODO use u32 instead ?
 }
@@ -63,6 +62,7 @@ impl Group {
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
             last_selected_tab: Mutable::new(None),
             matches_search: Mutable::new(false),
+            removing: Mutable::new(false),
             visible: Mutable::new(false),
             tabs_padding: Mutable::new(0.0),
         }
@@ -184,6 +184,7 @@ struct Tab {
     dragging: Mutable<bool>,
     hovered: Mutable<bool>,
     matches_search: Mutable<bool>,
+    removing: Mutable<bool>,
     visible: Mutable<bool>,
     drag_over: MutableAnimation,
     insert_animation: MutableAnimation,
@@ -201,6 +202,7 @@ impl Tab {
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
             matches_search: Mutable::new(false),
+            removing: Mutable::new(false),
             visible: Mutable::new(false),
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
@@ -530,11 +532,10 @@ impl State {
         })
     }*/
 
-    // TODO debounce this
+    // TODO debounce this ?
+    // TODO make this simpler somehow ?
     fn update(&self, should_search: bool) {
         let search_parser = self.search_parser.lock_ref();
-
-        let groups = self.groups.lock_slice();
 
         let top_y = self.scroll_y.get();
         let bottom_y = top_y + (window().inner_height() - 26) as f64;
@@ -542,106 +543,118 @@ impl State {
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
-        for group in groups.iter() {
-            let mut visible = false;
+        self.groups.retain(|group| {
+            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
+                false
 
-            let old_height = current_height;
+            } else {
+                let mut visible = false;
 
-            let mut tabs_padding: Option<f64> = None;
+                let old_height = current_height;
 
-            let percentage = group.insert_animation.current_percentage().into_f64();
+                let mut tabs_padding: Option<f64> = None;
 
-            // TODO hacky
-            // TODO what about when it's dragging ?
-            current_height +=
-                (3.0 * percentage).round() +
-                (1.0 * percentage).round() +
-                (16.0 * percentage).round();
+                let percentage = group.insert_animation.current_percentage().into_f64();
+                //let percentage: f64 = 1.0;
 
-            let tabs_height = current_height;
+                // TODO hacky
+                // TODO what about when it's dragging ?
+                current_height +=
+                    (3.0 * percentage).round() +
+                    (1.0 * percentage).round() +
+                    (16.0 * percentage).round();
 
-            {
-                let tabs = group.tabs.lock_slice();
+                let tabs_height = current_height;
 
                 // TODO what if there aren't any tabs in the group ?
-                for tab in tabs.iter() {
-                    if should_search {
-                        if search_parser.matches_tab(tab) {
-                            tab.matches_search.set(true);
+                group.tabs.retain(|tab| {
+                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
+                        false
 
-                        } else {
-                            tab.matches_search.set(false);
-                        }
-                    }
+                    } else {
+                        if should_search {
+                            if search_parser.matches_tab(tab) {
+                                tab.matches_search.set(true);
 
-                    // TODO what about if all the tabs are being dragged ?
-                    if tab.matches_search.get() && !tab.dragging.get() {
-                        visible = true;
-
-                        let old_height = current_height;
-
-                        let percentage = tab.insert_animation.current_percentage().into_f64();
-
-                        // TODO hacky
-                        // TODO take into account the padding/border as well ?
-                        current_height +=
-                            (1.0 * percentage).round() +
-                            (1.0 * percentage).round() +
-                            (TAB_HEIGHT * percentage).round() +
-                            (1.0 * percentage).round() +
-                            (1.0 * percentage).round();
-
-                        if old_height < bottom_y && current_height > top_y {
-                            if let None = tabs_padding {
-                                tabs_padding = Some(old_height);
+                            } else {
+                                tab.matches_search.set(false);
                             }
+                        }
 
-                            tab.visible.set(true);
+                        // TODO what about if all the tabs are being dragged ?
+                        if tab.matches_search.get() && !tab.dragging.get() {
+                            visible = true;
+
+                            let old_height = current_height;
+
+                            let percentage = tab.insert_animation.current_percentage().into_f64();
+                            //let percentage: f64 = 1.0;
+
+                            // TODO hacky
+                            // TODO take into account the padding/border as well ?
+                            current_height +=
+                                (1.0 * percentage).round() +
+                                (1.0 * percentage).round() +
+                                (TAB_HEIGHT * percentage).round() +
+                                (1.0 * percentage).round() +
+                                (1.0 * percentage).round();
+
+                            if old_height < bottom_y && current_height > top_y {
+                                if let None = tabs_padding {
+                                    tabs_padding = Some(old_height);
+                                }
+
+                                tab.visible.set(true);
+
+                            } else {
+                                tab.visible.set(false);
+                                tab.hovered.set(false);
+                            }
 
                         } else {
                             tab.visible.set(false);
                             tab.hovered.set(false);
                         }
 
+                        true
+                    }
+                });
+
+                if should_search {
+                    if visible {
+                        group.matches_search.set(true);
+
                     } else {
-                        tab.visible.set(false);
-                        tab.hovered.set(false);
+                        group.matches_search.set(false);
                     }
                 }
-            }
 
-            if should_search {
                 if visible {
-                    group.matches_search.set(true);
+                    // TODO hacky
+                    // TODO what about when it's dragging ?
+                    current_height += (3.0 * percentage).round();
 
-                } else {
-                    group.matches_search.set(false);
-                }
-            }
+                    if old_height < bottom_y && current_height > top_y {
+                        group.tabs_padding.set(tabs_padding.map(|padding| padding - tabs_height).unwrap_or(0.0));
 
-            if visible {
-                // TODO hacky
-                // TODO what about when it's dragging ?
-                current_height += (3.0 * percentage).round();
+                        if let None = padding {
+                            padding = Some(old_height);
+                        }
 
-                if old_height < bottom_y && current_height > top_y {
-                    group.tabs_padding.set(tabs_padding.map(|padding| padding - tabs_height).unwrap_or(0.0));
+                        group.visible.set(true);
 
-                    if let None = padding {
-                        padding = Some(old_height);
+                    } else {
+                        group.visible.set(false);
                     }
 
-                    group.visible.set(true);
-
                 } else {
+                    current_height = old_height;
                     group.visible.set(false);
                 }
 
-            } else {
-                current_height = old_height;
-                group.visible.set(false);
+                true
             }
-        }
+        });
 
         self.groups_padding.set(padding.unwrap_or(0.0));
         self.scroll_height.set(current_height);
@@ -925,41 +938,52 @@ fn main() {
 
                 let group = &groups[0];
 
-                let tab = group.tabs.remove(0);
-                tab.insert_animation.animate_to(Percentage::new(0.0));
-                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, "foo", "foo")));
-
-                top_id += 1;
-
-                let tab = group.tabs.pop().unwrap();
-                tab.insert_animation.animate_to(Percentage::new(0.0));
-                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, "foo", "foo")));
-
-                top_id += 1;
-
-                /*{
+                {
                     let tabs = group.tabs.lock_slice();
-                    let tab = &tabs[4];
-                    tab.insert_animation.jump_to(Percentage::new(0.0));
-                    tab.insert_animation.animate_to(Percentage::new(1.0));
-                }*/
+
+                    let tab = &tabs[0];
+                    tab.removing.set(true);
+                    tab.insert_animation.animate_to(Percentage::new(0.0));
+
+                    let tab = tabs.last().unwrap();
+                    tab.removing.set(true);
+                    tab.insert_animation.animate_to(Percentage::new(0.0));
+                }
+
+                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, "foo", "foo")));
+                top_id += 1;
+
+                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, "foo", "foo")));
+                top_id += 1;
+            }
+
+            /*{
+                let tabs = group.tabs.lock_slice();
+                let tab = &tabs[4];
+                tab.insert_animation.jump_to(Percentage::new(0.0));
+                tab.insert_animation.animate_to(Percentage::new(1.0));
+            }*/
+
+            {
+                let groups = STATE.groups.lock_slice();
 
                 let group = &groups[2];
 
-                while let Some(tab) = group.tabs.pop() {
+                for tab in group.tabs.lock_slice().iter() {
+                    tab.removing.set(true);
                     tab.insert_animation.animate_to(Percentage::new(0.0));
                 }
+
+                group.removing.set(true);
+                group.insert_animation.animate_to(Percentage::new(0.0));
             }
-
-            let group = STATE.groups.remove(2);
-            group.insert_animation.animate_to(Percentage::new(0.0));
-
-            STATE.groups.insert_cloned(2, Arc::new(Group::new_animated(top_id, vec![])));
-            top_id += 1;
 
             //STATE.scroll_y.set(top_id as f64);
 
             {
+                STATE.groups.insert_cloned(2, Arc::new(Group::new_animated(top_id, vec![])));
+                top_id += 1;
+
                 let groups = STATE.groups.lock_slice();
 
                 let group = &groups[2];
@@ -971,7 +995,7 @@ fn main() {
             }
 
             //STATE.update(true);
-        }}, @{INSERT_ANIMATION_DURATION + 100.0});
+        }}, @{INSERT_ANIMATION_DURATION + 2000.0});
     }
 
 
@@ -1042,13 +1066,6 @@ fn main() {
         where A: Signal<Item = Percentage>,
               F: FnMut(Percentage, f64, f64) -> String {
         signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
-    }
-
-    fn delay_animation(animation: &MutableAnimation, visible: &Mutable<bool>) -> impl Future<Item = (), Error = Never> {
-        animation.signal().wait_for(Percentage::new(0.0)).select(visible.signal().wait_for(false))
-            // TODO a bit gross
-            .map(|_| ())
-            .map_err(|_| unreachable!())
     }
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -1281,7 +1298,7 @@ fn main() {
                             style_signal("height", STATE.scroll_height.signal().map(px));
 
                             children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
-                                .delay_remove(|(_, group)| delay_animation(&group.insert_animation, &group.visible))
+                                //.delay_remove(|(_, group)| waiter::delay_animation(&group.insert_animation, &group.visible))
                                 .filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(move |(index, group)| {
                                     if let Some(index) = index.get() {
@@ -1333,7 +1350,7 @@ fn main() {
                                                 style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
 
                                                 children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    .delay_remove(|(_, tab)| delay_animation(&tab.insert_animation, &tab.visible))
+                                                    //.delay_remove(|(_, tab)| waiter::delay_animation(&tab.insert_animation, &tab.visible))
                                                     .filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(move |(index, tab)| {
                                                         if let Some(index) = index.get() {
