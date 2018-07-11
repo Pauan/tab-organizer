@@ -554,11 +554,12 @@ impl State {
 
                 let mut tabs_padding: Option<f64> = None;
 
-                let percentage = group.insert_animation.current_percentage().into_f64();
+                let percentage = ease(group.insert_animation.current_percentage()).into_f64();
                 //let percentage: f64 = 1.0;
 
                 // TODO hacky
                 // TODO what about when it's dragging ?
+                // TODO use range_inclusive
                 current_height +=
                     (1.0 * percentage).round() +
                     (3.0 * percentage).round() +
@@ -588,11 +589,12 @@ impl State {
                             if !tab.dragging.get() {
                                 let old_height = current_height;
 
-                                let percentage = tab.insert_animation.current_percentage().into_f64();
+                                let percentage = ease(tab.insert_animation.current_percentage()).into_f64();
                                 //let percentage: f64 = 1.0;
 
                                 // TODO hacky
                                 // TODO take into account the padding/border as well ?
+                                // TODO use range_inclusive
                                 current_height +=
                                     (1.0 * percentage).round() +
                                     (1.0 * percentage).round() +
@@ -926,6 +928,85 @@ fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<
     })
 }
 
+fn px(t: f64) -> String {
+    // TODO find which spots should be rounded and which shouldn't ?
+    format!("{}px", t.round())
+}
+
+fn px_range(t: Percentage, min: f64, max: f64) -> String {
+    px(t.range_inclusive(min, max))
+}
+
+fn float_range(t: Percentage, min: f64, max: f64) -> String {
+    t.range_inclusive(min, max).to_string()
+}
+
+fn ease(t: Percentage) -> Percentage {
+    easing::in_out(t, easing::cubic)
+}
+
+fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
+    where A: Signal<Item = Percentage>,
+          F: FnMut(Percentage, f64, f64) -> String {
+    signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
+}
+
+fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    html!("img", {
+        class(&TAB_FAVICON_STYLE);
+        class(&ICON_STYLE);
+
+        class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal());
+
+        attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
+
+        mixin(mixin);
+    })
+}
+
+fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    html!("div", {
+        class(&TAB_TEXT_STYLE);
+
+        children(&mut [
+            text_signal(map_ref! {
+                let title = tab.title.signal_cloned(),
+                let unloaded = tab.unloaded.signal() => {
+                    if *unloaded {
+                        if title.is_some() {
+                            "➔ "
+
+                        } else {
+                            "➔"
+                        }
+
+                    } else {
+                        ""
+                    }
+                }
+            }),
+
+            text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
+        ]);
+
+        mixin(mixin);
+    })
+}
+
+fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
+    html!("div", {
+        class(&ROW_STYLE);
+        class(&TAB_STYLE);
+        class(&MENU_ITEM_STYLE);
+
+        class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal());
+
+        children(&mut [favicon, text]);
+
+        mixin(mixin);
+    })
+}
+
 
 fn main() {
     log!("Starting");
@@ -1052,85 +1133,6 @@ fn main() {
             }
         }));
     });
-
-    fn px(t: f64) -> String {
-        // TODO find which spots should be rounded and which shouldn't ?
-        format!("{}px", t.round())
-    }
-
-    fn px_range(t: Percentage, min: f64, max: f64) -> String {
-        px(t.range_inclusive(min, max))
-    }
-
-    fn float_range(t: Percentage, min: f64, max: f64) -> String {
-        t.range_inclusive(min, max).to_string()
-    }
-
-    fn ease(t: Percentage) -> Percentage {
-        easing::in_out(t, easing::cubic)
-    }
-
-    fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
-        where A: Signal<Item = Percentage>,
-              F: FnMut(Percentage, f64, f64) -> String {
-        signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
-    }
-
-    fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
-        html!("img", {
-            class(&TAB_FAVICON_STYLE);
-            class(&ICON_STYLE);
-
-            class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal());
-
-            attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
-
-            mixin(mixin);
-        })
-    }
-
-    fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
-        html!("div", {
-            class(&TAB_TEXT_STYLE);
-
-            children(&mut [
-                text_signal(map_ref! {
-                    let title = tab.title.signal_cloned(),
-                    let unloaded = tab.unloaded.signal() => {
-                        if *unloaded {
-                            if title.is_some() {
-                                "➔ "
-
-                            } else {
-                                "➔"
-                            }
-
-                        } else {
-                            ""
-                        }
-                    }
-                }),
-
-                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-            ]);
-
-            mixin(mixin);
-        })
-    }
-
-    fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
-        html!("div", {
-            class(&ROW_STYLE);
-            class(&TAB_STYLE);
-            class(&MENU_ITEM_STYLE);
-
-            class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal());
-
-            children(&mut [favicon, text]);
-
-            mixin(mixin);
-        })
-    }
 
     // Disables the browser scroll restoration
     js! { @(no_return)
