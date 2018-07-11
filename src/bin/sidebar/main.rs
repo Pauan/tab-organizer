@@ -336,7 +336,7 @@ impl State {
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
             let groups = self.groups.lock_slice();
 
-            let old_index = groups.iter().position(|x| x.id == group.id).unwrap_or_else(|| groups.len());
+            let old_index = Self::find_group_index(&groups, group.id);
 
             new_index > old_index
 
@@ -370,7 +370,7 @@ impl State {
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
                         group.tabs.lock_slice().iter()
-                            .filter(|x| x.selected.get())
+                            .filter(|x| x.selected.get() && x.matches_search.get() && !x.removing.get())
                             .cloned()
                             .collect()
 
@@ -420,10 +420,28 @@ impl State {
         }
     }
 
+    fn find_group_index(groups: &[Arc<Group>], group_id: usize) -> usize {
+        groups.iter().position(|x| x.id == group_id).unwrap_or_else(|| groups.len())
+    }
+
+    fn change_groups(&self, old_group: &Group, new_group: &Group) {
+        old_group.drag_over.animate_to(Percentage::new(0.0));
+        new_group.drag_over.animate_to(Percentage::new(1.0));
+
+        self.update_dragging_groups(new_group.id, |group, percentage| {
+            group.drag_top.animate_to(percentage);
+        });
+
+        old_group.tabs_each(|tab| {
+            tab.drag_over.animate_to(Percentage::new(0.0));
+        });
+    }
+
     fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
         let groups = self.groups.lock_slice();
 
         // TODO is this correct ?
+        // TODO pass in the new_group_index as a function argument
         if let Some(new_group_index) = groups.iter().position(|x| x.id == new_group.id) {
             let mut dragging = self.dragging.state.lock_mut();
 
@@ -448,18 +466,9 @@ impl State {
                     }
 
                 } else {
-                    group.drag_over.animate_to(Percentage::new(0.0));
-                    new_group.drag_over.animate_to(Percentage::new(1.0));
+                    self.change_groups(&group, &new_group);
 
-                    self.update_dragging_groups(new_group.id, |group, percentage| {
-                        group.drag_top.animate_to(percentage);
-                    });
-
-                    group.tabs_each(|tab| {
-                        tab.drag_over.animate_to(Percentage::new(0.0));
-                    });
-
-                    let old_group_index = groups.iter().position(|x| x.id == group.id).unwrap_or_else(|| groups.len());
+                    let old_group_index = Self::find_group_index(&groups, group.id);
 
                     if new_index == (new_group.tabs.len() - 1) {
                         None
@@ -489,6 +498,39 @@ impl State {
         }
     }
 
+    fn drag_over_group(&self, new_group: Arc<Group>, new_group_index: usize) {
+        let mut dragging = self.dragging.state.lock_mut();
+
+        // TODO verify that this doesn't notify if it isn't dragging
+        if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
+            let new_tab_index = if new_group.id == group.id {
+                // TODO it shouldn't notify dragging
+                return;
+
+            } else {
+                self.change_groups(&group, &new_group);
+
+                let groups = self.groups.lock_slice();
+
+                let old_group_index = Self::find_group_index(&groups, group.id);
+
+                if old_group_index < new_group_index {
+                    Some(0)
+
+                } else {
+                    None
+                }
+            };
+
+            new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
+                tab.drag_over.animate_to(percentage);
+            });
+
+            *group = new_group;
+            *tab_index = new_tab_index;
+        }
+    }
+
     fn drag_end(&self) {
         let mut dragging = self.dragging.state.lock_mut();
         let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
@@ -500,15 +542,15 @@ impl State {
                 tab.drag_over.jump_to(Percentage::new(0.0));
             });
 
-            let groups = self.groups.lock_slice();
+            {
+                let groups = self.groups.lock_slice();
 
-            for group in groups.iter() {
-                group.drag_top.jump_to(Percentage::new(0.0));
+                for group in groups.iter() {
+                    group.drag_top.jump_to(Percentage::new(0.0));
+                }
             }
 
-            if groups.iter().any(|x| x.id == group.id) {
-                self.drag_tabs_to(&group, &**selected_tabs);
-            }
+            self.drag_tabs_to(&group, &**selected_tabs);
         }
 
         if dragging.is_some() {
@@ -525,7 +567,8 @@ impl State {
     }
 
     fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
-
+        if !group.removing.get() {
+        }
     }
 
     fn is_dragging(&self) -> impl Signal<Item = bool> {
@@ -552,6 +595,7 @@ impl State {
 
     // TODO debounce this ?
     // TODO make this simpler somehow ?
+    // TODO add in stuff to handle dragging
     fn update(&self, should_search: bool) {
         let search_parser = self.search_parser.lock_ref();
 
@@ -790,7 +834,6 @@ lazy_static! {
 
     static ref GROUP_STYLE: String = class! {
         style("border-top-width", &px(GROUP_BORDER_WIDTH));
-        style("padding-top", &px(GROUP_PADDING_TOP));
         style("top", "-1px");
         style("padding-left", "1px");
         style("padding-right", "1px");
@@ -799,6 +842,7 @@ lazy_static! {
     };
 
     static ref GROUP_HEADER_STYLE: String = class! {
+        style("padding-top", &px(GROUP_PADDING_TOP));
         style("height", &px(GROUP_HEADER_HEIGHT));
         style("padding-left", "4px");
         style("font-size", "11px");
@@ -1227,9 +1271,15 @@ fn main() {
                                     tab_text(&tab, |dom| dom),
                                     |mut dom: DomBuilder<HtmlElement>| {
                                         dom = dom
-                                            .class(&TAB_SELECTED_STYLE)
+                                            .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
                                             .class(&MENU_ITEM_SHADOW_STYLE)
                                             .style("z-index", &format!("-{}", index));
+
+                                        if index == 0 {
+                                            dom = dom
+                                                .class(&TAB_HOVER_STYLE)
+                                                .class(&MENU_ITEM_HOVER_STYLE);
+                                        }
 
                                         // TODO use ease-out easing
                                         if index > 0 && index < 5 {
@@ -1337,9 +1387,14 @@ fn main() {
                                         style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
                                         style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX));
 
-                                        style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP));
                                         style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH));
                                         style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
+
+                                        event(clone!(group, index => move |_: MouseOverEvent| {
+                                            if let Some(index) = index.get() {
+                                                STATE.drag_over_group(group.clone(), index);
+                                            }
+                                        }));
 
                                         children(&mut [
                                             html!("div", {
@@ -1347,6 +1402,7 @@ fn main() {
                                                 class(&GROUP_HEADER_STYLE);
 
                                                 style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT));
+                                                style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP));
                                                 style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0));
 
                                                 children(&mut [
