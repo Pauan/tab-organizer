@@ -636,17 +636,18 @@ impl State {
                 }
 
                 if matches_search {
+                    let no_tabs_height = current_height;
+
                     // TODO hacky
                     // TODO what about when it's dragging ?
                     current_height += (3.0 * percentage).round();
 
                     if old_height < bottom_y && current_height > top_y {
-                        group.tabs_padding.set(tabs_padding.map(|padding| padding - tabs_height).unwrap_or(0.0));
-
                         if let None = padding {
                             padding = Some(old_height);
                         }
 
+                        group.tabs_padding.set(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
                         group.visible.set(true);
 
                     } else {
@@ -971,6 +972,8 @@ fn main() {
                 tab.insert_animation.animate_to(Percentage::new(1.0));
             }*/
 
+            //STATE.scroll_y.set(top_id as f64);
+
             {
                 let groups = STATE.groups.lock_slice();
 
@@ -985,15 +988,13 @@ fn main() {
                 group.insert_animation.animate_to(Percentage::new(0.0));
             }
 
-            //STATE.scroll_y.set(top_id as f64);
-
             {
-                STATE.groups.insert_cloned(2, Arc::new(Group::new_animated(top_id, vec![])));
+                STATE.groups.insert_cloned(3, Arc::new(Group::new_animated(top_id, vec![])));
                 top_id += 1;
 
                 let groups = STATE.groups.lock_slice();
 
-                let group = &groups[2];
+                let group = &groups[3];
 
                 for id in 0..10 {
                     let tab = Arc::new(Tab::new_animated(id, "Foo", "Bar"));
