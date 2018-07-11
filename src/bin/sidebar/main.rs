@@ -31,9 +31,29 @@ mod waiter;
 
 const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
-const TAB_HEIGHT: f64 = 16.0;
+const SELECTED_TABS_ANIMATION_DURATION: f64 = 150.0;
+
+const TAB_DRAGGING_THRESHOLD: f64 = 5.0;
+const TAB_DRAGGING_TOP: i32 = 11;
 const DRAG_GAP_PX: f64 = 32.0;
 const INSERT_LEFT_MARGIN: f64 = 12.0;
+
+const TOOLBAR_HEIGHT: f64 = 22.0;
+const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
+const TOOLBAR_MARGIN: f64 = 2.0;
+const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_MARGIN + (TOOLBAR_BORDER_WIDTH * 2.0) + TOOLBAR_HEIGHT;
+
+const GROUP_BORDER_WIDTH: f64 = 1.0;
+const GROUP_PADDING_TOP: f64 = 3.0;
+const GROUP_HEADER_HEIGHT: f64 = 16.0;
+const GROUP_PADDING_BOTTOM: f64 = 3.0;
+
+const TAB_BORDER_WIDTH: f64 = 1.0;
+const TAB_PADDING: f64 = 1.0;
+const TAB_HEIGHT: f64 = 16.0;
+const TAB_FAVICON_SIZE: f64 = 16.0;
+const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
+const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
 
 
 struct Group {
@@ -246,7 +266,6 @@ enum DragState {
 struct Dragging {
     state: Mutable<Option<DragState>>,
     selected_tabs: Mutable<Vec<Arc<Tab>>>,
-    selected_tabs_animation: MutableAnimation,
 }
 
 impl Dragging {
@@ -254,7 +273,6 @@ impl Dragging {
         Self {
             state: Mutable::new(None),
             selected_tabs: Mutable::new(vec![]),
-            selected_tabs_animation: MutableAnimation::new(300.0),
         }
     }
 }
@@ -347,7 +365,7 @@ impl State {
                 let mouse_x = (mouse_x - new_x) as f64;
                 let mouse_y = (mouse_y - new_y) as f64;
 
-                if mouse_x.hypot(mouse_y) > 5.0 {
+                if mouse_x.hypot(mouse_y) > TAB_DRAGGING_THRESHOLD {
                     let tab_index = Some(tab_index);
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
@@ -538,7 +556,7 @@ impl State {
         let search_parser = self.search_parser.lock_ref();
 
         let top_y = self.scroll_y.get();
-        let bottom_y = top_y + (window().inner_height() - 26) as f64;
+        let bottom_y = top_y + (window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
@@ -561,9 +579,9 @@ impl State {
                 // TODO what about when it's dragging ?
                 // TODO use range_inclusive
                 current_height +=
-                    (1.0 * percentage).round() +
-                    (3.0 * percentage).round() +
-                    (16.0 * percentage).round();
+                    (GROUP_BORDER_WIDTH * percentage).round() +
+                    (GROUP_PADDING_TOP * percentage).round() +
+                    (GROUP_HEADER_HEIGHT * percentage).round();
 
                 let tabs_height = current_height;
 
@@ -596,11 +614,11 @@ impl State {
                                 // TODO take into account the padding/border as well ?
                                 // TODO use range_inclusive
                                 current_height +=
-                                    (1.0 * percentage).round() +
-                                    (1.0 * percentage).round() +
+                                    (TAB_BORDER_WIDTH * percentage).round() +
+                                    (TAB_PADDING * percentage).round() +
                                     (TAB_HEIGHT * percentage).round() +
-                                    (1.0 * percentage).round() +
-                                    (1.0 * percentage).round();
+                                    (TAB_PADDING * percentage).round() +
+                                    (TAB_BORDER_WIDTH * percentage).round();
 
                                 if old_height < bottom_y && current_height > top_y {
                                     if let None = tabs_padding {
@@ -642,7 +660,7 @@ impl State {
 
                     // TODO hacky
                     // TODO what about when it's dragging ?
-                    current_height += (3.0 * percentage).round();
+                    current_height += (GROUP_PADDING_BOTTOM * percentage).round();
 
                     if old_height < bottom_y && current_height > top_y {
                         if let None = padding {
@@ -705,7 +723,6 @@ lazy_static! {
         style("font-size", "13px");
         style("width", "300px"); // 100%
         style("height", "100%");
-        style("padding-top", "2px");
         style("background-color", "hsl(0, 0%, 100%)");
     };
 
@@ -717,12 +734,14 @@ lazy_static! {
     };
 
     static ref TOOLBAR_STYLE: String = class! {
-        style("margin", "0px 2px 0px 2px");
-        style("height", "22px");
+        style("height", &px(TOOLBAR_HEIGHT));
+        style("border-width", &px(TOOLBAR_BORDER_WIDTH));
+        style("margin-top", &px(TOOLBAR_MARGIN));
+        style("margin-left", "2px");
+        style("margin-right", "2px");
         style("background-color", "hsl(0, 0%, 100%)");
         style("z-index", "3");
         style("border-radius", "2px");
-        style("border-width", "1px");
         style("border-color", "hsl(0, 0%, 50%) \
                                hsl(0, 0%, 40%) \
                                hsl(0, 0%, 40%) \
@@ -759,7 +778,7 @@ lazy_static! {
     };
 
     static ref GROUP_LIST_STYLE: String = class! {
-        style("height", "calc(100% - 24px)");
+        style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT));
         style("overflow", "auto");
     };
 
@@ -770,34 +789,34 @@ lazy_static! {
     };
 
     static ref GROUP_STYLE: String = class! {
+        style("border-top-width", &px(GROUP_BORDER_WIDTH));
+        style("padding-top", &px(GROUP_PADDING_TOP));
         style("top", "-1px");
-        style("padding-top", "3px");
         style("padding-left", "1px");
         style("padding-right", "1px");
-        style("border-top-width", "1px");
         style("border-color", "hsl(211, 50%, 75%)");
         //style("background-color", "hsl(0, 0%, 100%)");
     };
 
     static ref GROUP_HEADER_STYLE: String = class! {
-        style("height", "16px");
+        style("height", &px(GROUP_HEADER_HEIGHT));
         style("padding-left", "4px");
         style("font-size", "11px");
     };
 
     static ref GROUP_TABS_STYLE: String = class! {
-        style("padding-bottom", "3px");
+        style("padding-bottom", &px(GROUP_PADDING_BOTTOM));
     };
 
     static ref ICON_STYLE: String = class! {
-        style("height", "16px");
+        style("height", &px(TAB_FAVICON_SIZE));
         style("border-radius", "4px");
         style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)");
         style("background-color", "hsla(0, 0%, 100%, 0.35)");
     };
 
     static ref MENU_ITEM_STYLE: String = class! {
-        style("border-width", "1px");
+        style("border-width", &px(TAB_BORDER_WIDTH));
 
         style("transition", "background-color 100ms ease-in-out");
 
@@ -857,10 +876,10 @@ lazy_static! {
     };
 
     static ref TAB_STYLE: String = class! {
-        style("padding", "1px");
+        style("padding", &px(TAB_PADDING));
+        style("height", &px(TAB_HEIGHT));
         style("overflow", "hidden");
         style("border-radius", "5px");
-        style("height", &format!("{}px", TAB_HEIGHT));
     };
 
     static ref TAB_HOVER_STYLE: String = class! {
@@ -881,7 +900,7 @@ lazy_static! {
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
-        style("width", "16px");
+        style("width", &px(TAB_FAVICON_SIZE));
         style("margin-left", "2px");
         style("margin-right", "1px");
     };
@@ -897,7 +916,7 @@ lazy_static! {
 
     static ref TAB_CLOSE_STYLE: String = class! {
         style("width", "18px");
-        style("border-width", "1px");
+        style("border-width", &px(TAB_CLOSE_BORDER_WIDTH));
         style("padding-left", "1px");
         style("padding-right", "1px");
     };
@@ -910,10 +929,6 @@ lazy_static! {
         style("pointer-events", "none");
         style("opacity", "0.98");
         style("z-index", HIGHEST_ZINDEX);
-    };
-
-    static ref TAB_DRAGGING_STYLE: String = class! {
-        style("opacity", "1");
     };
 }
 
@@ -1189,7 +1204,7 @@ fn main() {
 
                     style_signal("transform", STATE.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
-                            Some(format!("translate({}px, {}px)", rect.get_left().round(), (mouse_y - 11)))
+                            Some(format!("translate({}px, {}px)", rect.get_left().round(), (mouse_y - TAB_DRAGGING_TOP)))
 
                         } else {
                             None
@@ -1200,7 +1215,7 @@ fn main() {
                         tabs.iter().enumerate().map(|(index, tab)| {
                             // TODO use some sort of oneshot animation instead
                             // TODO don't create the animation at all for index 0
-                            let animation = MutableAnimation::new(150.0);
+                            let animation = MutableAnimation::new(SELECTED_TABS_ANIMATION_DURATION);
 
                             if index > 0 {
                                 animation.animate_to(Percentage::new(1.0));
@@ -1214,15 +1229,14 @@ fn main() {
                                         dom = dom
                                             .class(&TAB_SELECTED_STYLE)
                                             .class(&MENU_ITEM_SHADOW_STYLE)
-                                            .class(&TAB_DRAGGING_STYLE)
                                             .style("z-index", &format!("-{}", index));
 
                                         // TODO use ease-out easing
                                         if index > 0 && index < 5 {
-                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_HEIGHT - 2.0)));
+                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_TOTAL_HEIGHT - 2.0)));
 
                                         } else if index >= 5 {
-                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_HEIGHT));
+                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_TOTAL_HEIGHT));
                                         }
 
                                         // TODO use ease-out easing
@@ -1304,7 +1318,6 @@ fn main() {
                             class(&GROUP_LIST_CHILDREN_STYLE);
 
                             style_signal("padding-top", STATE.groups_padding.signal().map(px));
-
                             style_signal("height", STATE.scroll_height.signal().map(px));
 
                             children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
@@ -1324,8 +1337,8 @@ fn main() {
                                         style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
                                         style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX));
 
-                                        style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
-                                        style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 1.0));
+                                        style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP));
+                                        style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH));
                                         style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
 
                                         children(&mut [
@@ -1333,7 +1346,7 @@ fn main() {
                                                 class(&ROW_STYLE);
                                                 class(&GROUP_HEADER_STYLE);
 
-                                                style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 16.0));
+                                                style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT));
                                                 style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0));
 
                                                 children(&mut [
@@ -1342,7 +1355,7 @@ fn main() {
                                                             let index = index.signal() => {
                                                                 // TODO improve the efficiency of this ?
                                                                 name.clone().or_else(|| {
-                                                                    index.map(|index| Arc::new(format!("{}", index)))
+                                                                    index.map(|index| Arc::new(index.to_string()))
                                                                 })
                                                             }
                                                         }
@@ -1357,7 +1370,7 @@ fn main() {
                                                 class(&GROUP_TABS_STYLE);
 
                                                 style_signal("padding-top", group.tabs_padding.signal().map(px));
-                                                style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, 3.0));
+                                                style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM));
 
                                                 children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
                                                     //.delay_remove(|(_, tab)| waiter::delay_animation(&tab.insert_animation, &tab.visible))
@@ -1371,7 +1384,7 @@ fn main() {
 
                                                         tab_template(&tab,
                                                             tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
-                                                                dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 16.0))
+                                                                dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
 
                                                             tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
@@ -1388,10 +1401,10 @@ fn main() {
 
                                                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
-                                                                .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                                .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                                .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
-                                                                .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, 1.0))
+                                                                .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                                                                .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                                                                .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
+                                                                .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                                                                 .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
