@@ -752,7 +752,7 @@ lazy_static! {
 
             is_loaded: Mutable::new(false),
 
-            groups: MutableVec::new_with_values((0..10000).map(|id| {
+            groups: MutableVec::new_with_values((0..10).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
                     Arc::new(Tab::new(id, "Foo", "Bar"))
                 }).collect()))
@@ -935,12 +935,28 @@ lazy_static! {
         style("opacity", "0.75");
     };
 
+    static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
+        style("background-color", "hsla(0, 0%, 0%, 0.4)");
+
+        style("border-color", "hsl(0, 0%, 62%) \
+                               hsl(0, 0%, 57%) \
+                               hsl(0, 0%, 52%) \
+                               hsl(0, 0%, 57%)");
+
+        style("color", "hsla(0, 0%, 99%, 0.95)"); // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
+        style("opacity", "1");
+    };
+
     static ref TAB_SELECTED_STYLE: String = class! {
         style("background-color", "hsl(100, 78%, 80%)");
         style("border-color", "hsl(100, 50%, 55%) \
                                hsl(100, 50%, 50%) \
                                hsl(100, 50%, 45%) \
                                hsl(100, 50%, 50%)");
+    };
+
+    static ref TAB_SELECTED_HOVER_STYLE: String = class! {
+        style("background-color", "hsl(100, 80%, 45%)");
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
@@ -1278,7 +1294,9 @@ fn main() {
                                         if index == 0 {
                                             dom = dom
                                                 .class(&TAB_HOVER_STYLE)
-                                                .class(&MENU_ITEM_HOVER_STYLE);
+                                                .class(&MENU_ITEM_HOVER_STYLE)
+                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
+                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal());
                                         }
 
                                         // TODO use ease-out easing
@@ -1453,6 +1471,8 @@ fn main() {
                                                                 .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
+                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
+                                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, and(tab.is_hovered(), tab.selected.signal()))
                                                                 .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
 
                                                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
