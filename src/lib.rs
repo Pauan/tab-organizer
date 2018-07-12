@@ -15,6 +15,7 @@ extern crate futures;
 extern crate uuid;
 extern crate web_extensions;
 
+use std::fmt;
 use stdweb::{PromiseFuture, JsSerialize, Reference};
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
@@ -139,7 +140,7 @@ impl ConcreteEvent for ScrollEvent {
 
 
 // TODO move this into stdweb
-#[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
+#[derive(Clone, PartialEq, Eq, ReferenceType)]
 #[reference(instance_of = "RegExp")]
 pub struct RegExp(Reference);
 
@@ -182,5 +183,16 @@ impl RegExp {
     #[inline]
     pub fn escape(input: &str) -> String {
         js!( return @{input}.replace(new RegExp("[.*+?^${}()|[\\]\\\\]", "g"), "\\$&"); ).try_into().unwrap()
+    }
+}
+
+impl fmt::Debug for RegExp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let pattern: String = js!( return @{self}.source; ).try_into().unwrap();
+        let flags: String = js!( return @{self}.flags; ).try_into().unwrap();
+        f.debug_tuple("RegExp")
+            .field(&pattern)
+            .field(&flags)
+            .finish()
     }
 }

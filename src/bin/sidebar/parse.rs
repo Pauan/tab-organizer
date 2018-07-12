@@ -1,23 +1,66 @@
+//use nom::types::CompleteStr;
 use tab_organizer::RegExp;
 use Tab;
 
 
-pub(crate) struct Parsed {
-    pattern: Vec<RegExp>,
+/*named!(atom<CompleteStr, Parsed>,
+    do_parse!(
+        many0!(char!(' ')) >>
+        // TODO better literal test
+        literal: is_not!(" ") >>
+        (Parsed::Literal(RegExp::new(&RegExp::escape(&literal), "i")))
+    )
+);
+
+named!(parse<CompleteStr, Parsed>,
+    do_parse!(
+        init: atom >>
+        res: fold_many0!(
+            tuple!(
+                many1!(char!(' ')),
+                atom
+            ),
+            init,
+            |acc, v: (_, _)| {
+                Parsed::And(Box::new(acc), Box::new(v.1))
+            }
+        ) >>
+        (res)
+    )
+);*/
+
+
+#[derive(Debug)]
+pub(crate) enum Parsed {
+    True,
+    Literal(RegExp),
+    And(Box<Parsed>, Box<Parsed>),
 }
 
 impl Parsed {
     pub(crate) fn new(input: &str) -> Self {
-        Self {
-            pattern: input.split(" ")
-                .filter(|x| *x != "")
-                .map(|x| RegExp::new(&RegExp::escape(x), "i"))
-                .collect(),
-        }
+        // TODO a bit hacky
+        //parse(CompleteStr(input)).unwrap().1
+
+        input.split(" ")
+            .filter(|x| *x != "")
+            .map(|x| Parsed::Literal(RegExp::new(&RegExp::escape(x), "i")))
+            .fold(Parsed::True, |old, new| {
+                if let Parsed::True = old {
+                    new
+
+                } else {
+                    Parsed::And(Box::new(old), Box::new(new))
+                }
+            })
     }
 
     pub(crate) fn matches(&self, input: &str) -> bool {
-        self.pattern.iter().all(|pattern| pattern.is_match(input))
+        match self {
+            Parsed::True => true,
+            Parsed::Literal(regexp) => regexp.is_match(input),
+            Parsed::And(left, right) => left.matches(input) && right.matches(input),
+        }
     }
 
     pub(crate) fn matches_tab(&self, tab: &Tab) -> bool {

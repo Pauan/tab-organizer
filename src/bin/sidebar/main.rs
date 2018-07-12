@@ -779,7 +779,7 @@ lazy_static! {
 
             is_loaded: Mutable::new(false),
 
-            groups: MutableVec::new_with_values((0..10).map(|id| {
+            groups: MutableVec::new_with_values((0..3000).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
                     Arc::new(Tab::new(id, "Foo", "https://www.example.com/foo?bar#qux"))
                 }).collect()))
