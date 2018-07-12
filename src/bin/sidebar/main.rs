@@ -17,7 +17,7 @@ use std::borrow::Borrow;
 use std::sync::Arc;
 use tab_organizer::{and, or, not, ScrollEvent};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text_signal, HIGHEST_ZINDEX, DerefFn};
+use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent};
@@ -821,6 +821,32 @@ lazy_static! {
         style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)");
     };
 
+    static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
+        style("background-color", "hsl(211, 95%, 40%)");
+        style("width", "1px");
+        style("height", "100%");
+    };
+
+    static ref TOOLBAR_MENU_STYLE: String = class! {
+        style("height", "100%");
+        style("padding-left", "11px");
+        style("padding-right", "11px");
+        style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)");
+
+        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+            if is_dragging {
+                None
+
+            } else {
+                Some("pointer")
+            }
+        }));
+    };
+
+    static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
+        style("top", "1px");
+    };
+
     static ref SEARCH_STYLE: String = class! {
         style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
@@ -1372,8 +1398,9 @@ fn main() {
             });
 
             future(waiter::waiter(&STATE, move |should_search| {
-                log!("UPDATING");
-                STATE.update(should_search);
+                time!("Updating", {
+                    STATE.update(should_search);
+                });
             }));
 
             children(&mut [
@@ -1522,6 +1549,43 @@ fn main() {
                                 })
                             });
                         }),
+
+                        html!("div", {
+                            class(&TOOLBAR_SEPARATOR_STYLE);
+                        }),
+
+                        {
+                            let hovering = Mutable::new(false);
+                            let holding = Mutable::new(false);
+
+                            html!("div", {
+                                class(&ROW_STYLE);
+                                class(&TOOLBAR_MENU_STYLE);
+
+                                class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()));
+
+                                event(clone!(hovering => move |_: MouseOverEvent| {
+                                    hovering.set(true);
+                                }));
+
+                                event(move |_: MouseOutEvent| {
+                                    hovering.set(false);
+                                });
+
+                                event(clone!(holding => move |_: MouseDownEvent| {
+                                    holding.set(true);
+                                }));
+
+                                // TODO only attach this when holding
+                                global_event(move |_: MouseUpEvent| {
+                                    holding.set(false);
+                                });
+
+                                children(&mut [
+                                    text("Menu"),
+                                ]);
+                            })
+                        },
                     ]);
                 }),
 
