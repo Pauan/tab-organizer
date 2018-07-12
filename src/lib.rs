@@ -120,6 +120,11 @@ pub fn set_panic_hook<F>(hook: F) where F: Fn(String) + Send + Sync + 'static {
 }
 
 
+pub fn decode_uri_component(input: &str) -> String {
+    js!( return decodeURIComponent(@{input}); ).try_into().unwrap()
+}
+
+
 // TODO move this into stdweb
 #[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
 #[reference(instance_of = "UIEvent")] // TODO: Better type check.
@@ -151,6 +156,23 @@ impl RegExp {
             var is_match = self.test(@{input});
             self.lastIndex = 0;
             return is_match;
+        ).try_into().unwrap()
+    }
+
+    #[inline]
+    pub fn first_match(&self, input: &str) -> Option<Vec<Option<String>>> {
+        js!(
+            var self = @{self};
+            var array = self.exec(@{input});
+            self.lastIndex = 0;
+            return array;
+        ).try_into().unwrap()
+    }
+
+    #[inline]
+    pub fn replace(&self, input: &str, replace: &str) -> String {
+        js!(
+            return @{input}.replace(@{self}, @{replace});
         ).try_into().unwrap()
     }
 

@@ -1,3 +1,4 @@
+#![recursion_limit="128"]
 #![warn(unreachable_pub)]
 
 extern crate futures;
@@ -12,6 +13,7 @@ extern crate stdweb;
 #[macro_use]
 extern crate lazy_static;
 
+use std::borrow::Borrow;
 use std::sync::Arc;
 use tab_organizer::{and, or, not, ScrollEvent};
 use dominator::traits::*;
@@ -27,6 +29,7 @@ use futures_signals::signal_vec::{MutableVec, SignalVecExt};
 
 mod parse;
 mod waiter;
+mod url_bar;
 
 
 const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
@@ -38,7 +41,7 @@ const TAB_DRAGGING_TOP: i32 = 11;
 const DRAG_GAP_PX: f64 = 32.0;
 const INSERT_LEFT_MARGIN: f64 = 12.0;
 
-const TOOLBAR_HEIGHT: f64 = 22.0;
+const TOOLBAR_HEIGHT: f64 = 20.0;
 const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
 const TOOLBAR_MARGIN: f64 = 2.0;
 const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_MARGIN + (TOOLBAR_BORDER_WIDTH * 2.0) + TOOLBAR_HEIGHT;
@@ -281,6 +284,8 @@ impl Dragging {
 struct State {
     search_box: Mutable<Arc<String>>,
     search_parser: Mutable<parse::Parsed>,
+
+    url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
 
     scroll_height: Mutable<f64>,
     scroll_y: Mutable<f64>,
@@ -593,6 +598,26 @@ impl State {
         })
     }*/
 
+    fn hover_tab(&self, tab: &Tab) {
+        if !tab.hovered.get() {
+            tab.hovered.set(true);
+
+            let url = tab.url.lock_ref();
+
+            self.url_bar.set(url.as_ref().and_then(|url| {
+                url_bar::UrlBar::new(&url).map(|x| Arc::new(x.minify()))
+            }));
+        }
+    }
+
+    fn unhover_tab(&self, tab: &Tab) {
+        if tab.hovered.get() {
+            tab.hovered.set(false);
+
+            self.url_bar.set(None);
+        }
+    }
+
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle dragging
@@ -673,17 +698,17 @@ impl State {
 
                                 } else {
                                     tab.visible.set(false);
-                                    tab.hovered.set(false);
+                                    self.unhover_tab(&tab);
                                 }
 
                             } else {
                                 tab.visible.set(false);
-                                tab.hovered.set(false);
+                                self.unhover_tab(&tab);
                             }
 
                         } else {
                             tab.visible.set(false);
-                            tab.hovered.set(false);
+                            self.unhover_tab(&tab);
                         }
 
                         true
@@ -744,6 +769,8 @@ lazy_static! {
             search_parser: Mutable::new(parse::Parsed::new(&search_value)),
             search_box: Mutable::new(Arc::new(search_value)),
 
+            url_bar: Mutable::new(None),
+
             scroll_y: Mutable::new(scroll_y),
             scroll_height: Mutable::new(0.0),
             groups_padding: Mutable::new(0.0),
@@ -754,7 +781,7 @@ lazy_static! {
 
             groups: MutableVec::new_with_values((0..10).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
-                    Arc::new(Tab::new(id, "Foo", "Bar"))
+                    Arc::new(Tab::new(id, "Foo", "https://www.example.com/foo?bar#qux"))
                 }).collect()))
             }).collect()),
 
@@ -768,6 +795,7 @@ lazy_static! {
         style("width", "300px"); // 100%
         style("height", "100%");
         style("background-color", "hsl(0, 0%, 100%)");
+        style("overflow", "hidden");
     };
 
     static ref TEXTURE_STYLE: String = class! {
@@ -983,12 +1011,72 @@ lazy_static! {
 
     static ref DRAGGING_STYLE: String = class! {
         style("position", "fixed");
+        style("z-index", HIGHEST_ZINDEX);
+
         style("left", "0px");
         style("top", "0px");
         style("overflow", "visible");
         style("pointer-events", "none");
         style("opacity", "0.98");
+    };
+
+    static ref URL_BAR_STYLE: String = class! {
+        style("position", "fixed");
         style("z-index", HIGHEST_ZINDEX);
+
+        style("box-sizing", "border-box");
+
+        style("pointer-events", "none");
+        style("left", "0px");
+        style("bottom", "0px");
+
+        style("max-width", "100%"); // calc(100% + 1px)
+
+        style("border-top-width", "1px");
+        style("border-right-width", "1px");
+        style("border-top-color", "hsl(0, 0%, 45%)");
+        style("border-right-color", "hsl(0, 0%, 40%)");
+        style("border-top-right-radius", "5px");
+
+        style("padding-right", "2px"); // 2px + 3px = 5px
+        style("padding-bottom", "1px");
+
+        style("color", "black");
+
+        style("background-color", "white");
+
+        style("box-shadow", "0px 0px 3px dimgray");
+    };
+
+    static ref URL_BAR_TEXT_STYLE: String = class! {
+        style("margin-left", "3px");
+        style("margin-right", "3px");
+    };
+
+    static ref URL_BAR_PROTOCOL_STYLE: String = class! {
+        style("font-weight", "bold");
+        style("color", "hsl(120, 100%, 25%)");
+    };
+
+    static ref URL_BAR_DOMAIN_STYLE: String = class! {
+        style("font-weight", "bold");
+    };
+
+    // TODO remove this ?
+    static ref URL_BAR_PATH_STYLE: String = class! {};
+
+    static ref URL_BAR_FILE_STYLE: String = class! {
+        style("font-weight", "bold");
+        style("color", "darkred"); // TODO replace with hsl
+    };
+
+    static ref URL_BAR_QUERY_STYLE: String = class! {
+        style("font-weight", "bold");
+        style("color", "darkred"); // TODO replace with hsl
+    };
+
+    static ref URL_BAR_HASH_STYLE: String = class! {
+        style("color", "darkblue"); // TODO replace with hsl
     };
 }
 
@@ -997,10 +1085,30 @@ fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Ar
     x.map(|x| DerefFn::new(x, move |x| x.as_str()))
 }
 
-fn option_str_default(x: Option<Arc<String>>, default: &'static str) -> DerefFn<Option<Arc<String>>, impl Fn(&Option<Arc<String>>) -> &str> {
+fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
     DerefFn::new(x, move |x| {
-        x.as_ref().map(|x| x.as_str()).unwrap_or(default)
+        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
     })
+}
+
+fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
+    DerefFn::new(x, move |x| {
+        if let Some(x) = x {
+            if let Some(x) = f(x) {
+                x.as_str()
+
+            } else {
+                default
+            }
+
+        } else {
+            default
+        }
+    })
+}
+
+fn is_empty<A: Borrow<String>>(input: &Option<A>) -> bool {
+    input.as_ref().map(|x| x.borrow().len() == 0).unwrap_or(true)
 }
 
 fn px(t: f64) -> String {
@@ -1024,6 +1132,34 @@ fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl 
     where A: Signal<Item = Percentage>,
           F: FnMut(Percentage, f64, f64) -> String {
     signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
+}
+
+fn make_url_bar_child<A, D, F>(name: &str, mut display: D, f: F) -> Dom
+    where A: IntoStr,
+          D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
+          F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
+    html!("div", {
+        class(&URL_BAR_TEXT_STYLE);
+        class(name);
+
+        style_signal("display", STATE.url_bar.signal_cloned().map(move |url_bar| {
+            if let Some(url_bar) = url_bar {
+                if display(url_bar) {
+                    None
+
+                } else {
+                    Some("none")
+                }
+
+            } else {
+                Some("none")
+            }
+        }));
+
+        children(&mut [
+            text_signal(STATE.url_bar.signal_cloned().map(f))
+        ]);
+    })
 }
 
 fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
@@ -1321,6 +1457,43 @@ fn main() {
 
                 html!("div", {
                     class(&ROW_STYLE);
+                    class(&URL_BAR_STYLE);
+
+                    style_signal("display", map_ref! {
+                        let is_dragging = STATE.is_dragging(),
+                        let url_bar = STATE.url_bar.signal_cloned() => {
+                            // TODO a bit hacky
+                            let matches = url_bar.as_ref().map(|url_bar| {
+                                !is_empty(&url_bar.protocol) ||
+                                !is_empty(&url_bar.domain) ||
+                                !is_empty(&url_bar.path) ||
+                                !is_empty(&url_bar.file) ||
+                                !is_empty(&url_bar.query) ||
+                                !is_empty(&url_bar.hash)
+                            }).unwrap_or(false);
+
+                            if !is_dragging && matches {
+                                None
+
+                            } else {
+                                Some("none")
+                            }
+                        }
+                    });
+
+                    // TODO check if any of these need "flex-shrink": 1
+                    children(&mut [
+                        make_url_bar_child(&URL_BAR_PROTOCOL_STYLE, |x| !is_empty(&x.protocol), |url_bar| option_str_default_fn(url_bar, "", |x| &x.protocol)), // .as_ref().map(|x| x.as_str())
+                        make_url_bar_child(&URL_BAR_DOMAIN_STYLE, |x| !is_empty(&x.domain), |url_bar| option_str_default_fn(url_bar, "", |x| &x.domain)),
+                        make_url_bar_child(&URL_BAR_PATH_STYLE, |x| !is_empty(&x.path), |url_bar| option_str_default_fn(url_bar, "", |x| &x.path)),
+                        make_url_bar_child(&URL_BAR_FILE_STYLE, |x| !is_empty(&x.file), |url_bar| option_str_default_fn(url_bar, "", |x| &x.file)),
+                        make_url_bar_child(&URL_BAR_QUERY_STYLE, |x| !is_empty(&x.query), |url_bar| option_str_default_fn(url_bar, "", |x| &x.query)),
+                        make_url_bar_child(&URL_BAR_HASH_STYLE, |x| !is_empty(&x.hash), |url_bar| option_str_default_fn(url_bar, "", |x| &x.hash)),
+                    ]);
+                }),
+
+                html!("div", {
+                    class(&ROW_STYLE);
                     class(&TOOLBAR_STYLE);
 
                     children(&mut [
@@ -1497,7 +1670,7 @@ fn main() {
 
                                                                 .event(clone!(index, group, tab => move |_: MouseOverEvent| {
                                                                     // TODO should this be inside of the if ?
-                                                                    tab.hovered.set(true);
+                                                                    STATE.hover_tab(&tab);
 
                                                                     if let Some(index) = index.get() {
                                                                         STATE.drag_over(group.clone(), index);
@@ -1506,7 +1679,7 @@ fn main() {
 
                                                                 .event(clone!(tab => move |_: MouseOutEvent| {
                                                                     // TODO should this check the index, like MouseOverEvent ?
-                                                                    tab.hovered.set(false);
+                                                                    STATE.unhover_tab(&tab);
                                                                 }))
 
                                                                 // TODO replace with MouseClickEvent
