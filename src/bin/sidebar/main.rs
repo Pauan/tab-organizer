@@ -33,7 +33,7 @@ mod url_bar;
 
 
 const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
-const MOUSE_SCROLL_SPEED: f64 = (2.0 / 3.0); // Number of pixels to move per millisecond
+const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
 
 const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
@@ -683,6 +683,8 @@ impl State {
     // TODO add in stuff to handle dragging
     fn update(&self, should_search: bool) {
         time!("Updating", {
+            // TODO add STATE.dragging.state to the waiter
+            let dragging = self.dragging.state.lock_ref();
             let search_parser = self.search_parser.lock_ref();
 
             let top_y = self.scrolling.y.get().round();
@@ -738,7 +740,6 @@ impl State {
                                     let old_height = current_height;
 
                                     let percentage = ease(tab.insert_animation.current_percentage()).into_f64();
-                                    //let percentage: f64 = 1.0;
 
                                     // TODO hacky
                                     // TODO take into account the padding/border as well ?
@@ -813,6 +814,11 @@ impl State {
                 }
             });
 
+            if let Some(DragState::Dragging { .. }) = *dragging {
+                // TODO handle this better somehow ?
+                current_height += DRAG_GAP_PX;
+            }
+
             self.groups_padding.set_neq(padding.unwrap_or(0.0));
             self.scrolling.height.set_neq(current_height);
         });
@@ -838,7 +844,7 @@ lazy_static! {
 
             is_loaded: Mutable::new(false),
 
-            groups: MutableVec::new_with_values((0..3000).map(|id| {
+            groups: MutableVec::new_with_values((0..10).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
                     Arc::new(Tab::new(id, "Foo", "https://www.example.com/foo?bar#qux"))
                 }).collect()))

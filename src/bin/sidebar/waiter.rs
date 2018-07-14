@@ -89,7 +89,6 @@ fn changed<A, B>(signal: &mut Option<B>, cx: &mut Context) -> bool where B: Sign
 struct TabState {
     removing: Option<MutableSignal<bool>>,
     dragging: Option<MutableSignal<bool>>,
-    drag_over: Option<MutableAnimationSignal>,
     insert_animation: Option<MutableAnimationSignal>,
 }
 
@@ -98,7 +97,6 @@ impl TabState {
         Self {
             removing: Some(tab.removing.signal()),
             dragging: Some(tab.dragging.signal()),
-            drag_over: Some(tab.drag_over.signal()),
             insert_animation: Some(tab.insert_animation.signal()),
         }
     }
@@ -106,9 +104,8 @@ impl TabState {
     fn changed(&mut self, cx: &mut Context) -> bool {
         let removing = changed(&mut self.removing, cx);
         let dragging = changed(&mut self.dragging, cx);
-        let drag_over = changed(&mut self.drag_over, cx);
         let insert_animation = changed(&mut self.insert_animation, cx);
-        removing || dragging || drag_over || insert_animation
+        removing || dragging || insert_animation
     }
 }
 
@@ -117,16 +114,12 @@ struct GroupState<A> {
     signal: Option<A>,
     tabs: Vec<TabState>,
     removing: Option<MutableSignal<bool>>,
-    drag_top: Option<MutableAnimationSignal>,
-    drag_over: Option<MutableAnimationSignal>,
     insert_animation: Option<MutableAnimationSignal>,
 }
 
 impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> {
     fn changed(&mut self, cx: &mut Context) -> (bool, bool) {
         let removing = changed(&mut self.removing, cx);
-        let drag_top = changed(&mut self.drag_top, cx);
-        let drag_over = changed(&mut self.drag_over, cx);
         let insert_animation = changed(&mut self.insert_animation, cx);
         let signal = changed_vec(&mut self.signal, cx, &mut self.tabs, TabState::new);
 
@@ -139,7 +132,7 @@ impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> {
         }
 
         // TODO it should search only when a tab is inserted or updated, not removed
-        (removing || drag_top || drag_over || insert_animation || signal || tabs, signal)
+        (removing || insert_animation || signal || tabs, signal)
     }
 }
 
@@ -160,8 +153,6 @@ impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: Si
                 signal: Some(group_signal(&group)),
                 tabs: vec![],
                 removing: Some(group.removing.signal()),
-                drag_top: Some(group.drag_top.signal()),
-                drag_over: Some(group.drag_over.signal()),
                 insert_animation: Some(group.insert_animation.signal()),
             }
         });
