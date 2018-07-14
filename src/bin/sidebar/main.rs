@@ -286,12 +286,16 @@ impl Dragging {
 
 struct Scrolling {
     on_timestamp_diff: Mutable<Option<OnTimestampDiff>>,
+    y: Mutable<f64>,
+    height: Mutable<f64>,
 }
 
 impl Scrolling {
-    fn new() -> Self {
+    fn new(scroll_y: f64) -> Self {
         Self {
             on_timestamp_diff: Mutable::new(None),
+            y: Mutable::new(scroll_y),
+            height: Mutable::new(0.0),
         }
     }
 }
@@ -302,9 +306,6 @@ struct State {
     search_parser: Mutable<parse::Parsed>,
 
     url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
-
-    scroll_height: Mutable<f64>,
-    scroll_y: Mutable<f64>,
     groups_padding: Mutable<f64>, // TODO use u32 instead ?
 
     failed: Mutable<Option<Arc<String>>>,
@@ -396,11 +397,13 @@ impl State {
         } else {
             let percentage = percentage * MOUSE_SCROLL_SPEED;
 
+            let y = self.scrolling.y.clone();
+
             // TODO initialize this inside of the OnTimestampDiff callback ?
-            let starting_y = STATE.scroll_y.get();
+            let starting_y = y.get();
 
             self.scrolling.on_timestamp_diff.set(Some(OnTimestampDiff::new(move |diff| {
-                STATE.scroll_y.set(starting_y + (diff * percentage));
+                y.set(starting_y + (diff * percentage));
             })));
         }
     }
@@ -673,7 +676,7 @@ impl State {
         time!("Updating", {
             let search_parser = self.search_parser.lock_ref();
 
-            let top_y = self.scroll_y.get().round();
+            let top_y = self.scrolling.y.get().round();
             let bottom_y = top_y + (window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
 
             let mut padding: Option<f64> = None;
@@ -802,7 +805,7 @@ impl State {
             });
 
             self.groups_padding.set(padding.unwrap_or(0.0));
-            self.scroll_height.set(current_height);
+            self.scrolling.height.set(current_height);
         });
     }
 }
@@ -820,9 +823,6 @@ lazy_static! {
             search_box: Mutable::new(Arc::new(search_value)),
 
             url_bar: Mutable::new(None),
-
-            scroll_y: Mutable::new(scroll_y),
-            scroll_height: Mutable::new(0.0),
             groups_padding: Mutable::new(0.0),
 
             failed: Mutable::new(None),
@@ -836,7 +836,7 @@ lazy_static! {
             }).collect()),
 
             dragging: Dragging::new(),
-            scrolling: Scrolling::new(),
+            scrolling: Scrolling::new(scroll_y),
         })
     };
 
@@ -1649,7 +1649,7 @@ fn main() {
                                 let y = element.scroll_top();
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
-                                STATE.scroll_y.set(y);
+                                STATE.scrolling.y.set(y);
                                 STATE.update(false);
                             }
                         }))
@@ -1657,7 +1657,7 @@ fn main() {
                         // TODO use set_scroll_top instead
                         .future(map_ref! {
                             let loaded = STATE.is_loaded.signal(),
-                            let scroll_y = STATE.scroll_y.signal() => {
+                            let scroll_y = STATE.scrolling.y.signal() => {
                                 if *loaded {
                                     Some(*scroll_y)
 
@@ -1678,7 +1678,7 @@ fn main() {
                                     let new_scroll_y = element.scroll_top();
 
                                     if new_scroll_y != scroll_y {
-                                        STATE.scroll_y.set(new_scroll_y);
+                                        STATE.scrolling.y.set(new_scroll_y);
                                     }
 
                                     STATE.update(false);
@@ -1695,7 +1695,7 @@ fn main() {
                             class(&GROUP_LIST_CHILDREN_STYLE);
 
                             style_signal("padding-top", STATE.groups_padding.signal().map(px));
-                            style_signal("height", STATE.scroll_height.signal().map(px));
+                            style_signal("height", STATE.scrolling.height.signal().map(px));
 
                             children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
                                 //.delay_remove(|(_, group)| waiter::delay_animation(&group.insert_animation, &group.visible))
