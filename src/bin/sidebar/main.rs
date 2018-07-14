@@ -142,11 +142,11 @@ impl Group {
             let tabs = self.tabs.lock_slice();
 
             for tab in tabs.iter() {
-                tab.selected.set(false);
+                tab.selected.set_neq(false);
             }
         }
 
-        self.last_selected_tab.set(None);
+        self.last_selected_tab.set_neq(None);
     }
 
     fn ctrl_select_tab(&self, tab: &Arc<Tab>) {
@@ -155,10 +155,10 @@ impl Group {
         *selected = !*selected;
 
         if *selected {
-            self.last_selected_tab.set(Some(tab.clone()));
+            self.last_selected_tab.set_neq(Some(tab.clone()));
 
         } else {
-            self.last_selected_tab.set(None);
+            self.last_selected_tab.set_neq(None);
         }
     }
 
@@ -172,17 +172,17 @@ impl Group {
             for x in tabs.iter() {
                 if x.id == last_selected_tab.id ||
                    x.id == tab.id {
-                    x.selected.set(true);
+                    x.selected.set_neq(true);
 
                     if tab.id != last_selected_tab.id {
                         seen = !seen;
                     }
 
                 } else if seen {
-                    x.selected.set(true);
+                    x.selected.set_neq(true);
 
                 } else {
-                    x.selected.set(false);
+                    x.selected.set_neq(false);
                 }
             }
 
@@ -193,7 +193,7 @@ impl Group {
         };
 
         if !selected {
-            tab.selected.set(true);
+            tab.selected.set_neq(true);
             *last_selected_tab = Some(tab.clone());
         }
     }
@@ -246,6 +246,15 @@ impl Tab {
         and(self.hovered.signal(), not(STATE.is_dragging()))
     }
 }
+
+impl PartialEq for Tab {
+    #[inline]
+    fn eq(&self, other: &Tab) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for Tab {}
 
 
 enum DragState {
@@ -403,7 +412,7 @@ impl State {
             let starting_y = y.get();
 
             self.scrolling.on_timestamp_diff.set(Some(OnTimestampDiff::new(move |diff| {
-                y.set(starting_y + (diff * percentage));
+                y.set_neq(starting_y + (diff * percentage));
             })));
         }
     }
@@ -441,7 +450,7 @@ impl State {
                         });
 
                         for tab in selected_tabs.iter() {
-                            tab.dragging.set(true);
+                            tab.dragging.set_neq(true);
                         }
 
                         self.dragging.selected_tabs.set(selected_tabs);
@@ -615,7 +624,7 @@ impl State {
 
         if selected_tabs.len() != 0 {
             for tab in selected_tabs.iter() {
-                tab.dragging.set(false);
+                tab.dragging.set_neq(false);
             }
 
             *selected_tabs = vec![];
@@ -714,10 +723,10 @@ impl State {
                         } else {
                             if should_search {
                                 if search_parser.matches_tab(tab) {
-                                    tab.matches_search.set(true);
+                                    tab.matches_search.set_neq(true);
 
                                 } else {
-                                    tab.matches_search.set(false);
+                                    tab.matches_search.set_neq(false);
                                 }
                             }
 
@@ -746,20 +755,20 @@ impl State {
                                             tabs_padding = Some(old_height);
                                         }
 
-                                        tab.visible.set(true);
+                                        tab.visible.set_neq(true);
 
                                     } else {
-                                        tab.visible.set(false);
+                                        tab.visible.set_neq(false);
                                         self.unhover_tab(&tab);
                                     }
 
                                 } else {
-                                    tab.visible.set(false);
+                                    tab.visible.set_neq(false);
                                     self.unhover_tab(&tab);
                                 }
 
                             } else {
-                                tab.visible.set(false);
+                                tab.visible.set_neq(false);
                                 self.unhover_tab(&tab);
                             }
 
@@ -769,10 +778,10 @@ impl State {
 
                     if should_search {
                         if matches_search {
-                            group.matches_search.set(true);
+                            group.matches_search.set_neq(true);
 
                         } else {
-                            group.matches_search.set(false);
+                            group.matches_search.set_neq(false);
                         }
                     }
 
@@ -788,24 +797,24 @@ impl State {
                                 padding = Some(old_height);
                             }
 
-                            group.tabs_padding.set(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                            group.visible.set(true);
+                            group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
+                            group.visible.set_neq(true);
 
                         } else {
-                            group.visible.set(false);
+                            group.visible.set_neq(false);
                         }
 
                     } else {
                         current_height = old_height;
-                        group.visible.set(false);
+                        group.visible.set_neq(false);
                     }
 
                     true
                 }
             });
 
-            self.groups_padding.set(padding.unwrap_or(0.0));
-            self.scrolling.height.set(current_height);
+            self.groups_padding.set_neq(padding.unwrap_or(0.0));
+            self.scrolling.height.set_neq(current_height);
         });
     }
 }
@@ -1319,11 +1328,11 @@ fn main() {
                     let tabs = group.tabs.lock_slice();
 
                     let tab = &tabs[0];
-                    tab.removing.set(true);
+                    tab.removing.set_neq(true);
                     tab.insert_animation.animate_to(Percentage::new(0.0));
 
                     let tab = tabs.last().unwrap();
-                    tab.removing.set(true);
+                    tab.removing.set_neq(true);
                     tab.insert_animation.animate_to(Percentage::new(0.0));
                 }
 
@@ -1341,19 +1350,17 @@ fn main() {
                 tab.insert_animation.animate_to(Percentage::new(1.0));
             }*/
 
-            //STATE.scroll_y.set(top_id as f64);
-
             {
                 let groups = STATE.groups.lock_slice();
 
                 let group = &groups[2];
 
                 for tab in group.tabs.lock_slice().iter() {
-                    tab.removing.set(true);
+                    tab.removing.set_neq(true);
                     tab.insert_animation.animate_to(Percentage::new(0.0));
                 }
 
-                group.removing.set(true);
+                group.removing.set_neq(true);
                 group.insert_animation.animate_to(Percentage::new(0.0));
             }
 
@@ -1614,20 +1621,20 @@ fn main() {
                                 class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()));
 
                                 event(clone!(hovering => move |_: MouseOverEvent| {
-                                    hovering.set(true);
+                                    hovering.set_neq(true);
                                 }));
 
                                 event(move |_: MouseOutEvent| {
-                                    hovering.set(false);
+                                    hovering.set_neq(false);
                                 });
 
                                 event(clone!(holding => move |_: MouseDownEvent| {
-                                    holding.set(true);
+                                    holding.set_neq(true);
                                 }));
 
                                 // TODO only attach this when holding
                                 global_event(move |_: MouseUpEvent| {
-                                    holding.set(false);
+                                    holding.set_neq(false);
                                 });
 
                                 children(&mut [
@@ -1649,7 +1656,7 @@ fn main() {
                                 let y = element.scroll_top();
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
-                                STATE.scrolling.y.set(y);
+                                STATE.scrolling.y.set_neq(y);
                                 STATE.update(false);
                             }
                         }))
@@ -1678,7 +1685,7 @@ fn main() {
                                     let new_scroll_y = element.scroll_top();
 
                                     if new_scroll_y != scroll_y {
-                                        STATE.scrolling.y.set(new_scroll_y);
+                                        STATE.scrolling.y.set_neq(new_scroll_y);
                                     }
 
                                     STATE.update(false);
@@ -1858,7 +1865,7 @@ fn main() {
 
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
     window().request_animation_frame(|_| {
-        STATE.is_loaded.set(true);
+        STATE.is_loaded.set_neq(true);
         log!("Loaded");
     });
 }
