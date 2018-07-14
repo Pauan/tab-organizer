@@ -145,7 +145,6 @@ impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> {
 
 
 struct Waiter<A, B, G, F> where G: FnMut(&Group) -> B {
-    scroll_y: Option<MutableSignal<f64>>,
     signal: Option<A>,
     group_signal: G,
     groups: Vec<GroupState<B>>,
@@ -154,8 +153,6 @@ struct Waiter<A, B, G, F> where G: FnMut(&Group) -> B {
 
 impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: SignalVec<Item = Arc<Tab>>, G: FnMut(&Group) -> B, F: FnMut(bool) {
     fn changed(&mut self, cx: &mut Context) -> (bool, bool) {
-        let scroll_y = changed(&mut self.scroll_y, cx);
-
         let group_signal = &mut self.group_signal;
 
         let signal = changed_vec(&mut self.signal, cx, &mut self.groups, |group| {
@@ -185,7 +182,7 @@ impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: Si
         }
 
         // TODO it should search only when a group is inserted or updated, not removed
-        (scroll_y || signal || groups_changed, signal || groups_searched)
+        (signal || groups_changed, signal || groups_searched)
     }
 }
 
@@ -206,7 +203,6 @@ impl<A, B, G, F> Future for Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Gro
 
 pub(crate) fn waiter<F>(state: &State, f: F) -> impl Future<Item = (), Error = Never> where F: FnMut(bool) {
     Waiter {
-        scroll_y: Some(state.scroll_y.signal()),
         signal: Some(state.groups.signal_vec_cloned()/*.delay_remove(|group| delay_animation(&group.insert_animation, &group.visible))*/),
         group_signal: |group| group.tabs.signal_vec_cloned()/*.delay_remove(|tab| delay_animation(&tab.insert_animation, &tab.visible))*/,
         groups: vec![],

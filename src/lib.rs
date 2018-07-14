@@ -27,6 +27,18 @@ use uuid::Uuid;
 pub mod state;
 
 
+// TODO put this into a separate crate or something ?
+pub fn normalize(value: f64, min: f64, max: f64) -> f64 {
+    // TODO is this correct ?
+    if min == max {
+        0.0
+
+    } else {
+        ((value - min) * (1.0 / (max - min))).max(0.0).min(1.0)
+    }
+}
+
+
 #[inline]
 pub fn performance_now() -> f64 {
     js!( return performance.now(); ).try_into().unwrap()
