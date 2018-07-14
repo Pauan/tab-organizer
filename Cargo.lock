@@ -16,7 +16,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "dominator"
 version = "0.1.1"
-source = "git+https://github.com/Pauan/rust-dominator#4c0368fd9fb87ed0cfb2622258b776cda6f39fd8"
+source = "git+https://github.com/Pauan/rust-dominator#34709737c8e276501fb47737d141408d51ea5a59"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",

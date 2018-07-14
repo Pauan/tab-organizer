@@ -856,148 +856,148 @@ lazy_static! {
     };
 
     static ref TOP_STYLE: String = class! {
-        style("font-family", "sans-serif");
-        style("font-size", "13px");
-        style("width", "300px"); // 100%
-        style("height", "100%");
-        style("background-color", "hsl(0, 0%, 100%)");
-        style("overflow", "hidden");
+        .style("font-family", "sans-serif")
+        .style("font-size", "13px")
+        .style("width", "300px") // 100%
+        .style("height", "100%")
+        .style("background-color", "hsl(0, 0%, 100%)")
+        .style("overflow", "hidden")
     };
 
     static ref TEXTURE_STYLE: String = class! {
-        style("background-image", "repeating-linear-gradient(0deg, \
-                                       transparent                0px, \
-                                       hsla(200, 30%, 30%, 0.022) 2px, \
-                                       hsla(200, 30%, 30%, 0.022) 3px)");
+        .style("background-image", "repeating-linear-gradient(0deg, \
+                                        transparent                0px, \
+                                        hsla(200, 30%, 30%, 0.022) 2px, \
+                                        hsla(200, 30%, 30%, 0.022) 3px)")
     };
 
     static ref TOOLBAR_STYLE: String = class! {
-        style("height", &px(TOOLBAR_HEIGHT));
-        style("border-width", &px(TOOLBAR_BORDER_WIDTH));
-        style("margin-top", &px(TOOLBAR_MARGIN));
-        style("margin-left", "2px");
-        style("margin-right", "2px");
-        style("background-color", "hsl(0, 0%, 100%)");
-        style("z-index", "3");
-        style("border-radius", "2px");
-        style("border-color", "hsl(0, 0%, 50%) \
-                               hsl(0, 0%, 40%) \
-                               hsl(0, 0%, 40%) \
-                               hsl(0, 0%, 50%)");
-        style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)");
+        .style("height", &px(TOOLBAR_HEIGHT))
+        .style("border-width", &px(TOOLBAR_BORDER_WIDTH))
+        .style("margin-top", &px(TOOLBAR_MARGIN))
+        .style("margin-left", "2px")
+        .style("margin-right", "2px")
+        .style("background-color", "hsl(0, 0%, 100%)")
+        .style("z-index", "3")
+        .style("border-radius", "2px")
+        .style("border-color", "hsl(0, 0%, 50%) \
+                                hsl(0, 0%, 40%) \
+                                hsl(0, 0%, 40%) \
+                                hsl(0, 0%, 50%)")
+        .style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
     };
 
     static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
-        style("background-color", "hsl(211, 95%, 40%)");
-        style("width", "1px");
-        style("height", "100%");
+        .style("background-color", "hsl(211, 95%, 40%)")
+        .style("width", "1px")
+        .style("height", "100%")
     };
 
     static ref TOOLBAR_MENU_STYLE: String = class! {
-        style("height", "100%");
-        style("padding-left", "11px");
-        style("padding-right", "11px");
-        style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)");
+        .style("height", "100%")
+        .style("padding-left", "11px")
+        .style("padding-right", "11px")
+        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
 
-        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
                 None
 
             } else {
                 Some("pointer")
             }
-        }));
+        }))
     };
 
     static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
-        style("top", "1px");
+        .style("top", "1px")
     };
 
     static ref SEARCH_STYLE: String = class! {
-        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
                 None
 
             } else {
                 Some("auto")
             }
-        }));
+        }))
 
-        style("padding-top", "2px");
-        style("padding-bottom", "2px");
-        style("padding-left", "5px");
-        style("padding-right", "5px");
-        style("height", "100%");
+        .style("padding-top", "2px")
+        .style("padding-bottom", "2px")
+        .style("padding-left", "5px")
+        .style("padding-right", "5px")
+        .style("height", "100%")
 
-        style_signal("background-color", STATE.failed.signal_cloned().map(|failed| {
+        .style_signal("background-color", STATE.failed.signal_cloned().map(|failed| {
             if failed.is_some() {
                 Some("hsl(5, 100%, 90%)")
 
             } else {
                 None
             }
-        }));
+        }))
 
-        style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)");
+        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
     };
 
     static ref GROUP_LIST_STYLE: String = class! {
-        style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT));
-        style("overflow", "auto");
+        .style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
+        .style("overflow", "auto")
     };
 
     static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
-        style("box-sizing", "border-box");
-        style("overflow", "hidden");
-        style("top", "1px");
+        .style("box-sizing", "border-box")
+        .style("overflow", "hidden")
+        .style("top", "1px")
     };
 
     static ref GROUP_STYLE: String = class! {
-        style("border-top-width", &px(GROUP_BORDER_WIDTH));
-        style("top", "-1px");
-        style("padding-left", "1px");
-        style("padding-right", "1px");
-        style("border-color", "hsl(211, 50%, 75%)");
-        //style("background-color", "hsl(0, 0%, 100%)");
+        .style("border-top-width", &px(GROUP_BORDER_WIDTH))
+        .style("top", "-1px")
+        .style("padding-left", "1px")
+        .style("padding-right", "1px")
+        .style("border-color", "hsl(211, 50%, 75%)")
+        //.style("background-color", "hsl(0, 0%, 100%)")
     };
 
     static ref GROUP_HEADER_STYLE: String = class! {
-        style("padding-top", &px(GROUP_PADDING_TOP));
-        style("height", &px(GROUP_HEADER_HEIGHT));
-        style("padding-left", "4px");
-        style("font-size", "11px");
+        .style("padding-top", &px(GROUP_PADDING_TOP))
+        .style("height", &px(GROUP_HEADER_HEIGHT))
+        .style("padding-left", "4px")
+        .style("font-size", "11px")
     };
 
     static ref GROUP_TABS_STYLE: String = class! {
-        style("padding-bottom", &px(GROUP_PADDING_BOTTOM));
+        .style("padding-bottom", &px(GROUP_PADDING_BOTTOM))
     };
 
     static ref ICON_STYLE: String = class! {
-        style("height", &px(TAB_FAVICON_SIZE));
-        style("border-radius", "4px");
-        style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)");
-        style("background-color", "hsla(0, 0%, 100%, 0.35)");
+        .style("height", &px(TAB_FAVICON_SIZE))
+        .style("border-radius", "4px")
+        .style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)")
+        .style("background-color", "hsla(0, 0%, 100%, 0.35)")
     };
 
     static ref MENU_ITEM_STYLE: String = class! {
-        style("border-width", &px(TAB_BORDER_WIDTH));
+        .style("border-width", &px(TAB_BORDER_WIDTH))
 
-        style("transition", "background-color 100ms ease-in-out");
+        .style("transition", "background-color 100ms ease-in-out")
 
-        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
                 None
 
             } else {
                 Some("pointer")
             }
-        }));
+        }))
     };
 
     static ref MENU_ITEM_SHADOW_STYLE: String = class! {
-        style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
-                             inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
-                             inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)");
+        .style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
+                              inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
+                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
     };
 
     static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
@@ -1008,167 +1008,167 @@ lazy_static! {
 
     static ref MENU_ITEM_HOVER_STYLE: String = class! {
         // TODO a bit hacky
-        style("transition-duration", "0ms");
-        style("color", "hsla(211, 100%, 99%, 0.95)");
-        style("background-color", "hsl(211, 100%, 65%)");
-        style("border-color", "hsl(211, 38%, 62%) \
-                               hsl(211, 38%, 57%) \
-                               hsl(211, 38%, 52%) \
-                               hsl(211, 38%, 57%)");
-        style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
-                              0px 0px 1px hsla(0, 0%, 0%, 0.1), \
-                              0px 1px 1px hsla(0, 0%, 0%, 0.2)");
-        style("background-image", &format!("linear-gradient(to bottom, \
-                                                hsla(0, 0%, 100%, 0.2) 0%, \
-                                                transparent            49%, \
-                                                hsla(0, 0%,   0%, 0.1) 50%, \
-                                                hsla(0, 0%, 100%, 0.1) 80%, \
-                                                hsla(0, 0%, 100%, 0.2) 100%), {}",
-                                           *REPEATING_GRADIENT));
+        .style("transition-duration", "0ms")
+        .style("color", "hsla(211, 100%, 99%, 0.95)")
+        .style("background-color", "hsl(211, 100%, 65%)")
+        .style("border-color", "hsl(211, 38%, 62%) \
+                                hsl(211, 38%, 57%) \
+                                hsl(211, 38%, 52%) \
+                                hsl(211, 38%, 57%)")
+        .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
+                               0px 0px 1px hsla(0, 0%, 0%, 0.1), \
+                               0px 1px 1px hsla(0, 0%, 0%, 0.2)")
+        .style("background-image", &format!("linear-gradient(to bottom, \
+                                                 hsla(0, 0%, 100%, 0.2) 0%, \
+                                                 transparent            49%, \
+                                                 hsla(0, 0%,   0%, 0.1) 50%, \
+                                                 hsla(0, 0%, 100%, 0.1) 80%, \
+                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
+                                            *REPEATING_GRADIENT))
     };
 
     static ref ROW_STYLE: String = class! {
-        style("display", "flex");
-        style("flex-direction", "row");
-        style("align-items", "center"); // TODO get rid of this ?
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center") // TODO get rid of this ?
     };
 
     static ref STRETCH_STYLE: String = class! {
-        style("flex-shrink", "1");
-        style("flex-grow", "1");
-        style("flex-basis", "0%");
+        .style("flex-shrink", "1")
+        .style("flex-grow", "1")
+        .style("flex-basis", "0%")
     };
 
     static ref TAB_STYLE: String = class! {
-        style("padding", &px(TAB_PADDING));
-        style("height", &px(TAB_HEIGHT));
-        style("overflow", "hidden");
-        style("border-radius", "5px");
+        .style("padding", &px(TAB_PADDING))
+        .style("height", &px(TAB_HEIGHT))
+        .style("overflow", "hidden")
+        .style("border-radius", "5px")
     };
 
     static ref TAB_HOVER_STYLE: String = class! {
-        style("font-weight", "bold");
+        .style("font-weight", "bold")
     };
 
     static ref TAB_UNLOADED_STYLE: String = class! {
-        style("color", "hsl(0, 0%, 30%)");
-        style("opacity", "0.75");
+        .style("color", "hsl(0, 0%, 30%)")
+        .style("opacity", "0.75")
     };
 
     static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
-        style("background-color", "hsla(0, 0%, 0%, 0.4)");
+        .style("background-color", "hsla(0, 0%, 0%, 0.4)")
 
-        style("border-color", "hsl(0, 0%, 62%) \
-                               hsl(0, 0%, 57%) \
-                               hsl(0, 0%, 52%) \
-                               hsl(0, 0%, 57%)");
+        .style("border-color", "hsl(0, 0%, 62%) \
+                                hsl(0, 0%, 57%) \
+                                hsl(0, 0%, 52%) \
+                                hsl(0, 0%, 57%)")
 
-        style("color", "hsla(0, 0%, 99%, 0.95)"); // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
-        style("opacity", "1");
+        .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
+        .style("opacity", "1")
     };
 
     static ref TAB_SELECTED_STYLE: String = class! {
-        style("background-color", "hsl(100, 78%, 80%)");
-        style("border-color", "hsl(100, 50%, 55%) \
-                               hsl(100, 50%, 50%) \
-                               hsl(100, 50%, 45%) \
-                               hsl(100, 50%, 50%)");
+        .style("background-color", "hsl(100, 78%, 80%)")
+        .style("border-color", "hsl(100, 50%, 55%) \
+                                hsl(100, 50%, 50%) \
+                                hsl(100, 50%, 45%) \
+                                hsl(100, 50%, 50%)")
     };
 
     static ref TAB_SELECTED_HOVER_STYLE: String = class! {
-        style("background-color", "hsl(100, 80%, 45%)");
+        .style("background-color", "hsl(100, 80%, 45%)")
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
-        style("width", &px(TAB_FAVICON_SIZE));
-        style("margin-left", "2px");
-        style("margin-right", "1px");
+        .style("width", &px(TAB_FAVICON_SIZE))
+        .style("margin-left", "2px")
+        .style("margin-right", "1px")
     };
 
     static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
-        style("filter", "grayscale(100%)");
+        .style("filter", "grayscale(100%)")
     };
 
     static ref TAB_TEXT_STYLE: String = class! {
-        style("padding-left", "3px");
-        style("padding-right", "1px");
+        .style("padding-left", "3px")
+        .style("padding-right", "1px")
     };
 
     static ref TAB_CLOSE_STYLE: String = class! {
-        style("width", "18px");
-        style("border-width", &px(TAB_CLOSE_BORDER_WIDTH));
-        style("padding-left", "1px");
-        style("padding-right", "1px");
+        .style("width", "18px")
+        .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
+        .style("padding-left", "1px")
+        .style("padding-right", "1px")
     };
 
     static ref DRAGGING_STYLE: String = class! {
-        style("position", "fixed");
-        style("z-index", HIGHEST_ZINDEX);
+        .style("position", "fixed")
+        .style("z-index", HIGHEST_ZINDEX)
 
-        style("left", "0px");
-        style("top", "0px");
-        style("overflow", "visible");
-        style("pointer-events", "none");
-        style("opacity", "0.98");
+        .style("left", "0px")
+        .style("top", "0px")
+        .style("overflow", "visible")
+        .style("pointer-events", "none")
+        .style("opacity", "0.98")
     };
 
     static ref URL_BAR_STYLE: String = class! {
-        style("position", "fixed");
-        style("z-index", HIGHEST_ZINDEX);
+        .style("position", "fixed")
+        .style("z-index", HIGHEST_ZINDEX)
 
-        style("box-sizing", "border-box");
+        .style("box-sizing", "border-box")
 
-        style("pointer-events", "none");
-        style("left", "0px");
-        style("bottom", "0px");
+        .style("pointer-events", "none")
+        .style("left", "0px")
+        .style("bottom", "0px")
 
-        style("max-width", "100%"); // calc(100% + 1px)
+        .style("max-width", "100%") // calc(100% + 1px)
 
-        style("border-top-width", "1px");
-        style("border-right-width", "1px");
-        style("border-top-color", "hsl(0, 0%, 45%)");
-        style("border-right-color", "hsl(0, 0%, 40%)");
-        style("border-top-right-radius", "5px");
+        .style("border-top-width", "1px")
+        .style("border-right-width", "1px")
+        .style("border-top-color", "hsl(0, 0%, 45%)")
+        .style("border-right-color", "hsl(0, 0%, 40%)")
+        .style("border-top-right-radius", "5px")
 
-        style("padding-right", "2px"); // 2px + 3px = 5px
-        style("padding-bottom", "1px");
+        .style("padding-right", "2px") // 2px + 3px = 5px
+        .style("padding-bottom", "1px")
 
-        style("color", "black");
+        .style("color", "black")
 
-        style("background-color", "white");
+        .style("background-color", "white")
 
-        style("box-shadow", "0px 0px 3px dimgray");
+        .style("box-shadow", "0px 0px 3px dimgray")
     };
 
     static ref URL_BAR_TEXT_STYLE: String = class! {
-        style("margin-left", "3px");
-        style("margin-right", "3px");
+        .style("margin-left", "3px")
+        .style("margin-right", "3px")
     };
 
     static ref URL_BAR_PROTOCOL_STYLE: String = class! {
-        style("font-weight", "bold");
-        style("color", "hsl(120, 100%, 25%)");
+        .style("font-weight", "bold")
+        .style("color", "hsl(120, 100%, 25%)")
     };
 
     static ref URL_BAR_DOMAIN_STYLE: String = class! {
-        style("font-weight", "bold");
+        .style("font-weight", "bold")
     };
 
     // TODO remove this ?
     static ref URL_BAR_PATH_STYLE: String = class! {};
 
     static ref URL_BAR_FILE_STYLE: String = class! {
-        style("font-weight", "bold");
-        style("color", "darkred"); // TODO replace with hsl
+        .style("font-weight", "bold")
+        .style("color", "darkred") // TODO replace with hsl
     };
 
     static ref URL_BAR_QUERY_STYLE: String = class! {
-        style("font-weight", "bold");
-        style("color", "darkred"); // TODO replace with hsl
+        .style("font-weight", "bold")
+        .style("color", "darkred") // TODO replace with hsl
     };
 
     static ref URL_BAR_HASH_STYLE: String = class! {
-        style("color", "darkblue"); // TODO replace with hsl
+        .style("color", "darkblue") // TODO replace with hsl
     };
 }
 
@@ -1231,10 +1231,10 @@ fn make_url_bar_child<A, D, F>(name: &str, mut display: D, f: F) -> Dom
           D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
           F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
     html!("div", {
-        class(&URL_BAR_TEXT_STYLE);
-        class(name);
+        .class(&URL_BAR_TEXT_STYLE)
+        .class(name)
 
-        style_signal("display", STATE.url_bar.signal_cloned().map(move |url_bar| {
+        .style_signal("display", STATE.url_bar.signal_cloned().map(move |url_bar| {
             if let Some(url_bar) = url_bar {
                 if display(url_bar) {
                     None
@@ -1246,32 +1246,32 @@ fn make_url_bar_child<A, D, F>(name: &str, mut display: D, f: F) -> Dom
             } else {
                 Some("none")
             }
-        }));
+        }))
 
-        children(&mut [
+        .children(&mut [
             text_signal(STATE.url_bar.signal_cloned().map(f))
-        ]);
+        ])
     })
 }
 
 fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
     html!("img", {
-        class(&TAB_FAVICON_STYLE);
-        class(&ICON_STYLE);
+        .class(&TAB_FAVICON_STYLE)
+        .class(&ICON_STYLE)
 
-        class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal());
+        .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
 
-        attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str));
+        .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
 
-        mixin(mixin);
+        .mixin(mixin)
     })
 }
 
 fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
     html!("div", {
-        class(&TAB_TEXT_STYLE);
+        .class(&TAB_TEXT_STYLE)
 
-        children(&mut [
+        .children(&mut [
             text_signal(map_ref! {
                 let title = tab.title.signal_cloned(),
                 let unloaded = tab.unloaded.signal() => {
@@ -1290,23 +1290,23 @@ fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
             }),
 
             text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-        ]);
+        ])
 
-        mixin(mixin);
+        .mixin(mixin)
     })
 }
 
 fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
     html!("div", {
-        class(&ROW_STYLE);
-        class(&TAB_STYLE);
-        class(&MENU_ITEM_STYLE);
+        .class(&ROW_STYLE)
+        .class(&TAB_STYLE)
+        .class(&MENU_ITEM_STYLE)
 
-        class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal());
+        .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
 
-        children(&mut [favicon, text]);
+        .children(&mut [favicon, text])
 
-        mixin(mixin);
+        .mixin(mixin)
     })
 }
 
@@ -1390,49 +1390,49 @@ fn main() {
 
 
     stylesheet!("*", {
-        style("text-overflow", "ellipsis");
+        .style("text-overflow", "ellipsis")
 
-        style("vertical-align", "middle"); /* TODO I can probably get rid of this */
+        .style("vertical-align", "middle") /* TODO I can probably get rid of this */
 
         /* TODO is this correct ?*/
-        style("background-repeat", "no-repeat");
-        style("background-size", "100% 100%");
-        style("cursor", "inherit");
-        style("position", "relative");
+        .style("background-repeat", "no-repeat")
+        .style("background-size", "100% 100%")
+        .style("cursor", "inherit")
+        .style("position", "relative")
 
         /* TODO are these a good idea ? */
-        style("outline-width", "0px");
-        style("outline-color", "transparent");
-        style("outline-style", "solid");
+        .style("outline-width", "0px")
+        .style("outline-color", "transparent")
+        .style("outline-style", "solid")
 
-        style("border-width", "0px");
-        style("border-color", "transparent");
-        style("border-style", "solid");
+        .style("border-width", "0px")
+        .style("border-color", "transparent")
+        .style("border-style", "solid")
 
-        style("margin", "0px");
-        style("padding", "0px");
+        .style("margin", "0px")
+        .style("padding", "0px")
 
-        style("background-color", "transparent");
+        .style("background-color", "transparent")
 
-        style("flex-shrink", "0"); /* 1 */
-        style("flex-grow", "0"); /* 1 */
-        style("flex-basis", "auto"); /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
+        .style("flex-shrink", "0") /* 1 */
+        .style("flex-grow", "0") /* 1 */
+        .style("flex-basis", "auto") /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
     });
 
     stylesheet!("html, body", {
-        style("width", "100%");
-        style("height", "100%");
+        .style("width", "100%")
+        .style("height", "100%")
 
-        style(["-moz-user-select", "user-select"], "none");
+        .style(["-moz-user-select", "user-select"], "none")
 
-        style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
             if is_dragging {
                 Some("grabbing")
 
             } else {
                 None
             }
-        }));
+        }))
     });
 
     // Disables the browser scroll restoration
@@ -1444,59 +1444,59 @@ fn main() {
 
     dominator::append_dom(&dominator::body(),
         html!("div", {
-            class(&TOP_STYLE);
-            class(&TEXTURE_STYLE);
+            .class(&TOP_STYLE)
+            .class(&TEXTURE_STYLE)
 
             // TODO only attach this when dragging
-            global_event(move |_: MouseUpEvent| {
+            .global_event(move |_: MouseUpEvent| {
                 STATE.drag_end();
-            });
+            })
 
             // TODO only attach this when dragging
-            global_event(move |e: MouseMoveEvent| {
+            .global_event(move |e: MouseMoveEvent| {
                 STATE.drag_move(e.client_x(), e.client_y());
-            });
+            })
 
-            global_event(move |_: ResizeEvent| {
+            .global_event(move |_: ResizeEvent| {
                 STATE.update(false);
-            });
+            })
 
-            future(waiter::waiter(&STATE, move |should_search| {
+            .future(waiter::waiter(&STATE, move |should_search| {
                 STATE.update(should_search);
-            }));
+            }))
 
-            children(&mut [
+            .children(&mut [
                 html!("div", {
-                    class(&DRAGGING_STYLE);
+                    .class(&DRAGGING_STYLE)
 
-                    style_signal("display", STATE.is_dragging().map(|is_dragging| {
+                    .style_signal("display", STATE.is_dragging().map(|is_dragging| {
                         if is_dragging {
                             None
 
                         } else {
                             Some("none")
                         }
-                    }));
+                    }))
 
-                    style_signal("width", STATE.dragging.state.signal_ref(|dragging| {
+                    .style_signal("width", STATE.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { rect, .. }) = dragging {
                             Some(px(rect.get_width()))
 
                         } else {
                             None
                         }
-                    }));
+                    }))
 
-                    style_signal("transform", STATE.dragging.state.signal_ref(|dragging| {
+                    .style_signal("transform", STATE.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
                             Some(format!("translate({}px, {}px)", rect.get_left().round(), (mouse_y - TAB_DRAGGING_TOP)))
 
                         } else {
                             None
                         }
-                    }));
+                    }))
 
-                    children_signal_vec(STATE.dragging.selected_tabs.signal_ref(|tabs| {
+                    .children_signal_vec(STATE.dragging.selected_tabs.signal_ref(|tabs| {
                         tabs.iter().enumerate().map(|(index, tab)| {
                             // TODO use some sort of oneshot animation instead
                             // TODO don't create the animation at all for index 0
@@ -1541,14 +1541,14 @@ fn main() {
                                     })
                             })
                         }).collect()
-                    }).to_signal_vec());
+                    }).to_signal_vec())
                 }),
 
                 html!("div", {
-                    class(&ROW_STYLE);
-                    class(&URL_BAR_STYLE);
+                    .class(&ROW_STYLE)
+                    .class(&URL_BAR_STYLE)
 
-                    style_signal("display", map_ref! {
+                    .style_signal("display", map_ref! {
                         let is_dragging = STATE.is_dragging(),
                         let url_bar = STATE.url_bar.signal_cloned() => {
                             // TODO a bit hacky
@@ -1568,38 +1568,38 @@ fn main() {
                                 Some("none")
                             }
                         }
-                    });
+                    })
 
                     // TODO check if any of these need "flex-shrink": 1
-                    children(&mut [
+                    .children(&mut [
                         make_url_bar_child(&URL_BAR_PROTOCOL_STYLE, |x| !is_empty(&x.protocol), |url_bar| option_str_default_fn(url_bar, "", |x| &x.protocol)), // .as_ref().map(|x| x.as_str())
                         make_url_bar_child(&URL_BAR_DOMAIN_STYLE, |x| !is_empty(&x.domain), |url_bar| option_str_default_fn(url_bar, "", |x| &x.domain)),
                         make_url_bar_child(&URL_BAR_PATH_STYLE, |x| !is_empty(&x.path), |url_bar| option_str_default_fn(url_bar, "", |x| &x.path)),
                         make_url_bar_child(&URL_BAR_FILE_STYLE, |x| !is_empty(&x.file), |url_bar| option_str_default_fn(url_bar, "", |x| &x.file)),
                         make_url_bar_child(&URL_BAR_QUERY_STYLE, |x| !is_empty(&x.query), |url_bar| option_str_default_fn(url_bar, "", |x| &x.query)),
                         make_url_bar_child(&URL_BAR_HASH_STYLE, |x| !is_empty(&x.hash), |url_bar| option_str_default_fn(url_bar, "", |x| &x.hash)),
-                    ]);
+                    ])
                 }),
 
                 html!("div", {
-                    class(&ROW_STYLE);
-                    class(&TOOLBAR_STYLE);
+                    .class(&ROW_STYLE)
+                    .class(&TOOLBAR_STYLE)
 
-                    children(&mut [
+                    .children(&mut [
                         html!("input" => InputElement, {
-                            class(&SEARCH_STYLE);
-                            class(&STRETCH_STYLE);
+                            .class(&SEARCH_STYLE)
+                            .class(&STRETCH_STYLE)
 
-                            attribute("type", "text");
-                            attribute("autofocus", "");
-                            attribute("autocomplete", "off");
-                            attribute("placeholder", "Search");
+                            .attribute("type", "text")
+                            .attribute("autofocus", "")
+                            .attribute("autocomplete", "off")
+                            .attribute("placeholder", "Search")
 
-                            attribute_signal("title", STATE.failed.signal_cloned().map(|x| option_str_default(x, "")));
+                            .attribute_signal("title", STATE.failed.signal_cloned().map(|x| option_str_default(x, "")))
 
-                            attribute_signal("value", STATE.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())));
+                            .attribute_signal("value", STATE.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())))
 
-                            with_element(|dom, element: InputElement| {
+                            .with_element(|dom, element: InputElement| {
                                 dom.event(move |_: InputEvent| {
                                     time!("Searching", {
                                         let value = Arc::new(element.raw_value());
@@ -1609,11 +1609,11 @@ fn main() {
                                         STATE.update(true);
                                     })
                                 })
-                            });
+                            })
                         }),
 
                         html!("div", {
-                            class(&TOOLBAR_SEPARATOR_STYLE);
+                            .class(&TOOLBAR_SEPARATOR_STYLE)
                         }),
 
                         {
@@ -1621,40 +1621,40 @@ fn main() {
                             let holding = Mutable::new(false);
 
                             html!("div", {
-                                class(&ROW_STYLE);
-                                class(&TOOLBAR_MENU_STYLE);
+                                .class(&ROW_STYLE)
+                                .class(&TOOLBAR_MENU_STYLE)
 
-                                class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()));
+                                .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
-                                event(clone!(hovering => move |_: MouseOverEvent| {
+                                .event(clone!(hovering => move |_: MouseOverEvent| {
                                     hovering.set_neq(true);
-                                }));
+                                }))
 
-                                event(move |_: MouseOutEvent| {
+                                .event(move |_: MouseOutEvent| {
                                     hovering.set_neq(false);
-                                });
+                                })
 
-                                event(clone!(holding => move |_: MouseDownEvent| {
+                                .event(clone!(holding => move |_: MouseDownEvent| {
                                     holding.set_neq(true);
-                                }));
+                                }))
 
                                 // TODO only attach this when holding
-                                global_event(move |_: MouseUpEvent| {
+                                .global_event(move |_: MouseUpEvent| {
                                     holding.set_neq(false);
-                                });
+                                })
 
-                                children(&mut [
+                                .children(&mut [
                                     text("Menu"),
-                                ]);
+                                ])
                             })
                         },
-                    ]);
+                    ])
                 }),
 
                 html!("div", {
-                    class(&GROUP_LIST_STYLE);
+                    .class(&GROUP_LIST_STYLE)
 
-                    with_element(|dom, element: HtmlElement| { dom
+                    .with_element(|dom, element: HtmlElement| { dom
                         // TODO also update these when groups/tabs are added/removed ?
                         .event(clone!(element => move |_: ScrollEvent| {
                             if STATE.is_loaded.get() {
@@ -1700,17 +1700,17 @@ fn main() {
 
                             Ok(())
                         }))
-                    });
+                    })
 
-                    children(&mut [
+                    .children(&mut [
                         // TODO this is pretty hacky, but I don't know a better way to make it work
                         html!("div", {
-                            class(&GROUP_LIST_CHILDREN_STYLE);
+                            .class(&GROUP_LIST_CHILDREN_STYLE)
 
-                            style_signal("padding-top", STATE.groups_padding.signal().map(px));
-                            style_signal("height", STATE.scrolling.height.signal().map(px));
+                            .style_signal("padding-top", STATE.groups_padding.signal().map(px))
+                            .style_signal("height", STATE.scrolling.height.signal().map(px))
 
-                            children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
+                            .children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
                                 //.delay_remove(|(_, group)| waiter::delay_animation(&group.insert_animation, &group.visible))
                                 .filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(move |(index, group)| {
@@ -1721,31 +1721,31 @@ fn main() {
                                     }
 
                                     html!("div", {
-                                        class(&GROUP_STYLE);
+                                        .class(&GROUP_STYLE)
 
-                                        style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0));
-                                        style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX));
-                                        style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX));
+                                        .style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0))
+                                        .style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
+                                        .style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX))
 
-                                        style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH));
-                                        style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0));
+                                        .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
+                                        .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                                        event(clone!(group, index => move |_: MouseOverEvent| {
+                                        .event(clone!(group, index => move |_: MouseOverEvent| {
                                             if let Some(index) = index.get() {
                                                 STATE.drag_over_group(group.clone(), index);
                                             }
-                                        }));
+                                        }))
 
-                                        children(&mut [
+                                        .children(&mut [
                                             html!("div", {
-                                                class(&ROW_STYLE);
-                                                class(&GROUP_HEADER_STYLE);
+                                                .class(&ROW_STYLE)
+                                                .class(&GROUP_HEADER_STYLE)
 
-                                                style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT));
-                                                style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP));
-                                                style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0));
+                                                .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
+                                                .style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP))
+                                                .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
-                                                children(&mut [
+                                                .children(&mut [
                                                     text_signal(map_ref! {
                                                             let name = group.name.signal_cloned(),
                                                             let index = index.signal() => {
@@ -1759,16 +1759,16 @@ fn main() {
                                                         // TODO dedicated method for this ?
                                                         .filter_map(|x| x)
                                                         .map(|x| option_str_default(x, ""))),
-                                                ]);
+                                                ])
                                             }),
 
                                             html!("div", {
-                                                class(&GROUP_TABS_STYLE);
+                                                .class(&GROUP_TABS_STYLE)
 
-                                                style_signal("padding-top", group.tabs_padding.signal().map(px));
-                                                style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM));
+                                                .style_signal("padding-top", group.tabs_padding.signal().map(px))
+                                                .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
-                                                children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
+                                                .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
                                                     //.delay_remove(|(_, tab)| waiter::delay_animation(&tab.insert_animation, &tab.visible))
                                                     .filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(move |(index, tab)| {
@@ -1855,15 +1855,15 @@ fn main() {
                                                                         }
                                                                     }
                                                                 })))
-                                                    }));
+                                                    }))
                                             }),
-                                        ]);
+                                        ])
                                     })
-                                }));
+                                }))
                         }),
-                    ]);
+                    ])
                 }),
-            ]);
+            ])
         }),
     );
 
