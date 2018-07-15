@@ -39,7 +39,7 @@ const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
 const SELECTED_TABS_ANIMATION_DURATION: f64 = 150.0;
 
-const TAB_DRAGGING_THRESHOLD: f64 = 5.0;
+const TAB_DRAGGING_THRESHOLD: f64 = 7.0; // Pixels the mouse has to move before dragging begins
 const TAB_DRAGGING_TOP: i32 = 11;
 const DRAG_GAP_PX: f64 = 32.0;
 const INSERT_LEFT_MARGIN: f64 = 12.0;
@@ -209,6 +209,8 @@ struct Tab {
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
     hovered: Mutable<bool>,
+    holding: Mutable<bool>,
+    close_hovered: Mutable<bool>,
     matches_search: Mutable<bool>,
     removing: Mutable<bool>,
     visible: Mutable<bool>,
@@ -227,6 +229,8 @@ impl Tab {
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
+            holding: Mutable::new(false),
+            close_hovered: Mutable::new(false),
             matches_search: Mutable::new(false),
             removing: Mutable::new(false),
             visible: Mutable::new(false),
@@ -244,6 +248,14 @@ impl Tab {
 
     fn is_hovered(&self) -> impl Signal<Item = bool> {
         and(self.hovered.signal(), not(STATE.is_dragging()))
+    }
+
+    fn is_holding(&self) -> impl Signal<Item = bool> {
+        and(
+            and(self.is_hovered(), self.holding.signal()),
+            // TODO a little bit hacky
+            not(self.close_hovered.signal())
+        )
     }
 }
 
@@ -678,150 +690,151 @@ impl State {
         }
     }
 
+    fn hide_tab(&self, tab: &Tab) {
+        tab.visible.set_neq(false);
+        tab.holding.set_neq(false);
+        self.unhover_tab(tab);
+    }
+
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle dragging
     fn update(&self, should_search: bool) {
-        time!("Updating", {
-            // TODO add STATE.dragging.state to the waiter
-            let dragging = self.dragging.state.lock_ref();
-            let search_parser = self.search_parser.lock_ref();
+        // TODO add STATE.dragging.state to the waiter
+        let dragging = self.dragging.state.lock_ref();
+        let search_parser = self.search_parser.lock_ref();
 
-            let top_y = self.scrolling.y.get().round();
-            let bottom_y = top_y + (window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
+        let top_y = self.scrolling.y.get().round();
+        let bottom_y = top_y + (window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
 
-            let mut padding: Option<f64> = None;
-            let mut current_height: f64 = 0.0;
+        let mut padding: Option<f64> = None;
+        let mut current_height: f64 = 0.0;
 
-            self.groups.retain(|group| {
-                if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
-                    false
+        self.groups.retain(|group| {
+            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
+                false
 
-                } else {
-                    let mut matches_search = false;
+            } else {
+                let mut matches_search = false;
 
-                    let old_height = current_height;
+                let old_height = current_height;
 
-                    let mut tabs_padding: Option<f64> = None;
+                let mut tabs_padding: Option<f64> = None;
 
-                    let percentage = ease(group.insert_animation.current_percentage()).into_f64();
-                    //let percentage: f64 = 1.0;
+                let percentage = ease(group.insert_animation.current_percentage()).into_f64();
+                //let percentage: f64 = 1.0;
 
-                    // TODO hacky
-                    // TODO what about when it's dragging ?
-                    // TODO use range_inclusive
-                    current_height +=
-                        (GROUP_BORDER_WIDTH * percentage).round() +
-                        (GROUP_PADDING_TOP * percentage).round() +
-                        (GROUP_HEADER_HEIGHT * percentage).round();
+                // TODO hacky
+                // TODO what about when it's dragging ?
+                // TODO use range_inclusive
+                current_height +=
+                    (GROUP_BORDER_WIDTH * percentage).round() +
+                    (GROUP_PADDING_TOP * percentage).round() +
+                    (GROUP_HEADER_HEIGHT * percentage).round();
 
-                    let tabs_height = current_height;
+                let tabs_height = current_height;
 
-                    // TODO what if there aren't any tabs in the group ?
-                    group.tabs.retain(|tab| {
-                        if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
-                            false
+                // TODO what if there aren't any tabs in the group ?
+                group.tabs.retain(|tab| {
+                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
+                        false
 
-                        } else {
-                            if should_search {
-                                if search_parser.matches_tab(tab) {
-                                    tab.matches_search.set_neq(true);
+                    } else {
+                        if should_search {
+                            if search_parser.matches_tab(tab) {
+                                tab.matches_search.set_neq(true);
 
-                                } else {
-                                    tab.matches_search.set_neq(false);
-                                }
+                            } else {
+                                tab.matches_search.set_neq(false);
                             }
+                        }
 
-                            // TODO what about if all the tabs are being dragged ?
-                            if tab.matches_search.get() {
-                                matches_search = true;
+                        // TODO what about if all the tabs are being dragged ?
+                        if tab.matches_search.get() {
+                            matches_search = true;
 
-                                if !tab.dragging.get() {
-                                    let old_height = current_height;
+                            if !tab.dragging.get() {
+                                let old_height = current_height;
 
-                                    let percentage = ease(tab.insert_animation.current_percentage()).into_f64();
+                                let percentage = ease(tab.insert_animation.current_percentage()).into_f64();
 
-                                    // TODO hacky
-                                    // TODO take into account the padding/border as well ?
-                                    // TODO use range_inclusive
-                                    current_height +=
-                                        (TAB_BORDER_WIDTH * percentage).round() +
-                                        (TAB_PADDING * percentage).round() +
-                                        (TAB_HEIGHT * percentage).round() +
-                                        (TAB_PADDING * percentage).round() +
-                                        (TAB_BORDER_WIDTH * percentage).round();
+                                // TODO hacky
+                                // TODO take into account the padding/border as well ?
+                                // TODO use range_inclusive
+                                current_height +=
+                                    (TAB_BORDER_WIDTH * percentage).round() +
+                                    (TAB_PADDING * percentage).round() +
+                                    (TAB_HEIGHT * percentage).round() +
+                                    (TAB_PADDING * percentage).round() +
+                                    (TAB_BORDER_WIDTH * percentage).round();
 
-                                    if old_height < bottom_y && current_height > top_y {
-                                        if let None = tabs_padding {
-                                            tabs_padding = Some(old_height);
-                                        }
-
-                                        tab.visible.set_neq(true);
-
-                                    } else {
-                                        tab.visible.set_neq(false);
-                                        self.unhover_tab(&tab);
+                                if old_height < bottom_y && current_height > top_y {
+                                    if let None = tabs_padding {
+                                        tabs_padding = Some(old_height);
                                     }
 
+                                    tab.visible.set_neq(true);
+
                                 } else {
-                                    tab.visible.set_neq(false);
-                                    self.unhover_tab(&tab);
+                                    self.hide_tab(&tab);
                                 }
 
                             } else {
-                                tab.visible.set_neq(false);
-                                self.unhover_tab(&tab);
+                                self.hide_tab(&tab);
                             }
 
-                            true
-                        }
-                    });
-
-                    if should_search {
-                        if matches_search {
-                            group.matches_search.set_neq(true);
-
                         } else {
-                            group.matches_search.set_neq(false);
+                            self.hide_tab(&tab);
                         }
+
+                        true
                     }
+                });
 
+                if should_search {
                     if matches_search {
-                        let no_tabs_height = current_height;
-
-                        // TODO hacky
-                        // TODO what about when it's dragging ?
-                        current_height += (GROUP_PADDING_BOTTOM * percentage).round();
-
-                        if old_height < bottom_y && current_height > top_y {
-                            if let None = padding {
-                                padding = Some(old_height);
-                            }
-
-                            group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                            group.visible.set_neq(true);
-
-                        } else {
-                            group.visible.set_neq(false);
-                        }
+                        group.matches_search.set_neq(true);
 
                     } else {
-                        current_height = old_height;
+                        group.matches_search.set_neq(false);
+                    }
+                }
+
+                if matches_search {
+                    let no_tabs_height = current_height;
+
+                    // TODO hacky
+                    // TODO what about when it's dragging ?
+                    current_height += (GROUP_PADDING_BOTTOM * percentage).round();
+
+                    if old_height < bottom_y && current_height > top_y {
+                        if let None = padding {
+                            padding = Some(old_height);
+                        }
+
+                        group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
+                        group.visible.set_neq(true);
+
+                    } else {
                         group.visible.set_neq(false);
                     }
 
-                    true
+                } else {
+                    current_height = old_height;
+                    group.visible.set_neq(false);
                 }
-            });
 
-            if let Some(DragState::Dragging { .. }) = *dragging {
-                // TODO handle this better somehow ?
-                current_height += DRAG_GAP_PX;
+                true
             }
-
-            self.groups_padding.set_neq(padding.unwrap_or(0.0));
-            self.scrolling.height.set_neq(current_height);
         });
+
+        if let Some(DragState::Dragging { .. }) = *dragging {
+            // TODO handle this better somehow ?
+            current_height += DRAG_GAP_PX;
+        }
+
+        self.groups_padding.set_neq(padding.unwrap_or(0.0));
+        self.scrolling.height.set_neq(current_height);
     }
 }
 
@@ -1027,6 +1040,20 @@ lazy_static! {
                                             *REPEATING_GRADIENT))
     };
 
+    static ref MENU_ITEM_HOLD_STYLE: String = class! {
+        .style("background-position", "0px 1px")
+        .style("background-image", &format!("linear-gradient(to bottom, \
+                                                 hsla(0, 0%, 100%, 0.2)   0%, \
+                                                 transparent              49%, \
+                                                 hsla(0, 0%,   0%, 0.075) 50%, \
+                                                 hsla(0, 0%, 100%, 0.1)   80%, \
+                                                 hsla(0, 0%, 100%, 0.2)   100%), {}",
+                                            *REPEATING_GRADIENT))
+        .style("box-shadow",      "1px 1px  1px hsla(0, 0%,   0%, 0.1), \
+                             inset 0px 0px  3px hsla(0, 0%, 100%, 0.9), \
+                             inset 0px 0px 10px hsla(0, 0%, 100%, 0.225)")
+    };
+
     static ref ROW_STYLE: String = class! {
         .style("display", "flex")
         .style("flex-direction", "row")
@@ -1048,6 +1075,11 @@ lazy_static! {
 
     static ref TAB_HOVER_STYLE: String = class! {
         .style("font-weight", "bold")
+    };
+
+    static ref TAB_HOLD_STYLE: String = class! {
+        .style("padding-top", "2px")
+        .style("padding-bottom", "0px")
     };
 
     static ref TAB_UNLOADED_STYLE: String = class! {
@@ -1321,7 +1353,7 @@ fn main() {
     });
 
 
-    /*let mut top_id = 999999;
+    let mut top_id = 999999;
 
     js! { @(no_return)
         setInterval(@{move || {
@@ -1386,7 +1418,7 @@ fn main() {
 
             //STATE.update(true);
         }}, @{INSERT_ANIMATION_DURATION + 2000.0});
-    }*/
+    }
 
 
     stylesheet!("*", {
@@ -1601,13 +1633,11 @@ fn main() {
 
                             .with_element(|dom, element: InputElement| {
                                 dom.event(move |_: InputEvent| {
-                                    time!("Searching", {
-                                        let value = Arc::new(element.raw_value());
-                                        window().local_storage().insert("tab-organizer.search", &value).unwrap();
-                                        STATE.search_parser.set(parse::Parsed::new(&value));
-                                        STATE.search_box.set(value);
-                                        STATE.update(true);
-                                    })
+                                    let value = Arc::new(element.raw_value());
+                                    window().local_storage().insert("tab-organizer.search", &value).unwrap();
+                                    STATE.search_parser.set(parse::Parsed::new(&value));
+                                    STATE.search_box.set(value);
+                                    STATE.update(true);
                                 })
                             })
                         }),
@@ -1790,10 +1820,14 @@ fn main() {
                                                             }),
 
                                                             |dom: DomBuilder<HtmlElement>| dom
-                                                                .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
+
+                                                                .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
+                                                                .class_signal(&MENU_ITEM_HOLD_STYLE, tab.is_holding())
+
+                                                                .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
                                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, and(tab.is_hovered(), tab.selected.signal()))
                                                                 .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
 
@@ -1810,12 +1844,19 @@ fn main() {
                                                                 // TODO a bit hacky
                                                                 .with_element(|dom, element: HtmlElement| {
                                                                     dom.event(clone!(index, group, tab => move |e: MouseDownEvent| {
+                                                                        tab.holding.set_neq(true);
+
                                                                         if let Some(index) = index.get() {
                                                                             let rect = element.get_bounding_client_rect();
                                                                             STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
                                                                         }
                                                                     }))
                                                                 })
+
+                                                                // TODO only attach this when holding
+                                                                .global_event(clone!(tab => move |_: MouseUpEvent| {
+                                                                    tab.holding.set_neq(false);
+                                                                }))
 
                                                                 .event(clone!(index, group, tab => move |_: MouseOverEvent| {
                                                                     // TODO should this be inside of the if ?
