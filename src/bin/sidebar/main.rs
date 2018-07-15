@@ -1140,7 +1140,6 @@ lazy_static! {
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
-        .style("object-fit", "contain")
         .style("width", &px(TAB_FAVICON_SIZE))
         .style("margin-left", "2px")
         .style("margin-right", "1px")
@@ -1157,7 +1156,6 @@ lazy_static! {
 
     static ref TAB_CLOSE_STYLE: String = class! {
         .style("box-sizing", "border-box")
-        .style("object-fit", "none")
         .style("width", "18px")
         .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
         .style("padding-left", "1px")
@@ -1881,16 +1879,12 @@ fn main() {
                                                         }
 
                                                         tab_template(&tab,
-                                                            tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| {
-                                                                dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                                            tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| { dom
+                                                                .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
 
                                                             tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom
                                                                 .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
-
-                                                                .style_signal("transform", tab.insert_animation.signal().map(|t| {
-                                                                    t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
-                                                                }))
                                                             }),
 
                                                             tab_close(&tab, |dom: DomBuilder<HtmlElement>| { dom
@@ -1948,6 +1942,10 @@ fn main() {
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                                                                 .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
+
+                                                                .style_signal("transform", tab.insert_animation.signal().map(|t| {
+                                                                    t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
+                                                                }))
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 
