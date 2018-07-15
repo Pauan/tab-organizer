@@ -205,6 +205,7 @@ struct Tab {
     favicon_url: Mutable<Option<Arc<String>>>,
     title: Mutable<Option<Arc<String>>>,
     url: Mutable<Option<Arc<String>>>,
+    focused: Mutable<bool>,
     unloaded: Mutable<bool>,
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
@@ -219,12 +220,13 @@ struct Tab {
 }
 
 impl Tab {
-    fn new(id: usize, title: &str, url: &str) -> Self {
+    fn new(id: usize, focused: bool, title: &str, url: &str) -> Self {
         Self {
             id,
             favicon_url: Mutable::new(None),
             title: Mutable::new(Some(Arc::new(title.to_owned()))),
             url: Mutable::new(Some(Arc::new(url.to_owned()))),
+            focused: Mutable::new(focused),
             unloaded: Mutable::new(true),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
@@ -239,8 +241,8 @@ impl Tab {
         }
     }
 
-    fn new_animated(id: usize, title: &str, url: &str) -> Self {
-        let tab = Self::new(id, title, url);
+    fn new_animated(id: usize, focused: bool, title: &str, url: &str) -> Self {
+        let tab = Self::new(id, focused, title, url);
         tab.insert_animation.jump_to(Percentage::new(0.0));
         tab.insert_animation.animate_to(Percentage::new(1.0));
         tab
@@ -256,6 +258,10 @@ impl Tab {
             // TODO a little bit hacky
             not(self.close_hovered.signal())
         )
+    }
+
+    fn is_focused(&self) -> impl Signal<Item = bool> {
+        self.focused.signal()
     }
 }
 
@@ -859,7 +865,7 @@ lazy_static! {
 
             groups: MutableVec::new_with_values((0..10).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
-                    Arc::new(Tab::new(id, "Foo", "https://www.example.com/foo?bar#qux"))
+                    Arc::new(Tab::new(id, id == 3, "Foo", "https://www.example.com/foo?bar#qux"))
                 }).collect()))
             }).collect()),
 
@@ -1099,6 +1105,18 @@ lazy_static! {
         .style("opacity", "1")
     };
 
+    static ref TAB_FOCUSED_STYLE: String = class! {
+        .style("background-color", "hsl(30, 100%, 94%")
+        .style("border-color", "hsl(30, 70%, 62%) \
+                                hsl(30, 70%, 57%) \
+                                hsl(30, 70%, 52%) \
+                                hsl(30, 70%, 57%)")
+    };
+
+    static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
+        .style("background-color", "hsl(30, 85%, 57%)")
+    };
+
     static ref TAB_SELECTED_STYLE: String = class! {
         .style("background-color", "hsl(100, 78%, 80%)")
         .style("border-color", "hsl(100, 50%, 55%) \
@@ -1335,6 +1353,7 @@ fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text
         .class(&MENU_ITEM_STYLE)
 
         .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
+        .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
         .children(&mut [favicon, text])
 
@@ -1374,10 +1393,10 @@ fn main() {
                     tab.insert_animation.animate_to(Percentage::new(0.0));
                 }
 
-                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, "foo", "foo")));
+                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, false, "foo", "foo")));
                 top_id += 1;
 
-                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, "foo", "foo")));
+                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, false, "foo", "foo")));
                 top_id += 1;
             }
 
@@ -1411,7 +1430,7 @@ fn main() {
                 let group = &groups[3];
 
                 for id in 0..10 {
-                    let tab = Arc::new(Tab::new_animated(id, "Foo", "Bar"));
+                    let tab = Arc::new(Tab::new_animated(id, id == 3, "Foo", "Bar"));
                     group.tabs.push_cloned(tab);
                 }
             }
@@ -1552,8 +1571,9 @@ fn main() {
                                             dom = dom
                                                 .class(&TAB_HOVER_STYLE)
                                                 .class(&MENU_ITEM_HOVER_STYLE)
+                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
-                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal());
+                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
                                         // TODO use ease-out easing
@@ -1823,6 +1843,7 @@ fn main() {
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
+                                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(tab.is_hovered(), tab.is_focused()))
 
                                                                 .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
                                                                 .class_signal(&MENU_ITEM_HOLD_STYLE, tab.is_holding())
