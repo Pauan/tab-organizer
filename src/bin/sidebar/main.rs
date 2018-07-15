@@ -138,15 +138,17 @@ impl Group {
     }
 
     fn click_tab(&self, tab: &Tab) {
-        {
-            let tabs = self.tabs.lock_slice();
+        if !tab.selected.get() {
+            {
+                let tabs = self.tabs.lock_slice();
 
-            for tab in tabs.iter() {
-                tab.selected.set_neq(false);
+                for tab in tabs.iter() {
+                    tab.selected.set_neq(false);
+                }
             }
-        }
 
-        self.last_selected_tab.set_neq(None);
+            self.last_selected_tab.set_neq(None);
+        }
     }
 
     fn ctrl_select_tab(&self, tab: &Arc<Tab>) {
@@ -212,6 +214,7 @@ struct Tab {
     hovered: Mutable<bool>,
     holding: Mutable<bool>,
     close_hovered: Mutable<bool>,
+    close_holding: Mutable<bool>,
     matches_search: Mutable<bool>,
     removing: Mutable<bool>,
     visible: Mutable<bool>,
@@ -233,6 +236,7 @@ impl Tab {
             hovered: Mutable::new(false),
             holding: Mutable::new(false),
             close_hovered: Mutable::new(false),
+            close_holding: Mutable::new(false),
             matches_search: Mutable::new(false),
             removing: Mutable::new(false),
             visible: Mutable::new(false),
@@ -699,6 +703,8 @@ impl State {
     fn hide_tab(&self, tab: &Tab) {
         tab.visible.set_neq(false);
         tab.holding.set_neq(false);
+        tab.close_hovered.set_neq(false);
+        tab.close_holding.set_neq(false);
         self.unhover_tab(tab);
     }
 
@@ -1151,6 +1157,23 @@ lazy_static! {
         .style("padding-right", "1px")
     };
 
+    static ref TAB_CLOSE_HOVER_STYLE: String = class! {
+        .style("background-color", "hsla(0, 0%, 100%, 0.75)")
+        .style("border-color", "hsla(0, 0%, 90%, 0.75) \
+                                hsla(0, 0%, 85%, 0.75) \
+                                hsla(0, 0%, 85%, 0.75) \
+                                hsla(0, 0%, 90%, 0.75)")
+    };
+
+    static ref TAB_CLOSE_HOLD_STYLE: String = class! {
+        .style("padding-top", "1px")
+        .style("background-color", "hsla(0, 0%, 98%, 0.75)")
+        .style("border-color", "hsla(0, 0%,  70%, 0.75) \
+                                hsla(0, 0%, 100%, 0.75) \
+                                hsla(0, 0%, 100%, 0.80) \
+                                hsla(0, 0%,  80%, 0.75)")
+    };
+
     static ref DRAGGING_STYLE: String = class! {
         .style("position", "fixed")
         .style("z-index", HIGHEST_ZINDEX)
@@ -1319,6 +1342,7 @@ fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
 
 fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
     html!("div", {
+        .class(&STRETCH_STYLE)
         .class(&TAB_TEXT_STYLE)
 
         .children(&mut [
@@ -1346,7 +1370,18 @@ fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
     })
 }
 
-fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, mixin: A) -> Dom {
+fn tab_close<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    html!("img", {
+        .class(&TAB_CLOSE_STYLE)
+        .class(&ICON_STYLE)
+
+        .attribute("src", "data/images/button-close.png")
+
+        .mixin(mixin)
+    })
+}
+
+fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, close: Dom, mixin: A) -> Dom {
     html!("div", {
         .class(&ROW_STYLE)
         .class(&TAB_STYLE)
@@ -1355,7 +1390,7 @@ fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text
         .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
         .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
-        .children(&mut [favicon, text])
+        .children(&mut [favicon, text, close])
 
         .mixin(mixin)
     })
@@ -1383,6 +1418,8 @@ fn main() {
 
                 {
                     let tabs = group.tabs.lock_slice();
+
+                    tabs[2].title.set(Some(Arc::new(top_id.to_string())));
 
                     let tab = &tabs[0];
                     tab.removing.set_neq(true);
@@ -1561,6 +1598,14 @@ fn main() {
                                 tab_template(&tab,
                                     tab_favicon(&tab, |dom| dom),
                                     tab_text(&tab, |dom| dom),
+
+                                    if index == 0 {
+                                        tab_close(&tab, |dom| dom)
+
+                                    } else {
+                                        dominator::Dom::empty()
+                                    },
+
                                     |mut dom: DomBuilder<HtmlElement>| {
                                         dom = dom
                                             .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
@@ -1833,9 +1878,46 @@ fn main() {
                                                                 dom.style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
 
-                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| {
-                                                                dom.style_signal("transform", tab.insert_animation.signal().map(|t| {
+                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom
+                                                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
+
+                                                                .style_signal("transform", tab.insert_animation.signal().map(|t| {
                                                                     t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
+                                                                }))
+                                                            }),
+
+                                                            tab_close(&tab, |dom: DomBuilder<HtmlElement>| { dom
+                                                                .class_signal(&TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
+                                                                .class_signal(&TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
+
+                                                                .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                                                .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
+                                                                .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
+
+                                                                .style_signal("display", tab.is_hovered().map(|is_hovered| {
+                                                                    if is_hovered {
+                                                                        None
+
+                                                                    } else {
+                                                                        Some("none")
+                                                                    }
+                                                                }))
+
+                                                                .event(clone!(tab => move |_: MouseOverEvent| {
+                                                                    tab.close_hovered.set_neq(true);
+                                                                }))
+
+                                                                .event(clone!(tab => move |_: MouseOutEvent| {
+                                                                    tab.close_hovered.set_neq(false);
+                                                                }))
+
+                                                                .event(clone!(tab => move |_: MouseDownEvent| {
+                                                                    tab.close_holding.set_neq(true);
+                                                                }))
+
+                                                                // TODO only attach this when hovering
+                                                                .global_event(clone!(tab => move |_: MouseUpEvent| {
+                                                                    tab.close_holding.set_neq(false);
                                                                 }))
                                                             }),
 
@@ -1904,14 +1986,19 @@ fn main() {
                                                                         let alt = e.alt_key();
 
                                                                         match e.button() {
-                                                                            MouseButton::Left => if ctrl && !shift && !alt {
-                                                                                group.ctrl_select_tab(&tab);
+                                                                            MouseButton::Left => {
+                                                                                // TODO a little hacky
+                                                                                if !tab.close_hovered.get() {
+                                                                                    if ctrl && !shift && !alt {
+                                                                                        group.ctrl_select_tab(&tab);
 
-                                                                            } else if !ctrl && shift && !alt {
-                                                                                group.shift_select_tab(&tab);
+                                                                                    } else if !ctrl && shift && !alt {
+                                                                                        group.shift_select_tab(&tab);
 
-                                                                            } else if !ctrl && !shift && !alt {
-                                                                                group.click_tab(&tab);
+                                                                                    } else if !ctrl && !shift && !alt {
+                                                                                        group.click_tab(&tab);
+                                                                                    }
+                                                                                }
                                                                             },
                                                                             _ => {},
                                                                         }
