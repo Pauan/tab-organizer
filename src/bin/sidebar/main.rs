@@ -20,7 +20,7 @@ use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
 use dominator::animation::easing;
-use dominator::events::{MouseDownEvent, MouseOverEvent, InputEvent, MouseOutEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent};
+use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent};
 use stdweb::PromiseFuture;
 use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
 use stdweb::web::html_element::InputElement;
@@ -1721,11 +1721,11 @@ fn main() {
 
                                 .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
-                                .event(clone!(hovering => move |_: MouseOverEvent| {
+                                .event(clone!(hovering => move |_: MouseEnterEvent| {
                                     hovering.set_neq(true);
                                 }))
 
-                                .event(move |_: MouseOutEvent| {
+                                .event(move |_: MouseLeaveEvent| {
                                     hovering.set_neq(false);
                                 })
 
@@ -1825,7 +1825,7 @@ fn main() {
                                         .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
                                         .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                                        .event(clone!(group, index => move |_: MouseOverEvent| {
+                                        .event(clone!(group, index => move |_: MouseEnterEvent| {
                                             if let Some(index) = index.get() {
                                                 STATE.drag_over_group(group.clone(), index);
                                             }
@@ -1903,11 +1903,11 @@ fn main() {
                                                                     }
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseOverEvent| {
+                                                                .event(clone!(tab => move |_: MouseEnterEvent| {
                                                                     tab.close_hovered.set_neq(true);
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseOutEvent| {
+                                                                .event(clone!(tab => move |_: MouseLeaveEvent| {
                                                                     tab.close_hovered.set_neq(false);
                                                                 }))
 
@@ -1961,7 +1961,7 @@ fn main() {
                                                                     tab.holding.set_neq(false);
                                                                 }))
 
-                                                                .event(clone!(index, group, tab => move |_: MouseOverEvent| {
+                                                                .event(clone!(index, group, tab => move |_: MouseEnterEvent| {
                                                                     // TODO should this be inside of the if ?
                                                                     STATE.hover_tab(&tab);
 
@@ -1970,8 +1970,8 @@ fn main() {
                                                                     }
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseOutEvent| {
-                                                                    // TODO should this check the index, like MouseOverEvent ?
+                                                                .event(clone!(tab => move |_: MouseLeaveEvent| {
+                                                                    // TODO should this check the index, like MouseEnterEvent ?
                                                                     STATE.unhover_tab(&tab);
                                                                 }))
 
