@@ -35,7 +35,7 @@ mod url_bar;
 const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
 const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
 
-const INSERT_ANIMATION_DURATION: f64 = 600.0; // 500.0
+const INSERT_ANIMATION_DURATION: f64 = 600.0;
 const DRAG_ANIMATION_DURATION: f64 = 100.0;
 const SELECTED_TABS_ANIMATION_DURATION: f64 = 150.0;
 
@@ -1851,7 +1851,7 @@ fn main() {
                                                             let index = index.signal() => {
                                                                 // TODO improve the efficiency of this ?
                                                                 name.clone().or_else(|| {
-                                                                    index.map(|index| Arc::new(index.to_string()))
+                                                                    index.map(|index| Arc::new((index + 1).to_string()))
                                                                 })
                                                             }
                                                         }
