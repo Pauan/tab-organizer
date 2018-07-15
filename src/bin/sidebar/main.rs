@@ -1103,10 +1103,11 @@ lazy_static! {
     static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
         .style("background-color", "hsla(0, 0%, 0%, 0.4)")
 
-        .style("border-color", "hsl(0, 0%, 62%) \
-                                hsl(0, 0%, 57%) \
-                                hsl(0, 0%, 52%) \
-                                hsl(0, 0%, 57%)")
+        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
+        .style_important("border-color", "hsl(0, 0%, 62%) \
+                                          hsl(0, 0%, 57%) \
+                                          hsl(0, 0%, 52%) \
+                                          hsl(0, 0%, 57%)")
 
         .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
         .style("opacity", "1")
@@ -1114,10 +1115,11 @@ lazy_static! {
 
     static ref TAB_FOCUSED_STYLE: String = class! {
         .style("background-color", "hsl(30, 100%, 94%")
-        .style("border-color", "hsl(30, 70%, 62%) \
-                                hsl(30, 70%, 57%) \
-                                hsl(30, 70%, 52%) \
-                                hsl(30, 70%, 57%)")
+        // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
+        .style_important("border-color", "hsl(30, 70%, 62%) \
+                                          hsl(30, 70%, 57%) \
+                                          hsl(30, 70%, 52%) \
+                                          hsl(30, 70%, 57%)")
     };
 
     static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
@@ -1126,10 +1128,11 @@ lazy_static! {
 
     static ref TAB_SELECTED_STYLE: String = class! {
         .style("background-color", "hsl(100, 78%, 80%)")
-        .style("border-color", "hsl(100, 50%, 55%) \
-                                hsl(100, 50%, 50%) \
-                                hsl(100, 50%, 45%) \
-                                hsl(100, 50%, 50%)")
+        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
+        .style_important("border-color", "hsl(100, 50%, 55%) \
+                                          hsl(100, 50%, 50%) \
+                                          hsl(100, 50%, 45%) \
+                                          hsl(100, 50%, 50%)")
     };
 
     static ref TAB_SELECTED_HOVER_STYLE: String = class! {
