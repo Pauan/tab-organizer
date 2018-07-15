@@ -223,14 +223,14 @@ struct Tab {
 }
 
 impl Tab {
-    fn new(id: usize, focused: bool, title: &str, url: &str) -> Self {
+    fn new(id: usize, unloaded: bool, focused: bool, title: &str, url: &str) -> Self {
         Self {
             id,
-            favicon_url: Mutable::new(None),
+            favicon_url: Mutable::new(Some(Arc::new("http://www.saltybet.com/favicon.ico".to_owned()))),
             title: Mutable::new(Some(Arc::new(title.to_owned()))),
             url: Mutable::new(Some(Arc::new(url.to_owned()))),
             focused: Mutable::new(focused),
-            unloaded: Mutable::new(true),
+            unloaded: Mutable::new(unloaded),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
@@ -245,8 +245,8 @@ impl Tab {
         }
     }
 
-    fn new_animated(id: usize, focused: bool, title: &str, url: &str) -> Self {
-        let tab = Self::new(id, focused, title, url);
+    fn new_animated(id: usize, unloaded: bool, focused: bool, title: &str, url: &str) -> Self {
+        let tab = Self::new(id, unloaded, focused, title, url);
         tab.insert_animation.jump_to(Percentage::new(0.0));
         tab.insert_animation.animate_to(Percentage::new(1.0));
         tab
@@ -871,7 +871,7 @@ lazy_static! {
 
             groups: MutableVec::new_with_values((0..10).map(|id| {
                 Arc::new(Group::new(id, (0..10).map(|id| {
-                    Arc::new(Tab::new(id, id == 3, "Foo", "https://www.example.com/foo?bar#qux"))
+                    Arc::new(Tab::new(id, id == 5, id == 3, "Foo", "https://www.example.com/foo?bar#qux"))
                 }).collect()))
             }).collect()),
 
@@ -978,6 +978,7 @@ lazy_static! {
     };
 
     static ref GROUP_STYLE: String = class! {
+        .style("padding-top", &px(GROUP_PADDING_TOP))
         .style("border-top-width", &px(GROUP_BORDER_WIDTH))
         .style("top", "-1px")
         .style("padding-left", "1px")
@@ -987,7 +988,7 @@ lazy_static! {
     };
 
     static ref GROUP_HEADER_STYLE: String = class! {
-        .style("padding-top", &px(GROUP_PADDING_TOP))
+        .style("box-sizing", "border-box")
         .style("height", &px(GROUP_HEADER_HEIGHT))
         .style("padding-left", "4px")
         .style("font-size", "11px")
@@ -1136,6 +1137,7 @@ lazy_static! {
     };
 
     static ref TAB_FAVICON_STYLE: String = class! {
+        .style("object-fit", "contain")
         .style("width", &px(TAB_FAVICON_SIZE))
         .style("margin-left", "2px")
         .style("margin-right", "1px")
@@ -1151,6 +1153,8 @@ lazy_static! {
     };
 
     static ref TAB_CLOSE_STYLE: String = class! {
+        .style("box-sizing", "border-box")
+        .style("object-fit", "none")
         .style("width", "18px")
         .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
         .style("padding-left", "1px")
@@ -1430,10 +1434,10 @@ fn main() {
                     tab.insert_animation.animate_to(Percentage::new(0.0));
                 }
 
-                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, false, "foo", "foo")));
+                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, true, false, "foo", "foo")));
                 top_id += 1;
 
-                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, false, "foo", "foo")));
+                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, false, false, "foo", "foo")));
                 top_id += 1;
             }
 
@@ -1467,7 +1471,7 @@ fn main() {
                 let group = &groups[3];
 
                 for id in 0..10 {
-                    let tab = Arc::new(Tab::new_animated(id, id == 3, "Foo", "Bar"));
+                    let tab = Arc::new(Tab::new_animated(id, id == 5, id == 3, "Foo", "Bar"));
                     group.tabs.push_cloned(tab);
                 }
             }
@@ -1822,6 +1826,7 @@ fn main() {
                                         .style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
                                         .style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX))
 
+                                        .style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP))
                                         .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
                                         .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
@@ -1837,7 +1842,6 @@ fn main() {
                                                 .class(&GROUP_HEADER_STYLE)
 
                                                 .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
-                                                .style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP))
                                                 .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
                                                 .children(&mut [
