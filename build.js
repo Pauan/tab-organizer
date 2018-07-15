@@ -25,11 +25,11 @@ function replace(s) {
 }
 
 function bin(name) {
-    mv_map("target/wasm32-unknown-unknown/" + type + "/" + name + ".js", "build/js/" + name + ".js", replace);
-    mv("target/wasm32-unknown-unknown/" + type + "/" + name + ".wasm", "build/js/" + name + ".wasm");
+    mv_map("target/wasm32-unknown-unknown/" + type + "/" + name + ".js", "static/js/" + name + ".js", replace);
+    mv("target/wasm32-unknown-unknown/" + type + "/" + name + ".wasm", "static/js/" + name + ".wasm");
 }
 
 
-mkdir("build/js");
+mkdir("static/js");
 bin("background");
 bin("sidebar");

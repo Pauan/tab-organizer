@@ -41,7 +41,7 @@ const SELECTED_TABS_ANIMATION_DURATION: f64 = 150.0;
 
 const TAB_DRAGGING_THRESHOLD: f64 = 7.0; // Pixels the mouse has to move before dragging begins
 const TAB_DRAGGING_TOP: i32 = 11;
-const DRAG_GAP_PX: f64 = 32.0;
+const DRAG_GAP_PX: f64 = 32.0; // TODO adjust this based on how many tabs are being dragged
 const INSERT_LEFT_MARGIN: f64 = 12.0;
 
 const TOOLBAR_HEIGHT: f64 = 20.0;
@@ -1950,8 +1950,17 @@ fn main() {
                                                                         tab.holding.set_neq(true);
 
                                                                         if let Some(index) = index.get() {
-                                                                            let rect = element.get_bounding_client_rect();
-                                                                            STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                                            let shift = e.shift_key();
+                                                                            // TODO is this correct ?
+                                                                            // TODO test this, especially on Mac
+                                                                            // TODO what if both of these are true ?
+                                                                            let ctrl = e.ctrl_key() || e.meta_key();
+                                                                            let alt = e.alt_key();
+
+                                                                            if !shift && !ctrl && !alt {
+                                                                                let rect = element.get_bounding_client_rect();
+                                                                                STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                                            }
                                                                         }
                                                                     }))
                                                                 })

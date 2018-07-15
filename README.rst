@@ -15,7 +15,7 @@ But if you're a developer, or you want to try the absolute latest version before
 * In Google Chrome, go to the URL ``chrome://extensions/``
 * Make sure ``Developer mode`` (in the upper-right) is checked.
 * Click the ``Load unpacked extension...`` button.
-* Navigate to the ``tab-organizer/build`` folder, then click ``Open`` or ``OK``.
+* Navigate to the ``tab-organizer/static`` folder, then click ``Open`` or ``OK``.
 
 How to update
 =============
