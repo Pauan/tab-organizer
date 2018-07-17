@@ -20,16 +20,18 @@ use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
 use dominator::animation::easing;
-use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent};
+use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
 use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
 use stdweb::web::html_element::InputElement;
-use futures_signals::signal::{Signal, Mutable, SignalExt};
+use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
+use menu::Menu;
 
 mod parse;
 mod waiter;
 mod url_bar;
+mod menu;
 
 
 const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
@@ -60,6 +62,17 @@ const TAB_HEIGHT: f64 = 16.0;
 const TAB_FAVICON_SIZE: f64 = 16.0;
 const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
+
+
+// TODO this is a common option
+enum SortTabs {
+    Window,
+    Tag,
+    TimeFocused,
+    TimeCreated,
+    Url,
+    Name,
+}
 
 
 struct Group {
@@ -345,6 +358,8 @@ struct State {
 
     dragging: Dragging,
     scrolling: Scrolling,
+
+    menu: Menu,
 }
 
 impl State {
@@ -877,6 +892,8 @@ lazy_static! {
 
             dragging: Dragging::new(),
             scrolling: Scrolling::new(scroll_y),
+
+            menu: Menu::new(),
         })
     };
 
@@ -1298,6 +1315,26 @@ fn ease(t: Percentage) -> Percentage {
     easing::in_out(t, easing::cubic)
 }
 
+#[inline]
+fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
+    where A: IHtmlElement + Clone + 'static,
+          B: IntoSignal<Item = bool>,
+          B::Signal: 'static {
+
+    // TODO is this inline a good idea ?
+    #[inline]
+    move |dom| {
+        dom.style_signal("display", signal.into_signal().map(|visible| {
+            if visible {
+                None
+
+            } else {
+                Some("none")
+            }
+        }))
+    }
+}
+
 fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
     where A: Signal<Item = Percentage>,
           F: FnMut(Percentage, f64, f64) -> String {
@@ -1312,19 +1349,14 @@ fn make_url_bar_child<A, D, F>(name: &str, mut display: D, f: F) -> Dom
         .class(&URL_BAR_TEXT_STYLE)
         .class(name)
 
-        .style_signal("display", STATE.url_bar.signal_cloned().map(move |url_bar| {
+        .mixin(visible(STATE.url_bar.signal_cloned().map(move |url_bar| {
             if let Some(url_bar) = url_bar {
-                if display(url_bar) {
-                    None
-
-                } else {
-                    Some("none")
-                }
+                display(url_bar)
 
             } else {
-                Some("none")
+                false
             }
-        }))
+        })))
 
         .children(&mut [
             text_signal(STATE.url_bar.signal_cloned().map(f))
@@ -1562,14 +1594,7 @@ fn main() {
                 html!("div", {
                     .class(&DRAGGING_STYLE)
 
-                    .style_signal("display", STATE.is_dragging().map(|is_dragging| {
-                        if is_dragging {
-                            None
-
-                        } else {
-                            Some("none")
-                        }
-                    }))
+                    .mixin(visible(STATE.is_dragging()))
 
                     .style_signal("width", STATE.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { rect, .. }) = dragging {
@@ -1650,7 +1675,7 @@ fn main() {
                     .class(&ROW_STYLE)
                     .class(&URL_BAR_STYLE)
 
-                    .style_signal("display", map_ref! {
+                    .mixin(visible(map_ref! {
                         let is_dragging = STATE.is_dragging(),
                         let url_bar = STATE.url_bar.signal_cloned() => {
                             // TODO a bit hacky
@@ -1663,14 +1688,9 @@ fn main() {
                                 !is_empty(&url_bar.hash)
                             }).unwrap_or(false);
 
-                            if !is_dragging && matches {
-                                None
-
-                            } else {
-                                Some("none")
-                            }
+                            !is_dragging && matches
                         }
-                    })
+                    }))
 
                     // TODO check if any of these need "flex-shrink": 1
                     .children(&mut [
@@ -1721,30 +1741,51 @@ fn main() {
                             let holding = Mutable::new(false);
 
                             html!("div", {
-                                .class(&ROW_STYLE)
-                                .class(&TOOLBAR_MENU_STYLE)
-
-                                .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
-
-                                .event(clone!(hovering => move |_: MouseEnterEvent| {
-                                    hovering.set_neq(true);
-                                }))
-
-                                .event(move |_: MouseLeaveEvent| {
-                                    hovering.set_neq(false);
-                                })
-
-                                .event(clone!(holding => move |_: MouseDownEvent| {
-                                    holding.set_neq(true);
-                                }))
-
-                                // TODO only attach this when holding
-                                .global_event(move |_: MouseUpEvent| {
-                                    holding.set_neq(false);
-                                })
-
                                 .children(&mut [
-                                    text("Menu"),
+                                    html!("div", {
+                                        .class(&ROW_STYLE)
+                                        .class(&TOOLBAR_MENU_STYLE)
+
+                                        .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
+
+                                        .event(clone!(hovering => move |_: MouseEnterEvent| {
+                                            hovering.set_neq(true);
+                                        }))
+
+                                        .event(move |_: MouseLeaveEvent| {
+                                            hovering.set_neq(false);
+                                        })
+
+                                        .event(clone!(holding => move |_: MouseDownEvent| {
+                                            holding.set_neq(true);
+                                        }))
+
+                                        // TODO only attach this when holding
+                                        .global_event(move |_: MouseUpEvent| {
+                                            holding.set_neq(false);
+                                        })
+
+                                        .event(|_: ClickEvent| {
+                                            STATE.menu.show();
+                                        })
+
+                                        .children(&mut [
+                                            text("Menu"),
+                                        ])
+                                    }),
+
+                                    STATE.menu.render(|menu| {
+                                        menu.submenu("Sort tabs by...", |menu| { menu
+                                            .option("Window", SortTabs::Window)
+                                            .option("Tag", SortTabs::Tag)
+                                            .separator()
+                                            .option("Time (focused)", SortTabs::TimeFocused)
+                                            .option("Time (created)", SortTabs::TimeCreated)
+                                            .separator()
+                                            .option("URL", SortTabs::Url)
+                                            .option("Name", SortTabs::Name)
+                                        })
+                                    }),
                                 ])
                             })
                         },
@@ -1895,14 +1936,7 @@ fn main() {
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
 
-                                                                .style_signal("display", tab.is_hovered().map(|is_hovered| {
-                                                                    if is_hovered {
-                                                                        None
-
-                                                                    } else {
-                                                                        Some("none")
-                                                                    }
-                                                                }))
+                                                                .mixin(visible(tab.is_hovered()))
 
                                                                 .event(clone!(tab => move |_: MouseEnterEvent| {
                                                                     tab.close_hovered.set_neq(true);
