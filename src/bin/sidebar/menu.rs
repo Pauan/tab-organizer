@@ -1,4 +1,4 @@
-use {visible, MENU_ITEM_HOVER_STYLE, MENU_ITEM_SHADOW_STYLE};
+use {visible, MENU_ITEM_HOVER_STYLE};
 use futures_signals::signal::{Signal, IntoSignal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
 use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
@@ -27,6 +27,7 @@ lazy_static! {
         .style("border", "1px solid black")
         .style("background-color", "white")
         .style("white-space", "pre")
+        .style("box-shadow", "1px 1px 2px hsla(0, 0%, 0%, 0.25)")
     };
 
     static ref SUBMENU_CHILDREN_STYLE: String = class! {
@@ -36,13 +37,23 @@ lazy_static! {
     };
 
     static ref MENU_ITEM_STYLE: String = class! {
-        .style("margin", "-1px")
+        .style("margin-top", "-1px")
+        .style("margin-bottom", "-1px")
         .style("padding-top", "1px")
         .style("padding-bottom", "1px")
         .style("padding-left", "5px")
         .style("padding-right", "5px")
         .style("color", "black")
         .style("text-shadow", "none")
+        .style("border-left", "none")
+        .style("border-right", "none")
+    };
+
+    // TODO code duplication with main.rs
+    static ref MENU_ITEM_SHADOW_STYLE: String = class! {
+        .style("box-shadow", "      0px 1px  1px hsla(0, 0%,   0%, 0.25), \
+                              inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
+                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
     };
 
     static ref SEPARATOR_STYLE: String = class! {
