@@ -65,6 +65,7 @@ const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + T
 
 
 // TODO this is a common option
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum SortTabs {
     Window,
     Tag,
@@ -72,6 +73,19 @@ enum SortTabs {
     TimeCreated,
     Url,
     Name,
+}
+
+
+struct Options {
+    sort_tabs: Mutable<SortTabs>,
+}
+
+impl Options {
+    fn new() -> Self {
+        Self {
+            sort_tabs: Mutable::new(SortTabs::Window),
+        }
+    }
 }
 
 
@@ -346,6 +360,8 @@ impl Scrolling {
 
 
 struct State {
+    options: Options,
+
     search_box: Mutable<Arc<String>>,
     search_parser: Mutable<parse::Parsed>,
 
@@ -874,6 +890,8 @@ lazy_static! {
         let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
         Arc::new(State {
+            options: Options::new(),
+
             search_parser: Mutable::new(parse::Parsed::new(&search_value)),
             search_box: Mutable::new(Arc::new(search_value)),
 
@@ -1776,17 +1794,39 @@ fn main() {
 
                                     STATE.menu.render(|menu| { menu
                                         .submenu("Sort tabs by...", |menu| { menu
-                                            .option("Window", SortTabs::Window)
-                                            .option("Tag", SortTabs::Tag)
+                                            .option("Window", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::Window);
+                                            })
+
+                                            .option("Tag", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::Tag);
+                                            })
+
                                             .separator()
-                                            .option("Time (focused)", SortTabs::TimeFocused)
-                                            .option("Time (created)", SortTabs::TimeCreated)
+
+                                            .option("Time (focused)", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::TimeFocused);
+                                            })
+
+                                            .option("Time (created)", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::TimeCreated);
+                                            })
+
                                             .separator()
-                                            .option("URL", SortTabs::Url)
-                                            .option("Name", SortTabs::Name)
+
+                                            .option("URL", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::Url);
+                                            })
+
+                                            .option("Name", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), || {
+                                                STATE.options.sort_tabs.set_neq(SortTabs::Name);
+                                            })
                                         })
                                         .separator()
-                                        .option("Foo", 10)
+                                        .submenu("Foo", |menu| { menu
+                                            .option("Bar", futures_signals::signal::always(true), || {})
+                                            .option("Qux", futures_signals::signal::always(false), || {})
+                                        })
                                     }),
                                 ])
                             })

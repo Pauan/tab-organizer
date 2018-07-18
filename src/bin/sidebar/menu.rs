@@ -1,4 +1,4 @@
-use {visible, MENU_ITEM_HOVER_STYLE};
+use {visible, ROW_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use futures_signals::signal::{Signal, IntoSignal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
 use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
@@ -30,6 +30,13 @@ lazy_static! {
         .style("box-shadow", "1px 1px 2px hsla(0, 0%, 0%, 0.25)")
     };
 
+    static ref MENU_CHEVRON_STYLE: String = class! {
+        .style("width", "7px")
+        .style("height", "7px")
+        .style("margin-left", "5px")
+        .style("margin-right", "-3px")
+    };
+
     static ref SUBMENU_CHILDREN_STYLE: String = class! {
         .style("position", "absolute")
         .style("top", "-1px")
@@ -47,6 +54,10 @@ lazy_static! {
         .style("text-shadow", "none")
         .style("border-left", "none")
         .style("border-right", "none")
+    };
+
+    static ref MENU_OPTION_SELECTED_STYLE: String = class! {
+        .style("font-weight", "bold")
     };
 
     // TODO code duplication with main.rs
@@ -128,6 +139,7 @@ impl MenuBuilder {
         // TODO is this inline a good idea ?
         #[inline]
         move |dom| { dom
+            .class(&ROW_STYLE)
             .class(&MENU_ITEM_STYLE)
             // TODO hacky
             .class(&super::MENU_ITEM_STYLE)
@@ -158,6 +170,7 @@ impl MenuBuilder {
         });
 
         self.children.push(html!("div", {
+            .class(&ROW_STYLE)
             .class(&MENU_ITEM_STYLE)
             // TODO hacky
             .class(&super::MENU_ITEM_STYLE)
@@ -174,7 +187,18 @@ impl MenuBuilder {
             })
 
             .children(&mut [
-                text(name),
+                // TODO figure out a way to avoid this wrapper div ?
+                html!("div", {
+                    .class(&STRETCH_STYLE)
+                    .children(&mut [
+                        text(name),
+                    ])
+                }),
+
+                html!("img", {
+                    .class(&MENU_CHEVRON_STYLE)
+                    .attribute("src", "data/images/chevron-small-right.png")
+                }),
 
                 html!("div", {
                     .class(&MENU_STYLE)
@@ -208,11 +232,21 @@ impl MenuBuilder {
     }
 
 
-    fn push_option<A>(&mut self, name: &str, value: A) {
+    fn push_option<A, F>(&mut self, name: &str, signal: A, mut on_click: F)
+        where A: IntoSignal<Item = bool>,
+              A::Signal: 'static,
+              F: FnMut() + 'static {
+
         let mixin = self.menu_item();
 
         self.children.push(html!("div", {
             .mixin(mixin)
+
+            .class_signal(&MENU_OPTION_SELECTED_STYLE, signal.into_signal())
+
+            .event(move |_: ClickEvent| {
+                on_click();
+            })
 
             .children(&mut [
                 text(name)
@@ -221,8 +255,11 @@ impl MenuBuilder {
     }
 
     #[inline]
-    pub(crate) fn option<A>(mut self, name: &str, value: A) -> Self {
-        self.push_option(name, value);
+    pub(crate) fn option<A, F>(mut self, name: &str, signal: A, on_click: F) -> Self
+        where A: IntoSignal<Item = bool>,
+              A::Signal: 'static,
+              F: FnMut() + 'static {
+        self.push_option(name, signal, on_click);
         self
     }
 }
