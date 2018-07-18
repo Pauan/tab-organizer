@@ -59,35 +59,37 @@ fn eq_index<A>(signal: A, index: usize) -> impl Signal<Item = bool> where A: Int
     })
 }
 
-#[inline]
-fn menu_item<A>(mutable: &Mutable<Option<usize>>, index: usize) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A> where A: IElement + Clone + 'static {
-    let mutable = mutable.clone();
 
-    let hovered = Mutable::new(false);
+enum MenuState {
+    Submenu {
+        hovered: Mutable<Option<usize>>,
+        children: Vec<MenuState>,
+    },
+    Item {
+        hovered: Mutable<bool>,
+    },
+}
 
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| { dom
-        .class(&MENU_ITEM_STYLE)
-        // TODO hacky
-        .class(&super::MENU_ITEM_STYLE)
+impl MenuState {
+    fn reset(&self) {
+        match self {
+            MenuState::Submenu { hovered, children } => {
+                hovered.set_neq(None);
 
-        .class_signal(&MENU_ITEM_HOVER_STYLE, hovered.signal())
-        .class_signal(&MENU_ITEM_SHADOW_STYLE, hovered.signal())
-
-        .event(clone!(hovered => move |_: MouseEnterEvent| {
-            hovered.set_neq(true);
-            mutable.set_neq(Some(index));
-        }))
-
-        .event(clone!(hovered => move |_: MouseLeaveEvent| {
-            hovered.set_neq(false);
-        }))
+                for state in children {
+                    state.reset();
+                }
+            },
+            MenuState::Item { hovered } => {
+                hovered.set_neq(false);
+            },
+        }
     }
 }
 
 
 pub(crate) struct MenuBuilder {
+    states: Vec<MenuState>,
     children: Vec<Dom>,
     hovered: Mutable<Option<usize>>,
 }
@@ -95,15 +97,54 @@ pub(crate) struct MenuBuilder {
 impl MenuBuilder {
     fn new() -> Self {
         Self {
+            states: vec![],
             children: vec![],
             hovered: Mutable::new(None),
         }
     }
 
-    fn push_submenu<F>(&mut self, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        let MenuBuilder { mut children, .. } = f(MenuBuilder::new());
-
+    fn menu_item<A>(&mut self) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A> where A: IElement + Clone + 'static {
         let index = self.children.len();
+
+        let mutable = self.hovered.clone();
+
+        let hovered = Mutable::new(false);
+
+        self.states.push(MenuState::Item {
+            hovered: hovered.clone(),
+        });
+
+        // TODO is this inline a good idea ?
+        #[inline]
+        move |dom| { dom
+            .class(&MENU_ITEM_STYLE)
+            // TODO hacky
+            .class(&super::MENU_ITEM_STYLE)
+
+            .class_signal(&MENU_ITEM_HOVER_STYLE, hovered.signal())
+            .class_signal(&MENU_ITEM_SHADOW_STYLE, hovered.signal())
+
+            .event(clone!(hovered => move |_: MouseEnterEvent| {
+                hovered.set_neq(true);
+                mutable.set_neq(Some(index));
+            }))
+
+            .event(move |_: MouseLeaveEvent| {
+                hovered.set_neq(false);
+            })
+        }
+    }
+
+
+    fn push_submenu<F>(&mut self, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
+        let index = self.children.len();
+
+        let MenuBuilder { states, mut children, hovered } = f(MenuBuilder::new());
+
+        self.states.push(MenuState::Submenu {
+            hovered,
+            children: states,
+        });
 
         self.children.push(html!("div", {
             .class(&MENU_ITEM_STYLE)
@@ -128,9 +169,7 @@ impl MenuBuilder {
                     .class(&MENU_STYLE)
                     .class(&SUBMENU_CHILDREN_STYLE)
 
-                    .mixin(visible(self.hovered.signal().map(move |hovered| {
-                        hovered.map(|hovered| hovered == index).unwrap_or(false)
-                    })))
+                    .mixin(visible(eq_index(self.hovered.signal(), index)))
 
                     .children(&mut children)
                 })
@@ -159,10 +198,10 @@ impl MenuBuilder {
 
 
     fn push_option<A>(&mut self, name: &str, value: A) {
-        let index = self.children.len();
+        let mixin = self.menu_item();
 
         self.children.push(html!("div", {
-            .mixin(menu_item(&self.hovered, index))
+            .mixin(mixin)
 
             .children(&mut [
                 text(name)
@@ -194,7 +233,7 @@ impl Menu {
     }
 
     pub(crate) fn render<F>(&self, f: F) -> Dom where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        let MenuBuilder { mut children, .. } = f(MenuBuilder::new());
+        let MenuBuilder { states, mut children, hovered } = f(MenuBuilder::new());
 
         html!("div", {
             .class(&TOP_STYLE)
@@ -210,6 +249,12 @@ impl Menu {
                         let visible = self.visible.clone();
                         move |_: ClickEvent| {
                             visible.set_neq(false);
+
+                            hovered.set_neq(None);
+
+                            for state in states.iter() {
+                                state.reset();
+                            }
                         }
                     })
                 }),

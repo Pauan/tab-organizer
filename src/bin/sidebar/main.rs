@@ -1774,8 +1774,8 @@ fn main() {
                                         ])
                                     }),
 
-                                    STATE.menu.render(|menu| {
-                                        menu.submenu("Sort tabs by...", |menu| { menu
+                                    STATE.menu.render(|menu| { menu
+                                        .submenu("Sort tabs by...", |menu| { menu
                                             .option("Window", SortTabs::Window)
                                             .option("Tag", SortTabs::Tag)
                                             .separator()
@@ -1785,6 +1785,8 @@ fn main() {
                                             .option("URL", SortTabs::Url)
                                             .option("Name", SortTabs::Name)
                                         })
+                                        .separator()
+                                        .option("Foo", 10)
                                     }),
                                 ])
                             })
