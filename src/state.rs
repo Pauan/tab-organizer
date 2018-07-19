@@ -6,6 +6,9 @@ pub enum TabChange {
     Title {
         new_title: Option<String>,
     },
+    Pinned {
+        pinned: bool,
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

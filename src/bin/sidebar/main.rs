@@ -275,6 +275,7 @@ struct Tab {
     url: Mutable<Option<Arc<String>>>,
     focused: Mutable<bool>,
     unloaded: Mutable<bool>,
+    pinned: Mutable<bool>,
 
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
@@ -303,6 +304,7 @@ impl Tab {
             url: Mutable::new(state.url.map(Arc::new)),
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
+            pinned: Mutable::new(state.pinned),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
@@ -1073,6 +1075,9 @@ impl State {
                     TabChange::Title { new_title } => {
                         tab.title.set(new_title.map(Arc::new));
                     },
+                    TabChange::Pinned { pinned } => {
+                        tab.pinned.set_neq(pinned);
+                    },
                 }
             },
         }
@@ -1349,6 +1354,19 @@ lazy_static! {
 
         .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
         .style("opacity", "1")
+    };
+
+    static ref TAB_PINNED_STYLE: String = class! {
+        .style("background-color", "hsl(245, 100%, 98%)")
+        // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
+        .style_important("border-color", "hsl(245, 77%, 79%) \
+                                          hsl(245, 77%, 74%) \
+                                          hsl(245, 77%, 69%) \
+                                          hsl(245, 77%, 74%)")
+    };
+
+    static ref TAB_PINNED_HOVER_STYLE: String = class! {
+        .style("background-color", "hsl(245, 77%, 74%)")
     };
 
     static ref TAB_FOCUSED_STYLE: String = class! {
@@ -1668,6 +1686,7 @@ fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text
         .class(&MENU_ITEM_STYLE)
 
         .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
+        .class_signal(&TAB_PINNED_STYLE, tab.pinned.signal())
         .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
         .children(&mut [favicon, text, close])
@@ -1703,9 +1722,9 @@ fn main() {
                                 id: generate_uuid(),
                                 timestamp_created: Date::now(),
                             },
-                            focused: index == 3,
+                            focused: index == 7,
                             unloaded: index == 5,
-                            pinned: index == 0,
+                            pinned: index == 0 || index == 1 || index == 2,
                             favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                             url: Some("https://www.example.com/foo?bar#qux".to_owned()),
                             title: Some("Foo".to_owned()),
@@ -1727,6 +1746,14 @@ fn main() {
                         tab_index: 2,
                         change: TabChange::Title {
                             new_title: Some(generate_uuid().to_string()),
+                        },
+                    });
+
+                    STATE.process_message(Message::TabChanged {
+                        window_index: 0,
+                        tab_index: 7,
+                        change: TabChange::Pinned {
+                            pinned: true,
                         },
                     });
 
@@ -1807,9 +1834,9 @@ fn main() {
                                     id: generate_uuid(),
                                     timestamp_created: Date::now(),
                                 },
-                                focused: index == 3,
+                                focused: index == 7,
                                 unloaded: index == 5,
-                                pinned: index == 0,
+                                pinned: index == 0 || index == 1 || index == 2,
                                 favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                                 url: Some("https://www.example.com/foo?bar#qux".to_owned()),
                                 title: Some("Foo".to_owned()),
@@ -1976,6 +2003,7 @@ fn main() {
                                                 .class(&MENU_ITEM_HOVER_STYLE)
                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
+                                                .class_signal(&TAB_PINNED_HOVER_STYLE, tab.pinned.signal())
                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
@@ -2325,6 +2353,7 @@ fn main() {
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
+                                                                .class_signal(&TAB_PINNED_HOVER_STYLE, and(tab.is_hovered(), tab.pinned.signal()))
                                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(tab.is_hovered(), tab.is_focused()))
 
                                                                 .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
