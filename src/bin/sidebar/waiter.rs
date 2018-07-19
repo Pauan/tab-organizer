@@ -3,7 +3,7 @@ use std::sync::Arc;
 use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll, Async, Never};
 use futures::task::Context;
-use futures_signals::signal::{Signal, MutableSignal};
+use futures_signals::signal::{Signal, MutableSignal, MutableSignalCloned};
 use futures_signals::signal_vec::{SignalVec, VecDiff};
 
 
@@ -87,6 +87,8 @@ fn changed<A, B>(signal: &mut Option<B>, cx: &mut Context) -> bool where B: Sign
 
 
 struct TabState {
+    url: Option<MutableSignalCloned<Option<Arc<String>>>>,
+    title: Option<MutableSignalCloned<Option<Arc<String>>>>,
     removing: Option<MutableSignal<bool>>,
     dragging: Option<MutableSignal<bool>>,
     insert_animation: Option<MutableAnimationSignal>,
@@ -95,17 +97,21 @@ struct TabState {
 impl TabState {
     fn new(tab: Arc<Tab>) -> Self {
         Self {
+            url: Some(tab.url.signal_cloned()),
+            title: Some(tab.title.signal_cloned()),
             removing: Some(tab.removing.signal()),
             dragging: Some(tab.dragging.signal()),
             insert_animation: Some(tab.insert_animation.signal()),
         }
     }
 
-    fn changed(&mut self, cx: &mut Context) -> bool {
+    fn changed(&mut self, cx: &mut Context) -> (bool, bool) {
+        let url = changed(&mut self.url, cx);
+        let title = changed(&mut self.title, cx);
         let removing = changed(&mut self.removing, cx);
         let dragging = changed(&mut self.dragging, cx);
         let insert_animation = changed(&mut self.insert_animation, cx);
-        removing || dragging || insert_animation
+        (url || title || removing || dragging || insert_animation, url || title)
     }
 }
 
@@ -124,15 +130,22 @@ impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> {
         let signal = changed_vec(&mut self.signal, cx, &mut self.tabs, TabState::new);
 
         let mut tabs = false;
+        let mut search = false;
 
         for mut tab in self.tabs.iter_mut() {
-            if tab.changed(cx) {
+            let x = tab.changed(cx);
+
+            if x.0 {
                 tabs = true;
+            }
+
+            if x.1 {
+                search = true;
             }
         }
 
         // TODO it should search only when a tab is inserted or updated, not removed
-        (removing || insert_animation || signal || tabs, signal)
+        (removing || insert_animation || signal || tabs, signal || search)
     }
 }
 

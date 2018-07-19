@@ -1730,7 +1730,7 @@ fn main() {
                         },
                     });
 
-                    STATE.process_message(Message::TabRemoved {
+                    /*STATE.process_message(Message::TabRemoved {
                         window_index: 0,
                         tab_index: 0,
                     });
@@ -1815,9 +1815,7 @@ fn main() {
                                 title: Some("Foo".to_owned()),
                             },
                         });
-                    }
-
-                    //STATE.update(true);
+                    }*/
                 }}, @{INSERT_ANIMATION_DURATION + 2000.0});
             }
         }}, 1500);
