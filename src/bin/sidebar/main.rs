@@ -1357,16 +1357,26 @@ lazy_static! {
     };
 
     static ref TAB_PINNED_STYLE: String = class! {
-        .style("background-color", "hsl(245, 100%, 98%)")
+        .style("float", "left")
+        .style("width", "20px")
+        /*.style("background-image", "repeating-linear-gradient(-45deg, \
+                                        transparent          0px, \
+                                        hsla(0, 0%, 0%, 1) 1px")*/
+
+        /*.style("background-color", "hsl(245, 100%, 98%)")
         // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
         .style_important("border-color", "hsl(245, 77%, 79%) \
                                           hsl(245, 77%, 74%) \
                                           hsl(245, 77%, 69%) \
-                                          hsl(245, 77%, 74%)")
+                                          hsl(245, 77%, 74%)")*/
+    };
+
+    static ref TAB_NOT_PINNED_STYLE: String = class! {
+        .style("clear", "both")
     };
 
     static ref TAB_PINNED_HOVER_STYLE: String = class! {
-        .style("background-color", "hsl(245, 77%, 74%)")
+        //.style("background-color", "hsl(245, 77%, 74%)")
     };
 
     static ref TAB_FOCUSED_STYLE: String = class! {
@@ -1687,6 +1697,7 @@ fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text
 
         .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
         .class_signal(&TAB_PINNED_STYLE, tab.pinned.signal())
+        .class_signal(&TAB_NOT_PINNED_STYLE, not(tab.pinned.signal()))
         .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
         .children(&mut [favicon, text, close])
@@ -2003,7 +2014,7 @@ fn main() {
                                                 .class(&MENU_ITEM_HOVER_STYLE)
                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
-                                                .class_signal(&TAB_PINNED_HOVER_STYLE, tab.pinned.signal())
+                                                //.class_signal(&TAB_PINNED_HOVER_STYLE, tab.pinned.signal())
                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
@@ -2317,9 +2328,7 @@ fn main() {
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
 
-                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom
-                                                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
-                                                            }),
+                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom }),
 
                                                             tab_close(&tab, |dom: DomBuilder<HtmlElement>| { dom
                                                                 .class_signal(&TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
@@ -2353,7 +2362,7 @@ fn main() {
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
-                                                                .class_signal(&TAB_PINNED_HOVER_STYLE, and(tab.is_hovered(), tab.pinned.signal()))
+                                                                //.class_signal(&TAB_PINNED_HOVER_STYLE, and(tab.is_hovered(), tab.pinned.signal()))
                                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(tab.is_hovered(), tab.is_focused()))
 
                                                                 .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
@@ -2362,6 +2371,8 @@ fn main() {
                                                                 .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
                                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, and(tab.is_hovered(), tab.selected.signal()))
                                                                 .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
+
+                                                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
                                                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
