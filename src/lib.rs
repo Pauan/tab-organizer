@@ -17,6 +17,7 @@ extern crate web_extensions;
 
 use std::fmt;
 use stdweb::{PromiseFuture, JsSerialize, Reference};
+use stdweb::web::TypedArray;
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
 use futures_signals::signal::{Signal, SignalExt};
@@ -81,14 +82,14 @@ pub fn spawn<A>(future: A)
 fn generate_random_bytes() -> Vec<u8> {
     // TODO maybe this lazy_static doesn't actually help performance ?
     lazy_static! {
-        static ref UUID_ARRAY: Reference = js!( return new Uint8Array(16); ).try_into().unwrap();
+        static ref UUID_ARRAY: TypedArray<u8> = js!( return new Uint8Array(16); ).try_into().unwrap();
     }
 
-    js!(
-        var array = @{&*UUID_ARRAY};
-        crypto.getRandomValues(array);
-        return array;
-    ).try_into().unwrap()
+    js! { @(no_return)
+        crypto.getRandomValues(@{&*UUID_ARRAY});
+    }
+
+    UUID_ARRAY.to_vec()
 }
 
 pub fn generate_uuid() -> Uuid {

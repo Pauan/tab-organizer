@@ -1,6 +1,7 @@
 #![recursion_limit="128"]
 #![warn(unreachable_pub)]
 
+extern crate uuid;
 extern crate futures;
 #[macro_use]
 extern crate futures_signals;
@@ -14,18 +15,22 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::borrow::Borrow;
-use std::sync::Arc;
-use tab_organizer::{and, or, not, normalize, ScrollEvent};
+use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tab_organizer::{generate_uuid, and, or, not, normalize, ScrollEvent};
+use tab_organizer::state;
+use tab_organizer::state::{Message, TabChange};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{HtmlElement, Rect, IElement, IHtmlElement, window};
+use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, window};
 use stdweb::web::html_element::InputElement;
 use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
+use uuid::Uuid;
 use menu::Menu;
 
 mod parse;
@@ -89,26 +94,51 @@ impl Options {
 }
 
 
+struct Window {
+    id: Uuid,
+    name: Mutable<Option<Arc<String>>>,
+    tabs: Vec<Arc<Tab>>,
+}
+
+impl Window {
+    fn new(state: state::Window) -> Self {
+        Self {
+            id: state.serialized.id,
+            name: Mutable::new(state.serialized.name.map(Arc::new)),
+            tabs: state.tabs.into_iter().map(|tab| Arc::new(Tab::new(tab))).collect(),
+        }
+    }
+}
+
+
 struct Group {
     id: usize,
     name: Mutable<Option<Arc<String>>>,
     tabs: MutableVec<Arc<Tab>>,
-    drag_over: MutableAnimation,
-    drag_top: MutableAnimation,
-    insert_animation: MutableAnimation,
-    last_selected_tab: Mutable<Option<Arc<Tab>>>,
-    matches_search: Mutable<bool>,
 
+    insert_animation: MutableAnimation,
     removing: Mutable<bool>,
     visible: Mutable<bool>,
+
+    matches_search: Mutable<bool>,
+
+    last_selected_tab: Mutable<Option<Arc<Tab>>>,
+
+    drag_over: MutableAnimation,
+    drag_top: MutableAnimation,
     tabs_padding: Mutable<f64>, // TODO use u32 instead ?
 }
 
 impl Group {
-    fn new(id: usize, tabs: Vec<Arc<Tab>>) -> Self {
+    fn new(window: &Window, tabs: Vec<Arc<Tab>>) -> Self {
+        lazy_static! {
+            static ref ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+        }
+
         Self {
-            id,
-            name: Mutable::new(None),
+            // TODO investigate whether it's possible to use a faster Ordering
+            id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            name: window.name.clone(),
             tabs: MutableVec::new_with_values(tabs),
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
@@ -121,11 +151,18 @@ impl Group {
         }
     }
 
-    fn new_animated(id: usize, tabs: Vec<Arc<Tab>>) -> Self {
-        let group = Self::new(id, tabs);
-        group.insert_animation.jump_to(Percentage::new(0.0));
-        group.insert_animation.animate_to(Percentage::new(1.0));
-        group
+    fn insert_animate(&self) {
+        self.insert_animation.jump_to(Percentage::new(0.0));
+        self.insert_animation.animate_to(Percentage::new(1.0));
+    }
+
+    fn remove_animate(&self) {
+        self.removing.set_neq(true);
+        self.insert_animation.animate_to(Percentage::new(0.0));
+    }
+
+    fn is_inserted(this: &Arc<Self>) -> bool {
+        !this.removing.get()
     }
 
     fn tabs_each<F>(&self, mut f: F) where F: FnMut(&Tab) {
@@ -230,34 +267,40 @@ impl Group {
 
 
 struct Tab {
-    id: usize,
+    id: Uuid,
     favicon_url: Mutable<Option<Arc<String>>>,
     title: Mutable<Option<Arc<String>>>,
     url: Mutable<Option<Arc<String>>>,
     focused: Mutable<bool>,
     unloaded: Mutable<bool>,
+
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
+
     hovered: Mutable<bool>,
     holding: Mutable<bool>,
+
     close_hovered: Mutable<bool>,
     close_holding: Mutable<bool>,
+
     matches_search: Mutable<bool>,
+
     removing: Mutable<bool>,
     visible: Mutable<bool>,
+
     drag_over: MutableAnimation,
     insert_animation: MutableAnimation,
 }
 
 impl Tab {
-    fn new(id: usize, unloaded: bool, focused: bool, title: &str, url: &str) -> Self {
+    fn new(state: state::Tab) -> Self {
         Self {
-            id,
-            favicon_url: Mutable::new(Some(Arc::new("http://www.saltybet.com/favicon.ico".to_owned()))),
-            title: Mutable::new(Some(Arc::new(title.to_owned()))),
-            url: Mutable::new(Some(Arc::new(url.to_owned()))),
-            focused: Mutable::new(focused),
-            unloaded: Mutable::new(unloaded),
+            id: state.serialized.id,
+            favicon_url: Mutable::new(state.favicon_url.map(Arc::new)),
+            title: Mutable::new(state.title.map(Arc::new)),
+            url: Mutable::new(state.url.map(Arc::new)),
+            focused: Mutable::new(state.focused),
+            unloaded: Mutable::new(state.unloaded),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
@@ -272,11 +315,19 @@ impl Tab {
         }
     }
 
-    fn new_animated(id: usize, unloaded: bool, focused: bool, title: &str, url: &str) -> Self {
-        let tab = Self::new(id, unloaded, focused, title, url);
-        tab.insert_animation.jump_to(Percentage::new(0.0));
-        tab.insert_animation.animate_to(Percentage::new(1.0));
-        tab
+    fn insert_animate(&self) {
+        // TODO what if the tab is in multiple groups ?
+        self.insert_animation.jump_to(Percentage::new(0.0));
+        self.insert_animation.animate_to(Percentage::new(1.0));
+    }
+
+    fn remove_animate(&self) {
+        self.removing.set_neq(true);
+        self.insert_animation.animate_to(Percentage::new(0.0));
+    }
+
+    fn is_inserted(this: &Arc<Self>) -> bool {
+        !this.removing.get()
     }
 
     fn is_hovered(&self) -> impl Signal<Item = bool> {
@@ -370,6 +421,8 @@ struct State {
 
     failed: Mutable<Option<Arc<String>>>,
     is_loaded: Mutable<bool>,
+
+    windows: RwLock<Vec<Window>>,
     groups: MutableVec<Arc<Group>>,
 
     dragging: Dragging,
@@ -379,6 +432,36 @@ struct State {
 }
 
 impl State {
+    fn new() -> Self {
+        let local_storage = window().local_storage();
+
+        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
+        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
+
+        Self {
+            options: Options::new(),
+
+            search_parser: Mutable::new(parse::Parsed::new(&search_value)),
+            search_box: Mutable::new(Arc::new(search_value)),
+
+            url_bar: Mutable::new(None),
+            groups_padding: Mutable::new(0.0),
+
+            failed: Mutable::new(None),
+
+            is_loaded: Mutable::new(false),
+
+            windows: RwLock::new(vec![]),
+
+            groups: MutableVec::new(),
+
+            dragging: Dragging::new(),
+            scrolling: Scrolling::new(scroll_y),
+
+            menu: Menu::new(),
+        }
+    }
+
     fn update_dragging_groups<F>(&self, group_id: usize, mut f: F) where F: FnMut(&Group, Percentage) {
         let groups = self.groups.lock_slice();
 
@@ -879,41 +962,124 @@ impl State {
         self.groups_padding.set_neq(padding.unwrap_or(0.0));
         self.scrolling.height.set_neq(current_height);
     }
+
+
+    fn initialize(&self, initial_windows: Vec<state::Window>) {
+        let mut windows = self.windows.write().unwrap();
+
+        *windows = initial_windows.into_iter().map(Window::new).collect();
+
+        self.groups.replace_cloned(windows.iter().map(|window| {
+            Arc::new(Group::new(&window, window.tabs.clone()))
+        }).collect());
+    }
+
+    fn insert_window(&self, window_index: usize, window: &Window) {
+        let tabs = window.tabs.clone();
+
+        for tab in tabs.iter() {
+            tab.insert_animate();
+        }
+
+        let group = Arc::new(Group::new(&window, tabs));
+
+        group.insert_animate();
+
+        let group_index = get_index(self.groups.lock_slice().iter(), window_index, Group::is_inserted);
+
+        self.groups.insert_cloned(group_index, group);
+    }
+
+    fn remove_window(&self, window_index: usize, _window: &Window) {
+        let groups = self.groups.lock_slice();
+
+        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
+
+        groups[group_index].remove_animate();
+    }
+
+    fn insert_tab(&self, window_index: usize, tab_index: usize, tab: Arc<Tab>) {
+        let groups = self.groups.lock_slice();
+
+        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
+
+        let group = &groups[group_index];
+
+        tab.insert_animate();
+
+        let tab_index = get_index(group.tabs.lock_slice().iter(), tab_index, Tab::is_inserted);
+
+        group.tabs.insert_cloned(tab_index, tab);
+    }
+
+    fn remove_tab(&self, window_index: usize, tab_index: usize, _tab: &Tab) {
+        let groups = self.groups.lock_slice();
+
+        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
+
+        let tabs = groups[group_index].tabs.lock_slice();
+
+        let tab_index = get_index(tabs.iter(), tab_index, Tab::is_inserted);
+
+        tabs[tab_index].remove_animate();
+    }
+
+    fn process_message(&self, message: Message) {
+        match message {
+            Message::WindowInserted { window_index, window } => {
+                let mut windows = self.windows.write().unwrap();
+
+                let window = Window::new(window);
+
+                self.insert_window(window_index, &window);
+
+                windows.insert(window_index, window);
+            },
+
+            Message::WindowRemoved { window_index } => {
+                let mut windows = self.windows.write().unwrap();
+
+                let window = windows.remove(window_index);
+
+                self.remove_window(window_index, &window);
+            },
+
+            Message::TabInserted { window_index, tab_index, tab } => {
+                let mut windows = self.windows.write().unwrap();
+
+                let tab = Arc::new(Tab::new(tab));
+
+                self.insert_tab(window_index, tab_index, tab.clone());
+
+                windows[window_index].tabs.insert(tab_index, tab);
+            },
+
+            Message::TabRemoved { window_index, tab_index } => {
+                let mut windows = self.windows.write().unwrap();
+
+                let tab = windows[window_index].tabs.remove(tab_index);
+
+                self.remove_tab(window_index, tab_index, &tab);
+            },
+
+            Message::TabChanged { window_index, tab_index, change } => {
+                let windows = self.windows.read().unwrap();
+
+                let tab = &windows[window_index].tabs[tab_index];
+
+                match change {
+                    TabChange::Title { new_title } => {
+                        tab.title.set(new_title.map(Arc::new));
+                    },
+                }
+            },
+        }
+    }
 }
 
 
 lazy_static! {
-    static ref STATE: Arc<State> = {
-        let local_storage = window().local_storage();
-
-        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
-        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
-
-        Arc::new(State {
-            options: Options::new(),
-
-            search_parser: Mutable::new(parse::Parsed::new(&search_value)),
-            search_box: Mutable::new(Arc::new(search_value)),
-
-            url_bar: Mutable::new(None),
-            groups_padding: Mutable::new(0.0),
-
-            failed: Mutable::new(None),
-
-            is_loaded: Mutable::new(false),
-
-            groups: MutableVec::new_with_values((0..10).map(|id| {
-                Arc::new(Group::new(id, (0..10).map(|id| {
-                    Arc::new(Tab::new(id, id == 5, id == 3, "Foo", "https://www.example.com/foo?bar#qux"))
-                }).collect()))
-            }).collect()),
-
-            dragging: Dragging::new(),
-            scrolling: Scrolling::new(scroll_y),
-
-            menu: Menu::new(),
-        })
-    };
+    static ref STATE: Arc<State> = Arc::new(State::new());
 
     static ref TOP_STYLE: String = class! {
         .style("font-family", "sans-serif")
@@ -950,6 +1116,10 @@ lazy_static! {
     static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
         .style("background-color", "hsl(211, 95%, 40%)")
         .style("width", "1px")
+        .style("height", "100%")
+    };
+
+    static ref TOOLBAR_MENU_WRAPPER_STYLE: String = class! {
         .style("height", "100%")
     };
 
@@ -1286,6 +1456,27 @@ lazy_static! {
 }
 
 
+// TODO test this
+fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+    let mut index = 0;
+    let mut len = 0;
+
+    while let Some(x) = iter.next() {
+        if f(x) {
+            if index == real_index {
+                break;
+
+            } else {
+                index += 1;
+            }
+        }
+
+        len += 1;
+    }
+
+    len
+}
+
 fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
     x.map(|x| DerefFn::new(x, move |x| x.as_str()))
 }
@@ -1462,73 +1653,134 @@ fn main() {
     });
 
 
-    let mut top_id = 999999;
-
     js! { @(no_return)
-        setInterval(@{move || {
-            {
-                let groups = STATE.groups.lock_slice();
-
-                let group = &groups[0];
-
-                {
-                    let tabs = group.tabs.lock_slice();
-
-                    tabs[2].title.set(Some(Arc::new(top_id.to_string())));
-
-                    let tab = &tabs[0];
-                    tab.removing.set_neq(true);
-                    tab.insert_animation.animate_to(Percentage::new(0.0));
-
-                    let tab = tabs.last().unwrap();
-                    tab.removing.set_neq(true);
-                    tab.insert_animation.animate_to(Percentage::new(0.0));
+        setTimeout(@{move || {
+            STATE.initialize((0..10).map(|_index| {
+                state::Window {
+                    serialized: state::SerializedWindow {
+                        id: generate_uuid(),
+                        name: None,
+                        timestamp_created: Date::now(),
+                    },
+                    focused: false,
+                    tabs: (0..10).map(|index| {
+                        state::Tab {
+                            serialized: state::SerializedTab {
+                                id: generate_uuid(),
+                                timestamp_created: Date::now(),
+                            },
+                            focused: index == 3,
+                            unloaded: index == 5,
+                            pinned: index == 0,
+                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                            url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                            title: Some("Foo".to_owned()),
+                        }
+                    }).collect(),
                 }
+            }).collect());
 
-                group.tabs.insert_cloned(0, Arc::new(Tab::new_animated(top_id, true, false, "foo", "foo")));
-                top_id += 1;
+            js! { @(no_return)
+                setInterval(@{move || {
+                    STATE.process_message(Message::TabChanged {
+                        window_index: 0,
+                        tab_index: 2,
+                        change: TabChange::Title {
+                            new_title: Some(generate_uuid().to_string()),
+                        },
+                    });
 
-                group.tabs.push_cloned(Arc::new(Tab::new_animated(top_id, false, false, "foo", "foo")));
-                top_id += 1;
+                    STATE.process_message(Message::TabRemoved {
+                        window_index: 0,
+                        tab_index: 0,
+                    });
+
+                    STATE.process_message(Message::TabRemoved {
+                        window_index: 0,
+                        tab_index: 8,
+                    });
+
+                    STATE.process_message(Message::TabInserted {
+                        window_index: 0,
+                        tab_index: 0,
+                        tab: state::Tab {
+                            serialized: state::SerializedTab {
+                                id: generate_uuid(),
+                                timestamp_created: Date::now()
+                            },
+                            focused: false,
+                            unloaded: true,
+                            pinned: false,
+                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                            url: Some("top".to_owned()),
+                            title: Some("top".to_owned()),
+                        },
+                    });
+
+                    STATE.process_message(Message::TabInserted {
+                        window_index: 0,
+                        tab_index: 8,
+                        tab: state::Tab {
+                            serialized: state::SerializedTab {
+                                id: generate_uuid(),
+                                timestamp_created: Date::now()
+                            },
+                            focused: false,
+                            unloaded: false,
+                            pinned: true,
+                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                            url: Some("bottom".to_owned()),
+                            title: Some("bottom".to_owned()),
+                        },
+                    });
+
+                    for _ in 0..10 {
+                        STATE.process_message(Message::TabRemoved {
+                            window_index: 2,
+                            tab_index: 0,
+                        });
+                    }
+
+                    STATE.process_message(Message::WindowRemoved {
+                        window_index: 2,
+                    });
+
+                    STATE.process_message(Message::WindowInserted {
+                        window_index: 2,
+                        window: state::Window {
+                            serialized: state::SerializedWindow {
+                                id: generate_uuid(),
+                                name: None,
+                                timestamp_created: Date::now(),
+                            },
+                            focused: false,
+                            tabs: vec![],
+                        },
+                    });
+
+                    for index in 0..10 {
+                        STATE.process_message(Message::TabInserted {
+                            window_index: 2,
+                            tab_index: index,
+                            tab: state::Tab {
+                                serialized: state::SerializedTab {
+                                    id: generate_uuid(),
+                                    timestamp_created: Date::now(),
+                                },
+                                focused: index == 3,
+                                unloaded: index == 5,
+                                pinned: index == 0,
+                                favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                                url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                                title: Some("Foo".to_owned()),
+                            },
+                        });
+                    }
+
+                    //STATE.update(true);
+                }}, @{INSERT_ANIMATION_DURATION + 2000.0});
             }
-
-            /*{
-                let tabs = group.tabs.lock_slice();
-                let tab = &tabs[4];
-                tab.insert_animation.jump_to(Percentage::new(0.0));
-                tab.insert_animation.animate_to(Percentage::new(1.0));
-            }*/
-
-            {
-                let groups = STATE.groups.lock_slice();
-
-                let group = &groups[2];
-
-                for tab in group.tabs.lock_slice().iter() {
-                    tab.removing.set_neq(true);
-                    tab.insert_animation.animate_to(Percentage::new(0.0));
-                }
-
-                group.removing.set_neq(true);
-                group.insert_animation.animate_to(Percentage::new(0.0));
-            }
-
-            {
-                STATE.groups.insert_cloned(3, Arc::new(Group::new_animated(top_id, vec![])));
-                top_id += 1;
-
-                let groups = STATE.groups.lock_slice();
-
-                let group = &groups[3];
-
-                for id in 0..10 {
-                    let tab = Arc::new(Tab::new_animated(id, id == 5, id == 3, "Foo", "Bar"));
-                    group.tabs.push_cloned(tab);
-                }
-            }
-
-            //STATE.update(true);
-        }}, @{INSERT_ANIMATION_DURATION + 2000.0});
+        }}, 200);
     }
 
 
@@ -1759,6 +2011,7 @@ fn main() {
                             let holding = Mutable::new(false);
 
                             html!("div", {
+                                .class(&TOOLBAR_MENU_WRAPPER_STYLE)
                                 .children(&mut [
                                     html!("div", {
                                         .class(&ROW_STYLE)
