@@ -26,7 +26,7 @@ use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, window};
+use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, window, set_timeout};
 use stdweb::web::html_element::InputElement;
 use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
@@ -38,6 +38,8 @@ mod waiter;
 mod url_bar;
 mod menu;
 
+
+const LOADING_MESSAGE_THRESHOLD: u32 = 500;
 
 const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
 const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
@@ -1082,12 +1084,32 @@ lazy_static! {
     static ref STATE: Arc<State> = Arc::new(State::new());
 
     static ref TOP_STYLE: String = class! {
+        .style("white-space", "pre")
         .style("font-family", "sans-serif")
         .style("font-size", "13px")
         .style("width", "300px") // 100%
         .style("height", "100%")
         .style("background-color", "hsl(0, 0%, 100%)")
         .style("overflow", "hidden")
+    };
+
+    static ref MODAL_STYLE: String = class! {
+        .style("position", "fixed")
+        .style("left", "0px")
+        .style("top", "0px")
+        .style("width", "100%")
+        .style("height", "100%")
+        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
+    };
+
+    static ref LOADING_STYLE: String = class! {
+        .style("z-index", HIGHEST_ZINDEX)
+        .style("background-color", "transparent")
+        .style("color", "white")
+        .style("font-weight", "bold")
+        .style("font-size", "20px")
+        .style("letter-spacing", "5px")
+        .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
     };
 
     static ref TEXTURE_STYLE: String = class! {
@@ -1199,6 +1221,10 @@ lazy_static! {
         .style("font-size", "11px")
     };
 
+    static ref GROUP_HEADER_TEXT_STYLE: String = class! {
+        .style("overflow", "hidden")
+    };
+
     static ref GROUP_TABS_STYLE: String = class! {
         .style("padding-bottom", &px(GROUP_PADDING_BOTTOM))
     };
@@ -1278,6 +1304,13 @@ lazy_static! {
         .style("align-items", "center") // TODO get rid of this ?
     };
 
+    static ref CENTER_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center")
+        .style("justify-content", "center")
+    };
+
     static ref STRETCH_STYLE: String = class! {
         .style("flex-shrink", "1")
         .style("flex-grow", "1")
@@ -1355,6 +1388,7 @@ lazy_static! {
     };
 
     static ref TAB_TEXT_STYLE: String = class! {
+        .style("overflow", "hidden")
         .style("padding-left", "3px")
         .style("padding-right", "1px")
     };
@@ -1680,6 +1714,12 @@ fn main() {
                 }
             }).collect());
 
+            // TODO a little hacky, needed to ensure that scrolling happens after everything is created
+            window().request_animation_frame(|_| {
+                STATE.is_loaded.set_neq(true);
+                log!("Loaded");
+            });
+
             js! { @(no_return)
                 setInterval(@{move || {
                     STATE.process_message(Message::TabChanged {
@@ -1780,7 +1820,7 @@ fn main() {
                     //STATE.update(true);
                 }}, @{INSERT_ANIMATION_DURATION + 2000.0});
             }
-        }}, 200);
+        }}, 1500);
     }
 
 
@@ -1861,6 +1901,26 @@ fn main() {
             }))
 
             .children(&mut [
+                {
+                    let show = Mutable::new(false);
+
+                    set_timeout(clone!(show => move || {
+                        show.set_neq(true);
+                    }), LOADING_MESSAGE_THRESHOLD);
+
+                    html!("div", {
+                        .class(&MODAL_STYLE)
+                        .class(&LOADING_STYLE)
+                        .class(&CENTER_STYLE)
+
+                        .mixin(visible(and(show.signal(), not(STATE.is_loaded.signal()))))
+
+                        .children(&mut [
+                            text("LOADING..."),
+                        ])
+                    })
+                },
+
                 html!("div", {
                     .class(&DRAGGING_STYLE)
 
@@ -1977,6 +2037,8 @@ fn main() {
                     .class(&ROW_STYLE)
                     .class(&TOOLBAR_STYLE)
 
+                    .mixin(visible(STATE.is_loaded.signal()))
+
                     .children(&mut [
                         html!("input" => InputElement, {
                             .class(&SEARCH_STYLE)
@@ -2092,6 +2154,8 @@ fn main() {
                 html!("div", {
                     .class(&GROUP_LIST_STYLE)
 
+                    .mixin(visible(STATE.is_loaded.signal()))
+
                     .with_element(|dom, element: HtmlElement| { dom
                         // TODO also update these when groups/tabs are added/removed ?
                         .event(clone!(element => move |_: ScrollEvent| {
@@ -2184,19 +2248,25 @@ fn main() {
                                                 .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
                                                 .children(&mut [
-                                                    text_signal(map_ref! {
-                                                            let name = group.name.signal_cloned(),
-                                                            let index = index.signal() => {
-                                                                // TODO improve the efficiency of this ?
-                                                                name.clone().or_else(|| {
-                                                                    index.map(|index| Arc::new((index + 1).to_string()))
-                                                                })
-                                                            }
-                                                        }
-                                                        // This causes it to remember the previous value if it returns `None`
-                                                        // TODO dedicated method for this ?
-                                                        .filter_map(|x| x)
-                                                        .map(|x| option_str_default(x, ""))),
+                                                    html!("div", {
+                                                        .class(&GROUP_HEADER_TEXT_STYLE)
+                                                        .class(&STRETCH_STYLE)
+                                                        .children(&mut [
+                                                            text_signal(map_ref! {
+                                                                    let name = group.name.signal_cloned(),
+                                                                    let index = index.signal() => {
+                                                                        // TODO improve the efficiency of this ?
+                                                                        name.clone().or_else(|| {
+                                                                            index.map(|index| Arc::new((index + 1).to_string()))
+                                                                        })
+                                                                    }
+                                                                }
+                                                                // This causes it to remember the previous value if it returns `None`
+                                                                // TODO dedicated method for this ?
+                                                                .filter_map(|x| x)
+                                                                .map(|x| option_str_default(x, ""))),
+                                                        ])
+                                                    }),
                                                 ])
                                             }),
 
@@ -2362,10 +2432,4 @@ fn main() {
     );
 
     log!("Finished");
-
-    // TODO a little hacky, needed to ensure that scrolling happens after everything is created
-    window().request_animation_frame(|_| {
-        STATE.is_loaded.set_neq(true);
-        log!("Loaded");
-    });
 }

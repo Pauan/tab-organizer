@@ -1,4 +1,4 @@
-use {visible, ROW_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
+use {visible, ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, IntoSignal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
@@ -12,15 +12,6 @@ lazy_static! {
         .style("top", "100%")
         .style("right", "0px")
         .style("z-index", HIGHEST_ZINDEX)
-    };
-
-    static ref MODAL_STYLE: String = class! {
-        .style("position", "fixed")
-        .style("left", "0px")
-        .style("top", "0px")
-        .style("width", "100%")
-        .style("height", "100%")
-        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
     };
 
     static ref MENU_STYLE: String = class! {
