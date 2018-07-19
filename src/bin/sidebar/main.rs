@@ -275,7 +275,6 @@ struct Tab {
     url: Mutable<Option<Arc<String>>>,
     focused: Mutable<bool>,
     unloaded: Mutable<bool>,
-    pinned: Mutable<bool>,
 
     selected: Mutable<bool>,
     dragging: Mutable<bool>,
@@ -304,7 +303,6 @@ impl Tab {
             url: Mutable::new(state.url.map(Arc::new)),
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
-            pinned: Mutable::new(state.pinned),
             selected: Mutable::new(false),
             dragging: Mutable::new(false),
             hovered: Mutable::new(false),
@@ -1075,9 +1073,7 @@ impl State {
                     TabChange::Title { new_title } => {
                         tab.title.set(new_title.map(Arc::new));
                     },
-                    TabChange::Pinned { pinned } => {
-                        tab.pinned.set_neq(pinned);
-                    },
+                    TabChange::Pinned { pinned } => {},
                 }
             },
         }
@@ -1354,29 +1350,6 @@ lazy_static! {
 
         .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
         .style("opacity", "1")
-    };
-
-    static ref TAB_PINNED_STYLE: String = class! {
-        .style("float", "left")
-        .style("width", "20px")
-        /*.style("background-image", "repeating-linear-gradient(-45deg, \
-                                        transparent          0px, \
-                                        hsla(0, 0%, 0%, 1) 1px")*/
-
-        /*.style("background-color", "hsl(245, 100%, 98%)")
-        // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
-        .style_important("border-color", "hsl(245, 77%, 79%) \
-                                          hsl(245, 77%, 74%) \
-                                          hsl(245, 77%, 69%) \
-                                          hsl(245, 77%, 74%)")*/
-    };
-
-    static ref TAB_NOT_PINNED_STYLE: String = class! {
-        .style("clear", "both")
-    };
-
-    static ref TAB_PINNED_HOVER_STYLE: String = class! {
-        //.style("background-color", "hsl(245, 77%, 74%)")
     };
 
     static ref TAB_FOCUSED_STYLE: String = class! {
@@ -1696,8 +1669,6 @@ fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text
         .class(&MENU_ITEM_STYLE)
 
         .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
-        .class_signal(&TAB_PINNED_STYLE, tab.pinned.signal())
-        .class_signal(&TAB_NOT_PINNED_STYLE, not(tab.pinned.signal()))
         .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
         .children(&mut [favicon, text, close])
@@ -2014,7 +1985,6 @@ fn main() {
                                                 .class(&MENU_ITEM_HOVER_STYLE)
                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
-                                                //.class_signal(&TAB_PINNED_HOVER_STYLE, tab.pinned.signal())
                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
@@ -2362,7 +2332,6 @@ fn main() {
                                                                 .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
                                                                 .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
-                                                                //.class_signal(&TAB_PINNED_HOVER_STYLE, and(tab.is_hovered(), tab.pinned.signal()))
                                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(tab.is_hovered(), tab.is_focused()))
 
                                                                 .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
