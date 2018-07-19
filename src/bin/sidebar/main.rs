@@ -1822,7 +1822,9 @@ fn main() {
                                                 STATE.options.sort_tabs.set_neq(SortTabs::Name);
                                             })
                                         })
+
                                         .separator()
+
                                         .submenu("Foo", |menu| { menu
                                             .option("Bar", futures_signals::signal::always(true), || {})
                                             .option("Qux", futures_signals::signal::always(false), || {})

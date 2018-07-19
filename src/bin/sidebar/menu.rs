@@ -1,4 +1,5 @@
 use {visible, ROW_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
+use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, IntoSignal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
 use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
@@ -56,7 +57,12 @@ lazy_static! {
         .style("border-right", "none")
     };
 
-    static ref MENU_OPTION_SELECTED_STYLE: String = class! {
+    static ref MENU_ITEM_SUBMENU_STYLE: String = class! {
+        // TODO a tiny bit hacky
+        .style("cursor", "default")
+    };
+
+    static ref MENU_ITEM_SELECTED_STYLE: String = class! {
         .style("font-weight", "bold")
     };
 
@@ -82,27 +88,22 @@ fn eq_index<A>(signal: A, index: usize) -> impl Signal<Item = bool> where A: Int
 }
 
 
-enum MenuState {
+enum MenuItemState {
     Submenu {
         hovered: Mutable<Option<usize>>,
-        children: Vec<MenuState>,
     },
     Item {
         hovered: Mutable<bool>,
     },
 }
 
-impl MenuState {
-    fn reset(&self) {
+impl MenuItemState {
+    fn hide(&self) {
         match self {
-            MenuState::Submenu { hovered, children } => {
+            MenuItemState::Submenu { hovered } => {
                 hovered.set_neq(None);
-
-                for state in children {
-                    state.reset();
-                }
             },
-            MenuState::Item { hovered } => {
+            MenuItemState::Item { hovered } => {
                 hovered.set_neq(false);
             },
         }
@@ -110,16 +111,50 @@ impl MenuState {
 }
 
 
+struct MenuState {
+    visible: Mutable<bool>,
+    states: RwLock<Vec<MenuItemState>>,
+}
+
+impl MenuState {
+    fn new() -> Self {
+        Self {
+            visible: Mutable::new(false),
+            states: RwLock::new(vec![]),
+        }
+    }
+
+    fn show(&self) {
+        self.visible.set_neq(true);
+    }
+
+    fn hide(&self) {
+        let lock = self.states.read().unwrap();
+
+        self.visible.set_neq(false);
+
+        for state in lock.iter() {
+            state.hide();
+        }
+    }
+
+    fn add(&self, state: MenuItemState) {
+        let mut lock = self.states.write().unwrap();
+        lock.push(state);
+    }
+}
+
+
 pub(crate) struct MenuBuilder {
-    states: Vec<MenuState>,
+    state: Arc<MenuState>,
     children: Vec<Dom>,
     hovered: Mutable<Option<usize>>,
 }
 
 impl MenuBuilder {
-    fn new() -> Self {
+    fn new(state: Arc<MenuState>) -> Self {
         Self {
-            states: vec![],
+            state,
             children: vec![],
             hovered: Mutable::new(None),
         }
@@ -132,7 +167,7 @@ impl MenuBuilder {
 
         let hovered = Mutable::new(false);
 
-        self.states.push(MenuState::Item {
+        self.state.add(MenuItemState::Item {
             hovered: hovered.clone(),
         });
 
@@ -162,16 +197,16 @@ impl MenuBuilder {
     fn push_submenu<F>(&mut self, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
         let index = self.children.len();
 
-        let MenuBuilder { states, mut children, hovered } = f(MenuBuilder::new());
+        let MenuBuilder { mut children, hovered, .. } = f(MenuBuilder::new(self.state.clone()));
 
-        self.states.push(MenuState::Submenu {
+        self.state.add(MenuItemState::Submenu {
             hovered,
-            children: states,
         });
 
         self.children.push(html!("div", {
             .class(&ROW_STYLE)
             .class(&MENU_ITEM_STYLE)
+            .class(&MENU_ITEM_SUBMENU_STYLE)
             // TODO hacky
             .class(&super::MENU_ITEM_STYLE)
 
@@ -239,12 +274,15 @@ impl MenuBuilder {
 
         let mixin = self.menu_item();
 
+        let state = self.state.clone();
+
         self.children.push(html!("div", {
             .mixin(mixin)
 
-            .class_signal(&MENU_OPTION_SELECTED_STYLE, signal.into_signal())
+            .class_signal(&MENU_ITEM_SELECTED_STYLE, signal.into_signal())
 
             .event(move |_: ClickEvent| {
+                state.hide();
                 on_click();
             })
 
@@ -266,44 +304,40 @@ impl MenuBuilder {
 
 
 pub(crate) struct Menu {
-    visible: Mutable<bool>,
+    state: Arc<MenuState>,
 }
 
 impl Menu {
     pub(crate) fn new() -> Self {
         Self {
-            visible: Mutable::new(false),
+            state: Arc::new(MenuState::new()),
         }
     }
 
     pub(crate) fn show(&self) {
-        self.visible.set_neq(true);
+        self.state.show();
     }
 
     pub(crate) fn render<F>(&self, f: F) -> Dom where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        let MenuBuilder { states, mut children, hovered } = f(MenuBuilder::new());
+        let MenuBuilder { mut children, hovered, .. } = f(MenuBuilder::new(self.state.clone()));
+
+        let state = self.state.clone();
+
+        state.add(MenuItemState::Submenu {
+            hovered,
+        });
 
         html!("div", {
             .class(&TOP_STYLE)
 
-            .mixin(visible(self.visible.signal()))
+            .mixin(visible(state.visible.signal()))
 
             .children(&mut [
                 html!("div", {
                     .class(&MODAL_STYLE)
 
-                    // TODO make this cleaner
-                    .event({
-                        let visible = self.visible.clone();
-                        move |_: ClickEvent| {
-                            visible.set_neq(false);
-
-                            hovered.set_neq(None);
-
-                            for state in states.iter() {
-                                state.reset();
-                            }
-                        }
+                    .event(move |_: ClickEvent| {
+                        state.hide();
                     })
                 }),
 
