@@ -14,6 +14,7 @@ extern crate stdweb;
 #[macro_use]
 extern crate lazy_static;
 
+use std::ops::Deref;
 use std::borrow::Borrow;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -96,10 +97,120 @@ impl Options {
 }
 
 
+struct TabState {
+    id: Uuid,
+    favicon_url: Mutable<Option<Arc<String>>>,
+    title: Mutable<Option<Arc<String>>>,
+    url: Mutable<Option<Arc<String>>>,
+    focused: Mutable<bool>,
+    unloaded: Mutable<bool>,
+}
+
+impl TabState {
+    fn new(state: state::Tab) -> Self {
+        Self {
+            id: state.serialized.id,
+            favicon_url: Mutable::new(state.favicon_url.map(Arc::new)),
+            title: Mutable::new(state.title.map(Arc::new)),
+            url: Mutable::new(state.url.map(Arc::new)),
+            focused: Mutable::new(state.focused),
+            unloaded: Mutable::new(state.unloaded),
+        }
+    }
+}
+
+
+struct Tab {
+    state: Arc<TabState>,
+
+    selected: Mutable<bool>,
+    dragging: Mutable<bool>,
+
+    hovered: Mutable<bool>,
+    holding: Mutable<bool>,
+
+    close_hovered: Mutable<bool>,
+    close_holding: Mutable<bool>,
+
+    matches_search: Mutable<bool>,
+
+    removing: Mutable<bool>,
+    visible: Mutable<bool>,
+
+    drag_over: MutableAnimation,
+    insert_animation: MutableAnimation,
+}
+
+impl Tab {
+    fn new(state: Arc<TabState>) -> Self {
+        Self {
+            state,
+
+            selected: Mutable::new(false),
+            dragging: Mutable::new(false),
+
+            hovered: Mutable::new(false),
+            holding: Mutable::new(false),
+
+            close_hovered: Mutable::new(false),
+            close_holding: Mutable::new(false),
+
+            matches_search: Mutable::new(false),
+
+            removing: Mutable::new(false),
+            visible: Mutable::new(false),
+
+            drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
+            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
+        }
+    }
+
+    fn insert_animate(&self) {
+        // TODO what if the tab is in multiple groups ?
+        self.insert_animation.jump_to(Percentage::new(0.0));
+        self.insert_animation.animate_to(Percentage::new(1.0));
+    }
+
+    fn remove_animate(&self) {
+        self.removing.set_neq(true);
+        self.insert_animation.animate_to(Percentage::new(0.0));
+    }
+
+    fn is_inserted(this: &Arc<Self>) -> bool {
+        !this.removing.get()
+    }
+
+    fn is_hovered(&self) -> impl Signal<Item = bool> {
+        and(self.hovered.signal(), not(STATE.is_dragging()))
+    }
+
+    fn is_holding(&self) -> impl Signal<Item = bool> {
+        and(
+            and(self.is_hovered(), self.holding.signal()),
+            // TODO a little bit hacky
+            not(self.close_hovered.signal())
+        )
+    }
+
+    fn is_focused(&self) -> impl Signal<Item = bool> {
+        self.focused.signal()
+    }
+}
+
+impl Deref for Tab {
+    type Target = TabState;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &*self.state
+    }
+}
+
+
 struct Window {
     id: Uuid,
     name: Mutable<Option<Arc<String>>>,
-    tabs: Vec<Arc<Tab>>,
+    tabs: Vec<Arc<TabState>>,
 }
 
 impl Window {
@@ -107,8 +218,12 @@ impl Window {
         Self {
             id: state.serialized.id,
             name: Mutable::new(state.serialized.name.map(Arc::new)),
-            tabs: state.tabs.into_iter().map(|tab| Arc::new(Tab::new(tab))).collect(),
+            tabs: state.tabs.into_iter().map(|tab| Arc::new(TabState::new(tab))).collect(),
         }
+    }
+
+    fn get_tabs(&self) -> Vec<Arc<Tab>> {
+        self.tabs.iter().cloned().map(Tab::new).map(Arc::new).collect()
     }
 }
 
@@ -126,7 +241,7 @@ struct Group {
 
     matches_search: Mutable<bool>,
 
-    last_selected_tab: Mutable<Option<Arc<Tab>>>,
+    last_selected_tab: Mutable<Option<Uuid>>,
 
     drag_over: MutableAnimation,
     drag_top: MutableAnimation,
@@ -226,7 +341,7 @@ impl Group {
         *selected = !*selected;
 
         if *selected {
-            self.last_selected_tab.set_neq(Some(tab.clone()));
+            self.last_selected_tab.set_neq(Some(tab.id));
 
         } else {
             self.last_selected_tab.set_neq(None);
@@ -236,16 +351,16 @@ impl Group {
     fn shift_select_tab(&self, tab: &Arc<Tab>) {
         let mut last_selected_tab = self.last_selected_tab.lock_mut();
 
-        let selected = if let Some(ref last_selected_tab) = *last_selected_tab {
+        let selected = if let Some(last_selected_tab) = *last_selected_tab {
             let tabs = self.tabs.lock_slice();
             let mut seen = false;
 
             for x in tabs.iter() {
-                if x.id == last_selected_tab.id ||
+                if x.id == last_selected_tab ||
                    x.id == tab.id {
                     x.selected.set_neq(true);
 
-                    if tab.id != last_selected_tab.id {
+                    if tab.id != last_selected_tab {
                         seen = !seen;
                     }
 
@@ -265,101 +380,10 @@ impl Group {
 
         if !selected {
             tab.selected.set_neq(true);
-            *last_selected_tab = Some(tab.clone());
+            *last_selected_tab = Some(tab.id);
         }
     }
 }
-
-
-struct Tab {
-    id: Uuid,
-    favicon_url: Mutable<Option<Arc<String>>>,
-    title: Mutable<Option<Arc<String>>>,
-    url: Mutable<Option<Arc<String>>>,
-    focused: Mutable<bool>,
-    unloaded: Mutable<bool>,
-
-    selected: Mutable<bool>,
-    dragging: Mutable<bool>,
-
-    hovered: Mutable<bool>,
-    holding: Mutable<bool>,
-
-    close_hovered: Mutable<bool>,
-    close_holding: Mutable<bool>,
-
-    matches_search: Mutable<bool>,
-
-    removing: Mutable<bool>,
-    visible: Mutable<bool>,
-
-    drag_over: MutableAnimation,
-    insert_animation: MutableAnimation,
-}
-
-impl Tab {
-    fn new(state: state::Tab) -> Self {
-        Self {
-            id: state.serialized.id,
-            favicon_url: Mutable::new(state.favicon_url.map(Arc::new)),
-            title: Mutable::new(state.title.map(Arc::new)),
-            url: Mutable::new(state.url.map(Arc::new)),
-            focused: Mutable::new(state.focused),
-            unloaded: Mutable::new(state.unloaded),
-            selected: Mutable::new(false),
-            dragging: Mutable::new(false),
-            hovered: Mutable::new(false),
-            holding: Mutable::new(false),
-            close_hovered: Mutable::new(false),
-            close_holding: Mutable::new(false),
-            matches_search: Mutable::new(false),
-            removing: Mutable::new(false),
-            visible: Mutable::new(false),
-            drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
-            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
-        }
-    }
-
-    fn insert_animate(&self) {
-        // TODO what if the tab is in multiple groups ?
-        self.insert_animation.jump_to(Percentage::new(0.0));
-        self.insert_animation.animate_to(Percentage::new(1.0));
-    }
-
-    fn remove_animate(&self) {
-        self.removing.set_neq(true);
-        self.insert_animation.animate_to(Percentage::new(0.0));
-    }
-
-    fn is_inserted(this: &Arc<Self>) -> bool {
-        !this.removing.get()
-    }
-
-    fn is_hovered(&self) -> impl Signal<Item = bool> {
-        and(self.hovered.signal(), not(STATE.is_dragging()))
-    }
-
-    fn is_holding(&self) -> impl Signal<Item = bool> {
-        and(
-            and(self.is_hovered(), self.holding.signal()),
-            // TODO a little bit hacky
-            not(self.close_hovered.signal())
-        )
-    }
-
-    fn is_focused(&self) -> impl Signal<Item = bool> {
-        self.focused.signal()
-    }
-}
-
-impl PartialEq for Tab {
-    #[inline]
-    fn eq(&self, other: &Tab) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for Tab {}
 
 
 enum DragState {
@@ -978,12 +1002,12 @@ impl State {
         *windows = initial_windows.into_iter().map(Window::new).collect();
 
         self.groups.replace_cloned(windows.iter().map(|window| {
-            Arc::new(Group::new(false, &window, window.tabs.clone()))
+            Arc::new(Group::new(false, &window, window.get_tabs()))
         }).collect());
     }
 
     fn insert_window(&self, window_index: usize, window: &Window) {
-        let tabs = window.tabs.clone();
+        let tabs = window.get_tabs();
 
         for tab in tabs.iter() {
             tab.insert_animate();
@@ -1006,7 +1030,9 @@ impl State {
         groups[group_index].remove_animate();
     }
 
-    fn insert_tab(&self, window_index: usize, tab_index: usize, tab: Arc<Tab>) {
+    fn insert_tab(&self, window_index: usize, tab_index: usize, tab: Arc<TabState>) {
+        let tab = Arc::new(Tab::new(tab));
+
         let groups = self.groups.lock_slice();
 
         let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
@@ -1020,7 +1046,7 @@ impl State {
         group.tabs.insert_cloned(tab_index, tab);
     }
 
-    fn remove_tab(&self, window_index: usize, tab_index: usize, _tab: &Tab) {
+    fn remove_tab(&self, window_index: usize, tab_index: usize, _tab: &TabState) {
         let groups = self.groups.lock_slice();
 
         let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
@@ -1055,7 +1081,7 @@ impl State {
             Message::TabInserted { window_index, tab_index, tab } => {
                 let mut windows = self.windows.write().unwrap();
 
-                let tab = Arc::new(Tab::new(tab));
+                let tab = Arc::new(TabState::new(tab));
 
                 self.insert_tab(window_index, tab_index, tab.clone());
 
