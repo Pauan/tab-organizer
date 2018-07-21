@@ -165,6 +165,18 @@ impl Tab {
         }
     }
 
+    // TODO hacky
+    fn height(&self) -> f64 {
+        // TODO use range_inclusive ?
+        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
+
+        (TAB_BORDER_WIDTH * percentage).round() +
+        (TAB_PADDING * percentage).round() +
+        (TAB_HEIGHT * percentage).round() +
+        (TAB_PADDING * percentage).round() +
+        (TAB_BORDER_WIDTH * percentage).round()
+    }
+
     fn insert_animate(&self) {
         // TODO what if the tab is in multiple groups ?
         self.insert_animation.jump_to(Percentage::new(0.0));
@@ -269,6 +281,21 @@ impl Group {
             visible: Mutable::new(false),
             tabs_padding: Mutable::new(0.0),
         }
+    }
+
+    // TODO hacky
+    // TODO what about when it's dragging ?
+    fn height(&self) -> (f64, f64) {
+        // TODO use range_inclusive
+        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
+
+        (
+            (GROUP_BORDER_WIDTH * percentage).round() +
+            (GROUP_PADDING_TOP * percentage).round() +
+            (if self.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
+
+            (GROUP_PADDING_BOTTOM * percentage).round()
+        )
     }
 
     fn insert_animate(&self) {
@@ -879,16 +906,9 @@ impl State {
 
                 let mut tabs_padding: Option<f64> = None;
 
-                let percentage = ease(group.insert_animation.current_percentage()).into_f64();
-                //let percentage: f64 = 1.0;
+                let (top_height, bottom_height) = group.height();
 
-                // TODO hacky
-                // TODO what about when it's dragging ?
-                // TODO use range_inclusive
-                current_height +=
-                    (GROUP_BORDER_WIDTH * percentage).round() +
-                    (GROUP_PADDING_TOP * percentage).round() +
-                    (if group.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 });
+                current_height += top_height;
 
                 let tabs_height = current_height;
 
@@ -914,17 +934,7 @@ impl State {
                             if !tab.dragging.get() {
                                 let old_height = current_height;
 
-                                let percentage = ease(tab.insert_animation.current_percentage()).into_f64();
-
-                                // TODO hacky
-                                // TODO take into account the padding/border as well ?
-                                // TODO use range_inclusive
-                                current_height +=
-                                    (TAB_BORDER_WIDTH * percentage).round() +
-                                    (TAB_PADDING * percentage).round() +
-                                    (TAB_HEIGHT * percentage).round() +
-                                    (TAB_PADDING * percentage).round() +
-                                    (TAB_BORDER_WIDTH * percentage).round();
+                                current_height += tab.height();
 
                                 if old_height < bottom_y && current_height > top_y {
                                     if let None = tabs_padding {
@@ -961,9 +971,7 @@ impl State {
                 if matches_search {
                     let no_tabs_height = current_height;
 
-                    // TODO hacky
-                    // TODO what about when it's dragging ?
-                    current_height += (GROUP_PADDING_BOTTOM * percentage).round();
+                    current_height += bottom_height;
 
                     if old_height < bottom_y && current_height > top_y {
                         if let None = padding {
