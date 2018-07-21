@@ -118,6 +118,8 @@ struct Group {
     name: Mutable<Option<Arc<String>>>,
     tabs: MutableVec<Arc<Tab>>,
 
+    show_header: bool,
+
     insert_animation: MutableAnimation,
     removing: Mutable<bool>,
     visible: Mutable<bool>,
@@ -132,7 +134,7 @@ struct Group {
 }
 
 impl Group {
-    fn new(window: &Window, tabs: Vec<Arc<Tab>>) -> Self {
+    fn new(show_header: bool, window: &Window, tabs: Vec<Arc<Tab>>) -> Self {
         lazy_static! {
             static ref ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
         }
@@ -142,6 +144,7 @@ impl Group {
             id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
             name: window.name.clone(),
             tabs: MutableVec::new_with_values(tabs),
+            show_header,
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
@@ -454,7 +457,6 @@ impl State {
             is_loaded: Mutable::new(false),
 
             windows: RwLock::new(vec![]),
-
             groups: MutableVec::new(),
 
             dragging: Dragging::new(),
@@ -785,6 +787,10 @@ impl State {
         })
     }
 
+    fn is_window_mode(&self) -> impl Signal<Item = bool> {
+        self.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window)
+    }
+
     /*fn is_dragging_group(&self, group_id: usize) -> impl Signal<Item = bool> {
         self.dragging.state.signal_ref(move |dragging| {
             if let Some(DragState::Dragging { group, .. }) = dragging {
@@ -858,7 +864,7 @@ impl State {
                 current_height +=
                     (GROUP_BORDER_WIDTH * percentage).round() +
                     (GROUP_PADDING_TOP * percentage).round() +
-                    (GROUP_HEADER_HEIGHT * percentage).round();
+                    (if group.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 });
 
                 let tabs_height = current_height;
 
@@ -972,7 +978,7 @@ impl State {
         *windows = initial_windows.into_iter().map(Window::new).collect();
 
         self.groups.replace_cloned(windows.iter().map(|window| {
-            Arc::new(Group::new(&window, window.tabs.clone()))
+            Arc::new(Group::new(false, &window, window.tabs.clone()))
         }).collect());
     }
 
@@ -983,7 +989,7 @@ impl State {
             tab.insert_animate();
         }
 
-        let group = Arc::new(Group::new(&window, tabs));
+        let group = Arc::new(Group::new(false, &window, tabs));
 
         group.insert_animate();
 
@@ -1283,6 +1289,7 @@ lazy_static! {
                                                  hsla(0, 0%, 100%, 0.1) 80%, \
                                                  hsla(0, 0%, 100%, 0.2) 100%), {}",
                                             *REPEATING_GRADIENT))
+        .style("z-index", "1")
     };
 
     static ref MENU_ITEM_HOLD_STYLE: String = class! {
@@ -1690,7 +1697,7 @@ fn main() {
 
     js! { @(no_return)
         setTimeout(@{move || {
-            STATE.initialize((0..10).map(|_index| {
+            let windows: Vec<state::Window> = (0..10).map(|_index| {
                 state::Window {
                     serialized: state::SerializedWindow {
                         id: generate_uuid(),
@@ -1698,7 +1705,7 @@ fn main() {
                         timestamp_created: Date::now(),
                     },
                     focused: false,
-                    tabs: (0..10).map(|index| {
+                    tabs: (0..100).map(|index| {
                         state::Tab {
                             serialized: state::SerializedTab {
                                 id: generate_uuid(),
@@ -1713,7 +1720,9 @@ fn main() {
                         }
                     }).collect(),
                 }
-            }).collect());
+            }).collect();
+
+            STATE.initialize(windows);
 
             // TODO a little hacky, needed to ensure that scrolling happens after everything is created
             window().request_animation_frame(|_| {
@@ -2247,35 +2256,40 @@ fn main() {
                                         }))
 
                                         .children(&mut [
-                                            html!("div", {
-                                                .class(&ROW_STYLE)
-                                                .class(&GROUP_HEADER_STYLE)
+                                            if group.show_header {
+                                                html!("div", {
+                                                    .class(&ROW_STYLE)
+                                                    .class(&GROUP_HEADER_STYLE)
 
-                                                .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
-                                                .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
+                                                    .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
+                                                    .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
-                                                .children(&mut [
-                                                    html!("div", {
-                                                        .class(&GROUP_HEADER_TEXT_STYLE)
-                                                        .class(&STRETCH_STYLE)
-                                                        .children(&mut [
-                                                            text_signal(map_ref! {
-                                                                    let name = group.name.signal_cloned(),
-                                                                    let index = index.signal() => {
-                                                                        // TODO improve the efficiency of this ?
-                                                                        name.clone().or_else(|| {
-                                                                            index.map(|index| Arc::new((index + 1).to_string()))
-                                                                        })
+                                                    .children(&mut [
+                                                        html!("div", {
+                                                            .class(&GROUP_HEADER_TEXT_STYLE)
+                                                            .class(&STRETCH_STYLE)
+                                                            .children(&mut [
+                                                                text_signal(map_ref! {
+                                                                        let name = group.name.signal_cloned(),
+                                                                        let index = index.signal() => {
+                                                                            // TODO improve the efficiency of this ?
+                                                                            name.clone().or_else(|| {
+                                                                                index.map(|index| Arc::new((index + 1).to_string()))
+                                                                            })
+                                                                        }
                                                                     }
-                                                                }
-                                                                // This causes it to remember the previous value if it returns `None`
-                                                                // TODO dedicated method for this ?
-                                                                .filter_map(|x| x)
-                                                                .map(|x| option_str_default(x, ""))),
-                                                        ])
-                                                    }),
-                                                ])
-                                            }),
+                                                                    // This causes it to remember the previous value if it returns `None`
+                                                                    // TODO dedicated method for this ?
+                                                                    .filter_map(|x| x)
+                                                                    .map(|x| option_str_default(x, ""))),
+                                                            ])
+                                                        }),
+                                                    ])
+                                                })
+
+                                            } else {
+                                                Dom::empty()
+                                            },
 
                                             html!("div", {
                                                 .class(&GROUP_TABS_STYLE)
