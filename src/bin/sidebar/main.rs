@@ -20,14 +20,14 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tab_organizer::{generate_uuid, and, or, not, normalize, ScrollEvent};
 use tab_organizer::state;
-use tab_organizer::state::{Message, TabChange};
+use tab_organizer::state::{SidebarMessage, TabChange};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, window, set_timeout};
+use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
 use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, SignalVecExt};
@@ -94,6 +94,10 @@ impl Options {
             sort_tabs: Mutable::new(SortTabs::Window),
         }
     }
+
+    fn merge(&self, other: &Self) {
+        self.sort_tabs.set_neq(other.sort_tabs.get());
+    }
 }
 
 
@@ -104,6 +108,7 @@ struct TabState {
     url: Mutable<Option<Arc<String>>>,
     focused: Mutable<bool>,
     unloaded: Mutable<bool>,
+    pinned: Mutable<bool>,
 }
 
 impl TabState {
@@ -115,6 +120,7 @@ impl TabState {
             url: Mutable::new(state.url.map(Arc::new)),
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
+            pinned: Mutable::new(state.pinned),
         }
     }
 }
@@ -192,18 +198,6 @@ impl Tab {
         !this.removing.get()
     }
 
-    fn is_hovered(&self) -> impl Signal<Item = bool> {
-        and(self.hovered.signal(), not(STATE.is_dragging()))
-    }
-
-    fn is_holding(&self) -> impl Signal<Item = bool> {
-        and(
-            and(self.is_hovered(), self.holding.signal()),
-            // TODO a little bit hacky
-            not(self.close_hovered.signal())
-        )
-    }
-
     fn is_focused(&self) -> impl Signal<Item = bool> {
         self.focused.signal()
     }
@@ -234,6 +228,7 @@ impl Window {
         }
     }
 
+    // TODO make this more efficient (e.g. returning Iterator)
     fn get_tabs(&self) -> Vec<Arc<Tab>> {
         self.tabs.iter().cloned().map(Tab::new).map(Arc::new).collect()
     }
@@ -261,7 +256,7 @@ struct Group {
 }
 
 impl Group {
-    fn new(show_header: bool, window: &Window, tabs: Vec<Arc<Tab>>) -> Self {
+    fn new(show_header: bool, name: Mutable<Option<Arc<String>>>, tabs: Vec<Arc<Tab>>) -> Self {
         lazy_static! {
             static ref ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
         }
@@ -269,7 +264,7 @@ impl Group {
         Self {
             // TODO investigate whether it's possible to use a faster Ordering
             id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
-            name: window.name.clone(),
+            name,
             tabs: MutableVec::new_with_values(tabs),
             show_header,
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
@@ -313,7 +308,7 @@ impl Group {
     }
 
     fn tabs_each<F>(&self, mut f: F) where F: FnMut(&Tab) {
-        let slice = self.tabs.lock_slice();
+        let slice = self.tabs.lock_ref();
 
         for tab in slice.iter() {
             f(&tab);
@@ -321,7 +316,7 @@ impl Group {
     }
 
     fn update_dragging_tabs<F>(&self, tab_index: Option<usize>, mut f: F) where F: FnMut(&Tab, Percentage) {
-        let slice = self.tabs.lock_slice();
+        let slice = self.tabs.lock_ref();
 
         if let Some(tab_index) = tab_index {
             let mut seen = false;
@@ -351,7 +346,7 @@ impl Group {
     fn click_tab(&self, tab: &Tab) {
         if !tab.selected.get() {
             {
-                let tabs = self.tabs.lock_slice();
+                let tabs = self.tabs.lock_ref();
 
                 for tab in tabs.iter() {
                     tab.selected.set_neq(false);
@@ -379,7 +374,7 @@ impl Group {
         let mut last_selected_tab = self.last_selected_tab.lock_mut();
 
         let selected = if let Some(last_selected_tab) = *last_selected_tab {
-            let tabs = self.tabs.lock_slice();
+            let tabs = self.tabs.lock_ref();
             let mut seen = false;
 
             for x in tabs.iter() {
@@ -409,6 +404,151 @@ impl Group {
             tab.selected.set_neq(true);
             *last_selected_tab = Some(tab.id);
         }
+    }
+}
+
+
+enum GroupsState {
+    Window {
+        pinned: Arc<Group>,
+        unpinned: Arc<Group>,
+    },
+    Tag {},
+    TimeFocused {},
+    TimeCreated {},
+    Url {},
+    Name {},
+}
+
+impl GroupsState {
+    fn new(sort_tabs: SortTabs) -> Self {
+        match sort_tabs {
+            SortTabs::Window => GroupsState::Window {
+                pinned: Arc::new(Group::new(true, Mutable::new(Some(Arc::new("Pinned".to_string()))), vec![])),
+                unpinned: Arc::new(Group::new(false, Mutable::new(None), vec![])),
+            },
+
+            SortTabs::Tag => GroupsState::Tag {},
+            SortTabs::TimeFocused => GroupsState::TimeFocused {},
+            SortTabs::TimeCreated => GroupsState::TimeCreated {},
+            SortTabs::Url => GroupsState::Url {},
+            SortTabs::Name => GroupsState::Name {},
+        }
+    }
+
+    fn initialize(&self, groups: &MutableVec<Arc<Group>>, window: &Window) {
+        match self {
+            GroupsState::Window { ref pinned, ref unpinned } => {
+                let mut groups = groups.lock_mut();
+                let mut pinned_tabs = pinned.tabs.lock_mut();
+                let mut unpinned_tabs = unpinned.tabs.lock_mut();
+
+                let mut is_pinned = true;
+
+                for tab in window.get_tabs() {
+                    if tab.pinned.get() {
+                        assert!(is_pinned);
+                        pinned_tabs.push_cloned(tab);
+
+                    } else {
+                        is_pinned = false;
+                        unpinned_tabs.push_cloned(tab);
+                    }
+                }
+
+                groups.push_cloned(pinned.clone());
+                groups.push_cloned(unpinned.clone());
+            },
+
+            GroupsState::Tag {} => {},
+            GroupsState::TimeFocused {} => {},
+            GroupsState::TimeCreated {} => {},
+            GroupsState::Url {} => {},
+            GroupsState::Name {} => {},
+        }
+    }
+}
+
+struct Groups {
+    state: GroupsState,
+    groups: MutableVec<Arc<Group>>,
+}
+
+impl Groups {
+    fn new(sort_tabs: SortTabs, window: &Window) -> Self {
+        let state = GroupsState::new(sort_tabs);
+        let groups = MutableVec::new();
+
+        state.initialize(&groups, window);
+
+        Self { state, groups }
+    }
+
+    fn tab_inserted(&self, tab_index: usize, tab: Arc<TabState>) {
+        let tab = Arc::new(Tab::new(tab));
+
+        tab.insert_animate();
+
+        match self.state {
+            GroupsState::Window { ref pinned, ref unpinned } => {
+                let mut pinned = pinned.tabs.lock_mut();
+                let mut unpinned = unpinned.tabs.lock_mut();
+
+                let len = get_len(pinned.into_iter(), Tab::is_inserted);
+
+                if tab.pinned.get() {
+                    assert!(tab_index <= len);
+                    pinned.insert_cloned(tab_index, tab);
+
+                } else {
+                    assert!(tab_index > len);
+                    unpinned.insert_cloned(tab_index - len, tab);
+                }
+            },
+
+            GroupsState::Tag {} => {},
+            GroupsState::TimeFocused {} => {},
+            GroupsState::TimeCreated {} => {},
+            GroupsState::Url {} => {},
+            GroupsState::Name {} => {},
+        }
+    }
+
+    fn tab_removed(&self, tab_index: usize, _tab: &TabState) {
+        match self.state {
+            GroupsState::Window { ref pinned, ref unpinned } => {
+                let pinned = pinned.tabs.lock_ref();
+                let unpinned = unpinned.tabs.lock_ref();
+
+                let len = get_len(pinned.into_iter(), Tab::is_inserted);
+
+                let tab = if tab_index < len {
+                    let index = get_index(pinned.iter(), tab_index, Tab::is_inserted);
+                    &pinned[index]
+
+                } else {
+                    let index = get_index(unpinned.iter(), tab_index - len, Tab::is_inserted);
+                    &unpinned[index]
+                };
+
+                tab.remove_animate();
+            },
+
+            GroupsState::Tag {} => {},
+            GroupsState::TimeFocused {} => {},
+            GroupsState::TimeCreated {} => {},
+            GroupsState::Url {} => {},
+            GroupsState::Name {} => {},
+        }
+    }
+}
+
+impl Deref for Groups {
+    type Target = MutableVec<Arc<Group>>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.groups
     }
 }
 
@@ -467,19 +607,15 @@ impl Scrolling {
 
 
 struct State {
-    options: Options,
-
     search_box: Mutable<Arc<String>>,
     search_parser: Mutable<parse::Parsed>,
 
     url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
     groups_padding: Mutable<f64>, // TODO use u32 instead ?
 
-    failed: Mutable<Option<Arc<String>>>,
-    is_loaded: Mutable<bool>,
-
-    windows: RwLock<Vec<Window>>,
-    groups: MutableVec<Arc<Group>>,
+    groups: Groups,
+    window: RwLock<Window>,
+    options: Options,
 
     dragging: Dragging,
     scrolling: Scrolling,
@@ -488,27 +624,24 @@ struct State {
 }
 
 impl State {
-    fn new() -> Self {
-        let local_storage = window().local_storage();
+    fn new(options: Options, initial_window: state::Window) -> Self {
+        let window = Window::new(initial_window);
+
+        let local_storage = stdweb::web::window().local_storage();
 
         let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
         let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
         Self {
-            options: Options::new(),
-
             search_parser: Mutable::new(parse::Parsed::new(&search_value)),
             search_box: Mutable::new(Arc::new(search_value)),
 
             url_bar: Mutable::new(None),
             groups_padding: Mutable::new(0.0),
 
-            failed: Mutable::new(None),
-
-            is_loaded: Mutable::new(false),
-
-            windows: RwLock::new(vec![]),
-            groups: MutableVec::new(),
+            groups: Groups::new(options.sort_tabs.get(), &window),
+            window: RwLock::new(window),
+            options,
 
             dragging: Dragging::new(),
             scrolling: Scrolling::new(scroll_y),
@@ -518,7 +651,7 @@ impl State {
     }
 
     fn update_dragging_groups<F>(&self, group_id: usize, mut f: F) where F: FnMut(&Group, Percentage) {
-        let groups = self.groups.lock_slice();
+        let groups = self.groups.lock_ref();
 
         let mut seen = false;
 
@@ -543,7 +676,7 @@ impl State {
 
         if let Some(DragState::Dragging { ref group, tab_index, .. }) = *dragging {
             if group.id == group_id {
-                Some(tab_index.unwrap_or_else(|| group.tabs.len()))
+                Some(tab_index.unwrap_or_else(|| group.tabs.lock_ref().len()))
 
             } else {
                 None
@@ -558,7 +691,7 @@ impl State {
         let dragging = self.dragging.state.lock_ref();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
-            let groups = self.groups.lock_slice();
+            let groups = self.groups.lock_ref();
 
             let old_index = Self::find_group_index(&groups, group.id);
 
@@ -584,7 +717,7 @@ impl State {
     fn start_scrolling(&self, mouse_y: i32) {
         // TODO is there a better way of calculating this ?
         let top = TOOLBAR_TOTAL_HEIGHT;
-        let bottom = window().inner_height() as f64;
+        let bottom = stdweb::web::window().inner_height() as f64;
         let threshold = MOUSE_SCROLL_THRESHOLD / (bottom - top).abs();
         let percentage = normalize(mouse_y as f64, top, bottom);
         let percentage = percentage - 0.5;
@@ -620,7 +753,7 @@ impl State {
                     let tab_index = Some(tab_index);
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
-                        group.tabs.lock_slice().iter()
+                        group.tabs.lock_ref().iter()
                             .filter(|x| x.selected.get() && x.matches_search.get() && !x.removing.get())
                             .cloned()
                             .collect()
@@ -692,7 +825,7 @@ impl State {
     }
 
     fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
-        let groups = self.groups.lock_slice();
+        let groups = self.groups.lock_ref();
 
         // TODO is this correct ?
         // TODO pass in the new_group_index as a function argument
@@ -701,14 +834,16 @@ impl State {
 
             // TODO verify that this doesn't notify if it isn't dragging
             if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
+                let len = new_group.tabs.lock_ref().len();
+
                 let new_tab_index = if new_group.id == group.id {
                     // TODO code duplication with get_dragging_index
-                    let old_index = tab_index.unwrap_or_else(|| new_group.tabs.len());
+                    let old_index = tab_index.unwrap_or(len);
 
                     if old_index <= new_index {
                         let new_index = new_index + 1;
 
-                        if new_index < new_group.tabs.len() {
+                        if new_index < len {
                             Some(new_index)
 
                         } else {
@@ -724,13 +859,13 @@ impl State {
 
                     let old_group_index = Self::find_group_index(&groups, group.id);
 
-                    if new_index == (new_group.tabs.len() - 1) {
+                    if new_index == (len - 1) {
                         None
 
                     } else if old_group_index <= new_group_index {
                         let new_index = new_index + 1;
 
-                        if new_index < new_group.tabs.len() {
+                        if new_index < len {
                             Some(new_index)
 
                         } else {
@@ -764,7 +899,7 @@ impl State {
             } else {
                 self.change_groups(&group, &new_group);
 
-                let groups = self.groups.lock_slice();
+                let groups = self.groups.lock_ref();
 
                 let old_group_index = Self::find_group_index(&groups, group.id);
 
@@ -799,7 +934,7 @@ impl State {
             });
 
             {
-                let groups = self.groups.lock_slice();
+                let groups = self.groups.lock_ref();
 
                 for group in groups.iter() {
                     group.drag_top.jump_to(Percentage::new(0.0));
@@ -853,6 +988,18 @@ impl State {
         })
     }*/
 
+    fn is_tab_hovered(&self, tab: &Tab) -> impl Signal<Item = bool> {
+        and(tab.hovered.signal(), not(self.is_dragging()))
+    }
+
+    fn is_tab_holding(&self, tab: &Tab) -> impl Signal<Item = bool> {
+        and(
+            and(self.is_tab_hovered(tab), tab.holding.signal()),
+            // TODO a little bit hacky
+            not(tab.close_hovered.signal())
+        )
+    }
+
     fn hover_tab(&self, tab: &Tab) {
         if !tab.hovered.get() {
             tab.hovered.set(true);
@@ -890,12 +1037,12 @@ impl State {
         let search_parser = self.search_parser.lock_ref();
 
         let top_y = self.scrolling.y.get().round();
-        let bottom_y = top_y + (window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
+        let bottom_y = top_y + (stdweb::web::window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
-        self.groups.retain(|group| {
+        self.groups.lock_mut().retain(|group| {
             if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
                 false
 
@@ -913,7 +1060,7 @@ impl State {
                 let tabs_height = current_height;
 
                 // TODO what if there aren't any tabs in the group ?
-                group.tabs.retain(|tab| {
+                group.tabs.lock_mut().retain(|tab| {
                     if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
                         false
 
@@ -1004,110 +1151,30 @@ impl State {
     }
 
 
-    fn initialize(&self, initial_windows: Vec<state::Window>) {
-        let mut windows = self.windows.write().unwrap();
-
-        *windows = initial_windows.into_iter().map(Window::new).collect();
-
-        self.groups.replace_cloned(windows.iter().map(|window| {
-            Arc::new(Group::new(false, &window, window.get_tabs()))
-        }).collect());
-    }
-
-    fn insert_window(&self, window_index: usize, window: &Window) {
-        let tabs = window.get_tabs();
-
-        for tab in tabs.iter() {
-            tab.insert_animate();
-        }
-
-        let group = Arc::new(Group::new(false, &window, tabs));
-
-        group.insert_animate();
-
-        let group_index = get_index(self.groups.lock_slice().iter(), window_index, Group::is_inserted);
-
-        self.groups.insert_cloned(group_index, group);
-    }
-
-    fn remove_window(&self, window_index: usize, _window: &Window) {
-        let groups = self.groups.lock_slice();
-
-        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
-
-        groups[group_index].remove_animate();
-    }
-
-    fn insert_tab(&self, window_index: usize, tab_index: usize, tab: Arc<TabState>) {
-        let tab = Arc::new(Tab::new(tab));
-
-        let groups = self.groups.lock_slice();
-
-        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
-
-        let group = &groups[group_index];
-
-        tab.insert_animate();
-
-        let tab_index = get_index(group.tabs.lock_slice().iter(), tab_index, Tab::is_inserted);
-
-        group.tabs.insert_cloned(tab_index, tab);
-    }
-
-    fn remove_tab(&self, window_index: usize, tab_index: usize, _tab: &TabState) {
-        let groups = self.groups.lock_slice();
-
-        let group_index = get_index(groups.iter(), window_index, Group::is_inserted);
-
-        let tabs = groups[group_index].tabs.lock_slice();
-
-        let tab_index = get_index(tabs.iter(), tab_index, Tab::is_inserted);
-
-        tabs[tab_index].remove_animate();
-    }
-
-    fn process_message(&self, message: Message) {
+    fn process_message(&self, message: SidebarMessage) {
         match message {
-            Message::WindowInserted { window_index, window } => {
-                let mut windows = self.windows.write().unwrap();
-
-                let window = Window::new(window);
-
-                self.insert_window(window_index, &window);
-
-                windows.insert(window_index, window);
-            },
-
-            Message::WindowRemoved { window_index } => {
-                let mut windows = self.windows.write().unwrap();
-
-                let window = windows.remove(window_index);
-
-                self.remove_window(window_index, &window);
-            },
-
-            Message::TabInserted { window_index, tab_index, tab } => {
-                let mut windows = self.windows.write().unwrap();
+            SidebarMessage::TabInserted { tab_index, tab } => {
+                let mut window = self.window.write().unwrap();
 
                 let tab = Arc::new(TabState::new(tab));
 
-                self.insert_tab(window_index, tab_index, tab.clone());
+                self.groups.tab_inserted(tab_index, tab.clone());
 
-                windows[window_index].tabs.insert(tab_index, tab);
+                window.tabs.insert(tab_index, tab);
             },
 
-            Message::TabRemoved { window_index, tab_index } => {
-                let mut windows = self.windows.write().unwrap();
+            SidebarMessage::TabRemoved { tab_index } => {
+                let mut window = self.window.write().unwrap();
 
-                let tab = windows[window_index].tabs.remove(tab_index);
+                let tab = window.tabs.remove(tab_index);
 
-                self.remove_tab(window_index, tab_index, &tab);
+                self.groups.tab_removed(tab_index, &tab);
             },
 
-            Message::TabChanged { window_index, tab_index, change } => {
-                let windows = self.windows.read().unwrap();
+            SidebarMessage::TabChanged { tab_index, change } => {
+                let window = self.window.read().unwrap();
 
-                let tab = &windows[window_index].tabs[tab_index];
+                let tab = &window.tabs[tab_index];
 
                 match change {
                     TabChange::Title { new_title } => {
@@ -1121,8 +1188,150 @@ impl State {
 }
 
 
+// TODO test this
+fn get_len<A, F>(mut iter: A, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+    let mut len = 0;
+
+    while let Some(x) = iter.next() {
+        if f(x) {
+            len += 1;
+        }
+    }
+
+    len
+}
+
+// TODO test this
+fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+    let mut index = 0;
+    let mut len = 0;
+
+    while let Some(x) = iter.next() {
+        if f(x) {
+            if index == real_index {
+                break;
+
+            } else {
+                index += 1;
+            }
+        }
+
+        len += 1;
+    }
+
+    len
+}
+
+fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
+    x.map(|x| DerefFn::new(x, move |x| x.as_str()))
+}
+
+fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
+    DerefFn::new(x, move |x| {
+        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
+    })
+}
+
+fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
+    DerefFn::new(x, move |x| {
+        if let Some(x) = x {
+            if let Some(x) = f(x) {
+                x.as_str()
+
+            } else {
+                default
+            }
+
+        } else {
+            default
+        }
+    })
+}
+
+fn is_empty<A: Borrow<String>>(input: &Option<A>) -> bool {
+    input.as_ref().map(|x| x.borrow().len() == 0).unwrap_or(true)
+}
+
+fn px(t: f64) -> String {
+    // TODO find which spots should be rounded and which shouldn't ?
+    format!("{}px", t.round())
+}
+
+fn px_range(t: Percentage, min: f64, max: f64) -> String {
+    px(t.range_inclusive(min, max))
+}
+
+fn float_range(t: Percentage, min: f64, max: f64) -> String {
+    t.range_inclusive(min, max).to_string()
+}
+
+fn ease(t: Percentage) -> Percentage {
+    easing::in_out(t, easing::cubic)
+}
+
+#[inline]
+fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
+    where A: IHtmlElement + Clone + 'static,
+          B: IntoSignal<Item = bool>,
+          B::Signal: 'static {
+
+    // TODO is this inline a good idea ?
+    #[inline]
+    move |dom| {
+        dom.style_signal("display", signal.into_signal().map(|visible| {
+            if visible {
+                None
+
+            } else {
+                Some("none")
+            }
+        }))
+    }
+}
+
+#[inline]
+fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
+    where A: IntoSignal<Item = bool>,
+          A::Signal: 'static,
+          B: IHtmlElement + Clone + 'static {
+
+    // TODO is this inline a good idea ?
+    #[inline]
+    move |dom| {
+        dom.style_signal("cursor", is_dragging.into_signal().map(move |is_dragging| {
+            if is_dragging {
+                None
+
+            } else {
+                Some(cursor)
+            }
+        }))
+    }
+}
+
+fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
+    where A: Signal<Item = Percentage>,
+          F: FnMut(Percentage, f64, f64) -> String {
+    signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
+}
+
+
 lazy_static! {
-    static ref STATE: Arc<State> = Arc::new(State::new());
+    static ref FAILED: Mutable<Option<Arc<String>>> = Mutable::new(None);
+
+    static ref IS_LOADED: Mutable<bool> = Mutable::new(false);
+
+    static ref ROW_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center") // TODO get rid of this ?
+    };
+
+    static ref STRETCH_STYLE: String = class! {
+        .style("flex-shrink", "1")
+        .style("flex-grow", "1")
+        .style("flex-basis", "0%")
+    };
 
     static ref TOP_STYLE: String = class! {
         .style("white-space", "pre")
@@ -1132,6 +1341,13 @@ lazy_static! {
         .style("height", "100%")
         .style("background-color", "hsl(0, 0%, 100%)")
         .style("overflow", "hidden")
+    };
+
+    static ref TEXTURE_STYLE: String = class! {
+        .style("background-image", "repeating-linear-gradient(0deg, \
+                                        transparent                0px, \
+                                        hsla(200, 30%, 30%, 0.022) 2px, \
+                                        hsla(200, 30%, 30%, 0.022) 3px)")
     };
 
     static ref MODAL_STYLE: String = class! {
@@ -1153,11 +1369,39 @@ lazy_static! {
         .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
     };
 
-    static ref TEXTURE_STYLE: String = class! {
-        .style("background-image", "repeating-linear-gradient(0deg, \
-                                        transparent                0px, \
-                                        hsla(200, 30%, 30%, 0.022) 2px, \
-                                        hsla(200, 30%, 30%, 0.022) 3px)")
+    static ref CENTER_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center")
+        .style("justify-content", "center")
+    };
+
+    static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
+                                                       transparent             0px, \
+                                                       transparent             4px, \
+                                                       hsla(0, 0%, 100%, 0.05) 6px, \
+                                                       hsla(0, 0%, 100%, 0.05) 10px)";
+
+    static ref MENU_ITEM_HOVER_STYLE: String = class! {
+        // TODO a bit hacky
+        .style("transition-duration", "0ms")
+        .style("color", "hsla(211, 100%, 99%, 0.95)")
+        .style("background-color", "hsl(211, 100%, 65%)")
+        .style("border-color", "hsl(211, 38%, 62%) \
+                                hsl(211, 38%, 57%) \
+                                hsl(211, 38%, 52%) \
+                                hsl(211, 38%, 57%)")
+        .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
+                               0px 0px 1px hsla(0, 0%, 0%, 0.1), \
+                               0px 1px 1px hsla(0, 0%, 0%, 0.2)")
+        .style("background-image", &format!("linear-gradient(to bottom, \
+                                                 hsla(0, 0%, 100%, 0.2) 0%, \
+                                                 transparent            49%, \
+                                                 hsla(0, 0%,   0%, 0.1) 50%, \
+                                                 hsla(0, 0%, 100%, 0.1) 80%, \
+                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
+                                            *REPEATING_GRADIENT))
+        .style("z-index", "1")
     };
 
     static ref TOOLBAR_STYLE: String = class! {
@@ -1191,15 +1435,6 @@ lazy_static! {
         .style("padding-left", "11px")
         .style("padding-right", "11px")
         .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
-
-        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
-            if is_dragging {
-                None
-
-            } else {
-                Some("pointer")
-            }
-        }))
     };
 
     static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
@@ -1207,22 +1442,13 @@ lazy_static! {
     };
 
     static ref SEARCH_STYLE: String = class! {
-        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
-            if is_dragging {
-                None
-
-            } else {
-                Some("auto")
-            }
-        }))
-
         .style("padding-top", "2px")
         .style("padding-bottom", "2px")
         .style("padding-left", "5px")
         .style("padding-right", "5px")
         .style("height", "100%")
 
-        .style_signal("background-color", STATE.failed.signal_cloned().map(|failed| {
+        .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
             if failed.is_some() {
                 Some("hsl(5, 100%, 90%)")
 
@@ -1281,49 +1507,12 @@ lazy_static! {
         .style("border-width", &px(TAB_BORDER_WIDTH))
 
         .style("transition", "background-color 100ms ease-in-out")
-
-        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
-            if is_dragging {
-                None
-
-            } else {
-                Some("pointer")
-            }
-        }))
     };
 
     static ref MENU_ITEM_SHADOW_STYLE: String = class! {
         .style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
                               inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
                               inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
-    };
-
-    static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
-                                                       transparent             0px, \
-                                                       transparent             4px, \
-                                                       hsla(0, 0%, 100%, 0.05) 6px, \
-                                                       hsla(0, 0%, 100%, 0.05) 10px)";
-
-    static ref MENU_ITEM_HOVER_STYLE: String = class! {
-        // TODO a bit hacky
-        .style("transition-duration", "0ms")
-        .style("color", "hsla(211, 100%, 99%, 0.95)")
-        .style("background-color", "hsl(211, 100%, 65%)")
-        .style("border-color", "hsl(211, 38%, 62%) \
-                                hsl(211, 38%, 57%) \
-                                hsl(211, 38%, 52%) \
-                                hsl(211, 38%, 57%)")
-        .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
-                               0px 0px 1px hsla(0, 0%, 0%, 0.1), \
-                               0px 1px 1px hsla(0, 0%, 0%, 0.2)")
-        .style("background-image", &format!("linear-gradient(to bottom, \
-                                                 hsla(0, 0%, 100%, 0.2) 0%, \
-                                                 transparent            49%, \
-                                                 hsla(0, 0%,   0%, 0.1) 50%, \
-                                                 hsla(0, 0%, 100%, 0.1) 80%, \
-                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
-                                            *REPEATING_GRADIENT))
-        .style("z-index", "1")
     };
 
     static ref MENU_ITEM_HOLD_STYLE: String = class! {
@@ -1338,25 +1527,6 @@ lazy_static! {
         .style("box-shadow",      "1px 1px  1px hsla(0, 0%,   0%, 0.1), \
                              inset 0px 0px  3px hsla(0, 0%, 100%, 0.9), \
                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.225)")
-    };
-
-    static ref ROW_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center") // TODO get rid of this ?
-    };
-
-    static ref CENTER_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center")
-        .style("justify-content", "center")
-    };
-
-    static ref STRETCH_STYLE: String = class! {
-        .style("flex-shrink", "1")
-        .style("flex-grow", "1")
-        .style("flex-basis", "0%")
     };
 
     static ref TAB_STYLE: String = class! {
@@ -1532,385 +1702,106 @@ lazy_static! {
 }
 
 
-// TODO test this
-fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
-    let mut index = 0;
-    let mut len = 0;
+fn initialize(state: Arc<State>) {
+    fn make_url_bar_child<A, D, F>(state: &State, name: &str, mut display: D, f: F) -> Dom
+        where A: IntoStr,
+              D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
+              F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
+        html!("div", {
+            .class(&URL_BAR_TEXT_STYLE)
+            .class(name)
 
-    while let Some(x) = iter.next() {
-        if f(x) {
-            if index == real_index {
-                break;
+            .mixin(visible(state.url_bar.signal_cloned().map(move |url_bar| {
+                if let Some(url_bar) = url_bar {
+                    display(url_bar)
 
-            } else {
-                index += 1;
-            }
-        }
+                } else {
+                    false
+                }
+            })))
 
-        len += 1;
+            .children(&mut [
+                text_signal(state.url_bar.signal_cloned().map(f))
+            ])
+        })
     }
 
-    len
-}
+    fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+        html!("img", {
+            .class(&TAB_FAVICON_STYLE)
+            .class(&ICON_STYLE)
 
-fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
-    x.map(|x| DerefFn::new(x, move |x| x.as_str()))
-}
+            .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
 
-fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
-    DerefFn::new(x, move |x| {
-        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
-    })
-}
+            .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
 
-fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
-    DerefFn::new(x, move |x| {
-        if let Some(x) = x {
-            if let Some(x) = f(x) {
-                x.as_str()
-
-            } else {
-                default
-            }
-
-        } else {
-            default
-        }
-    })
-}
-
-fn is_empty<A: Borrow<String>>(input: &Option<A>) -> bool {
-    input.as_ref().map(|x| x.borrow().len() == 0).unwrap_or(true)
-}
-
-fn px(t: f64) -> String {
-    // TODO find which spots should be rounded and which shouldn't ?
-    format!("{}px", t.round())
-}
-
-fn px_range(t: Percentage, min: f64, max: f64) -> String {
-    px(t.range_inclusive(min, max))
-}
-
-fn float_range(t: Percentage, min: f64, max: f64) -> String {
-    t.range_inclusive(min, max).to_string()
-}
-
-fn ease(t: Percentage) -> Percentage {
-    easing::in_out(t, easing::cubic)
-}
-
-#[inline]
-fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
-    where A: IHtmlElement + Clone + 'static,
-          B: IntoSignal<Item = bool>,
-          B::Signal: 'static {
-
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| {
-        dom.style_signal("display", signal.into_signal().map(|visible| {
-            if visible {
-                None
-
-            } else {
-                Some("none")
-            }
-        }))
+            .mixin(mixin)
+        })
     }
-}
 
-fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
-    where A: Signal<Item = Percentage>,
-          F: FnMut(Percentage, f64, f64) -> String {
-    signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
-}
+    fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+        html!("div", {
+            .class(&STRETCH_STYLE)
+            .class(&TAB_TEXT_STYLE)
 
-fn make_url_bar_child<A, D, F>(name: &str, mut display: D, f: F) -> Dom
-    where A: IntoStr,
-          D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
-          F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
-    html!("div", {
-        .class(&URL_BAR_TEXT_STYLE)
-        .class(name)
+            .children(&mut [
+                text_signal(map_ref! {
+                    let title = tab.title.signal_cloned(),
+                    let unloaded = tab.unloaded.signal() => {
+                        if *unloaded {
+                            if title.is_some() {
+                                "➔ "
 
-        .mixin(visible(STATE.url_bar.signal_cloned().map(move |url_bar| {
-            if let Some(url_bar) = url_bar {
-                display(url_bar)
-
-            } else {
-                false
-            }
-        })))
-
-        .children(&mut [
-            text_signal(STATE.url_bar.signal_cloned().map(f))
-        ])
-    })
-}
-
-fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
-    html!("img", {
-        .class(&TAB_FAVICON_STYLE)
-        .class(&ICON_STYLE)
-
-        .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
-
-        .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
-
-        .mixin(mixin)
-    })
-}
-
-fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
-    html!("div", {
-        .class(&STRETCH_STYLE)
-        .class(&TAB_TEXT_STYLE)
-
-        .children(&mut [
-            text_signal(map_ref! {
-                let title = tab.title.signal_cloned(),
-                let unloaded = tab.unloaded.signal() => {
-                    if *unloaded {
-                        if title.is_some() {
-                            "➔ "
+                            } else {
+                                "➔"
+                            }
 
                         } else {
-                            "➔"
+                            ""
                         }
-
-                    } else {
-                        ""
                     }
-                }
-            }),
+                }),
 
-            text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-        ])
+                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
+            ])
 
-        .mixin(mixin)
-    })
-}
+            .mixin(mixin)
+        })
+    }
 
-fn tab_close<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
-    html!("img", {
-        .class(&TAB_CLOSE_STYLE)
-        .class(&ICON_STYLE)
+    fn tab_close<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+        html!("img", {
+            .class(&TAB_CLOSE_STYLE)
+            .class(&ICON_STYLE)
 
-        .attribute("src", "data/images/button-close.png")
+            .attribute("src", "data/images/button-close.png")
 
-        .mixin(mixin)
-    })
-}
+            .mixin(mixin)
+        })
+    }
 
-fn tab_template<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, favicon: Dom, text: Dom, close: Dom, mixin: A) -> Dom {
-    html!("div", {
-        .class(&ROW_STYLE)
-        .class(&TAB_STYLE)
-        .class(&MENU_ITEM_STYLE)
+    fn tab_template<A>(state: &State, tab: &Tab, favicon: Dom, text: Dom, close: Dom, mixin: A) -> Dom
+        where A: Mixin<DomBuilder<HtmlElement>> {
 
-        .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
-        .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
+        html!("div", {
+            .class(&ROW_STYLE)
+            .class(&TAB_STYLE)
+            .class(&MENU_ITEM_STYLE)
 
-        .children(&mut [favicon, text, close])
+            .mixin(cursor(state.is_dragging(), "pointer"))
 
-        .mixin(mixin)
-    })
-}
+            .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
+            .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
+            .children(&mut [favicon, text, close])
 
-fn main() {
-    log!("Starting");
-
-    tab_organizer::set_panic_hook(|message| {
-        let message = Arc::new(message);
-        STATE.failed.set(Some(message.clone()));
-        PromiseFuture::print_error_panic(&*message);
-    });
-
-
-    js! { @(no_return)
-        setTimeout(@{move || {
-            let windows: Vec<state::Window> = (0..10).map(|_index| {
-                state::Window {
-                    serialized: state::SerializedWindow {
-                        id: generate_uuid(),
-                        name: None,
-                        timestamp_created: Date::now(),
-                    },
-                    focused: false,
-                    tabs: (0..100).map(|index| {
-                        state::Tab {
-                            serialized: state::SerializedTab {
-                                id: generate_uuid(),
-                                timestamp_created: Date::now(),
-                            },
-                            focused: index == 7,
-                            unloaded: index == 5,
-                            pinned: index == 0 || index == 1 || index == 2,
-                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                            url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                            title: Some("Foo".to_owned()),
-                        }
-                    }).collect(),
-                }
-            }).collect();
-
-            STATE.initialize(windows);
-
-            // TODO a little hacky, needed to ensure that scrolling happens after everything is created
-            window().request_animation_frame(|_| {
-                STATE.is_loaded.set_neq(true);
-                log!("Loaded");
-            });
-
-            js! { @(no_return)
-                setInterval(@{move || {
-                    STATE.process_message(Message::TabChanged {
-                        window_index: 0,
-                        tab_index: 2,
-                        change: TabChange::Title {
-                            new_title: Some(generate_uuid().to_string()),
-                        },
-                    });
-
-                    STATE.process_message(Message::TabChanged {
-                        window_index: 0,
-                        tab_index: 7,
-                        change: TabChange::Pinned {
-                            pinned: true,
-                        },
-                    });
-
-                    /*STATE.process_message(Message::TabRemoved {
-                        window_index: 0,
-                        tab_index: 0,
-                    });
-
-                    STATE.process_message(Message::TabRemoved {
-                        window_index: 0,
-                        tab_index: 8,
-                    });
-
-                    STATE.process_message(Message::TabInserted {
-                        window_index: 0,
-                        tab_index: 0,
-                        tab: state::Tab {
-                            serialized: state::SerializedTab {
-                                id: generate_uuid(),
-                                timestamp_created: Date::now()
-                            },
-                            focused: false,
-                            unloaded: true,
-                            pinned: false,
-                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                            url: Some("top".to_owned()),
-                            title: Some("top".to_owned()),
-                        },
-                    });
-
-                    STATE.process_message(Message::TabInserted {
-                        window_index: 0,
-                        tab_index: 8,
-                        tab: state::Tab {
-                            serialized: state::SerializedTab {
-                                id: generate_uuid(),
-                                timestamp_created: Date::now()
-                            },
-                            focused: false,
-                            unloaded: false,
-                            pinned: true,
-                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                            url: Some("bottom".to_owned()),
-                            title: Some("bottom".to_owned()),
-                        },
-                    });
-
-                    for _ in 0..10 {
-                        STATE.process_message(Message::TabRemoved {
-                            window_index: 2,
-                            tab_index: 0,
-                        });
-                    }
-
-                    STATE.process_message(Message::WindowRemoved {
-                        window_index: 2,
-                    });
-
-                    STATE.process_message(Message::WindowInserted {
-                        window_index: 2,
-                        window: state::Window {
-                            serialized: state::SerializedWindow {
-                                id: generate_uuid(),
-                                name: None,
-                                timestamp_created: Date::now(),
-                            },
-                            focused: false,
-                            tabs: vec![],
-                        },
-                    });
-
-                    for index in 0..10 {
-                        STATE.process_message(Message::TabInserted {
-                            window_index: 2,
-                            tab_index: index,
-                            tab: state::Tab {
-                                serialized: state::SerializedTab {
-                                    id: generate_uuid(),
-                                    timestamp_created: Date::now(),
-                                },
-                                focused: index == 7,
-                                unloaded: index == 5,
-                                pinned: index == 0 || index == 1 || index == 2,
-                                favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                                url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                                title: Some("Foo".to_owned()),
-                            },
-                        });
-                    }*/
-                }}, @{INSERT_ANIMATION_DURATION + 2000.0});
-            }
-        }}, 1500);
+            .mixin(mixin)
+        })
     }
 
 
-    stylesheet!("*", {
-        .style("text-overflow", "ellipsis")
-
-        .style("vertical-align", "middle") /* TODO I can probably get rid of this */
-
-        /* TODO is this correct ?*/
-        .style("background-repeat", "no-repeat")
-        .style("background-size", "100% 100%")
-        .style("cursor", "inherit")
-        .style("position", "relative")
-
-        /* TODO are these a good idea ? */
-        .style("outline-width", "0px")
-        .style("outline-color", "transparent")
-        .style("outline-style", "solid")
-
-        .style("border-width", "0px")
-        .style("border-color", "transparent")
-        .style("border-style", "solid")
-
-        .style("margin", "0px")
-        .style("padding", "0px")
-
-        .style("background-color", "transparent")
-
-        .style("flex-shrink", "0") /* 1 */
-        .style("flex-grow", "0") /* 1 */
-        .style("flex-basis", "auto") /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
-    });
-
     stylesheet!("html, body", {
-        .style("width", "100%")
-        .style("height", "100%")
-
-        .style(["-moz-user-select", "user-select"], "none")
-
-        .style_signal("cursor", STATE.is_dragging().map(|is_dragging| {
+        .style_signal("cursor", state.is_dragging().map(|is_dragging| {
             if is_dragging {
                 Some("grabbing")
 
@@ -1920,63 +1811,36 @@ fn main() {
         }))
     });
 
-    // Disables the browser scroll restoration
-    js! { @(no_return)
-        if ("scrollRestoration" in history) {
-            history.scrollRestoration = "manual";
-        }
-    }
-
     dominator::append_dom(&dominator::body(),
         html!("div", {
             .class(&TOP_STYLE)
             .class(&TEXTURE_STYLE)
 
             // TODO only attach this when dragging
-            .global_event(move |_: MouseUpEvent| {
-                STATE.drag_end();
-            })
-
-            // TODO only attach this when dragging
-            .global_event(move |e: MouseMoveEvent| {
-                STATE.drag_move(e.client_x(), e.client_y());
-            })
-
-            .global_event(move |_: ResizeEvent| {
-                STATE.update(false);
-            })
-
-            .future(waiter::waiter(&STATE, move |should_search| {
-                STATE.update(should_search);
+            .global_event(clone!(state => move |_: MouseUpEvent| {
+                state.drag_end();
             }))
 
+            // TODO only attach this when dragging
+            .global_event(clone!(state => move |e: MouseMoveEvent| {
+                state.drag_move(e.client_x(), e.client_y());
+            }))
+
+            .global_event(clone!(state => move |_: ResizeEvent| {
+                state.update(false);
+            }))
+
+            .future(waiter::waiter(&state, clone!(state => move |should_search| {
+                state.update(should_search);
+            })))
+
             .children(&mut [
-                {
-                    let show = Mutable::new(false);
-
-                    set_timeout(clone!(show => move || {
-                        show.set_neq(true);
-                    }), LOADING_MESSAGE_THRESHOLD);
-
-                    html!("div", {
-                        .class(&MODAL_STYLE)
-                        .class(&LOADING_STYLE)
-                        .class(&CENTER_STYLE)
-
-                        .mixin(visible(and(show.signal(), not(STATE.is_loaded.signal()))))
-
-                        .children(&mut [
-                            text("LOADING..."),
-                        ])
-                    })
-                },
-
                 html!("div", {
                     .class(&DRAGGING_STYLE)
 
-                    .mixin(visible(STATE.is_dragging()))
+                    .mixin(visible(state.is_dragging()))
 
-                    .style_signal("width", STATE.dragging.state.signal_ref(|dragging| {
+                    .style_signal("width", state.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { rect, .. }) = dragging {
                             Some(px(rect.get_width()))
 
@@ -1985,7 +1849,7 @@ fn main() {
                         }
                     }))
 
-                    .style_signal("transform", STATE.dragging.state.signal_ref(|dragging| {
+                    .style_signal("transform", state.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
                             Some(format!("translate({}px, {}px)", rect.get_left().round(), (mouse_y - TAB_DRAGGING_TOP)))
 
@@ -1994,7 +1858,7 @@ fn main() {
                         }
                     }))
 
-                    .children_signal_vec(STATE.dragging.selected_tabs.signal_ref(|tabs| {
+                    .children_signal_vec(state.dragging.selected_tabs.signal_ref(clone!(state => move |tabs| {
                         tabs.iter().enumerate().map(|(index, tab)| {
                             // TODO use some sort of oneshot animation instead
                             // TODO don't create the animation at all for index 0
@@ -2005,7 +1869,7 @@ fn main() {
                             }
 
                             Dom::with_state(animation, |animation| {
-                                tab_template(&tab,
+                                tab_template(&state, &tab,
                                     tab_favicon(&tab, |dom| dom),
                                     tab_text(&tab, |dom| dom),
 
@@ -2048,7 +1912,7 @@ fn main() {
                                     })
                             })
                         }).collect()
-                    }).to_signal_vec())
+                    })).to_signal_vec())
                 }),
 
                 html!("div", {
@@ -2056,8 +1920,8 @@ fn main() {
                     .class(&URL_BAR_STYLE)
 
                     .mixin(visible(map_ref! {
-                        let is_dragging = STATE.is_dragging(),
-                        let url_bar = STATE.url_bar.signal_cloned() => {
+                        let is_dragging = state.is_dragging(),
+                        let url_bar = state.url_bar.signal_cloned() => {
                             // TODO a bit hacky
                             let matches = url_bar.as_ref().map(|url_bar| {
                                 !is_empty(&url_bar.protocol) ||
@@ -2074,12 +1938,12 @@ fn main() {
 
                     // TODO check if any of these need "flex-shrink": 1
                     .children(&mut [
-                        make_url_bar_child(&URL_BAR_PROTOCOL_STYLE, |x| !is_empty(&x.protocol), |url_bar| option_str_default_fn(url_bar, "", |x| &x.protocol)), // .as_ref().map(|x| x.as_str())
-                        make_url_bar_child(&URL_BAR_DOMAIN_STYLE, |x| !is_empty(&x.domain), |url_bar| option_str_default_fn(url_bar, "", |x| &x.domain)),
-                        make_url_bar_child(&URL_BAR_PATH_STYLE, |x| !is_empty(&x.path), |url_bar| option_str_default_fn(url_bar, "", |x| &x.path)),
-                        make_url_bar_child(&URL_BAR_FILE_STYLE, |x| !is_empty(&x.file), |url_bar| option_str_default_fn(url_bar, "", |x| &x.file)),
-                        make_url_bar_child(&URL_BAR_QUERY_STYLE, |x| !is_empty(&x.query), |url_bar| option_str_default_fn(url_bar, "", |x| &x.query)),
-                        make_url_bar_child(&URL_BAR_HASH_STYLE, |x| !is_empty(&x.hash), |url_bar| option_str_default_fn(url_bar, "", |x| &x.hash)),
+                        make_url_bar_child(&state, &URL_BAR_PROTOCOL_STYLE, |x| !is_empty(&x.protocol), |url_bar| option_str_default_fn(url_bar, "", |x| &x.protocol)), // .as_ref().map(|x| x.as_str())
+                        make_url_bar_child(&state, &URL_BAR_DOMAIN_STYLE, |x| !is_empty(&x.domain), |url_bar| option_str_default_fn(url_bar, "", |x| &x.domain)),
+                        make_url_bar_child(&state, &URL_BAR_PATH_STYLE, |x| !is_empty(&x.path), |url_bar| option_str_default_fn(url_bar, "", |x| &x.path)),
+                        make_url_bar_child(&state, &URL_BAR_FILE_STYLE, |x| !is_empty(&x.file), |url_bar| option_str_default_fn(url_bar, "", |x| &x.file)),
+                        make_url_bar_child(&state, &URL_BAR_QUERY_STYLE, |x| !is_empty(&x.query), |url_bar| option_str_default_fn(url_bar, "", |x| &x.query)),
+                        make_url_bar_child(&state, &URL_BAR_HASH_STYLE, |x| !is_empty(&x.hash), |url_bar| option_str_default_fn(url_bar, "", |x| &x.hash)),
                     ])
                 }),
 
@@ -2087,30 +1951,30 @@ fn main() {
                     .class(&ROW_STYLE)
                     .class(&TOOLBAR_STYLE)
 
-                    .mixin(visible(STATE.is_loaded.signal()))
-
                     .children(&mut [
                         html!("input" => InputElement, {
                             .class(&SEARCH_STYLE)
                             .class(&STRETCH_STYLE)
+
+                            .mixin(cursor(state.is_dragging(), "auto"))
 
                             .attribute("type", "text")
                             .attribute("autofocus", "")
                             .attribute("autocomplete", "off")
                             .attribute("placeholder", "Search")
 
-                            .attribute_signal("title", STATE.failed.signal_cloned().map(|x| option_str_default(x, "")))
+                            .attribute_signal("title", FAILED.signal_cloned().map(|x| option_str_default(x, "")))
 
-                            .attribute_signal("value", STATE.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())))
+                            .attribute_signal("value", state.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())))
 
                             .with_element(|dom, element: InputElement| {
-                                dom.event(move |_: InputEvent| {
+                                dom.event(clone!(state => move |_: InputEvent| {
                                     let value = Arc::new(element.raw_value());
-                                    window().local_storage().insert("tab-organizer.search", &value).unwrap();
-                                    STATE.search_parser.set(parse::Parsed::new(&value));
-                                    STATE.search_box.set(value);
-                                    STATE.update(true);
-                                })
+                                    stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
+                                    state.search_parser.set(parse::Parsed::new(&value));
+                                    state.search_box.set(value);
+                                    state.update(true);
+                                }))
                             })
                         }),
 
@@ -2128,6 +1992,8 @@ fn main() {
                                     html!("div", {
                                         .class(&ROW_STYLE)
                                         .class(&TOOLBAR_MENU_STYLE)
+
+                                        .mixin(cursor(state.is_dragging(), "pointer"))
 
                                         .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
@@ -2148,44 +2014,44 @@ fn main() {
                                             holding.set_neq(false);
                                         })
 
-                                        .event(|_: ClickEvent| {
-                                            STATE.menu.show();
-                                        })
+                                        .event(clone!(state => move |_: ClickEvent| {
+                                            state.menu.show();
+                                        }))
 
                                         .children(&mut [
                                             text("Menu"),
                                         ])
                                     }),
 
-                                    STATE.menu.render(|menu| { menu
+                                    state.menu.render(|menu| { menu
                                         .submenu("Sort tabs by...", |menu| { menu
-                                            .option("Window", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::Window);
-                                            })
+                                            .option("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::Window);
+                                            }))
 
-                                            .option("Tag", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::Tag);
-                                            })
-
-                                            .separator()
-
-                                            .option("Time (focused)", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::TimeFocused);
-                                            })
-
-                                            .option("Time (created)", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::TimeCreated);
-                                            })
+                                            .option("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::Tag);
+                                            }))
 
                                             .separator()
 
-                                            .option("URL", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::Url);
-                                            })
+                                            .option("Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
+                                            }))
 
-                                            .option("Name", STATE.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), || {
-                                                STATE.options.sort_tabs.set_neq(SortTabs::Name);
-                                            })
+                                            .option("Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
+                                            }))
+
+                                            .separator()
+
+                                            .option("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::Url);
+                                            }))
+
+                                            .option("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                                                state.options.sort_tabs.set_neq(SortTabs::Name);
+                                            }))
                                         })
 
                                         .separator()
@@ -2204,25 +2070,23 @@ fn main() {
                 html!("div", {
                     .class(&GROUP_LIST_STYLE)
 
-                    .mixin(visible(STATE.is_loaded.signal()))
-
                     .with_element(|dom, element: HtmlElement| { dom
                         // TODO also update these when groups/tabs are added/removed ?
-                        .event(clone!(element => move |_: ScrollEvent| {
-                            if STATE.is_loaded.get() {
-                                let local_storage = window().local_storage();
+                        .event(clone!(state, element => move |_: ScrollEvent| {
+                            if IS_LOADED.get() {
+                                let local_storage = stdweb::web::window().local_storage();
                                 let y = element.scroll_top();
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
-                                STATE.scrolling.y.set_neq(y);
-                                STATE.update(false);
+                                state.scrolling.y.set_neq(y);
+                                state.update(false);
                             }
                         }))
 
                         // TODO use set_scroll_top instead
                         .future(map_ref! {
-                            let loaded = STATE.is_loaded.signal(),
-                            let scroll_y = STATE.scrolling.y.signal() => {
+                            let loaded = IS_LOADED.signal(),
+                            let scroll_y = state.scrolling.y.signal() => {
                                 if *loaded {
                                     Some(*scroll_y)
 
@@ -2231,7 +2095,7 @@ fn main() {
                                 }
                             }
                         // TODO super hacky, figure out a better way to keep the scroll_y in bounds
-                        }.for_each(move |scroll_y| {
+                        }.for_each(clone!(state => move |scroll_y| {
                             if let Some(scroll_y) = scroll_y {
                                 let scroll_y = scroll_y.round();
                                 let old_scroll_y = element.scroll_top();
@@ -2243,15 +2107,15 @@ fn main() {
                                     let new_scroll_y = element.scroll_top();
 
                                     if new_scroll_y != scroll_y {
-                                        STATE.scrolling.y.set_neq(new_scroll_y);
+                                        state.scrolling.y.set_neq(new_scroll_y);
                                     }
 
-                                    STATE.update(false);
+                                    state.update(false);
                                 }
                             }
 
                             Ok(())
-                        }))
+                        })))
                     })
 
                     .children(&mut [
@@ -2259,15 +2123,15 @@ fn main() {
                         html!("div", {
                             .class(&GROUP_LIST_CHILDREN_STYLE)
 
-                            .style_signal("padding-top", STATE.groups_padding.signal().map(px))
-                            .style_signal("height", STATE.scrolling.height.signal().map(px))
+                            .style_signal("padding-top", state.groups_padding.signal().map(px))
+                            .style_signal("height", state.scrolling.height.signal().map(px))
 
-                            .children_signal_vec(STATE.groups.signal_vec_cloned().enumerate()
+                            .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
                                 //.delay_remove(|(_, group)| waiter::delay_animation(&group.insert_animation, &group.visible))
                                 .filter_signal_cloned(|(_, group)| group.visible.signal())
-                                .map(move |(index, group)| {
+                                .map(clone!(state => move |(index, group)| {
                                     if let Some(index) = index.get() {
-                                        if STATE.should_be_dragging_group(index) {
+                                        if state.should_be_dragging_group(index) {
                                             group.drag_top.jump_to(Percentage::new(1.0));
                                         }
                                     }
@@ -2283,9 +2147,9 @@ fn main() {
                                         .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
                                         .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                                        .event(clone!(group, index => move |_: MouseEnterEvent| {
+                                        .event(clone!(state, group, index => move |_: MouseEnterEvent| {
                                             if let Some(index) = index.get() {
-                                                STATE.drag_over_group(group.clone(), index);
+                                                state.drag_over_group(group.clone(), index);
                                             }
                                         }))
 
@@ -2334,14 +2198,14 @@ fn main() {
                                                 .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
                                                     //.delay_remove(|(_, tab)| waiter::delay_animation(&tab.insert_animation, &tab.visible))
                                                     .filter_signal_cloned(|(_, tab)| tab.visible.signal())
-                                                    .map(move |(index, tab)| {
+                                                    .map(clone!(state => move |(index, tab)| {
                                                         if let Some(index) = index.get() {
-                                                            if STATE.should_be_dragging_tab(group.id, index) {
+                                                            if state.should_be_dragging_tab(group.id, index) {
                                                                 tab.drag_over.jump_to(Percentage::new(1.0));
                                                             }
                                                         }
 
-                                                        tab_template(&tab,
+                                                        tab_template(&state, &tab,
                                                             tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| { dom
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
@@ -2356,7 +2220,7 @@ fn main() {
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
 
-                                                                .mixin(visible(tab.is_hovered()))
+                                                                .mixin(visible(state.is_tab_hovered(&tab)))
 
                                                                 .event(clone!(tab => move |_: MouseEnterEvent| {
                                                                     tab.close_hovered.set_neq(true);
@@ -2377,17 +2241,17 @@ fn main() {
                                                             }),
 
                                                             |dom: DomBuilder<HtmlElement>| dom
-                                                                .class_signal(&TAB_HOVER_STYLE, tab.is_hovered())
-                                                                .class_signal(&MENU_ITEM_HOVER_STYLE, tab.is_hovered())
-                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(tab.is_hovered(), tab.unloaded.signal()))
-                                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(tab.is_hovered(), tab.is_focused()))
+                                                                .class_signal(&TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                                                .class_signal(&MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
+                                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
-                                                                .class_signal(&TAB_HOLD_STYLE, tab.is_holding())
-                                                                .class_signal(&MENU_ITEM_HOLD_STYLE, tab.is_holding())
+                                                                .class_signal(&TAB_HOLD_STYLE, state.is_tab_holding(&tab))
+                                                                .class_signal(&MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
 
                                                                 .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
-                                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, and(tab.is_hovered(), tab.selected.signal()))
-                                                                .class_signal(&MENU_ITEM_SHADOW_STYLE, or(tab.is_hovered(), tab.selected.signal()))
+                                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
+                                                                .class_signal(&MENU_ITEM_SHADOW_STYLE, or(state.is_tab_hovered(&tab), tab.selected.signal()))
 
                                                                 .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
@@ -2407,7 +2271,7 @@ fn main() {
 
                                                                 // TODO a bit hacky
                                                                 .with_element(|dom, element: HtmlElement| {
-                                                                    dom.event(clone!(index, group, tab => move |e: MouseDownEvent| {
+                                                                    dom.event(clone!(state, index, group, tab => move |e: MouseDownEvent| {
                                                                         tab.holding.set_neq(true);
 
                                                                         if let Some(index) = index.get() {
@@ -2420,7 +2284,7 @@ fn main() {
 
                                                                             if !shift && !ctrl && !alt {
                                                                                 let rect = element.get_bounding_client_rect();
-                                                                                STATE.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                                                state.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
                                                                             }
                                                                         }
                                                                     }))
@@ -2431,18 +2295,18 @@ fn main() {
                                                                     tab.holding.set_neq(false);
                                                                 }))
 
-                                                                .event(clone!(index, group, tab => move |_: MouseEnterEvent| {
+                                                                .event(clone!(state, index, group, tab => move |_: MouseEnterEvent| {
                                                                     // TODO should this be inside of the if ?
-                                                                    STATE.hover_tab(&tab);
+                                                                    state.hover_tab(&tab);
 
                                                                     if let Some(index) = index.get() {
-                                                                        STATE.drag_over(group.clone(), index);
+                                                                        state.drag_over(group.clone(), index);
                                                                     }
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseLeaveEvent| {
+                                                                .event(clone!(state, tab => move |_: MouseLeaveEvent| {
                                                                     // TODO should this check the index, like MouseEnterEvent ?
-                                                                    STATE.unhover_tab(&tab);
+                                                                    state.unhover_tab(&tab);
                                                                 }))
 
                                                                 // TODO replace with MouseClickEvent
@@ -2474,11 +2338,11 @@ fn main() {
                                                                         }
                                                                     }
                                                                 })))
-                                                    }))
+                                                    })))
                                             }),
                                         ])
                                     })
-                                }))
+                                })))
                         }),
                     ])
                 }),
@@ -2486,5 +2350,228 @@ fn main() {
         }),
     );
 
+    // TODO a little hacky, needed to ensure that scrolling happens after everything is created
+    stdweb::web::window().request_animation_frame(|_| {
+        IS_LOADED.set_neq(true);
+        log!("Loaded");
+    });
+
     log!("Finished");
+
+
+    js! { @(no_return)
+        setInterval(@{move || {
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 2,
+                change: TabChange::Title {
+                    new_title: Some(generate_uuid().to_string()),
+                },
+            });
+
+            /*state.process_message(SidebarMessage::TabChanged {
+                tab_index: 0,
+                change: TabChange::Pinned {
+                    pinned: false,
+                },
+            });*/
+
+            state.process_message(SidebarMessage::TabRemoved {
+                tab_index: 0,
+            });
+
+            state.process_message(SidebarMessage::TabRemoved {
+                tab_index: 8,
+            });
+
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 0,
+                tab: state::Tab {
+                    serialized: state::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now()
+                    },
+                    focused: false,
+                    unloaded: true,
+                    pinned: true,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("top".to_owned()),
+                    title: Some("top".to_owned()),
+                },
+            });
+
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 12,
+                tab: state::Tab {
+                    serialized: state::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now()
+                    },
+                    focused: false,
+                    unloaded: true,
+                    pinned: false,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("bottom".to_owned()),
+                    title: Some("bottom".to_owned()),
+                },
+            });
+
+            /*for _ in 0..10 {
+                state.process_message(SidebarMessage::TabRemoved {
+                    window_index: 2,
+                    tab_index: 0,
+                });
+            }
+
+            state.process_message(SidebarMessage::WindowRemoved {
+                window_index: 2,
+            });
+
+            state.process_message(SidebarMessage::WindowInserted {
+                window_index: 2,
+                window: state::Window {
+                    serialized: state::SerializedWindow {
+                        id: generate_uuid(),
+                        name: None,
+                        timestamp_created: Date::now(),
+                    },
+                    focused: false,
+                    tabs: vec![],
+                },
+            });
+
+            for index in 0..10 {
+                state.process_message(SidebarMessage::TabInserted {
+                    window_index: 2,
+                    tab_index: index,
+                    tab: state::Tab {
+                        serialized: state::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: Date::now(),
+                        },
+                        focused: index == 7,
+                        unloaded: index == 5,
+                        pinned: index == 0 || index == 1 || index == 2,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                        title: Some("Foo".to_owned()),
+                    },
+                });
+            }*/
+        }}, @{INSERT_ANIMATION_DURATION + 2000.0});
+    }
+}
+
+
+fn main() {
+    tab_organizer::set_panic_hook(|message| {
+        let message = Arc::new(message);
+        FAILED.set(Some(message.clone()));
+        PromiseFuture::print_error_panic(&*message);
+    });
+
+
+    log!("Starting");
+
+    stylesheet!("*", {
+        .style("text-overflow", "ellipsis")
+
+        .style("vertical-align", "middle") /* TODO I can probably get rid of this */
+
+        /* TODO is this correct ?*/
+        .style("background-repeat", "no-repeat")
+        .style("background-size", "100% 100%")
+        .style("cursor", "inherit")
+        .style("position", "relative")
+
+        /* TODO are these a good idea ? */
+        .style("outline-width", "0px")
+        .style("outline-color", "transparent")
+        .style("outline-style", "solid")
+
+        .style("border-width", "0px")
+        .style("border-color", "transparent")
+        .style("border-style", "solid")
+
+        .style("margin", "0px")
+        .style("padding", "0px")
+
+        .style("background-color", "transparent")
+
+        .style("flex-shrink", "0") /* 1 */
+        .style("flex-grow", "0") /* 1 */
+        .style("flex-basis", "auto") /* 0% */ /* TODO try out other stuff like min-content once it becomes available */
+    });
+
+    stylesheet!("html, body", {
+        .style("width", "100%")
+        .style("height", "100%")
+
+        .style(["-moz-user-select", "user-select"], "none")
+    });
+
+    // Disables the browser scroll restoration
+    js! { @(no_return)
+        if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+        }
+    }
+
+    dominator::append_dom(&dominator::body(), {
+        let show = Mutable::new(false);
+
+        set_timeout(clone!(show => move || {
+            show.set_neq(true);
+        }), LOADING_MESSAGE_THRESHOLD);
+
+        html!("div", {
+            .class(&TOP_STYLE)
+            .class(&TEXTURE_STYLE)
+
+            .mixin(visible(not(IS_LOADED.signal())))
+
+            .children(&mut [
+                html!("div", {
+                    .class(&MODAL_STYLE)
+                    .class(&CENTER_STYLE)
+                    .class(&LOADING_STYLE)
+
+                    .mixin(visible(and(show.signal(), not(IS_LOADED.signal()))))
+
+                    .children(&mut [
+                        text("LOADING..."),
+                    ])
+                })
+            ])
+        })
+    });
+
+
+    js! { @(no_return)
+        setTimeout(@{move || {
+            let window: state::Window = state::Window {
+                serialized: state::SerializedWindow {
+                    id: generate_uuid(),
+                    name: None,
+                    timestamp_created: Date::now(),
+                },
+                focused: false,
+                tabs: (0..100).map(|index| {
+                    state::Tab {
+                        serialized: state::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: Date::now(),
+                        },
+                        focused: index == 7,
+                        unloaded: index == 5,
+                        pinned: index == 0 || index == 1 || index == 2,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                        title: Some("Foo".to_owned()),
+                    }
+                }).collect(),
+            };
+
+            initialize(Arc::new(State::new(Options::new(), window)));
+        }}, 1500);
+    }
 }

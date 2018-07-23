@@ -16,14 +16,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "dominator"
 version = "0.1.1"
-source = "git+https://github.com/Pauan/rust-dominator#59cce2e8501984068f2faccf374b8d66bb78ef4e"
+source = "git+https://github.com/Pauan/rust-dominator#795c2e3ae9feb1aa0932599e826e9618a7421b4e"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-core 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-signals 0.1.0 (git+https://github.com/Pauan/rust-signals)",
  "lazy_static 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "stdweb 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stdweb 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "stdweb-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -47,8 +47,6 @@ dependencies = [
  "futures-core 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-executor 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-io 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
- "futures-macro-async 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
- "futures-macro-await 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-sink 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-stable 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
  "futures-util 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
@@ -101,24 +99,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "futures-macro-async"
-version = "0.2.1"
-source = "git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9#3e3a59f6d5c463beb97225a10333f724004941c9"
-dependencies = [
- "proc-macro2 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "futures-macro-await"
-version = "0.2.1"
-source = "git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9#3e3a59f6d5c463beb97225a10333f724004941c9"
-
-[[package]]
 name = "futures-signals"
 version = "0.1.0"
-source = "git+https://github.com/Pauan/rust-signals#113eba23987057cacd938f4d64c18aa23d69d0a3"
+source = "git+https://github.com/Pauan/rust-signals#c75e5d2a07108ceff956a573edd06b11f4519aaa"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)",
@@ -200,7 +183,7 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "0.4.6"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -216,10 +199,10 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro2 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -232,9 +215,9 @@ name = "serde_derive"
 version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro2 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "syn 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.14.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -249,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "stdweb"
-version = "0.4.7"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -298,11 +281,11 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "0.14.4"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro2 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "quote 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro2 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -318,7 +301,7 @@ dependencies = [
  "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "stdweb 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stdweb 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "stdweb-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "web-extensions 0.1.0",
@@ -345,7 +328,7 @@ dependencies = [
  "discard 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)",
- "stdweb 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stdweb 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "stdweb-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -367,8 +350,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum futures-core 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
 "checksum futures-executor 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
 "checksum futures-io 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
-"checksum futures-macro-async 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
-"checksum futures-macro-await 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
 "checksum futures-signals 0.1.0 (git+https://github.com/Pauan/rust-signals)" = "<none>"
 "checksum futures-sink 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
 "checksum futures-stable 0.2.1 (git+https://github.com/rust-lang-nursery/futures-rs?rev=3e3a59f6d5c463beb97225a10333f724004941c9)" = "<none>"
@@ -379,17 +360,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum libc 0.2.42 (registry+https://github.com/rust-lang/crates.io-index)" = "b685088df2b950fccadf07a7187c8ef846a959c142338a48f9dc0b94517eb5f1"
 "checksum num_cpus 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c51a3322e4bca9d212ad9a158a02abc6934d005490c054a2778df73a70aa0a30"
 "checksum proc-macro2 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "cd07deb3c6d1d9ff827999c7f9b04cdfd66b1b17ae508e14fe47b620f2282ae0"
-"checksum proc-macro2 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "effdb53b25cdad54f8f48843d67398f7ef2e14f12c1b4cb4effc549a6462a4d6"
+"checksum proc-macro2 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)" = "cccdc7557a98fe98453030f077df7f3a042052fae465bb61d2c2c41435cfd9b6"
 "checksum quote 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1eca14c727ad12702eb4b6bfb5a232287dcf8385cb8ca83a3eeaf6519c44c408"
-"checksum quote 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e44651a0dc4cdd99f71c83b561e221f714912d11af1a4dff0631f923d53af035"
+"checksum quote 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b71f9f575d55555aa9c06188be9d4e2bfc83ed02537948ac0d520c24d0419f1a"
 "checksum serde 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)" = "0c3adf19c07af6d186d91dae8927b83b0553d07ca56cbf7f2f32560455c91920"
 "checksum serde_derive 1.0.70 (registry+https://github.com/rust-lang/crates.io-index)" = "3525a779832b08693031b8ecfb0de81cd71cfd3812088fafe9a7496789572124"
 "checksum serde_json 1.0.24 (registry+https://github.com/rust-lang/crates.io-index)" = "c3c6908c7b925cd6c590358a4034de93dbddb20c45e1d021931459fd419bf0e2"
-"checksum stdweb 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)" = "5c243a39301e3ba81bf17101232b5f1a0efe11a919c6d0dda1881bf8d999149a"
+"checksum stdweb 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)" = "d9f48cd7f81100e9bcbc67b97f1b1c465e4ae25d6a420ebf4b4f7f2dde7c2a5c"
 "checksum stdweb-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6aa46e9b38ea028a8a327ae6db35a486ace3eb834f5600bb3b6a71c0b6b1bd4b"
 "checksum stdweb-internal-macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b0bb3289dfd46bba44d80ed47a9b3d4c43bf6c1d7931b29e2fa86bd6697ccf59"
 "checksum syn 0.12.15 (registry+https://github.com/rust-lang/crates.io-index)" = "c97c05b8ebc34ddd6b967994d5c6e9852fa92f8b82b3858c39451f97346dcce5"
-"checksum syn 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)" = "2beff8ebc3658f07512a413866875adddd20f4fd47b2a4e6c9da65cd281baaea"
+"checksum syn 0.14.5 (registry+https://github.com/rust-lang/crates.io-index)" = "4bad7abdf6633f07c7046b90484f1d9dc055eca39f8c991177b1046ce61dba9a"
 "checksum unicode-xid 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fc72304796d0818e357ead4e000d19c9c174ab23dc11093ac919054d20a6a7fc"
 "checksum uuid 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e1436e58182935dcd9ce0add9ea0b558e8a87befe01c1a301e6020aeb0876363"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"

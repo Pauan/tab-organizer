@@ -12,25 +12,15 @@ pub enum TabChange {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum Message {
-    WindowInserted {
-        window_index: usize,
-        window: Window,
-    },
-    WindowRemoved {
-        window_index: usize,
-    },
+pub enum SidebarMessage {
     TabInserted {
-        window_index: usize,
         tab_index: usize,
         tab: Tab,
     },
     TabRemoved {
-        window_index: usize,
         tab_index: usize,
     },
     TabChanged {
-        window_index: usize,
         tab_index: usize,
         change: TabChange,
     },
