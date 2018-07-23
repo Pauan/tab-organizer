@@ -1,4 +1,34 @@
 use uuid::Uuid;
+use futures_signals::signal::Mutable;
+
+
+// TODO this is a common option
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum SortTabs {
+    Window,
+    Tag,
+    TimeFocused,
+    TimeCreated,
+    Url,
+    Name,
+}
+
+
+pub struct Options {
+    pub sort_tabs: Mutable<SortTabs>,
+}
+
+impl Options {
+    pub fn new() -> Self {
+        Self {
+            sort_tabs: Mutable::new(SortTabs::Window),
+        }
+    }
+
+    pub fn merge(&self, other: &Self) {
+        self.sort_tabs.set_neq(other.sort_tabs.get());
+    }
+}
 
 
 #[derive(Debug, Serialize, Deserialize)]

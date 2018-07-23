@@ -100,6 +100,41 @@ pub fn generate_uuid() -> Uuid {
 }
 
 
+// TODO test this
+pub fn get_len<A, F>(mut iter: A, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+    let mut len = 0;
+
+    while let Some(x) = iter.next() {
+        if f(x) {
+            len += 1;
+        }
+    }
+
+    len
+}
+
+// TODO test this
+pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+    let mut index = 0;
+    let mut len = 0;
+
+    while let Some(x) = iter.next() {
+        if f(x) {
+            if index == real_index {
+                break;
+
+            } else {
+                index += 1;
+            }
+        }
+
+        len += 1;
+    }
+
+    len
+}
+
+
 // TODO only poll right if left is false
 pub fn or<A, B>(left: A, right: B) -> impl Signal<Item = bool>
     where A: Signal<Item = bool>,
