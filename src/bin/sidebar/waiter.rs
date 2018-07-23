@@ -1,4 +1,5 @@
-use {State, Group, Tab};
+use state::State;
+use group::{Group, Tab};
 use std::sync::Arc;
 use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll, Async, Never};

@@ -15,24 +15,24 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::borrow::Borrow;
-use std::sync::{Arc, RwLock};
-use tab_organizer::{generate_uuid, and, or, not, normalize, ScrollEvent};
-use tab_organizer::state;
+use std::sync::Arc;
+use tab_organizer::{generate_uuid, and, or, not, ScrollEvent};
+use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text, text_signal, HIGHEST_ZINDEX, DerefFn};
-use dominator::animation::{Percentage, MutableAnimation, OnTimestampDiff};
+use dominator::{Dom, DomBuilder, text, text_signal, DerefFn};
+use dominator::animation::{Percentage, MutableAnimation};
 use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
-use stdweb::web::{Date, HtmlElement, Rect, IElement, IHtmlElement, set_timeout};
+use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
 use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
 use futures_signals::signal_vec::SignalVecExt;
 
-use menu::Menu;
-use group::{Tab, Group, Window, TabState};
-use groups::Groups;
+use group::Tab;
+use state::{State, DragState};
+use style::*;
 
 mod parse;
 mod waiter;
@@ -40,6 +40,8 @@ mod url_bar;
 mod menu;
 mod groups;
 mod group;
+mod state;
+mod style;
 
 
 const LOADING_MESSAGE_THRESHOLD: u32 = 500;
@@ -72,641 +74,6 @@ const TAB_HEIGHT: f64 = 16.0;
 const TAB_FAVICON_SIZE: f64 = 16.0;
 const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-
-
-enum DragState {
-    DragStart {
-        mouse_x: i32,
-        mouse_y: i32,
-        rect: Rect,
-        group: Arc<Group>,
-        tab: Arc<Tab>,
-        tab_index: usize,
-    },
-
-    // TODO maybe this should be usize rather than Option<usize>
-    Dragging {
-        mouse_x: i32,
-        mouse_y: i32,
-        rect: Rect,
-        group: Arc<Group>,
-        tab_index: Option<usize>,
-    },
-}
-
-
-struct Dragging {
-    state: Mutable<Option<DragState>>,
-    selected_tabs: Mutable<Vec<Arc<Tab>>>,
-}
-
-impl Dragging {
-    fn new() -> Self {
-        Self {
-            state: Mutable::new(None),
-            selected_tabs: Mutable::new(vec![]),
-        }
-    }
-}
-
-
-struct Scrolling {
-    on_timestamp_diff: Mutable<Option<OnTimestampDiff>>,
-    y: Mutable<f64>,
-    height: Mutable<f64>,
-}
-
-impl Scrolling {
-    fn new(scroll_y: f64) -> Self {
-        Self {
-            on_timestamp_diff: Mutable::new(None),
-            y: Mutable::new(scroll_y),
-            height: Mutable::new(0.0),
-        }
-    }
-}
-
-
-struct State {
-    search_box: Mutable<Arc<String>>,
-    search_parser: Mutable<parse::Parsed>,
-
-    url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
-    groups_padding: Mutable<f64>, // TODO use u32 instead ?
-
-    groups: Groups,
-    window: RwLock<Window>,
-    options: Options,
-
-    dragging: Dragging,
-    scrolling: Scrolling,
-
-    menu: Menu,
-}
-
-impl State {
-    fn new(options: Options, initial_window: state::Window) -> Self {
-        let window = Window::new(initial_window);
-
-        let local_storage = stdweb::web::window().local_storage();
-
-        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
-        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
-
-        Self {
-            search_parser: Mutable::new(parse::Parsed::new(&search_value)),
-            search_box: Mutable::new(Arc::new(search_value)),
-
-            url_bar: Mutable::new(None),
-            groups_padding: Mutable::new(0.0),
-
-            groups: Groups::new(options.sort_tabs.get(), &window),
-            window: RwLock::new(window),
-            options,
-
-            dragging: Dragging::new(),
-            scrolling: Scrolling::new(scroll_y),
-
-            menu: Menu::new(),
-        }
-    }
-
-    fn update_dragging_groups<F>(&self, group_id: usize, mut f: F) where F: FnMut(&Group, Percentage) {
-        let groups = self.groups.lock_ref();
-
-        let mut seen = false;
-
-        for x in groups.iter() {
-            let percentage = if x.id == group_id {
-                seen = true;
-                Percentage::new(0.0)
-
-            } else if seen {
-                Percentage::new(1.0)
-
-            } else {
-                Percentage::new(0.0)
-            };
-
-            f(&x, percentage);
-        }
-    }
-
-    fn get_dragging_index(&self, group_id: usize) -> Option<usize> {
-        let dragging = self.dragging.state.lock_ref();
-
-        if let Some(DragState::Dragging { ref group, tab_index, .. }) = *dragging {
-            if group.id == group_id {
-                Some(tab_index.unwrap_or_else(|| group.tabs.lock_ref().len()))
-
-            } else {
-                None
-            }
-
-        } else {
-            None
-        }
-    }
-
-    fn should_be_dragging_group(&self, new_index: usize) -> bool {
-        let dragging = self.dragging.state.lock_ref();
-
-        if let Some(DragState::Dragging { ref group, .. }) = *dragging {
-            let groups = self.groups.lock_ref();
-
-            let old_index = Self::find_group_index(&groups, group.id);
-
-            new_index > old_index
-
-        } else {
-            false
-        }
-    }
-
-    fn should_be_dragging_tab(&self, group_id: usize, new_index: usize) -> bool {
-        self.get_dragging_index(group_id).map(|old_index| new_index > old_index).unwrap_or(false)
-    }
-
-    fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: Rect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
-        let mut dragging = self.dragging.state.lock_mut();
-
-        if dragging.is_none() {
-            *dragging = Some(DragState::DragStart { mouse_x, mouse_y, rect, group, tab, tab_index });
-        }
-    }
-
-    fn start_scrolling(&self, mouse_y: i32) {
-        // TODO is there a better way of calculating this ?
-        let top = TOOLBAR_TOTAL_HEIGHT;
-        let bottom = stdweb::web::window().inner_height() as f64;
-        let threshold = MOUSE_SCROLL_THRESHOLD / (bottom - top).abs();
-        let percentage = normalize(mouse_y as f64, top, bottom);
-        let percentage = percentage - 0.5;
-        let sign = percentage.signum();
-        let percentage = easing::cubic(Percentage::new(normalize(percentage.abs(), 0.5 - threshold, 0.5))).into_f64() * sign;
-
-        if percentage == 0.0 {
-            self.scrolling.on_timestamp_diff.set(None);
-
-        } else {
-            let percentage = percentage * MOUSE_SCROLL_SPEED;
-
-            let y = self.scrolling.y.clone();
-
-            // TODO initialize this inside of the OnTimestampDiff callback ?
-            let starting_y = y.get();
-
-            self.scrolling.on_timestamp_diff.set(Some(OnTimestampDiff::new(move |diff| {
-                y.set_neq(starting_y + (diff * percentage));
-            })));
-        }
-    }
-
-    fn drag_move(&self, new_x: i32, new_y: i32) {
-        let mut dragging = self.dragging.state.lock_mut();
-
-        let new_dragging = match *dragging {
-            Some(DragState::DragStart { mouse_x, mouse_y, ref rect, ref group, ref tab, tab_index }) => {
-                let mouse_x = (mouse_x - new_x) as f64;
-                let mouse_y = (mouse_y - new_y) as f64;
-
-                if mouse_x.hypot(mouse_y) > TAB_DRAGGING_THRESHOLD {
-                    let tab_index = Some(tab_index);
-
-                    let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
-                        group.tabs.lock_ref().iter()
-                            .filter(|x| x.selected.get() && x.matches_search.get() && !x.removing.get())
-                            .cloned()
-                            .collect()
-
-                    } else {
-                        vec![tab.clone()]
-                    };
-
-                    if selected_tabs.len() != 0 {
-                        group.drag_over.jump_to(Percentage::new(1.0));
-
-                        self.update_dragging_groups(group.id, |group, percentage| {
-                            group.drag_top.jump_to(percentage);
-                        });
-
-                        group.update_dragging_tabs(tab_index, |tab, percentage| {
-                            tab.drag_over.jump_to(percentage);
-                        });
-
-                        for tab in selected_tabs.iter() {
-                            tab.dragging.set_neq(true);
-                        }
-
-                        self.dragging.selected_tabs.set(selected_tabs);
-
-                        self.start_scrolling(new_y);
-
-                        Some(DragState::Dragging { mouse_x: new_x, mouse_y: new_y, rect: rect.clone(), group: group.clone(), tab_index })
-
-                    } else {
-                        None
-                    }
-
-                } else {
-                    None
-                }
-            },
-
-            Some(DragState::Dragging { ref mut mouse_x, ref mut mouse_y, .. }) => {
-                self.start_scrolling(new_y);
-                *mouse_x = new_x;
-                *mouse_y = new_y;
-                None
-            },
-
-            None => None,
-        };
-
-        if new_dragging.is_some() {
-            *dragging = new_dragging;
-        }
-    }
-
-    fn find_group_index(groups: &[Arc<Group>], group_id: usize) -> usize {
-        groups.iter().position(|x| x.id == group_id).unwrap_or_else(|| groups.len())
-    }
-
-    fn change_groups(&self, old_group: &Group, new_group: &Group) {
-        old_group.drag_over.animate_to(Percentage::new(0.0));
-        new_group.drag_over.animate_to(Percentage::new(1.0));
-
-        self.update_dragging_groups(new_group.id, |group, percentage| {
-            group.drag_top.animate_to(percentage);
-        });
-
-        old_group.tabs_each(|tab| {
-            tab.drag_over.animate_to(Percentage::new(0.0));
-        });
-    }
-
-    fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
-        let groups = self.groups.lock_ref();
-
-        // TODO is this correct ?
-        // TODO pass in the new_group_index as a function argument
-        if let Some(new_group_index) = groups.iter().position(|x| x.id == new_group.id) {
-            let mut dragging = self.dragging.state.lock_mut();
-
-            // TODO verify that this doesn't notify if it isn't dragging
-            if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
-                let len = new_group.tabs.lock_ref().len();
-
-                let new_tab_index = if new_group.id == group.id {
-                    // TODO code duplication with get_dragging_index
-                    let old_index = tab_index.unwrap_or(len);
-
-                    if old_index <= new_index {
-                        let new_index = new_index + 1;
-
-                        if new_index < len {
-                            Some(new_index)
-
-                        } else {
-                            None
-                        }
-
-                    } else {
-                        Some(new_index)
-                    }
-
-                } else {
-                    self.change_groups(&group, &new_group);
-
-                    let old_group_index = Self::find_group_index(&groups, group.id);
-
-                    if new_index == (len - 1) {
-                        None
-
-                    } else if old_group_index <= new_group_index {
-                        let new_index = new_index + 1;
-
-                        if new_index < len {
-                            Some(new_index)
-
-                        } else {
-                            None
-                        }
-
-                    } else {
-                        Some(new_index)
-                    }
-                };
-
-                new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
-                    tab.drag_over.animate_to(percentage);
-                });
-
-                *group = new_group;
-                *tab_index = new_tab_index;
-            }
-        }
-    }
-
-    fn drag_over_group(&self, new_group: Arc<Group>, new_group_index: usize) {
-        let mut dragging = self.dragging.state.lock_mut();
-
-        // TODO verify that this doesn't notify if it isn't dragging
-        if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
-            let new_tab_index = if new_group.id == group.id {
-                // TODO it shouldn't notify dragging
-                return;
-
-            } else {
-                self.change_groups(&group, &new_group);
-
-                let groups = self.groups.lock_ref();
-
-                let old_group_index = Self::find_group_index(&groups, group.id);
-
-                if old_group_index < new_group_index {
-                    Some(0)
-
-                } else {
-                    None
-                }
-            };
-
-            new_group.update_dragging_tabs(new_tab_index, |tab, percentage| {
-                tab.drag_over.animate_to(percentage);
-            });
-
-            *group = new_group;
-            *tab_index = new_tab_index;
-        }
-    }
-
-    fn drag_end(&self) {
-        let mut dragging = self.dragging.state.lock_mut();
-        let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
-
-        if let Some(DragState::Dragging { ref group, .. }) = *dragging {
-            self.scrolling.on_timestamp_diff.set(None);
-
-            group.drag_over.jump_to(Percentage::new(0.0));
-
-            group.tabs_each(|tab| {
-                tab.drag_over.jump_to(Percentage::new(0.0));
-            });
-
-            {
-                let groups = self.groups.lock_ref();
-
-                for group in groups.iter() {
-                    group.drag_top.jump_to(Percentage::new(0.0));
-                }
-            }
-
-            self.drag_tabs_to(&group, &**selected_tabs);
-        }
-
-        if dragging.is_some() {
-            *dragging = None;
-        }
-
-        if selected_tabs.len() != 0 {
-            for tab in selected_tabs.iter() {
-                tab.dragging.set_neq(false);
-            }
-
-            *selected_tabs = vec![];
-        }
-    }
-
-    fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
-        if !group.removing.get() {
-        }
-    }
-
-    fn is_dragging(&self) -> impl Signal<Item = bool> {
-        self.dragging.state.signal_ref(|dragging| {
-            if let Some(DragState::Dragging { .. }) = dragging {
-                true
-
-            } else {
-                false
-            }
-        })
-    }
-
-    fn is_window_mode(&self) -> impl Signal<Item = bool> {
-        self.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window)
-    }
-
-    /*fn is_dragging_group(&self, group_id: usize) -> impl Signal<Item = bool> {
-        self.dragging.state.signal_ref(move |dragging| {
-            if let Some(DragState::Dragging { group, .. }) = dragging {
-                group.id == group_id
-
-            } else {
-                false
-            }
-        })
-    }*/
-
-    fn is_tab_hovered(&self, tab: &Tab) -> impl Signal<Item = bool> {
-        and(tab.hovered.signal(), not(self.is_dragging()))
-    }
-
-    fn is_tab_holding(&self, tab: &Tab) -> impl Signal<Item = bool> {
-        and(
-            and(self.is_tab_hovered(tab), tab.holding.signal()),
-            // TODO a little bit hacky
-            not(tab.close_hovered.signal())
-        )
-    }
-
-    fn hover_tab(&self, tab: &Tab) {
-        if !tab.hovered.get() {
-            tab.hovered.set(true);
-
-            let url = tab.url.lock_ref();
-
-            self.url_bar.set(url.as_ref().and_then(|url| {
-                url_bar::UrlBar::new(&url).map(|x| Arc::new(x.minify()))
-            }));
-        }
-    }
-
-    fn unhover_tab(&self, tab: &Tab) {
-        if tab.hovered.get() {
-            tab.hovered.set(false);
-
-            self.url_bar.set(None);
-        }
-    }
-
-    fn hide_tab(&self, tab: &Tab) {
-        tab.visible.set_neq(false);
-        tab.holding.set_neq(false);
-        tab.close_hovered.set_neq(false);
-        tab.close_holding.set_neq(false);
-        self.unhover_tab(tab);
-    }
-
-    // TODO debounce this ?
-    // TODO make this simpler somehow ?
-    // TODO add in stuff to handle dragging
-    fn update(&self, should_search: bool) {
-        // TODO add STATE.dragging.state to the waiter
-        let dragging = self.dragging.state.lock_ref();
-        let search_parser = self.search_parser.lock_ref();
-
-        let top_y = self.scrolling.y.get().round();
-        let bottom_y = top_y + (stdweb::web::window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
-
-        let mut padding: Option<f64> = None;
-        let mut current_height: f64 = 0.0;
-
-        self.groups.lock_mut().retain(|group| {
-            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
-                false
-
-            } else {
-                let mut matches_search = false;
-
-                let old_height = current_height;
-
-                let mut tabs_padding: Option<f64> = None;
-
-                let (top_height, bottom_height) = group.height();
-
-                current_height += top_height;
-
-                let tabs_height = current_height;
-
-                // TODO what if there aren't any tabs in the group ?
-                group.tabs.lock_mut().retain(|tab| {
-                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
-                        false
-
-                    } else {
-                        if should_search {
-                            if search_parser.matches_tab(tab) {
-                                tab.matches_search.set_neq(true);
-
-                            } else {
-                                tab.matches_search.set_neq(false);
-                            }
-                        }
-
-                        // TODO what about if all the tabs are being dragged ?
-                        if tab.matches_search.get() {
-                            matches_search = true;
-
-                            if !tab.dragging.get() {
-                                let old_height = current_height;
-
-                                current_height += tab.height();
-
-                                if old_height < bottom_y && current_height > top_y {
-                                    if let None = tabs_padding {
-                                        tabs_padding = Some(old_height);
-                                    }
-
-                                    tab.visible.set_neq(true);
-
-                                } else {
-                                    self.hide_tab(&tab);
-                                }
-
-                            } else {
-                                self.hide_tab(&tab);
-                            }
-
-                        } else {
-                            self.hide_tab(&tab);
-                        }
-
-                        true
-                    }
-                });
-
-                if should_search {
-                    if matches_search {
-                        group.matches_search.set_neq(true);
-
-                    } else {
-                        group.matches_search.set_neq(false);
-                    }
-                }
-
-                if matches_search {
-                    let no_tabs_height = current_height;
-
-                    current_height += bottom_height;
-
-                    if old_height < bottom_y && current_height > top_y {
-                        if let None = padding {
-                            padding = Some(old_height);
-                        }
-
-                        group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                        group.visible.set_neq(true);
-
-                    } else {
-                        group.visible.set_neq(false);
-                    }
-
-                } else {
-                    current_height = old_height;
-                    group.visible.set_neq(false);
-                }
-
-                true
-            }
-        });
-
-        if let Some(DragState::Dragging { .. }) = *dragging {
-            // TODO handle this better somehow ?
-            current_height += DRAG_GAP_PX;
-        }
-
-        self.groups_padding.set_neq(padding.unwrap_or(0.0));
-        self.scrolling.height.set_neq(current_height);
-    }
-
-
-    fn process_message(&self, message: SidebarMessage) {
-        match message {
-            SidebarMessage::TabInserted { tab_index, tab } => {
-                let mut window = self.window.write().unwrap();
-
-                let tab = Arc::new(TabState::new(tab));
-
-                self.groups.tab_inserted(tab_index, tab.clone());
-
-                window.tabs.insert(tab_index, tab);
-            },
-
-            SidebarMessage::TabRemoved { tab_index } => {
-                let mut window = self.window.write().unwrap();
-
-                let tab = window.tabs.remove(tab_index);
-
-                self.groups.tab_removed(tab_index, &tab);
-            },
-
-            SidebarMessage::TabChanged { tab_index, change } => {
-                let window = self.window.read().unwrap();
-
-                let tab = &window.tabs[tab_index];
-
-                match change {
-                    TabChange::Title { new_title } => {
-                        tab.title.set(new_title.map(Arc::new));
-                    },
-                    TabChange::Pinned { pinned } => {},
-                }
-            },
-        }
-    }
-}
 
 
 fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
@@ -807,386 +174,6 @@ lazy_static! {
     static ref FAILED: Mutable<Option<Arc<String>>> = Mutable::new(None);
 
     static ref IS_LOADED: Mutable<bool> = Mutable::new(false);
-
-    static ref ROW_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center") // TODO get rid of this ?
-    };
-
-    static ref STRETCH_STYLE: String = class! {
-        .style("flex-shrink", "1")
-        .style("flex-grow", "1")
-        .style("flex-basis", "0%")
-    };
-
-    static ref TOP_STYLE: String = class! {
-        .style("white-space", "pre")
-        .style("font-family", "sans-serif")
-        .style("font-size", "13px")
-        .style("width", "300px") // 100%
-        .style("height", "100%")
-        .style("background-color", "hsl(0, 0%, 100%)")
-        .style("overflow", "hidden")
-    };
-
-    static ref TEXTURE_STYLE: String = class! {
-        .style("background-image", "repeating-linear-gradient(0deg, \
-                                        transparent                0px, \
-                                        hsla(200, 30%, 30%, 0.022) 2px, \
-                                        hsla(200, 30%, 30%, 0.022) 3px)")
-    };
-
-    static ref MODAL_STYLE: String = class! {
-        .style("position", "fixed")
-        .style("left", "0px")
-        .style("top", "0px")
-        .style("width", "100%")
-        .style("height", "100%")
-        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
-    };
-
-    static ref LOADING_STYLE: String = class! {
-        .style("z-index", HIGHEST_ZINDEX)
-        .style("background-color", "transparent")
-        .style("color", "white")
-        .style("font-weight", "bold")
-        .style("font-size", "20px")
-        .style("letter-spacing", "5px")
-        .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
-    };
-
-    static ref CENTER_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center")
-        .style("justify-content", "center")
-    };
-
-    static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
-                                                       transparent             0px, \
-                                                       transparent             4px, \
-                                                       hsla(0, 0%, 100%, 0.05) 6px, \
-                                                       hsla(0, 0%, 100%, 0.05) 10px)";
-
-    static ref MENU_ITEM_HOVER_STYLE: String = class! {
-        // TODO a bit hacky
-        .style("transition-duration", "0ms")
-        .style("color", "hsla(211, 100%, 99%, 0.95)")
-        .style("background-color", "hsl(211, 100%, 65%)")
-        .style("border-color", "hsl(211, 38%, 62%) \
-                                hsl(211, 38%, 57%) \
-                                hsl(211, 38%, 52%) \
-                                hsl(211, 38%, 57%)")
-        .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
-                               0px 0px 1px hsla(0, 0%, 0%, 0.1), \
-                               0px 1px 1px hsla(0, 0%, 0%, 0.2)")
-        .style("background-image", &format!("linear-gradient(to bottom, \
-                                                 hsla(0, 0%, 100%, 0.2) 0%, \
-                                                 transparent            49%, \
-                                                 hsla(0, 0%,   0%, 0.1) 50%, \
-                                                 hsla(0, 0%, 100%, 0.1) 80%, \
-                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
-                                            *REPEATING_GRADIENT))
-        .style("z-index", "1")
-    };
-
-    static ref TOOLBAR_STYLE: String = class! {
-        .style("height", &px(TOOLBAR_HEIGHT))
-        .style("border-width", &px(TOOLBAR_BORDER_WIDTH))
-        .style("margin-top", &px(TOOLBAR_MARGIN))
-        .style("margin-left", "2px")
-        .style("margin-right", "2px")
-        .style("background-color", "hsl(0, 0%, 100%)")
-        .style("z-index", "3")
-        .style("border-radius", "2px")
-        .style("border-color", "hsl(0, 0%, 50%) \
-                                hsl(0, 0%, 40%) \
-                                hsl(0, 0%, 40%) \
-                                hsl(0, 0%, 50%)")
-        .style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
-    };
-
-    static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
-        .style("background-color", "hsl(211, 95%, 40%)")
-        .style("width", "1px")
-        .style("height", "100%")
-    };
-
-    static ref TOOLBAR_MENU_WRAPPER_STYLE: String = class! {
-        .style("height", "100%")
-    };
-
-    static ref TOOLBAR_MENU_STYLE: String = class! {
-        .style("height", "100%")
-        .style("padding-left", "11px")
-        .style("padding-right", "11px")
-        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
-    };
-
-    static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
-        .style("top", "1px")
-    };
-
-    static ref SEARCH_STYLE: String = class! {
-        .style("box-sizing", "border-box")
-        .style("padding-top", "2px")
-        .style("padding-bottom", "2px")
-        .style("padding-left", "5px")
-        .style("padding-right", "5px")
-        .style("height", "100%")
-
-        .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
-            if failed.is_some() {
-                Some("hsl(5, 100%, 90%)")
-
-            } else {
-                None
-            }
-        }))
-
-        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
-    };
-
-    static ref GROUP_LIST_STYLE: String = class! {
-        .style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
-        .style("overflow", "auto")
-    };
-
-    static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
-        .style("box-sizing", "border-box")
-        .style("overflow", "hidden")
-        .style("top", "1px")
-    };
-
-    static ref GROUP_STYLE: String = class! {
-        .style("padding-top", &px(GROUP_PADDING_TOP))
-        .style("border-top-width", &px(GROUP_BORDER_WIDTH))
-        .style("top", "-1px")
-        .style("padding-left", "1px")
-        .style("padding-right", "1px")
-        .style("border-color", "hsl(211, 50%, 75%)")
-        //.style("background-color", "hsl(0, 0%, 100%)")
-    };
-
-    static ref GROUP_HEADER_STYLE: String = class! {
-        .style("box-sizing", "border-box")
-        .style("height", &px(GROUP_HEADER_HEIGHT))
-        .style("padding-left", "4px")
-        .style("font-size", "11px")
-    };
-
-    static ref GROUP_HEADER_TEXT_STYLE: String = class! {
-        .style("overflow", "hidden")
-    };
-
-    static ref GROUP_TABS_STYLE: String = class! {
-        .style("padding-bottom", &px(GROUP_PADDING_BOTTOM))
-    };
-
-    static ref ICON_STYLE: String = class! {
-        .style("height", &px(TAB_FAVICON_SIZE))
-        .style("border-radius", "4px")
-        .style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)")
-        .style("background-color", "hsla(0, 0%, 100%, 0.35)")
-    };
-
-    static ref MENU_ITEM_STYLE: String = class! {
-        .style("border-width", &px(TAB_BORDER_WIDTH))
-
-        .style("transition", "background-color 100ms ease-in-out")
-    };
-
-    static ref MENU_ITEM_SHADOW_STYLE: String = class! {
-        .style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
-                              inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
-                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
-    };
-
-    static ref MENU_ITEM_HOLD_STYLE: String = class! {
-        .style("background-position", "0px 1px")
-        .style("background-image", &format!("linear-gradient(to bottom, \
-                                                 hsla(0, 0%, 100%, 0.2)   0%, \
-                                                 transparent              49%, \
-                                                 hsla(0, 0%,   0%, 0.075) 50%, \
-                                                 hsla(0, 0%, 100%, 0.1)   80%, \
-                                                 hsla(0, 0%, 100%, 0.2)   100%), {}",
-                                            *REPEATING_GRADIENT))
-        .style("box-shadow",      "1px 1px  1px hsla(0, 0%,   0%, 0.1), \
-                             inset 0px 0px  3px hsla(0, 0%, 100%, 0.9), \
-                             inset 0px 0px 10px hsla(0, 0%, 100%, 0.225)")
-    };
-
-    static ref TAB_STYLE: String = class! {
-        .style("padding", &px(TAB_PADDING))
-        .style("height", &px(TAB_HEIGHT))
-        .style("overflow", "hidden")
-        .style("border-radius", "5px")
-    };
-
-    static ref TAB_HOVER_STYLE: String = class! {
-        .style("font-weight", "bold")
-    };
-
-    static ref TAB_HOLD_STYLE: String = class! {
-        .style("padding-top", "2px")
-        .style("padding-bottom", "0px")
-    };
-
-    static ref TAB_UNLOADED_STYLE: String = class! {
-        .style("color", "hsl(0, 0%, 30%)")
-        .style("opacity", "0.75")
-    };
-
-    static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
-        .style("background-color", "hsla(0, 0%, 0%, 0.4)")
-
-        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
-        .style_important("border-color", "hsl(0, 0%, 62%) \
-                                          hsl(0, 0%, 57%) \
-                                          hsl(0, 0%, 52%) \
-                                          hsl(0, 0%, 57%)")
-
-        .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
-        .style("opacity", "1")
-    };
-
-    static ref TAB_FOCUSED_STYLE: String = class! {
-        .style("background-color", "hsl(30, 100%, 94%")
-        // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
-        .style_important("border-color", "hsl(30, 70%, 62%) \
-                                          hsl(30, 70%, 57%) \
-                                          hsl(30, 70%, 52%) \
-                                          hsl(30, 70%, 57%)")
-    };
-
-    static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
-        .style("background-color", "hsl(30, 85%, 57%)")
-    };
-
-    static ref TAB_SELECTED_STYLE: String = class! {
-        .style("background-color", "hsl(100, 78%, 80%)")
-        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
-        .style_important("border-color", "hsl(100, 50%, 55%) \
-                                          hsl(100, 50%, 50%) \
-                                          hsl(100, 50%, 45%) \
-                                          hsl(100, 50%, 50%)")
-    };
-
-    static ref TAB_SELECTED_HOVER_STYLE: String = class! {
-        .style("background-color", "hsl(100, 80%, 45%)")
-    };
-
-    static ref TAB_FAVICON_STYLE: String = class! {
-        .style("width", &px(TAB_FAVICON_SIZE))
-        .style("margin-left", "2px")
-        .style("margin-right", "1px")
-    };
-
-    static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
-        .style("filter", "grayscale(100%)")
-    };
-
-    static ref TAB_TEXT_STYLE: String = class! {
-        .style("overflow", "hidden")
-        .style("padding-left", "3px")
-        .style("padding-right", "1px")
-    };
-
-    static ref TAB_CLOSE_STYLE: String = class! {
-        .style("box-sizing", "border-box")
-        .style("width", "18px")
-        .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
-        .style("padding-left", "1px")
-        .style("padding-right", "1px")
-    };
-
-    static ref TAB_CLOSE_HOVER_STYLE: String = class! {
-        .style("background-color", "hsla(0, 0%, 100%, 0.75)")
-        .style("border-color", "hsla(0, 0%, 90%, 0.75) \
-                                hsla(0, 0%, 85%, 0.75) \
-                                hsla(0, 0%, 85%, 0.75) \
-                                hsla(0, 0%, 90%, 0.75)")
-    };
-
-    static ref TAB_CLOSE_HOLD_STYLE: String = class! {
-        .style("padding-top", "1px")
-        .style("background-color", "hsla(0, 0%, 98%, 0.75)")
-        .style("border-color", "hsla(0, 0%,  70%, 0.75) \
-                                hsla(0, 0%, 100%, 0.75) \
-                                hsla(0, 0%, 100%, 0.80) \
-                                hsla(0, 0%,  80%, 0.75)")
-    };
-
-    static ref DRAGGING_STYLE: String = class! {
-        .style("position", "fixed")
-        .style("z-index", HIGHEST_ZINDEX)
-
-        .style("left", "0px")
-        .style("top", "0px")
-        .style("overflow", "visible")
-        .style("pointer-events", "none")
-        .style("opacity", "0.98")
-    };
-
-    static ref URL_BAR_STYLE: String = class! {
-        .style("position", "fixed")
-        .style("z-index", HIGHEST_ZINDEX)
-
-        .style("box-sizing", "border-box")
-
-        .style("pointer-events", "none")
-        .style("left", "0px")
-        .style("bottom", "0px")
-
-        .style("max-width", "100%") // calc(100% + 1px)
-
-        .style("border-top-width", "1px")
-        .style("border-right-width", "1px")
-        .style("border-top-color", "hsl(0, 0%, 45%)")
-        .style("border-right-color", "hsl(0, 0%, 40%)")
-        .style("border-top-right-radius", "5px")
-
-        .style("padding-right", "2px") // 2px + 3px = 5px
-        .style("padding-bottom", "1px")
-
-        .style("color", "black")
-
-        .style("background-color", "white")
-
-        .style("box-shadow", "0px 0px 3px dimgray")
-    };
-
-    static ref URL_BAR_TEXT_STYLE: String = class! {
-        .style("margin-left", "3px")
-        .style("margin-right", "3px")
-    };
-
-    static ref URL_BAR_PROTOCOL_STYLE: String = class! {
-        .style("font-weight", "bold")
-        .style("color", "hsl(120, 100%, 25%)")
-    };
-
-    static ref URL_BAR_DOMAIN_STYLE: String = class! {
-        .style("font-weight", "bold")
-    };
-
-    // TODO remove this ?
-    static ref URL_BAR_PATH_STYLE: String = class! {};
-
-    static ref URL_BAR_FILE_STYLE: String = class! {
-        .style("font-weight", "bold")
-        .style("color", "darkred") // TODO replace with hsl
-    };
-
-    static ref URL_BAR_QUERY_STYLE: String = class! {
-        .style("font-weight", "bold")
-        .style("color", "darkred") // TODO replace with hsl
-    };
-
-    static ref URL_BAR_HASH_STYLE: String = class! {
-        .style("color", "darkblue") // TODO replace with hsl
-    };
 }
 
 
@@ -1445,6 +432,15 @@ fn initialize(state: Arc<State>) {
                             .class(&STRETCH_STYLE)
 
                             .mixin(cursor(state.is_dragging(), "auto"))
+
+                            .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
+                                if failed.is_some() {
+                                    Some("hsl(5, 100%, 90%)")
+
+                                } else {
+                                    None
+                                }
+                            }))
 
                             .attribute("type", "text")
                             .attribute("autofocus", "")
@@ -1873,8 +869,8 @@ fn initialize(state: Arc<State>) {
 
             /*state.process_message(SidebarMessage::TabInserted {
                 tab_index: 0,
-                tab: state::Tab {
-                    serialized: state::SerializedTab {
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now()
                     },
@@ -1889,8 +885,8 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(SidebarMessage::TabInserted {
                 tab_index: 12,
-                tab: state::Tab {
-                    serialized: state::SerializedTab {
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now()
                     },
@@ -1916,8 +912,8 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(SidebarMessage::WindowInserted {
                 window_index: 2,
-                window: state::Window {
-                    serialized: state::SerializedWindow {
+                window: server::Window {
+                    serialized: server::SerializedWindow {
                         id: generate_uuid(),
                         name: None,
                         timestamp_created: Date::now(),
@@ -1931,8 +927,8 @@ fn initialize(state: Arc<State>) {
                 state.process_message(SidebarMessage::TabInserted {
                     window_index: 2,
                     tab_index: index,
-                    tab: state::Tab {
-                        serialized: state::SerializedTab {
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
                             id: generate_uuid(),
                             timestamp_created: Date::now(),
                         },
@@ -1952,8 +948,8 @@ fn initialize(state: Arc<State>) {
         setInterval(@{move || {
             state.process_message(SidebarMessage::TabInserted {
                 tab_index: 0,
-                tab: state::Tab {
-                    serialized: state::SerializedTab {
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now()
                     },
@@ -2056,16 +1052,16 @@ fn main() {
 
     js! { @(no_return)
         setTimeout(@{move || {
-            let window: state::Window = state::Window {
-                serialized: state::SerializedWindow {
+            let window: server::Window = server::Window {
+                serialized: server::SerializedWindow {
                     id: generate_uuid(),
                     name: None,
                     timestamp_created: Date::now(),
                 },
                 focused: false,
                 tabs: (0..100).map(|index| {
-                    state::Tab {
-                        serialized: state::SerializedTab {
+                    server::Tab {
+                        serialized: server::SerializedTab {
                             id: generate_uuid(),
                             timestamp_created: Date::now(),
                         },

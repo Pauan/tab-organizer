@@ -1,0 +1,375 @@
+use {px, TAB_CLOSE_BORDER_WIDTH, TAB_FAVICON_SIZE, TAB_HEIGHT, TAB_PADDING, TAB_BORDER_WIDTH, GROUP_PADDING_BOTTOM, GROUP_HEADER_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, TOOLBAR_TOTAL_HEIGHT, TOOLBAR_MARGIN, TOOLBAR_HEIGHT, TOOLBAR_BORDER_WIDTH};
+use dominator::HIGHEST_ZINDEX;
+
+
+lazy_static! {
+    pub(crate) static ref ROW_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center") // TODO get rid of this ?
+    };
+
+    pub(crate) static ref STRETCH_STYLE: String = class! {
+        .style("flex-shrink", "1")
+        .style("flex-grow", "1")
+        .style("flex-basis", "0%")
+    };
+
+    pub(crate) static ref TOP_STYLE: String = class! {
+        .style("white-space", "pre")
+        .style("font-family", "sans-serif")
+        .style("font-size", "13px")
+        .style("width", "300px") // 100%
+        .style("height", "100%")
+        .style("background-color", "hsl(0, 0%, 100%)")
+        .style("overflow", "hidden")
+    };
+
+    pub(crate) static ref TEXTURE_STYLE: String = class! {
+        .style("background-image", "repeating-linear-gradient(0deg, \
+                                        transparent                0px, \
+                                        hsla(200, 30%, 30%, 0.022) 2px, \
+                                        hsla(200, 30%, 30%, 0.022) 3px)")
+    };
+
+    pub(crate) static ref MODAL_STYLE: String = class! {
+        .style("position", "fixed")
+        .style("left", "0px")
+        .style("top", "0px")
+        .style("width", "100%")
+        .style("height", "100%")
+        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
+    };
+
+    pub(crate) static ref LOADING_STYLE: String = class! {
+        .style("z-index", HIGHEST_ZINDEX)
+        .style("background-color", "transparent")
+        .style("color", "white")
+        .style("font-weight", "bold")
+        .style("font-size", "20px")
+        .style("letter-spacing", "5px")
+        .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
+    };
+
+    pub(crate) static ref CENTER_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "row")
+        .style("align-items", "center")
+        .style("justify-content", "center")
+    };
+
+    pub(crate) static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
+                                                                  transparent             0px, \
+                                                                  transparent             4px, \
+                                                                  hsla(0, 0%, 100%, 0.05) 6px, \
+                                                                  hsla(0, 0%, 100%, 0.05) 10px)";
+
+    pub(crate) static ref MENU_ITEM_HOVER_STYLE: String = class! {
+        // TODO a bit hacky
+        .style("transition-duration", "0ms")
+        .style("color", "hsla(211, 100%, 99%, 0.95)")
+        .style("background-color", "hsl(211, 100%, 65%)")
+        .style("border-color", "hsl(211, 38%, 62%) \
+                                hsl(211, 38%, 57%) \
+                                hsl(211, 38%, 52%) \
+                                hsl(211, 38%, 57%)")
+        .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
+                               0px 0px 1px hsla(0, 0%, 0%, 0.1), \
+                               0px 1px 1px hsla(0, 0%, 0%, 0.2)")
+        .style("background-image", &format!("linear-gradient(to bottom, \
+                                                 hsla(0, 0%, 100%, 0.2) 0%, \
+                                                 transparent            49%, \
+                                                 hsla(0, 0%,   0%, 0.1) 50%, \
+                                                 hsla(0, 0%, 100%, 0.1) 80%, \
+                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
+                                            *REPEATING_GRADIENT))
+        .style("z-index", "1")
+    };
+
+    pub(crate) static ref TOOLBAR_STYLE: String = class! {
+        .style("height", &px(TOOLBAR_HEIGHT))
+        .style("border-width", &px(TOOLBAR_BORDER_WIDTH))
+        .style("margin-top", &px(TOOLBAR_MARGIN))
+        .style("margin-left", "2px")
+        .style("margin-right", "2px")
+        .style("background-color", "hsl(0, 0%, 100%)")
+        .style("z-index", "3")
+        .style("border-radius", "2px")
+        .style("border-color", "hsl(0, 0%, 50%) \
+                                hsl(0, 0%, 40%) \
+                                hsl(0, 0%, 40%) \
+                                hsl(0, 0%, 50%)")
+        .style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
+    };
+
+    pub(crate) static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
+        .style("background-color", "hsl(211, 95%, 40%)")
+        .style("width", "1px")
+        .style("height", "100%")
+    };
+
+    pub(crate) static ref TOOLBAR_MENU_WRAPPER_STYLE: String = class! {
+        .style("height", "100%")
+    };
+
+    pub(crate) static ref TOOLBAR_MENU_STYLE: String = class! {
+        .style("height", "100%")
+        .style("padding-left", "11px")
+        .style("padding-right", "11px")
+        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
+    };
+
+    pub(crate) static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
+        .style("top", "1px")
+    };
+
+    pub(crate) static ref SEARCH_STYLE: String = class! {
+        .style("box-sizing", "border-box")
+        .style("padding-top", "2px")
+        .style("padding-bottom", "2px")
+        .style("padding-left", "5px")
+        .style("padding-right", "5px")
+        .style("height", "100%")
+        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
+    };
+
+    pub(crate) static ref GROUP_LIST_STYLE: String = class! {
+        .style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
+        .style("overflow", "auto")
+    };
+
+    pub(crate) static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
+        .style("box-sizing", "border-box")
+        .style("overflow", "hidden")
+        .style("top", "1px")
+    };
+
+    pub(crate) static ref GROUP_STYLE: String = class! {
+        .style("padding-top", &px(GROUP_PADDING_TOP))
+        .style("border-top-width", &px(GROUP_BORDER_WIDTH))
+        .style("top", "-1px")
+        .style("padding-left", "1px")
+        .style("padding-right", "1px")
+        .style("border-color", "hsl(211, 50%, 75%)")
+        //.style("background-color", "hsl(0, 0%, 100%)")
+    };
+
+    pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
+        .style("box-sizing", "border-box")
+        .style("height", &px(GROUP_HEADER_HEIGHT))
+        .style("padding-left", "4px")
+        .style("font-size", "11px")
+    };
+
+    pub(crate) static ref GROUP_HEADER_TEXT_STYLE: String = class! {
+        .style("overflow", "hidden")
+    };
+
+    pub(crate) static ref GROUP_TABS_STYLE: String = class! {
+        .style("padding-bottom", &px(GROUP_PADDING_BOTTOM))
+    };
+
+    pub(crate) static ref ICON_STYLE: String = class! {
+        .style("height", &px(TAB_FAVICON_SIZE))
+        .style("border-radius", "4px")
+        .style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)")
+        .style("background-color", "hsla(0, 0%, 100%, 0.35)")
+    };
+
+    pub(crate) static ref MENU_ITEM_STYLE: String = class! {
+        .style("border-width", &px(TAB_BORDER_WIDTH))
+
+        .style("transition", "background-color 100ms ease-in-out")
+    };
+
+    pub(crate) static ref MENU_ITEM_SHADOW_STYLE: String = class! {
+        .style("box-shadow", "      1px 1px  1px hsla(0, 0%,   0%, 0.25), \
+                              inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
+                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
+    };
+
+    pub(crate) static ref MENU_ITEM_HOLD_STYLE: String = class! {
+        .style("background-position", "0px 1px")
+        .style("background-image", &format!("linear-gradient(to bottom, \
+                                                 hsla(0, 0%, 100%, 0.2)   0%, \
+                                                 transparent              49%, \
+                                                 hsla(0, 0%,   0%, 0.075) 50%, \
+                                                 hsla(0, 0%, 100%, 0.1)   80%, \
+                                                 hsla(0, 0%, 100%, 0.2)   100%), {}",
+                                            *REPEATING_GRADIENT))
+        .style("box-shadow",      "1px 1px  1px hsla(0, 0%,   0%, 0.1), \
+                             inset 0px 0px  3px hsla(0, 0%, 100%, 0.9), \
+                             inset 0px 0px 10px hsla(0, 0%, 100%, 0.225)")
+    };
+
+    pub(crate) static ref TAB_STYLE: String = class! {
+        .style("padding", &px(TAB_PADDING))
+        .style("height", &px(TAB_HEIGHT))
+        .style("overflow", "hidden")
+        .style("border-radius", "5px")
+    };
+
+    pub(crate) static ref TAB_HOVER_STYLE: String = class! {
+        .style("font-weight", "bold")
+    };
+
+    pub(crate) static ref TAB_HOLD_STYLE: String = class! {
+        .style("padding-top", "2px")
+        .style("padding-bottom", "0px")
+    };
+
+    pub(crate) static ref TAB_UNLOADED_STYLE: String = class! {
+        .style("color", "hsl(0, 0%, 30%)")
+        .style("opacity", "0.75")
+    };
+
+    pub(crate) static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
+        .style("background-color", "hsla(0, 0%, 0%, 0.4)")
+
+        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
+        .style_important("border-color", "hsl(0, 0%, 62%) \
+                                          hsl(0, 0%, 57%) \
+                                          hsl(0, 0%, 52%) \
+                                          hsl(0, 0%, 57%)")
+
+        .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
+        .style("opacity", "1")
+    };
+
+    pub(crate) static ref TAB_FOCUSED_STYLE: String = class! {
+        .style("background-color", "hsl(30, 100%, 94%")
+        // TODO this is needed to override the border color from MENU_ITEM_HOVER_STYLE
+        .style_important("border-color", "hsl(30, 70%, 62%) \
+                                          hsl(30, 70%, 57%) \
+                                          hsl(30, 70%, 52%) \
+                                          hsl(30, 70%, 57%)")
+    };
+
+    pub(crate) static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
+        .style("background-color", "hsl(30, 85%, 57%)")
+    };
+
+    pub(crate) static ref TAB_SELECTED_STYLE: String = class! {
+        .style("background-color", "hsl(100, 78%, 80%)")
+        // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
+        .style_important("border-color", "hsl(100, 50%, 55%) \
+                                          hsl(100, 50%, 50%) \
+                                          hsl(100, 50%, 45%) \
+                                          hsl(100, 50%, 50%)")
+    };
+
+    pub(crate) static ref TAB_SELECTED_HOVER_STYLE: String = class! {
+        .style("background-color", "hsl(100, 80%, 45%)")
+    };
+
+    pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
+        .style("width", &px(TAB_FAVICON_SIZE))
+        .style("margin-left", "2px")
+        .style("margin-right", "1px")
+    };
+
+    pub(crate) static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
+        .style("filter", "grayscale(100%)")
+    };
+
+    pub(crate) static ref TAB_TEXT_STYLE: String = class! {
+        .style("overflow", "hidden")
+        .style("padding-left", "3px")
+        .style("padding-right", "1px")
+    };
+
+    pub(crate) static ref TAB_CLOSE_STYLE: String = class! {
+        .style("box-sizing", "border-box")
+        .style("width", "18px")
+        .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
+        .style("padding-left", "1px")
+        .style("padding-right", "1px")
+    };
+
+    pub(crate) static ref TAB_CLOSE_HOVER_STYLE: String = class! {
+        .style("background-color", "hsla(0, 0%, 100%, 0.75)")
+        .style("border-color", "hsla(0, 0%, 90%, 0.75) \
+                                hsla(0, 0%, 85%, 0.75) \
+                                hsla(0, 0%, 85%, 0.75) \
+                                hsla(0, 0%, 90%, 0.75)")
+    };
+
+    pub(crate) static ref TAB_CLOSE_HOLD_STYLE: String = class! {
+        .style("padding-top", "1px")
+        .style("background-color", "hsla(0, 0%, 98%, 0.75)")
+        .style("border-color", "hsla(0, 0%,  70%, 0.75) \
+                                hsla(0, 0%, 100%, 0.75) \
+                                hsla(0, 0%, 100%, 0.80) \
+                                hsla(0, 0%,  80%, 0.75)")
+    };
+
+    pub(crate) static ref DRAGGING_STYLE: String = class! {
+        .style("position", "fixed")
+        .style("z-index", HIGHEST_ZINDEX)
+
+        .style("left", "0px")
+        .style("top", "0px")
+        .style("overflow", "visible")
+        .style("pointer-events", "none")
+        .style("opacity", "0.98")
+    };
+
+    pub(crate) static ref URL_BAR_STYLE: String = class! {
+        .style("position", "fixed")
+        .style("z-index", HIGHEST_ZINDEX)
+
+        .style("box-sizing", "border-box")
+
+        .style("pointer-events", "none")
+        .style("left", "0px")
+        .style("bottom", "0px")
+
+        .style("max-width", "100%") // calc(100% + 1px)
+
+        .style("border-top-width", "1px")
+        .style("border-right-width", "1px")
+        .style("border-top-color", "hsl(0, 0%, 45%)")
+        .style("border-right-color", "hsl(0, 0%, 40%)")
+        .style("border-top-right-radius", "5px")
+
+        .style("padding-right", "2px") // 2px + 3px = 5px
+        .style("padding-bottom", "1px")
+
+        .style("color", "black")
+
+        .style("background-color", "white")
+
+        .style("box-shadow", "0px 0px 3px dimgray")
+    };
+
+    pub(crate) static ref URL_BAR_TEXT_STYLE: String = class! {
+        .style("margin-left", "3px")
+        .style("margin-right", "3px")
+    };
+
+    pub(crate) static ref URL_BAR_PROTOCOL_STYLE: String = class! {
+        .style("font-weight", "bold")
+        .style("color", "hsl(120, 100%, 25%)")
+    };
+
+    pub(crate) static ref URL_BAR_DOMAIN_STYLE: String = class! {
+        .style("font-weight", "bold")
+    };
+
+    // TODO remove this ?
+    pub(crate) static ref URL_BAR_PATH_STYLE: String = class! {};
+
+    pub(crate) static ref URL_BAR_FILE_STYLE: String = class! {
+        .style("font-weight", "bold")
+        .style("color", "darkred") // TODO replace with hsl
+    };
+
+    pub(crate) static ref URL_BAR_QUERY_STYLE: String = class! {
+        .style("font-weight", "bold")
+        .style("color", "darkred") // TODO replace with hsl
+    };
+
+    pub(crate) static ref URL_BAR_HASH_STYLE: String = class! {
+        .style("color", "darkblue") // TODO replace with hsl
+    };
+}
