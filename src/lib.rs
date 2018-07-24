@@ -14,18 +14,117 @@ extern crate futures_signals;
 extern crate futures;
 extern crate uuid;
 extern crate web_extensions;
+extern crate dominator;
 
 use std::fmt;
+use std::borrow::Borrow;
+use std::sync::Arc;
 use stdweb::{PromiseFuture, JsSerialize, Reference};
-use stdweb::web::TypedArray;
+use stdweb::web::{TypedArray, IHtmlElement};
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
-use futures_signals::signal::{Signal, SignalExt};
+use futures_signals::signal::{IntoSignal, Signal, SignalExt};
 use futures::future::IntoFuture;
 use futures::FutureExt;
+use dominator::{DerefFn, DomBuilder};
+use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 
 pub mod state;
+
+
+pub fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
+    x.map(|x| DerefFn::new(x, move |x| x.as_str()))
+}
+
+pub fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
+    DerefFn::new(x, move |x| {
+        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
+    })
+}
+
+pub fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
+    DerefFn::new(x, move |x| {
+        if let Some(x) = x {
+            if let Some(x) = f(x) {
+                x.as_str()
+
+            } else {
+                default
+            }
+
+        } else {
+            default
+        }
+    })
+}
+
+pub fn is_empty<A: Borrow<String>>(input: &Option<A>) -> bool {
+    input.as_ref().map(|x| x.borrow().len() == 0).unwrap_or(true)
+}
+
+pub fn px(t: f64) -> String {
+    // TODO find which spots should be rounded and which shouldn't ?
+    format!("{}px", t.round())
+}
+
+pub fn px_range(t: Percentage, min: f64, max: f64) -> String {
+    px(t.range_inclusive(min, max))
+}
+
+pub fn float_range(t: Percentage, min: f64, max: f64) -> String {
+    t.range_inclusive(min, max).to_string()
+}
+
+pub fn ease(t: Percentage) -> Percentage {
+    easing::in_out(t, easing::cubic)
+}
+
+#[inline]
+pub fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
+    where A: IHtmlElement + Clone + 'static,
+          B: IntoSignal<Item = bool>,
+          B::Signal: 'static {
+
+    // TODO is this inline a good idea ?
+    #[inline]
+    move |dom| {
+        dom.style_signal("display", signal.into_signal().map(|visible| {
+            if visible {
+                None
+
+            } else {
+                Some("none")
+            }
+        }))
+    }
+}
+
+#[inline]
+pub fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
+    where A: IntoSignal<Item = bool>,
+          A::Signal: 'static,
+          B: IHtmlElement + Clone + 'static {
+
+    // TODO is this inline a good idea ?
+    #[inline]
+    move |dom| {
+        dom.style_signal("cursor", is_dragging.into_signal().map(move |is_dragging| {
+            if is_dragging {
+                None
+
+            } else {
+                Some(cursor)
+            }
+        }))
+    }
+}
+
+pub fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
+    where A: Signal<Item = Percentage>,
+          F: FnMut(Percentage, f64, f64) -> String {
+    signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
+}
 
 
 // TODO put this into a separate crate or something ?

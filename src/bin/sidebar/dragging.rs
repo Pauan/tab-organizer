@@ -1,10 +1,48 @@
-use {TAB_DRAGGING_THRESHOLD};
+use constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
-use group::{Group, Tab};
-use state::{State, DragState};
+use types::{State, DragState, Group, Tab};
 use stdweb::web::Rect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
+
+
+impl Group {
+    fn tabs_each<F>(&self, mut f: F) where F: FnMut(&Tab) {
+        let slice = self.tabs.lock_ref();
+
+        for tab in slice.iter() {
+            f(&tab);
+        }
+    }
+
+    fn update_dragging_tabs<F>(&self, tab_index: Option<usize>, mut f: F) where F: FnMut(&Tab, Percentage) {
+        let slice = self.tabs.lock_ref();
+
+        if let Some(tab_index) = tab_index {
+            let mut seen = false;
+
+            for (index, tab) in slice.iter().enumerate() {
+                let percentage = if index == tab_index {
+                    seen = true;
+                    Percentage::new(1.0)
+
+                } else if seen {
+                    Percentage::new(1.0)
+
+                } else {
+                    Percentage::new(0.0)
+                };
+
+                f(&tab, percentage);
+            }
+
+        } else {
+            for tab in slice.iter() {
+                f(&tab, Percentage::new(0.0));
+            }
+        }
+    }
+}
 
 
 impl State {

@@ -1,5 +1,37 @@
-use {px, TAB_CLOSE_BORDER_WIDTH, TAB_FAVICON_SIZE, TAB_HEIGHT, TAB_PADDING, TAB_BORDER_WIDTH, GROUP_PADDING_BOTTOM, GROUP_HEADER_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, TOOLBAR_TOTAL_HEIGHT, TOOLBAR_MARGIN, TOOLBAR_HEIGHT, TOOLBAR_BORDER_WIDTH};
+use tab_organizer::px;
 use dominator::HIGHEST_ZINDEX;
+
+
+pub(crate) const LOADING_MESSAGE_THRESHOLD: u32 = 500;
+
+pub(crate) const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
+pub(crate) const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
+
+pub(crate) const INSERT_ANIMATION_DURATION: f64 = 1000.0;
+pub(crate) const DRAG_ANIMATION_DURATION: f64 = 150.0;
+pub(crate) const SELECTED_TABS_ANIMATION_DURATION: f64 = 225.0;
+
+pub(crate) const TAB_DRAGGING_THRESHOLD: f64 = 7.0; // Pixels the mouse has to move before dragging begins
+pub(crate) const TAB_DRAGGING_TOP: i32 = 11;
+pub(crate) const DRAG_GAP_PX: f64 = 32.0; // TODO adjust this based on how many tabs are being dragged
+pub(crate) const INSERT_LEFT_MARGIN: f64 = 12.0;
+
+pub(crate) const TOOLBAR_HEIGHT: f64 = 20.0;
+pub(crate) const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
+pub(crate) const TOOLBAR_MARGIN: f64 = 2.0;
+pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_MARGIN + (TOOLBAR_BORDER_WIDTH * 2.0) + TOOLBAR_HEIGHT;
+
+pub(crate) const GROUP_BORDER_WIDTH: f64 = 1.0;
+pub(crate) const GROUP_PADDING_TOP: f64 = 3.0;
+pub(crate) const GROUP_HEADER_HEIGHT: f64 = 16.0;
+pub(crate) const GROUP_PADDING_BOTTOM: f64 = 3.0;
+
+pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
+pub(crate) const TAB_PADDING: f64 = 1.0;
+pub(crate) const TAB_HEIGHT: f64 = 16.0;
+pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
+pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
+pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
 
 
 lazy_static! {

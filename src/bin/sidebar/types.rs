@@ -1,12 +1,127 @@
-use {DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH, ease};
+use constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tab_organizer::state;
+use tab_organizer::state::Options;
+use url_bar;
+use parse;
+use menu::Menu;
+use groups::Groups;
 use uuid::Uuid;
+use stdweb;
+use stdweb::web::Rect;
 use futures_signals::signal::{Signal, Mutable};
 use futures_signals::signal_vec::MutableVec;
-use dominator::animation::{MutableAnimation, Percentage};
+use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
+
+
+pub(crate) enum DragState {
+    DragStart {
+        mouse_x: i32,
+        mouse_y: i32,
+        rect: Rect,
+        group: Arc<Group>,
+        tab: Arc<Tab>,
+        tab_index: usize,
+    },
+
+    // TODO maybe this should be usize rather than Option<usize>
+    Dragging {
+        mouse_x: i32,
+        mouse_y: i32,
+        rect: Rect,
+        group: Arc<Group>,
+        tab_index: Option<usize>,
+    },
+}
+
+
+pub(crate) struct Dragging {
+    pub(crate) state: Mutable<Option<DragState>>,
+    pub(crate) selected_tabs: Mutable<Vec<Arc<Tab>>>,
+}
+
+impl Dragging {
+    fn new() -> Self {
+        Self {
+            state: Mutable::new(None),
+            selected_tabs: Mutable::new(vec![]),
+        }
+    }
+}
+
+
+pub(crate) struct Scrolling {
+    pub(crate) on_timestamp_diff: Mutable<Option<OnTimestampDiff>>,
+    pub(crate) y: Mutable<f64>,
+    pub(crate) height: Mutable<f64>,
+}
+
+impl Scrolling {
+    fn new(scroll_y: f64) -> Self {
+        Self {
+            on_timestamp_diff: Mutable::new(None),
+            y: Mutable::new(scroll_y),
+            height: Mutable::new(0.0),
+        }
+    }
+}
+
+
+pub(crate) struct State {
+    pub(crate) search_box: Mutable<Arc<String>>,
+    pub(crate) search_parser: Mutable<parse::Parsed>,
+
+    pub(crate) url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
+    pub(crate) groups_padding: Mutable<f64>, // TODO use u32 instead ?
+
+    pub(crate) groups: Groups,
+    pub(crate) window: RwLock<Window>,
+    pub(crate) options: Options,
+
+    pub(crate) dragging: Dragging,
+    pub(crate) scrolling: Scrolling,
+
+    pub(crate) menu: Menu,
+}
+
+impl State {
+    pub(crate) fn new(options: Options, window: Window) -> Self {
+        let local_storage = stdweb::web::window().local_storage();
+
+        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
+        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
+
+        Self {
+            search_parser: Mutable::new(parse::Parsed::new(&search_value)),
+            search_box: Mutable::new(Arc::new(search_value)),
+
+            url_bar: Mutable::new(None),
+            groups_padding: Mutable::new(0.0),
+
+            groups: Groups::new(options.sort_tabs.get(), &window),
+            window: RwLock::new(window),
+            options,
+
+            dragging: Dragging::new(),
+            scrolling: Scrolling::new(scroll_y),
+
+            menu: Menu::new(),
+        }
+    }
+
+    /*fn is_dragging_group(&self, group_id: usize) -> impl Signal<Item = bool> {
+        self.dragging.state.signal_ref(move |dragging| {
+            if let Some(DragState::Dragging { group, .. }) = dragging {
+                group.id == group_id
+
+            } else {
+                false
+            }
+        })
+    }*/
+}
 
 
 pub(crate) struct TabState {
@@ -79,33 +194,6 @@ impl Tab {
         }
     }
 
-    // TODO hacky
-    pub(crate) fn height(&self) -> f64 {
-        // TODO use range_inclusive ?
-        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
-
-        (TAB_BORDER_WIDTH * percentage).round() +
-        (TAB_PADDING * percentage).round() +
-        (TAB_HEIGHT * percentage).round() +
-        (TAB_PADDING * percentage).round() +
-        (TAB_BORDER_WIDTH * percentage).round()
-    }
-
-    pub(crate) fn insert_animate(&self) {
-        // TODO what if the tab is in multiple groups ?
-        self.insert_animation.jump_to(Percentage::new(0.0));
-        self.insert_animation.animate_to(Percentage::new(1.0));
-    }
-
-    pub(crate) fn remove_animate(&self) {
-        self.removing.set_neq(true);
-        self.insert_animation.animate_to(Percentage::new(0.0));
-    }
-
-    pub(crate) fn is_inserted(this: &Arc<Self>) -> bool {
-        !this.removing.get()
-    }
-
     pub(crate) fn is_focused(&self) -> impl Signal<Item = bool> {
         self.focused.signal()
     }
@@ -134,11 +222,6 @@ impl Window {
             name: Mutable::new(state.serialized.name.map(Arc::new)),
             tabs: state.tabs.into_iter().map(|tab| Arc::new(TabState::new(tab))).collect(),
         }
-    }
-
-    // TODO make this more efficient (e.g. returning Iterator)
-    pub(crate) fn get_tabs(&self) -> Vec<Arc<Tab>> {
-        self.tabs.iter().cloned().map(Tab::new).map(Arc::new).collect()
     }
 }
 
@@ -183,71 +266,6 @@ impl Group {
             removing: Mutable::new(false),
             visible: Mutable::new(false),
             tabs_padding: Mutable::new(0.0),
-        }
-    }
-
-    // TODO hacky
-    // TODO what about when it's dragging ?
-    pub(crate) fn height(&self) -> (f64, f64) {
-        // TODO use range_inclusive
-        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
-
-        (
-            (GROUP_BORDER_WIDTH * percentage).round() +
-            (GROUP_PADDING_TOP * percentage).round() +
-            (if self.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
-
-            (GROUP_PADDING_BOTTOM * percentage).round()
-        )
-    }
-
-    pub(crate) fn insert_animate(&self) {
-        self.insert_animation.jump_to(Percentage::new(0.0));
-        self.insert_animation.animate_to(Percentage::new(1.0));
-    }
-
-    pub(crate) fn remove_animate(&self) {
-        self.removing.set_neq(true);
-        self.insert_animation.animate_to(Percentage::new(0.0));
-    }
-
-    pub(crate) fn is_inserted(this: &Arc<Self>) -> bool {
-        !this.removing.get()
-    }
-
-    pub(crate) fn tabs_each<F>(&self, mut f: F) where F: FnMut(&Tab) {
-        let slice = self.tabs.lock_ref();
-
-        for tab in slice.iter() {
-            f(&tab);
-        }
-    }
-
-    pub(crate) fn update_dragging_tabs<F>(&self, tab_index: Option<usize>, mut f: F) where F: FnMut(&Tab, Percentage) {
-        let slice = self.tabs.lock_ref();
-
-        if let Some(tab_index) = tab_index {
-            let mut seen = false;
-
-            for (index, tab) in slice.iter().enumerate() {
-                let percentage = if index == tab_index {
-                    seen = true;
-                    Percentage::new(1.0)
-
-                } else if seen {
-                    Percentage::new(1.0)
-
-                } else {
-                    Percentage::new(0.0)
-                };
-
-                f(&tab, percentage);
-            }
-
-        } else {
-            for tab in slice.iter() {
-                f(&tab, Percentage::new(0.0));
-            }
         }
     }
 

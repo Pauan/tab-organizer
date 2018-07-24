@@ -14,162 +14,33 @@ extern crate stdweb;
 #[macro_use]
 extern crate lazy_static;
 
-use std::borrow::Borrow;
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, and, or, not, ScrollEvent};
+use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, DerefFn};
 use dominator::animation::{Percentage, MutableAnimation};
-use dominator::animation::easing;
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
 use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
-use futures_signals::signal::{Signal, IntoSignal, Mutable, SignalExt};
+use futures_signals::signal::{Mutable, SignalExt};
 use futures_signals::signal_vec::SignalVecExt;
 
-use group::Tab;
-use state::{State, DragState};
-use style::*;
+use types::{State, DragState, Tab, Window};
+use constants::*;
 
+mod constants;
+mod types;
 mod parse;
-mod waiter;
 mod url_bar;
 mod menu;
 mod groups;
-mod group;
-mod state;
-mod style;
 mod scrolling;
 mod dragging;
-
-
-const LOADING_MESSAGE_THRESHOLD: u32 = 500;
-
-const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
-const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
-
-const INSERT_ANIMATION_DURATION: f64 = 1000.0;
-const DRAG_ANIMATION_DURATION: f64 = 150.0;
-const SELECTED_TABS_ANIMATION_DURATION: f64 = 225.0;
-
-const TAB_DRAGGING_THRESHOLD: f64 = 7.0; // Pixels the mouse has to move before dragging begins
-const TAB_DRAGGING_TOP: i32 = 11;
-const DRAG_GAP_PX: f64 = 32.0; // TODO adjust this based on how many tabs are being dragged
-const INSERT_LEFT_MARGIN: f64 = 12.0;
-
-const TOOLBAR_HEIGHT: f64 = 20.0;
-const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
-const TOOLBAR_MARGIN: f64 = 2.0;
-const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_MARGIN + (TOOLBAR_BORDER_WIDTH * 2.0) + TOOLBAR_HEIGHT;
-
-const GROUP_BORDER_WIDTH: f64 = 1.0;
-const GROUP_PADDING_TOP: f64 = 3.0;
-const GROUP_HEADER_HEIGHT: f64 = 16.0;
-const GROUP_PADDING_BOTTOM: f64 = 3.0;
-
-const TAB_BORDER_WIDTH: f64 = 1.0;
-const TAB_PADDING: f64 = 1.0;
-const TAB_HEIGHT: f64 = 16.0;
-const TAB_FAVICON_SIZE: f64 = 16.0;
-const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
-const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-
-
-fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
-    x.map(|x| DerefFn::new(x, move |x| x.as_str()))
-}
-
-fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
-    DerefFn::new(x, move |x| {
-        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
-    })
-}
-
-fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
-    DerefFn::new(x, move |x| {
-        if let Some(x) = x {
-            if let Some(x) = f(x) {
-                x.as_str()
-
-            } else {
-                default
-            }
-
-        } else {
-            default
-        }
-    })
-}
-
-fn is_empty<A: Borrow<String>>(input: &Option<A>) -> bool {
-    input.as_ref().map(|x| x.borrow().len() == 0).unwrap_or(true)
-}
-
-fn px(t: f64) -> String {
-    // TODO find which spots should be rounded and which shouldn't ?
-    format!("{}px", t.round())
-}
-
-fn px_range(t: Percentage, min: f64, max: f64) -> String {
-    px(t.range_inclusive(min, max))
-}
-
-fn float_range(t: Percentage, min: f64, max: f64) -> String {
-    t.range_inclusive(min, max).to_string()
-}
-
-fn ease(t: Percentage) -> Percentage {
-    easing::in_out(t, easing::cubic)
-}
-
-#[inline]
-fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
-    where A: IHtmlElement + Clone + 'static,
-          B: IntoSignal<Item = bool>,
-          B::Signal: 'static {
-
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| {
-        dom.style_signal("display", signal.into_signal().map(|visible| {
-            if visible {
-                None
-
-            } else {
-                Some("none")
-            }
-        }))
-    }
-}
-
-#[inline]
-fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
-    where A: IntoSignal<Item = bool>,
-          A::Signal: 'static,
-          B: IHtmlElement + Clone + 'static {
-
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| {
-        dom.style_signal("cursor", is_dragging.into_signal().map(move |is_dragging| {
-            if is_dragging {
-                None
-
-            } else {
-                Some(cursor)
-            }
-        }))
-    }
-}
-
-fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
-    where A: Signal<Item = Percentage>,
-          F: FnMut(Percentage, f64, f64) -> String {
-    signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
-}
+mod tab;
+mod culling;
 
 
 lazy_static! {
@@ -307,7 +178,7 @@ fn initialize(state: Arc<State>) {
                 state.update(false);
             }))
 
-            .future(waiter::waiter(&state, clone!(state => move |should_search| {
+            .future(culling::waiter(&state, clone!(state => move |should_search| {
                 state.update(should_search);
             })))
 
@@ -613,7 +484,6 @@ fn initialize(state: Arc<State>) {
                             .style_signal("height", state.scrolling.height.signal().map(px))
 
                             .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
-                                //.delay_remove(|(_, group)| waiter::delay_animation(&group.insert_animation, &group.visible))
                                 .filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(clone!(state => move |(index, group)| {
                                     if let Some(index) = index.get() {
@@ -682,7 +552,6 @@ fn initialize(state: Arc<State>) {
                                                 .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
                                                 .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    //.delay_remove(|(_, tab)| waiter::delay_animation(&tab.insert_animation, &tab.visible))
                                                     .filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(clone!(state => move |(index, tab)| {
                                                         if let Some(index) = index.get() {
@@ -1078,7 +947,7 @@ fn main() {
                 }).collect(),
             };
 
-            initialize(Arc::new(State::new(Options::new(), window)));
+            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
         }}, 1500);
     }
 }

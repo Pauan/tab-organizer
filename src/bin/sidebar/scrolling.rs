@@ -1,7 +1,7 @@
-use {TOOLBAR_TOTAL_HEIGHT, MOUSE_SCROLL_SPEED, MOUSE_SCROLL_THRESHOLD};
+use constants::{TOOLBAR_TOTAL_HEIGHT, MOUSE_SCROLL_SPEED, MOUSE_SCROLL_THRESHOLD};
 use tab_organizer::normalize;
 use stdweb;
-use state::State;
+use types::State;
 use dominator::animation::{easing, Percentage, OnTimestampDiff};
 
 
