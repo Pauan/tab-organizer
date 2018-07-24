@@ -42,6 +42,8 @@ mod groups;
 mod group;
 mod state;
 mod style;
+mod scrolling;
+mod dragging;
 
 
 const LOADING_MESSAGE_THRESHOLD: u32 = 500;
@@ -49,9 +51,9 @@ const LOADING_MESSAGE_THRESHOLD: u32 = 500;
 const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
 const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
 
-const INSERT_ANIMATION_DURATION: f64 = 800.0;
-const DRAG_ANIMATION_DURATION: f64 = 100.0;
-const SELECTED_TABS_ANIMATION_DURATION: f64 = 150.0;
+const INSERT_ANIMATION_DURATION: f64 = 1000.0;
+const DRAG_ANIMATION_DURATION: f64 = 150.0;
+const SELECTED_TABS_ANIMATION_DURATION: f64 = 225.0;
 
 const TAB_DRAGGING_THRESHOLD: f64 = 7.0; // Pixels the mouse has to move before dragging begins
 const TAB_DRAGGING_TOP: i32 = 11;
@@ -842,6 +844,7 @@ fn initialize(state: Arc<State>) {
 
     log!("Finished");
 
+    return;
 
     js! { @(no_return)
         setInterval(@{clone!(state => move || {
@@ -941,7 +944,7 @@ fn initialize(state: Arc<State>) {
                     },
                 });
             }*/
-        })}, @{INSERT_ANIMATION_DURATION + 2000.0});
+        })}, @{INSERT_ANIMATION_DURATION * 2.0});
     }
 
     js! { @(no_return)
@@ -961,7 +964,7 @@ fn initialize(state: Arc<State>) {
                     title: Some("top".to_owned()),
                 },
             });
-        }}, @{INSERT_ANIMATION_DURATION + 11000.0});
+        }}, @{INSERT_ANIMATION_DURATION * 3.0});
     }
 }
 
