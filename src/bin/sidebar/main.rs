@@ -178,15 +178,23 @@ fn initialize(state: Arc<State>) {
                 state.update(false);
             }))
 
-            .future(culling::waiter(&state, clone!(state => move |should_search| {
-                state.update(should_search);
-            })))
+            .future({
+                let mut first = true;
 
-            // TODO
-            .future(state.options.sort_tabs.signal().for_each(clone!(state => move |value| {
-                state.change_sort(value);
-                Ok(())
-            })))
+                culling::waiter(&state, clone!(state => move |should_search, sort| {
+                    if let Some(sort) = sort {
+                        // TODO a little bit hacky
+                        if first {
+                            first = false;
+
+                        } else {
+                            state.change_sort(sort);
+                        }
+                    }
+
+                    state.update(should_search);
+                }))
+            })
 
             .children(&mut [
                 html!("div", {

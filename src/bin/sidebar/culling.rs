@@ -1,4 +1,5 @@
 use tab_organizer::ease;
+use tab_organizer::state::SortTabs;
 use constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use types::{State, DragState, Group, Tab};
 use std::sync::Arc;
@@ -68,13 +69,18 @@ fn changed_vec<A, B, C, F>(signal: &mut Option<C>, cx: &mut Context, vec: &mut V
     }
 }
 
+#[inline]
 fn changed<A, B>(signal: &mut Option<B>, cx: &mut Context) -> bool where B: Signal<Item = A> {
-    let mut changed = false;
+    changed_option(signal, cx).is_some()
+}
+
+fn changed_option<A, B>(signal: &mut Option<B>, cx: &mut Context) -> Option<A> where B: Signal<Item = A> {
+    let mut changed = None;
 
     loop {
         match signal.as_mut().map(|signal| signal.poll_change(cx)) {
-            Some(Async::Ready(Some(_))) => {
-                changed = true;
+            Some(Async::Ready(Some(value))) => {
+                changed = Some(value);
                 continue;
             },
             Some(Async::Ready(None)) => {
@@ -114,7 +120,10 @@ impl TabState {
         let removing = changed(&mut self.removing, cx);
         let dragging = changed(&mut self.dragging, cx);
         let insert_animation = changed(&mut self.insert_animation, cx);
-        (url || title || removing || dragging || insert_animation, url || title)
+        (
+            url || title || removing || dragging || insert_animation,
+            url || title
+        )
     }
 }
 
@@ -148,7 +157,10 @@ impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> {
         }
 
         // TODO it should search only when a tab is inserted or updated, not removed
-        (removing || insert_animation || signal || tabs, signal || search)
+        (
+            removing || insert_animation || signal || tabs,
+            signal || search
+        )
     }
 }
 
@@ -157,11 +169,12 @@ struct Waiter<A, B, G, F> where G: FnMut(&Group) -> B {
     signal: Option<A>,
     group_signal: G,
     groups: Vec<GroupState<B>>,
+    sort_tabs: Option<MutableSignal<SortTabs>>, // TODO this might be unnecessary
     callback: F,
 }
 
-impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: SignalVec<Item = Arc<Tab>>, G: FnMut(&Group) -> B, F: FnMut(bool) {
-    fn changed(&mut self, cx: &mut Context) -> (bool, bool) {
+impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: SignalVec<Item = Arc<Tab>>, G: FnMut(&Group) -> B, F: FnMut(bool, Option<SortTabs>) {
+    fn changed(&mut self, cx: &mut Context) -> (bool, bool, Option<SortTabs>) {
         let group_signal = &mut self.group_signal;
 
         let signal = changed_vec(&mut self.signal, cx, &mut self.groups, |group| {
@@ -188,31 +201,38 @@ impl<A, B, G, F> Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: Si
             }
         }
 
+        let sort_tabs = changed_option(&mut self.sort_tabs, cx);
+
         // TODO it should search only when a group is inserted or updated, not removed
-        (signal || groups_changed, signal || groups_searched)
+        (
+            signal || groups_changed || sort_tabs.is_some(),
+            signal || groups_searched || sort_tabs.is_some(),
+            sort_tabs
+        )
     }
 }
 
-impl<A, B, G, F> Future for Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: SignalVec<Item = Arc<Tab>>, G: FnMut(&Group) -> B, F: FnMut(bool) {
+impl<A, B, G, F> Future for Waiter<A, B, G, F> where A: SignalVec<Item = Arc<Group>>, B: SignalVec<Item = Arc<Tab>>, G: FnMut(&Group) -> B, F: FnMut(bool, Option<SortTabs>) {
     type Item = ();
     type Error = Never;
 
     fn poll(&mut self, cx: &mut Context) -> Poll<Self::Item, Self::Error> {
-        let (changed, search) = self.changed(cx);
+        let (changed, search, sort_tabs) = self.changed(cx);
 
         if changed {
-            (self.callback)(search);
+            (self.callback)(search, sort_tabs);
         }
 
         Ok(Async::Pending)
     }
 }
 
-pub(crate) fn waiter<F>(state: &State, f: F) -> impl Future<Item = (), Error = Never> where F: FnMut(bool) {
+pub(crate) fn waiter<F>(state: &State, f: F) -> impl Future<Item = (), Error = Never> where F: FnMut(bool, Option<SortTabs>) {
     Waiter {
         signal: Some(state.groups.signal_vec_cloned()/*.delay_remove(|group| delay_animation(&group.insert_animation, &group.visible))*/),
         group_signal: |group| group.tabs.signal_vec_cloned()/*.delay_remove(|tab| delay_animation(&tab.insert_animation, &tab.visible))*/,
         groups: vec![],
+        sort_tabs: Some(state.options.sort_tabs.signal()),
         callback: f,
     }
 }
