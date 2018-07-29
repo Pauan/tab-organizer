@@ -19,6 +19,7 @@ extern crate dominator;
 use std::fmt;
 use std::borrow::Borrow;
 use std::sync::Arc;
+use std::cmp::Ordering;
 use stdweb::{PromiseFuture, JsSerialize, Reference};
 use stdweb::web::{TypedArray, IHtmlElement};
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
@@ -33,14 +34,16 @@ use uuid::Uuid;
 pub mod state;
 
 
+pub fn str_default<'a, A: Borrow<String>>(x: &'a Option<A>, default: &'a str) -> &'a str {
+    x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
+}
+
 pub fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
     x.map(|x| DerefFn::new(x, move |x| x.as_str()))
 }
 
 pub fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
-    DerefFn::new(x, move |x| {
-        x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
-    })
+    DerefFn::new(x, move |x| str_default(x, default))
 }
 
 pub fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
@@ -231,6 +234,30 @@ pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where 
     }
 
     len
+}
+
+// TODO test this
+pub fn get_sorted_index<A, S>(mut iter: A, mut sort: S) -> Result<usize, usize>
+    where A: Iterator,
+          S: FnMut(A::Item) -> Option<Ordering> {
+
+    let mut index = 0;
+
+    while let Some(value) = iter.next() {
+        match sort(value) {
+            None | Some(Ordering::Less) => {},
+            Some(Ordering::Equal) => {
+                return Ok(index);
+            },
+            Some(Ordering::Greater) => {
+                return Err(index);
+            },
+        }
+
+        index += 1;
+    }
+
+    Err(index)
 }
 
 

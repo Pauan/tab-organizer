@@ -182,6 +182,12 @@ fn initialize(state: Arc<State>) {
                 state.update(should_search);
             })))
 
+            // TODO
+            .future(state.options.sort_tabs.signal().for_each(clone!(state => move |value| {
+                state.change_sort(value);
+                Ok(())
+            })))
+
             .children(&mut [
                 html!("div", {
                     .class(&DRAGGING_STYLE)

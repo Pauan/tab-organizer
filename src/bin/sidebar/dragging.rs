@@ -299,7 +299,7 @@ impl State {
         let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
-            self.scrolling.on_timestamp_diff.set(None);
+            self.stop_scrolling();
 
             group.drag_over.jump_to(Percentage::new(0.0));
 

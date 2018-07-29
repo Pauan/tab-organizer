@@ -32,4 +32,8 @@ impl State {
             })));
         }
     }
+
+    pub(crate) fn stop_scrolling(&self) {
+        self.scrolling.on_timestamp_diff.set(None);
+    }
 }
