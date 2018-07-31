@@ -80,6 +80,7 @@ fn eq_index<A>(signal: A, index: usize) -> impl Signal<Item = bool> where A: Int
 }
 
 
+#[derive(Debug)]
 enum MenuItemState {
     Submenu {
         hovered: Mutable<Option<usize>>,
@@ -103,6 +104,7 @@ impl MenuItemState {
 }
 
 
+#[derive(Debug)]
 struct MenuState {
     visible: Mutable<bool>,
     states: RwLock<Vec<MenuItemState>>,
@@ -295,6 +297,7 @@ impl MenuBuilder {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Menu {
     state: Arc<MenuState>,
 }

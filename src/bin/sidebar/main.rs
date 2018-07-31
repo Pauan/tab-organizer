@@ -956,7 +956,7 @@ fn main() {
                         pinned: index == 0 || index == 1 || index == 2,
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                         url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                        title: Some("Foo".to_owned()),
+                        title: Some(format!("Foo {}", index)),
                     }
                 }).collect(),
             };

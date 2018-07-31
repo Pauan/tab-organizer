@@ -41,6 +41,7 @@ lazy_static! {
     );
 }
 
+#[derive(Debug)]
 pub(crate) struct UrlBar {
     pub(crate) protocol: Option<String>,
     pub(crate) separator: Option<String>,

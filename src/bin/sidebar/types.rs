@@ -16,6 +16,7 @@ use futures_signals::signal_vec::MutableVec;
 use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
 
 
+#[derive(Debug)]
 pub(crate) enum DragState {
     DragStart {
         mouse_x: i32,
@@ -37,6 +38,7 @@ pub(crate) enum DragState {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Dragging {
     pub(crate) state: Mutable<Option<DragState>>,
     pub(crate) selected_tabs: Mutable<Vec<Arc<Tab>>>,
@@ -52,6 +54,7 @@ impl Dragging {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Scrolling {
     pub(crate) on_timestamp_diff: Mutable<Option<OnTimestampDiff>>,
     pub(crate) y: Mutable<f64>,
@@ -69,6 +72,7 @@ impl Scrolling {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct State {
     pub(crate) search_box: Mutable<Arc<String>>,
     pub(crate) search_parser: Mutable<parse::Parsed>,
@@ -124,6 +128,7 @@ impl State {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct TabState {
     pub(crate) id: Uuid,
     pub(crate) favicon_url: Mutable<Option<Arc<String>>>,
@@ -149,6 +154,7 @@ impl TabState {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Tab {
     pub(crate) state: Arc<TabState>,
 
@@ -209,6 +215,7 @@ impl Deref for Tab {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Window {
     pub(crate) id: Uuid,
     pub(crate) name: Mutable<Option<Arc<String>>>,
@@ -226,6 +233,7 @@ impl Window {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Group {
     pub(crate) id: usize,
     pub(crate) name: Mutable<Option<Arc<String>>>,

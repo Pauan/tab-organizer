@@ -14,6 +14,7 @@ pub enum SortTabs {
 }
 
 
+#[derive(Debug)]
 pub struct Options {
     pub sort_tabs: Mutable<SortTabs>,
 }
