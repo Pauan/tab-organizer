@@ -727,8 +727,6 @@ fn initialize(state: Arc<State>) {
 
     log!("Finished");
 
-    return;
-
     js! { @(no_return)
         setInterval(@{clone!(state => move || {
             state.process_message(SidebarMessage::TabChanged {

@@ -216,14 +216,14 @@ pub fn get_len<A, F>(mut iter: A, mut f: F) -> usize where A: Iterator, F: FnMut
 }
 
 // TODO test this
-pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> Result<usize, usize> where A: Iterator, F: FnMut(A::Item) -> bool {
+pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
     let mut index = 0;
     let mut len = 0;
 
     while let Some(x) = iter.next() {
         if f(x) {
             if index == real_index {
-                return Ok(len);
+                return len;
 
             } else {
                 index += 1;
@@ -233,7 +233,9 @@ pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> Result<usize
         len += 1;
     }
 
-    Err(len)
+    // TODO is this correct ?
+    assert_eq!(index, real_index);
+    len
 }
 
 // TODO test this

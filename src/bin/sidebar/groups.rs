@@ -27,7 +27,7 @@ fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> w
     })
 }
 
-fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> Result<usize, usize> where F: FnMut(&Tab) -> Ordering {
+fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> usize where F: FnMut(&Tab) -> Ordering {
     get_sorted_index(tabs.into_iter(), |tab| {
         if Tab::is_inserted(tab) {
             Some(f(tab))
@@ -35,7 +35,7 @@ fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> Result<usize, usize> where F
         } else {
             None
         }
-    })
+    }).unwrap_err()
 }
 
 fn insert_group(groups: &mut MutableVecLockMut<Arc<Group>>, group_sort: GroupSort, should_animate: bool) -> Arc<Group> {
@@ -168,7 +168,7 @@ fn get_group_sort(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<
     }
 }
 
-fn get_tab_sort(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> Result<usize, usize> {
+fn get_tab_sort(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> usize {
     match sort {
         SortTabs::Window => {
             if !tab.pinned.get() {
@@ -230,7 +230,7 @@ fn tab_inserted(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab:
 
         let mut tabs = group.tabs.lock_mut();
 
-        let index = get_tab_sort(sort, &groups, &tabs, &tab, tab_index).unwrap_err();
+        let index = get_tab_sort(sort, &groups, &tabs, &tab, tab_index);
 
         let tab = Arc::new(Tab::new(tab.clone()));
 
