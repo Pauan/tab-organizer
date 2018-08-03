@@ -38,12 +38,12 @@ fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> usize where F: FnMut(&Tab) -
     }).unwrap_err()
 }
 
-fn insert_group(groups: &mut MutableVecLockMut<Arc<Group>>, group_sort: GroupSort, should_animate: bool) -> Arc<Group> {
-    match group_sort.index {
+fn insert_group(groups: &mut MutableVecLockMut<Arc<Group>>, group_index: GroupIndex, should_animate: bool) -> Arc<Group> {
+    match group_index.index {
         Ok(index) => groups[index].clone(),
 
         Err(index) => {
-            let group = match group_sort.name {
+            let group = match group_index.name {
                 None => Arc::new(Group::new(false, Mutable::new(None), vec![])),
                 Some(name) => Arc::new(Group::new(true, Mutable::new(Some(name)), vec![])),
             };
@@ -88,22 +88,23 @@ fn get_pinned_len(groups: &[Arc<Group>]) -> usize {
 }
 
 
-struct GroupSort {
+#[derive(Debug)]
+struct GroupIndex {
     index: Result<usize, usize>,
     name: Option<Arc<String>>,
 }
 
-fn get_group_sort(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<GroupSort> {
+fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<GroupIndex> {
     match sort {
         SortTabs::Window => vec![
             if tab.pinned.get() {
-                GroupSort {
+                GroupIndex {
                     index: get_pinned_index(groups),
                     name: Some(Arc::new("Pinned".to_string())),
                 }
 
             } else {
-                GroupSort {
+                GroupIndex {
                     index: get_unpinned_index(groups),
                     name: None,
                 }
@@ -134,7 +135,7 @@ fn get_group_sort(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<
             let url = Arc::new(url);
 
             vec![
-                GroupSort {
+                GroupIndex {
                     index: get_group_index_name(groups, &url),
                     name: Some(url),
                 }
@@ -159,7 +160,7 @@ fn get_group_sort(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<
             let title = Arc::new(title);
 
             vec![
-                GroupSort {
+                GroupIndex {
                     index: get_group_index_name(groups, &title),
                     name: Some(title),
                 }
@@ -168,7 +169,7 @@ fn get_group_sort(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<
     }
 }
 
-fn get_tab_sort(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> usize {
+fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> usize {
     match sort {
         SortTabs::Window => {
             if !tab.pinned.get() {
@@ -179,39 +180,55 @@ fn get_tab_sort(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &
         },
 
         SortTabs::Tag => {
-            Err(0)
+            0
         },
 
         SortTabs::TimeFocused => {
-            Err(0)
+            0
         },
 
         SortTabs::TimeCreated => {
-            Err(0)
+            0
         },
 
         SortTabs::Url => {
             let id = tab.id;
+
             let url = tab.url.lock_ref();
             let url = str_default(&url, "");
+
+            let title = tab.title.lock_ref();
+            let title = str_default(&title, "");
 
             get_tab_index(tabs, |tab| {
                 let x = tab.url.lock_ref();
                 let x = str_default(&x, "");
-                x.cmp(url).then_with(|| tab.id.cmp(&id))
+
+                let y = tab.title.lock_ref();
+                let y = str_default(&y, "");
+
+                x.cmp(url).then_with(|| y.cmp(title).then_with(|| tab.id.cmp(&id)))
             })
         },
 
         // TODO use upper-case sorting ?
         SortTabs::Name => {
             let id = tab.id;
+
             let title = tab.title.lock_ref();
             let title = str_default(&title, "");
+
+            let url = tab.url.lock_ref();
+            let url = str_default(&url, "");
 
             get_tab_index(tabs, |tab| {
                 let x = tab.title.lock_ref();
                 let x = str_default(&x, "");
-                x.cmp(title).then_with(|| tab.id.cmp(&id))
+
+                let y = tab.url.lock_ref();
+                let y = str_default(&y, "");
+
+                x.cmp(title).then_with(|| y.cmp(url).then_with(|| tab.id.cmp(&id)))
             })
         },
     }
@@ -224,50 +241,92 @@ fn initialize(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, window
     }
 }
 
+fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool) {
+    let mut tabs = group.tabs.lock_mut();
+
+    let index = sorted_tab_index(sort, groups, &tabs, &tab, tab_index);
+
+    let tab = Arc::new(Tab::new(tab));
+
+    if should_animate {
+        tab.insert_animate();
+    }
+
+    tabs.insert_cloned(index, tab);
+}
+
 fn tab_inserted(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: Arc<TabState>, tab_index: usize, should_animate: bool) {
-    for group_sort in get_group_sort(sort, &groups, &tab) {
-        let group = insert_group(groups, group_sort, should_animate);
+    for group_index in sorted_group_indexes(sort, &groups, &tab) {
+        let group = insert_group(groups, group_index, should_animate);
+        insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, should_animate);
+    }
+}
 
-        let mut tabs = group.tabs.lock_mut();
+fn remove_tab_from_group(group: &Group, tab: &TabState, remove_group: bool) {
+    let tabs = group.tabs.lock_ref();
 
-        let index = get_tab_sort(sort, &groups, &tabs, &tab, tab_index);
+    let id = tab.id;
 
-        let tab = Arc::new(Tab::new(tab.clone()));
+    let mut is_inserted = false;
 
-        if should_animate {
-            tab.insert_animate();
+    // TODO make this more efficient
+    for tab in tabs.iter() {
+        if Tab::is_inserted(tab) {
+            if tab.id == id {
+                tab.remove_animate();
+
+            } else {
+                is_inserted = true;
+            }
         }
+    }
 
-        tabs.insert_cloned(index, tab);
+    if remove_group && !is_inserted {
+        group.remove_animate();
     }
 }
 
 fn tab_removed(sort: SortTabs, groups: &MutableVecLockRef<Arc<Group>>, tab: &TabState, _tab_index: usize) {
-    for group_sort in get_group_sort(sort, &groups, tab) {
-        let index = group_sort.index.unwrap();
+    for group_index in sorted_group_indexes(sort, &groups, tab) {
+        let index = group_index.index.unwrap();
+        let group = &groups[index];
+        remove_tab_from_group(&group, tab, true);
+    }
+}
+
+fn tab_updated(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, group_indexes: Vec<GroupIndex>, tab: Arc<TabState>, tab_index: usize) {
+    let mut new_groups = sorted_group_indexes(sort, &groups, &tab);
+
+    for group_index in group_indexes {
+        let index = group_index.index.unwrap();
         let group = &groups[index];
 
-        let tabs = group.tabs.lock_ref();
-
-        let id = tab.id;
-
-        let mut is_inserted = false;
-
         // TODO make this more efficient
-        for tab in tabs.iter() {
-            if Tab::is_inserted(tab) {
-                if tab.id == id {
-                    tab.remove_animate();
+        let new_index = new_groups.iter().position(|group_index| {
+            if let Ok(x) = group_index.index {
+                x == index
 
-                } else {
-                    is_inserted = true;
-                }
+            } else {
+                false
             }
-        }
+        });
 
-        if !is_inserted {
-            group.remove_animate();
+        // Tab exists in the old and new group
+        if let Some(index) = new_index {
+            new_groups.remove(index);
+            remove_tab_from_group(&group, &tab, false);
+            insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, true);
+
+        // Tab no longer exists in this group
+        } else {
+            remove_tab_from_group(&group, &tab, true);
         }
+    }
+
+    // Tab exists in new groups
+    for group_index in new_groups {
+        let group = insert_group(groups, group_index, true);
+        insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, true);
     }
 }
 
@@ -328,6 +387,17 @@ impl Groups {
         let sort = self.sort.lock().unwrap();
         let groups = self.groups.lock_ref();
         tab_removed(*sort, &groups, tab, tab_index);
+    }
+
+    fn tab_updated<F>(&self, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
+        let sort = self.sort.lock().unwrap();
+        let mut groups = self.groups.lock_mut();
+
+        let group_indexes = sorted_group_indexes(*sort, &groups, &tab);
+
+        change();
+
+        tab_updated(*sort, &mut groups, group_indexes, tab, tab_index);
     }
 }
 
@@ -402,12 +472,16 @@ impl State {
 
                 let tab = &window.tabs[tab_index];
 
-                match change {
-                    TabChange::Title { new_title } => {
-                        tab.title.set(new_title.map(Arc::new));
-                    },
-                    TabChange::Pinned { pinned } => {},
-                }
+                self.groups.tab_updated(tab_index, tab.clone(), || {
+                    match change {
+                        TabChange::Title { new_title } => {
+                            tab.title.set(new_title.map(Arc::new));
+                        },
+                        TabChange::Pinned { pinned } => {
+                            tab.pinned.set_neq(pinned);
+                        },
+                    }
+                });
             },
         }
     }

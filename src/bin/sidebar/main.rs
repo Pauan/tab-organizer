@@ -736,6 +736,20 @@ fn initialize(state: Arc<State>) {
                 },
             });
 
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 3,
+                change: TabChange::Title {
+                    new_title: Some("z1".to_string()),
+                },
+            });
+
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 3,
+                change: TabChange::Title {
+                    new_title: Some("z2".to_string()),
+                },
+            });
+
             /*state.process_message(SidebarMessage::TabChanged {
                 tab_index: 0,
                 change: TabChange::Pinned {
