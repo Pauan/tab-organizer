@@ -79,7 +79,7 @@ fn initialize(state: Arc<State>) {
             .class(&TAB_FAVICON_STYLE)
             .class(&ICON_STYLE)
 
-            .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
+            .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
 
             .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
 
@@ -108,9 +108,9 @@ fn initialize(state: Arc<State>) {
                             ""
                         }
                     }
-                }),
+                }.first()),
 
-                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
+                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
             ])
 
             .mixin(mixin)
@@ -138,7 +138,7 @@ fn initialize(state: Arc<State>) {
 
             .mixin(cursor(state.is_dragging(), "pointer"))
 
-            .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal())
+            .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
             .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
 
             .children(&mut [favicon, text, close])
@@ -253,7 +253,7 @@ fn initialize(state: Arc<State>) {
                                                 .class(&TAB_HOVER_STYLE)
                                                 .class(&MENU_ITEM_HOVER_STYLE)
                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
+                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
@@ -612,7 +612,7 @@ fn initialize(state: Arc<State>) {
                                                             |dom: DomBuilder<HtmlElement>| dom
                                                                 .class_signal(&TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
+                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
                                                                 .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                                                                 .class_signal(&TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -622,7 +622,7 @@ fn initialize(state: Arc<State>) {
                                                                 .class_signal(&TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
                                                                 .class_signal(&MENU_ITEM_SHADOW_STYLE, or(state.is_tab_hovered(&tab), tab.selected.signal()))
 
-                                                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
+                                                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
 
                                                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
@@ -739,14 +739,14 @@ fn initialize(state: Arc<State>) {
             state.process_message(SidebarMessage::TabChanged {
                 tab_index: 3,
                 change: TabChange::Title {
-                    new_title: Some("z1".to_string()),
+                    new_title: Some("e1".to_string()),
                 },
             });
 
             state.process_message(SidebarMessage::TabChanged {
                 tab_index: 3,
                 change: TabChange::Title {
-                    new_title: Some("z2".to_string()),
+                    new_title: Some("e2".to_string()),
                 },
             });
 
