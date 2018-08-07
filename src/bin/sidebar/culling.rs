@@ -283,7 +283,7 @@ impl State {
 	// TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle dragging
-    pub(crate) fn update(&self, should_search: bool) {
+    pub(crate) fn update(&self, should_search: bool, animate: bool) {
         // TODO add STATE.dragging.state to the waiter
         let dragging = self.dragging.state.lock_ref();
         let search_parser = self.search_parser.lock_ref();
@@ -295,7 +295,9 @@ impl State {
         let mut current_height: f64 = 0.0;
 
         self.groups.lock_mut().retain(|group| {
-            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
+            let mut is_invisible = group.insert_animation.current_percentage() == Percentage::new(0.0);
+
+            if group.removing.get() && is_invisible {
                 false
 
             } else {
@@ -313,38 +315,49 @@ impl State {
 
                 // TODO what if there aren't any tabs in the group ?
                 group.tabs.lock_mut().retain(|tab| {
-                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
+                    let mut is_invisible = tab.insert_animation.current_percentage() == Percentage::new(0.0);
+
+                    if tab.removing.get() && is_invisible {
                         false
 
                     } else {
-                        if should_search {
+                        // TODO what about if all the tabs are being dragged ?
+                        if should_search && !tab.removing.get() {
                             if search_parser.matches_tab(tab) {
+                                matches_search = true;
                                 tab.matches_search.set_neq(true);
+
+                                if animate {
+                                    tab.insert_animation.animate_to(Percentage::new(1.0));
+
+                                } else {
+                                    tab.insert_animation.jump_to(Percentage::new(1.0));
+                                }
 
                             } else {
                                 tab.matches_search.set_neq(false);
+
+                                if animate {
+                                    tab.insert_animation.animate_to(Percentage::new(0.0));
+
+                                } else {
+                                    tab.insert_animation.jump_to(Percentage::new(0.0));
+                                    is_invisible = true;
+                                }
                             }
                         }
 
-                        // TODO what about if all the tabs are being dragged ?
-                        if tab.matches_search.get() {
-                            matches_search = true;
+                        if !tab.dragging.get() {
+                            let old_height = current_height;
 
-                            if !tab.dragging.get() {
-                                let old_height = current_height;
+                            current_height += tab.height();
 
-                                current_height += tab.height();
-
-                                if old_height < bottom_y && current_height > top_y {
-                                    if let None = tabs_padding {
-                                        tabs_padding = Some(old_height);
-                                    }
-
-                                    tab.visible.set_neq(true);
-
-                                } else {
-                                    self.hide_tab(&tab);
+                            if !is_invisible && old_height < bottom_y && current_height > top_y {
+                                if let None = tabs_padding {
+                                    tabs_padding = Some(old_height);
                                 }
+
+                                tab.visible.set_neq(true);
 
                             } else {
                                 self.hide_tab(&tab);
@@ -362,30 +375,39 @@ impl State {
                     if matches_search {
                         group.matches_search.set_neq(true);
 
+                        if animate {
+                            group.insert_animation.animate_to(Percentage::new(1.0));
+
+                        } else {
+                            group.insert_animation.jump_to(Percentage::new(1.0));
+                        }
+
                     } else {
                         group.matches_search.set_neq(false);
+
+                        if animate {
+                            group.insert_animation.animate_to(Percentage::new(0.0));
+
+                        } else {
+                            group.insert_animation.jump_to(Percentage::new(0.0));
+                            is_invisible = true;
+                        }
                     }
                 }
 
-                if matches_search {
-                    let no_tabs_height = current_height;
+                let no_tabs_height = current_height;
 
-                    current_height += bottom_height;
+                current_height += bottom_height;
 
-                    if old_height < bottom_y && current_height > top_y {
-                        if let None = padding {
-                            padding = Some(old_height);
-                        }
-
-                        group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                        group.visible.set_neq(true);
-
-                    } else {
-                        group.visible.set_neq(false);
+                if !is_invisible && old_height < bottom_y && current_height > top_y {
+                    if let None = padding {
+                        padding = Some(old_height);
                     }
 
+                    group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
+                    group.visible.set_neq(true);
+
                 } else {
-                    current_height = old_height;
                     group.visible.set_neq(false);
                 }
 

@@ -7,7 +7,7 @@ pub(crate) const LOADING_MESSAGE_THRESHOLD: u32 = 500;
 pub(crate) const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
 pub(crate) const MOUSE_SCROLL_SPEED: f64 = 0.5; // Number of pixels to move per millisecond
 
-pub(crate) const INSERT_ANIMATION_DURATION: f64 = 1000.0;
+pub(crate) const INSERT_ANIMATION_DURATION: f64 = 540.0;
 pub(crate) const DRAG_ANIMATION_DURATION: f64 = 150.0;
 pub(crate) const SELECTED_TABS_ANIMATION_DURATION: f64 = 225.0;
 

@@ -175,13 +175,15 @@ fn initialize(state: Arc<State>) {
             }))
 
             .global_event(clone!(state => move |_: ResizeEvent| {
-                state.update(false);
+                state.update(false, true);
             }))
 
             .future({
                 let mut first = true;
 
                 culling::waiter(&state, clone!(state => move |should_search, sort| {
+                    let animate = !first;
+
                     if let Some(sort) = sort {
                         // TODO a little bit hacky
                         if first {
@@ -192,7 +194,7 @@ fn initialize(state: Arc<State>) {
                         }
                     }
 
-                    state.update(should_search);
+                    state.update(should_search, animate);
                 }))
             })
 
@@ -344,7 +346,7 @@ fn initialize(state: Arc<State>) {
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                     state.search_parser.set(parse::Parsed::new(&value));
                                     state.search_box.set(value);
-                                    state.update(true);
+                                    state.update(true, true);
                                 }))
                             })
                         }),
@@ -450,7 +452,7 @@ fn initialize(state: Arc<State>) {
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
                                 state.scrolling.y.set_neq(y);
-                                state.update(false);
+                                state.update(false, true);
                             }
                         }))
 
@@ -481,7 +483,7 @@ fn initialize(state: Arc<State>) {
                                         state.scrolling.y.set_neq(new_scroll_y);
                                     }
 
-                                    state.update(false);
+                                    state.update(false, true);
                                 }
                             }
 
