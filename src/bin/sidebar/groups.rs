@@ -1,7 +1,8 @@
 use types::{State, TabState, Group, Tab, Window};
 use url_bar::UrlBar;
-use tab_organizer::{get_len, get_index, get_sorted_index, str_default};
+use tab_organizer::{get_len, get_index, get_sorted_index, str_default, round_to_hour, TimeDifference};
 use tab_organizer::state::{SidebarMessage, TabChange, SortTabs};
+use stdweb::web::Date;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::cmp::Ordering;
@@ -27,6 +28,17 @@ fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> w
     })
 }
 
+fn get_timestamp_index(groups: &[Arc<Group>], timestamp: f64) -> Result<usize, usize> {
+    get_sorted_index(groups.into_iter(), |group| {
+        if Group::is_inserted(group) {
+            Some(group.timestamp.partial_cmp(&timestamp).unwrap().reverse())
+
+        } else {
+            None
+        }
+    })
+}
+
 fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> usize where F: FnMut(&Tab) -> Ordering {
     get_sorted_index(tabs.into_iter(), |tab| {
         if Tab::is_inserted(tab) {
@@ -44,8 +56,8 @@ fn insert_group(groups: &mut MutableVecLockMut<Arc<Group>>, group_index: GroupIn
 
         Err(index) => {
             let group = match group_index.name {
-                None => Arc::new(Group::new(false, Mutable::new(None), vec![])),
-                Some(name) => Arc::new(Group::new(true, Mutable::new(Some(name)), vec![])),
+                None => Arc::new(Group::new(group_index.timestamp, false, Mutable::new(None), vec![])),
+                Some(name) => Arc::new(Group::new(group_index.timestamp, true, Mutable::new(Some(name)), vec![])),
             };
 
             if should_animate {
@@ -92,6 +104,7 @@ fn get_pinned_len(groups: &[Arc<Group>]) -> usize {
 struct GroupIndex {
     index: Result<usize, usize>,
     name: Option<Arc<String>>,
+    timestamp: f64,
 }
 
 fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -> Vec<GroupIndex> {
@@ -101,21 +114,49 @@ fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -
                 GroupIndex {
                     index: get_pinned_index(groups),
                     name: Some(Arc::new("Pinned".to_string())),
+                    timestamp: 0.0,
                 }
 
             } else {
                 GroupIndex {
                     index: get_unpinned_index(groups),
                     name: None,
+                    timestamp: 0.0,
                 }
             }
         ],
 
-        SortTabs::Tag => vec![],
+        SortTabs::Tag => {
+            let tags = tab.tags.lock_ref();
+
+            tags.iter().map(|tag| {
+                GroupIndex {
+                    index: get_group_index_name(groups, &tag.name),
+                    // TODO make this clone more efficient (e.g. by using Arc for the tags)
+                    name: Some(Arc::new(tag.name.clone())),
+                    timestamp: 0.0,
+                }
+            }).collect()
+        },
 
         SortTabs::TimeFocused => vec![],
 
-        SortTabs::TimeCreated => vec![],
+        SortTabs::TimeCreated => {
+            let timestamp_created = round_to_hour(tab.timestamp_created.get());
+
+            // TODO pass in the current time, rather than generating it each time ?
+            let title = TimeDifference::new(timestamp_created, round_to_hour(Date::now())).pretty();
+
+            let title = Arc::new(title);
+
+            vec![
+                GroupIndex {
+                    index: get_timestamp_index(groups, timestamp_created),
+                    name: Some(title),
+                    timestamp: timestamp_created,
+                }
+            ]
+        },
 
         SortTabs::Url => {
             let url = tab.url.lock_ref();
@@ -138,6 +179,7 @@ fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -
                 GroupIndex {
                     index: get_group_index_name(groups, &url),
                     name: Some(url),
+                    timestamp: 0.0,
                 }
             ]
         },
@@ -163,13 +205,14 @@ fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -
                 GroupIndex {
                     index: get_group_index_name(groups, &title),
                     name: Some(title),
+                    timestamp: 0.0,
                 }
             ]
         },
     }
 }
 
-fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> usize {
+fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize) -> usize {
     match sort {
         SortTabs::Window => {
             if !tab.pinned.get() {
@@ -180,15 +223,42 @@ fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], tabs: &[Arc<Tab>], ta
         },
 
         SortTabs::Tag => {
-            0
+            let name = group.name.lock_ref();
+            // TODO this is wrong
+            let tag_name = str_default(&name, "");
+
+            // TODO make this more efficient
+            let tags = tab.tags.lock_ref();
+            // TODO this shouldn't unwrap
+            let tag = tags.iter().find(|x| x.name == tag_name).unwrap();
+
+            let id = tab.id;
+            let timestamp_added = tag.timestamp_added;
+
+            get_tab_index(tabs, |tab| {
+                // TODO make this more efficient
+                let tags = tab.tags.lock_ref();
+                // TODO this shouldn't unwrap
+                let tag = tags.iter().find(|x| x.name == tag_name).unwrap();
+
+                // TODO better float comparison ?
+                tag.timestamp_added.partial_cmp(&timestamp_added).unwrap().then_with(|| tab.id.cmp(&id))
+            })
         },
 
         SortTabs::TimeFocused => {
             0
         },
 
+        // TODO sort by the index if the timestamps are the same ?
         SortTabs::TimeCreated => {
-            0
+            let id = tab.id;
+
+            let timestamp_created = tab.timestamp_created.get();
+
+            get_tab_index(tabs, |tab| {
+                tab.timestamp_created.get().partial_cmp(&timestamp_created).unwrap().then_with(|| tab.id.cmp(&id)).reverse()
+            })
         },
 
         SortTabs::Url => {
@@ -244,7 +314,7 @@ fn initialize(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, window
 fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool) {
     let mut tabs = group.tabs.lock_mut();
 
-    let index = sorted_tab_index(sort, groups, &tabs, &tab, tab_index);
+    let index = sorted_tab_index(sort, groups, group, &tabs, &tab, tab_index);
 
     let tab = Arc::new(Tab::new(tab));
 
@@ -479,6 +549,17 @@ impl State {
                         },
                         TabChange::Pinned { pinned } => {
                             tab.pinned.set_neq(pinned);
+                        },
+                        TabChange::AddedToTag { tag } => {
+                            let mut tags = tab.tags.lock_mut();
+                            assert!(tags.iter().all(|x| x.name != tag.name));
+                            tags.push(tag);
+                        },
+                        TabChange::RemovedFromTag { tag_name } => {
+                            let mut tags = tab.tags.lock_mut();
+                            // TODO use remove_item
+                            let index = tags.iter().position(|x| x.name == tag_name).unwrap();
+                            tags.remove(index);
                         },
                     }
                 });

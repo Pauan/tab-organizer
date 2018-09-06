@@ -39,7 +39,13 @@ pub enum TabChange {
     },
     Pinned {
         pinned: bool,
-    }
+    },
+    AddedToTag {
+        tag: Tag,
+    },
+    RemovedFromTag {
+        tag_name: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,6 +78,12 @@ pub struct SerializedWindow {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct Tag {
+    pub name: String,
+    pub timestamp_added: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Tab {
     pub serialized: SerializedTab,
     pub focused: bool,
@@ -80,6 +92,7 @@ pub struct Tab {
     pub favicon_url: Option<String>,
     pub url: Option<String>,
     pub title: Option<String>,
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

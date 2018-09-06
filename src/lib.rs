@@ -372,3 +372,102 @@ impl fmt::Debug for RegExp {
             .finish()
     }
 }
+
+
+pub fn round_to_hour(time: f64) -> f64 {
+    js!(
+        var t = new Date(@{time});
+        t.setMinutes(0, 0, 0);
+        return t.getTime();
+    ).try_into().unwrap()
+}
+
+
+pub struct TimeDifference {
+    pub years: f64,
+    pub weeks: f64,
+    pub days: f64,
+    pub hours: f64,
+    pub minutes: f64,
+    pub seconds: f64,
+    pub milliseconds: f64,
+}
+
+impl TimeDifference {
+    pub const YEAR: f64 = 365.25 * Self::DAY;
+    pub const WEEK: f64 = 7.0 * Self::DAY;
+    pub const DAY: f64 = 24.0 * Self::HOUR;
+    pub const HOUR: f64 = 60.0 * Self::MINUTE;
+    pub const MINUTE: f64 = 60.0 * Self::SECOND;
+    pub const SECOND: f64 = 1000.0 * Self::MILLISECOND;
+    pub const MILLISECOND: f64 = 1.0;
+
+    // TODO figure out a better way to do this ?
+    // TODO test this
+    pub fn new(old: f64, new: f64) -> Self {
+        let mut milliseconds = (new - old).abs();
+
+        let years = (milliseconds / Self::YEAR).floor();
+        milliseconds -= years * Self::YEAR;
+
+        let weeks = (milliseconds / Self::WEEK).floor();
+        milliseconds -= weeks * Self::WEEK;
+
+        let days = (milliseconds / Self::DAY).floor();
+        milliseconds -= days * Self::DAY;
+
+        let hours = (milliseconds / Self::HOUR).floor();
+        milliseconds -= hours * Self::HOUR;
+
+        let minutes = (milliseconds / Self::MINUTE).floor();
+        milliseconds -= minutes * Self::MINUTE;
+
+        let seconds = (milliseconds / Self::SECOND).floor();
+        milliseconds -= seconds * Self::SECOND;
+
+        Self { years, weeks, days, hours, minutes, seconds, milliseconds }
+    }
+
+    // TODO test this
+    // TODO make this more efficient
+    pub fn pretty(&self) -> String {
+        // TODO move this someplace else
+        // TODO make this more efficient
+        fn plural(x: f64, suffix: &str) -> String {
+            if x == 1.0 {
+                format!("{}{}", x, suffix)
+
+            } else {
+                format!("{}{}s", x, suffix)
+            }
+        }
+
+        if self.years == 0.0 &&
+           self.weeks == 0.0 &&
+           self.days == 0.0 &&
+           self.hours == 0.0 {
+            "Less than an hour ago".to_string()
+
+        } else {
+            let mut output = vec![];
+
+            if self.years > 0.0 {
+                output.push(plural(self.years, " year"));
+            }
+
+            if self.weeks > 0.0 {
+                output.push(plural(self.weeks, " week"));
+            }
+
+            if self.days > 0.0 {
+                output.push(plural(self.days, " day"));
+            }
+
+            if self.hours > 0.0 {
+                output.push(plural(self.hours, " hour"));
+            }
+
+            format!("{} ago", output.join(" "))
+        }
+    }
+}

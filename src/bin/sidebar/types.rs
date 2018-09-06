@@ -137,6 +137,8 @@ pub(crate) struct TabState {
     pub(crate) focused: Mutable<bool>,
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
+    pub(crate) timestamp_created: Mutable<f64>,
+    pub(crate) tags: Mutable<Vec<state::Tag>>,
 }
 
 impl TabState {
@@ -149,6 +151,8 @@ impl TabState {
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
             pinned: Mutable::new(state.pinned),
+            timestamp_created: Mutable::new(state.serialized.timestamp_created),
+            tags: Mutable::new(state.tags),
         }
     }
 }
@@ -236,6 +240,7 @@ impl Window {
 #[derive(Debug)]
 pub(crate) struct Group {
     pub(crate) id: usize,
+    pub(crate) timestamp: f64,
     pub(crate) name: Mutable<Option<Arc<String>>>,
     pub(crate) tabs: MutableVec<Arc<Tab>>,
 
@@ -255,7 +260,7 @@ pub(crate) struct Group {
 }
 
 impl Group {
-    pub(crate) fn new(show_header: bool, name: Mutable<Option<Arc<String>>>, tabs: Vec<Arc<Tab>>) -> Self {
+    pub(crate) fn new(timestamp: f64, show_header: bool, name: Mutable<Option<Arc<String>>>, tabs: Vec<Arc<Tab>>) -> Self {
         lazy_static! {
             static ref ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
         }
@@ -263,6 +268,7 @@ impl Group {
         Self {
             // TODO investigate whether it's possible to use a faster Ordering
             id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            timestamp,
             name,
             tabs: MutableVec::new_with_values(tabs),
             show_header,

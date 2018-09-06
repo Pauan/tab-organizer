@@ -15,7 +15,7 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease};
+use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
@@ -783,19 +783,27 @@ fn initialize(state: Arc<State>) {
                 },
             });*/
 
+            let timestamp = Date::now();
+
             state.process_message(SidebarMessage::TabInserted {
                 tab_index: 12,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
                         id: generate_uuid(),
-                        timestamp_created: Date::now()
+                        timestamp_created: timestamp
                     },
                     focused: false,
                     unloaded: true,
                     pinned: false,
                     favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                     url: Some("bottom".to_owned()),
-                    title: Some("bottom".to_owned()),
+                    title: Some(format!("bottom {}", timestamp)),
+                    tags: vec![
+                        server::Tag {
+                            name: "New".to_string(),
+                            timestamp_added: Date::now(),
+                        },
+                    ],
                 },
             });
 
@@ -859,6 +867,12 @@ fn initialize(state: Arc<State>) {
                     favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                     url: Some("top".to_owned()),
                     title: Some("top".to_owned()),
+                    tags: vec![
+                        server::Tag {
+                            name: "New (Pinned)".to_string(),
+                            timestamp_added: Date::now(),
+                        },
+                    ],
                 },
             });
         }}, @{INSERT_ANIMATION_DURATION * 3.0});
@@ -963,7 +977,7 @@ fn main() {
                     server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: Date::now(),
+                            timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
                         },
                         focused: index == 7,
                         unloaded: index == 5,
@@ -971,6 +985,12 @@ fn main() {
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                         url: Some("https://www.example.com/foo?bar#qux".to_owned()),
                         title: Some(format!("Foo {}", index)),
+                        tags: vec![
+                            server::Tag {
+                                name: if index < 5 { "One".to_string() } else { "Two".to_string() },
+                                timestamp_added: index as f64,
+                            },
+                        ],
                     }
                 }).collect(),
             };
