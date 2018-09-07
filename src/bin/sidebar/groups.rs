@@ -99,6 +99,10 @@ fn get_pinned_len(groups: &[Arc<Group>]) -> usize {
     index.map(|index| get_len(groups[index].tabs.lock_ref().into_iter(), Tab::is_inserted)).unwrap_or(0)
 }
 
+fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
+    TimeDifference::new(timestamp, round_to_hour(current_time)).pretty()
+}
+
 
 #[derive(Debug)]
 struct GroupIndex {
@@ -144,15 +148,11 @@ fn sorted_group_indexes(sort: SortTabs, groups: &[Arc<Group>], tab: &TabState) -
         SortTabs::TimeCreated => {
             let timestamp_created = round_to_hour(tab.timestamp_created.get());
 
-            // TODO pass in the current time, rather than generating it each time ?
-            let title = TimeDifference::new(timestamp_created, round_to_hour(Date::now())).pretty();
-
-            let title = Arc::new(title);
-
             vec![
                 GroupIndex {
                     index: get_timestamp_index(groups, timestamp_created),
-                    name: Some(title),
+                    // TODO pass in the current time, rather than generating it each time ?
+                    name: Some(Arc::new(generate_timestamp_title(timestamp_created, Date::now()))),
                     timestamp: timestamp_created,
                 }
             ]
@@ -419,6 +419,29 @@ impl Groups {
         this
     }
 
+    fn update_group_titles(&self) {
+        let should_update = {
+            let sort = self.sort.lock().unwrap();
+
+            // TODO replace with `if let`
+            match *sort {
+                SortTabs::TimeCreated | SortTabs::TimeFocused => true,
+                _ => false,
+            }
+        };
+
+        if should_update {
+            let groups = self.groups.lock_ref();
+
+            let current_time = Date::now();
+
+            for group in groups.iter() {
+                // TODO only update if the new title is different from the old title
+                group.name.set(Some(Arc::new(generate_timestamp_title(group.timestamp, current_time))));
+            }
+        }
+    }
+
     fn change_sort(&self, sort_tabs: SortTabs, window: &Window) {
         let mut sort = self.sort.lock().unwrap();
 
@@ -574,5 +597,9 @@ impl State {
     pub(crate) fn change_sort(&self, sort_tabs: SortTabs) {
         let window = self.window.read().unwrap();
         self.groups.change_sort(sort_tabs, &window);
+    }
+
+    pub(crate) fn update_group_titles(&self) {
+        self.groups.update_group_titles();
     }
 }

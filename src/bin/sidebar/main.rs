@@ -15,7 +15,7 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference};
+use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
@@ -721,6 +721,12 @@ fn initialize(state: Arc<State>) {
         }),
     );
 
+    every_hour(clone!(state => move || {
+        time!("Updating group titles", {
+            state.update_group_titles();
+        });
+    }));
+
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
     stdweb::web::window().request_animation_frame(|_| {
         IS_LOADED.set_neq(true);
@@ -973,7 +979,7 @@ fn main() {
                     timestamp_created: Date::now(),
                 },
                 focused: false,
-                tabs: (0..100).map(|index| {
+                tabs: (0..10000).map(|index| {
                     server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),

@@ -20,8 +20,8 @@ use std::fmt;
 use std::borrow::Borrow;
 use std::sync::Arc;
 use std::cmp::Ordering;
-use stdweb::{PromiseFuture, JsSerialize, Reference};
-use stdweb::web::{TypedArray, IHtmlElement};
+use stdweb::{PromiseFuture, JsSerialize, Reference, Once};
+use stdweb::web::{TypedArray, IHtmlElement, Date};
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
 use futures_signals::signal::{IntoSignal, Signal, SignalExt};
@@ -377,7 +377,7 @@ impl fmt::Debug for RegExp {
 pub fn round_to_hour(time: f64) -> f64 {
     js!(
         var t = new Date(@{time});
-        t.setMinutes(0, 0, 0);
+        t.setUTCMinutes(0, 0, 0);
         return t.getTime();
     ).try_into().unwrap()
 }
@@ -469,5 +469,23 @@ impl TimeDifference {
 
             format!("{} ago", output.join(" "))
         }
+    }
+}
+
+
+// TODO make this more efficient ?
+pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
+    let now = Date::now();
+    let next = round_to_hour(now) + TimeDifference::HOUR;
+    assert!(next > now);
+
+    let callback = move || {
+        assert!(Date::now() >= next);
+        f();
+        every_hour(f);
+    };
+
+    js! { @(no_return)
+        setTimeout(@{Once(callback)}, @{next - now});
     }
 }
