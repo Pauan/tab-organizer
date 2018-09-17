@@ -27,7 +27,7 @@ use stdweb::unstable::TryInto;
 use futures_signals::signal::{IntoSignal, Signal, SignalExt};
 use futures::future::IntoFuture;
 use futures::FutureExt;
-use dominator::{DerefFn, DomBuilder};
+use dominator::{RefFn, DomBuilder};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 
@@ -38,16 +38,16 @@ pub fn str_default<'a, A: Borrow<String>>(x: &'a Option<A>, default: &'a str) ->
     x.as_ref().map(|x| x.borrow().as_str()).unwrap_or(default)
 }
 
-pub fn option_str(x: Option<Arc<String>>) -> Option<DerefFn<Arc<String>, impl Fn(&Arc<String>) -> &str>> {
-    x.map(|x| DerefFn::new(x, move |x| x.as_str()))
+pub fn option_str(x: Option<Arc<String>>) -> Option<RefFn<Arc<String>, str, impl Fn(&Arc<String>) -> &str>> {
+    x.map(|x| RefFn::new(x, move |x| x.as_str()))
 }
 
-pub fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> {
-    DerefFn::new(x, move |x| str_default(x, default))
+pub fn option_str_default<A: Borrow<String>>(x: Option<A>, default: &'static str) -> RefFn<Option<A>, str, impl Fn(&Option<A>) -> &str> {
+    RefFn::new(x, move |x| str_default(x, default))
 }
 
-pub fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> DerefFn<Option<A>, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
-    DerefFn::new(x, move |x| {
+pub fn option_str_default_fn<A, F>(x: Option<A>, default: &'static str, f: F) -> RefFn<Option<A>, str, impl Fn(&Option<A>) -> &str> where F: Fn(&A) -> &Option<String> {
+    RefFn::new(x, move |x| {
         if let Some(x) = x {
             if let Some(x) = f(x) {
                 x.as_str()

@@ -108,20 +108,20 @@ lazy_static! {
         .style("text-shadow", "1px 0px 1px hsla(0, 0%, 0%, 0.2), \
                                0px 0px 1px hsla(0, 0%, 0%, 0.1), \
                                0px 1px 1px hsla(0, 0%, 0%, 0.2)")
-        .style("background-image", &format!("linear-gradient(to bottom, \
-                                                 hsla(0, 0%, 100%, 0.2) 0%, \
-                                                 transparent            49%, \
-                                                 hsla(0, 0%,   0%, 0.1) 50%, \
-                                                 hsla(0, 0%, 100%, 0.1) 80%, \
-                                                 hsla(0, 0%, 100%, 0.2) 100%), {}",
-                                            *REPEATING_GRADIENT))
+        .style("background-image", format!("linear-gradient(to bottom, \
+                                                hsla(0, 0%, 100%, 0.2) 0%, \
+                                                transparent            49%, \
+                                                hsla(0, 0%,   0%, 0.1) 50%, \
+                                                hsla(0, 0%, 100%, 0.1) 80%, \
+                                                hsla(0, 0%, 100%, 0.2) 100%), {}",
+                                           *REPEATING_GRADIENT))
         .style("z-index", "1")
     };
 
     pub(crate) static ref TOOLBAR_STYLE: String = class! {
-        .style("height", &px(TOOLBAR_HEIGHT))
-        .style("border-width", &px(TOOLBAR_BORDER_WIDTH))
-        .style("margin-top", &px(TOOLBAR_MARGIN))
+        .style("height", px(TOOLBAR_HEIGHT))
+        .style("border-width", px(TOOLBAR_BORDER_WIDTH))
+        .style("margin-top", px(TOOLBAR_MARGIN))
         .style("margin-left", "2px")
         .style("margin-right", "2px")
         .style("background-color", "hsl(0, 0%, 100%)")
@@ -166,7 +166,7 @@ lazy_static! {
     };
 
     pub(crate) static ref GROUP_LIST_STYLE: String = class! {
-        .style("height", &format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
+        .style("height", format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
         .style("overflow", "auto")
     };
 
@@ -177,8 +177,8 @@ lazy_static! {
     };
 
     pub(crate) static ref GROUP_STYLE: String = class! {
-        .style("padding-top", &px(GROUP_PADDING_TOP))
-        .style("border-top-width", &px(GROUP_BORDER_WIDTH))
+        .style("padding-top", px(GROUP_PADDING_TOP))
+        .style("border-top-width", px(GROUP_BORDER_WIDTH))
         .style("top", "-1px")
         .style("padding-left", "1px")
         .style("padding-right", "1px")
@@ -188,7 +188,7 @@ lazy_static! {
 
     pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
         .style("box-sizing", "border-box")
-        .style("height", &px(GROUP_HEADER_HEIGHT))
+        .style("height", px(GROUP_HEADER_HEIGHT))
         .style("padding-left", "4px")
         .style("font-size", "11px")
     };
@@ -198,18 +198,18 @@ lazy_static! {
     };
 
     pub(crate) static ref GROUP_TABS_STYLE: String = class! {
-        .style("padding-bottom", &px(GROUP_PADDING_BOTTOM))
+        .style("padding-bottom", px(GROUP_PADDING_BOTTOM))
     };
 
     pub(crate) static ref ICON_STYLE: String = class! {
-        .style("height", &px(TAB_FAVICON_SIZE))
+        .style("height", px(TAB_FAVICON_SIZE))
         .style("border-radius", "4px")
         .style("box-shadow", "0px 0px 15px hsla(0, 0%, 100%, 0.9)")
         .style("background-color", "hsla(0, 0%, 100%, 0.35)")
     };
 
     pub(crate) static ref MENU_ITEM_STYLE: String = class! {
-        .style("border-width", &px(TAB_BORDER_WIDTH))
+        .style("border-width", px(TAB_BORDER_WIDTH))
 
         .style("transition", "background-color 100ms ease-in-out")
     };
@@ -222,21 +222,21 @@ lazy_static! {
 
     pub(crate) static ref MENU_ITEM_HOLD_STYLE: String = class! {
         .style("background-position", "0px 1px")
-        .style("background-image", &format!("linear-gradient(to bottom, \
-                                                 hsla(0, 0%, 100%, 0.2)   0%, \
-                                                 transparent              49%, \
-                                                 hsla(0, 0%,   0%, 0.075) 50%, \
-                                                 hsla(0, 0%, 100%, 0.1)   80%, \
-                                                 hsla(0, 0%, 100%, 0.2)   100%), {}",
-                                            *REPEATING_GRADIENT))
+        .style("background-image", format!("linear-gradient(to bottom, \
+                                                hsla(0, 0%, 100%, 0.2)   0%, \
+                                                transparent              49%, \
+                                                hsla(0, 0%,   0%, 0.075) 50%, \
+                                                hsla(0, 0%, 100%, 0.1)   80%, \
+                                                hsla(0, 0%, 100%, 0.2)   100%), {}",
+                                           *REPEATING_GRADIENT))
         .style("box-shadow",      "1px 1px  1px hsla(0, 0%,   0%, 0.1), \
                              inset 0px 0px  3px hsla(0, 0%, 100%, 0.9), \
                              inset 0px 0px 10px hsla(0, 0%, 100%, 0.225)")
     };
 
     pub(crate) static ref TAB_STYLE: String = class! {
-        .style("padding", &px(TAB_PADDING))
-        .style("height", &px(TAB_HEIGHT))
+        .style("padding", px(TAB_PADDING))
+        .style("height", px(TAB_HEIGHT))
         .style("overflow", "hidden")
         .style("border-radius", "5px")
     };
@@ -295,7 +295,7 @@ lazy_static! {
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
-        .style("width", &px(TAB_FAVICON_SIZE))
+        .style("width", px(TAB_FAVICON_SIZE))
         .style("margin-left", "2px")
         .style("margin-right", "1px")
     };
@@ -313,7 +313,7 @@ lazy_static! {
     pub(crate) static ref TAB_CLOSE_STYLE: String = class! {
         .style("box-sizing", "border-box")
         .style("width", "18px")
-        .style("border-width", &px(TAB_CLOSE_BORDER_WIDTH))
+        .style("border-width", px(TAB_CLOSE_BORDER_WIDTH))
         .style("padding-left", "1px")
         .style("padding-right", "1px")
     };

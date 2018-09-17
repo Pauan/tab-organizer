@@ -19,7 +19,7 @@ use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_st
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text, text_signal, DerefFn};
+use dominator::{Dom, DomBuilder, text, text_signal, RefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::PromiseFuture;
@@ -52,11 +52,11 @@ lazy_static! {
 
 fn initialize(state: Arc<State>) {
     fn make_url_bar_child<A, D, F>(state: &State, name: &str, mut display: D, f: F) -> Dom
-        where A: IntoStr,
+        where A: AsStr,
               D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
               F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
         html!("div", {
-            .class(&URL_BAR_TEXT_STYLE)
+            .class(&*URL_BAR_TEXT_STYLE)
             .class(name)
 
             .mixin(visible(state.url_bar.signal_cloned().map(move |url_bar| {
@@ -76,10 +76,10 @@ fn initialize(state: Arc<State>) {
 
     fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
         html!("img", {
-            .class(&TAB_FAVICON_STYLE)
-            .class(&ICON_STYLE)
+            .class(&*TAB_FAVICON_STYLE)
+            .class(&*ICON_STYLE)
 
-            .class_signal(&TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
+            .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
 
             .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
 
@@ -89,8 +89,8 @@ fn initialize(state: Arc<State>) {
 
     fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
         html!("div", {
-            .class(&STRETCH_STYLE)
-            .class(&TAB_TEXT_STYLE)
+            .class(&*STRETCH_STYLE)
+            .class(&*TAB_TEXT_STYLE)
 
             .children(&mut [
                 text_signal(map_ref! {
@@ -119,8 +119,8 @@ fn initialize(state: Arc<State>) {
 
     fn tab_close<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
         html!("img", {
-            .class(&TAB_CLOSE_STYLE)
-            .class(&ICON_STYLE)
+            .class(&*TAB_CLOSE_STYLE)
+            .class(&*ICON_STYLE)
 
             .attribute("src", "data/images/button-close.png")
 
@@ -132,14 +132,14 @@ fn initialize(state: Arc<State>) {
         where A: Mixin<DomBuilder<HtmlElement>> {
 
         html!("div", {
-            .class(&ROW_STYLE)
-            .class(&TAB_STYLE)
-            .class(&MENU_ITEM_STYLE)
+            .class(&*ROW_STYLE)
+            .class(&*TAB_STYLE)
+            .class(&*MENU_ITEM_STYLE)
 
             .mixin(cursor(state.is_dragging(), "pointer"))
 
-            .class_signal(&TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
-            .class_signal(&TAB_FOCUSED_STYLE, tab.is_focused())
+            .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
+            .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
 
             .children(&mut [favicon, text, close])
 
@@ -161,8 +161,8 @@ fn initialize(state: Arc<State>) {
 
     dominator::append_dom(&dominator::body(),
         html!("div", {
-            .class(&TOP_STYLE)
-            .class(&TEXTURE_STYLE)
+            .class(&*TOP_STYLE)
+            .class(&*TEXTURE_STYLE)
 
             // TODO only attach this when dragging
             .global_event(clone!(state => move |_: MouseUpEvent| {
@@ -200,7 +200,7 @@ fn initialize(state: Arc<State>) {
 
             .children(&mut [
                 html!("div", {
-                    .class(&DRAGGING_STYLE)
+                    .class(&*DRAGGING_STYLE)
 
                     .mixin(visible(state.is_dragging()))
 
@@ -246,17 +246,17 @@ fn initialize(state: Arc<State>) {
 
                                     |mut dom: DomBuilder<HtmlElement>| {
                                         dom = dom
-                                            .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
-                                            .class(&MENU_ITEM_SHADOW_STYLE)
-                                            .style("z-index", &format!("-{}", index));
+                                            .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                                            .class(&*MENU_ITEM_SHADOW_STYLE)
+                                            .style("z-index", format!("-{}", index));
 
                                         if index == 0 {
                                             dom = dom
-                                                .class(&TAB_HOVER_STYLE)
-                                                .class(&MENU_ITEM_HOVER_STYLE)
-                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
-                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
+                                                .class(&*TAB_HOVER_STYLE)
+                                                .class(&*MENU_ITEM_HOVER_STYLE)
+                                                .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
+                                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
+                                                .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
                                         }
 
                                         // TODO use ease-out easing
@@ -280,8 +280,8 @@ fn initialize(state: Arc<State>) {
                 }),
 
                 html!("div", {
-                    .class(&ROW_STYLE)
-                    .class(&URL_BAR_STYLE)
+                    .class(&*ROW_STYLE)
+                    .class(&*URL_BAR_STYLE)
 
                     .mixin(visible(map_ref! {
                         let is_dragging = state.is_dragging(),
@@ -312,13 +312,13 @@ fn initialize(state: Arc<State>) {
                 }),
 
                 html!("div", {
-                    .class(&ROW_STYLE)
-                    .class(&TOOLBAR_STYLE)
+                    .class(&*ROW_STYLE)
+                    .class(&*TOOLBAR_STYLE)
 
                     .children(&mut [
                         html!("input" => InputElement, {
-                            .class(&SEARCH_STYLE)
-                            .class(&STRETCH_STYLE)
+                            .class(&*SEARCH_STYLE)
+                            .class(&*STRETCH_STYLE)
 
                             .mixin(cursor(state.is_dragging(), "auto"))
 
@@ -338,7 +338,7 @@ fn initialize(state: Arc<State>) {
 
                             .attribute_signal("title", FAILED.signal_cloned().map(|x| option_str_default(x, "")))
 
-                            .attribute_signal("value", state.search_box.signal_cloned().map(|x| DerefFn::new(x, |x| x.as_str())))
+                            .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
                             .with_element(|dom, element: InputElement| {
                                 dom.event(clone!(state => move |_: InputEvent| {
@@ -352,7 +352,7 @@ fn initialize(state: Arc<State>) {
                         }),
 
                         html!("div", {
-                            .class(&TOOLBAR_SEPARATOR_STYLE)
+                            .class(&*TOOLBAR_SEPARATOR_STYLE)
                         }),
 
                         {
@@ -360,15 +360,15 @@ fn initialize(state: Arc<State>) {
                             let holding = Mutable::new(false);
 
                             html!("div", {
-                                .class(&TOOLBAR_MENU_WRAPPER_STYLE)
+                                .class(&*TOOLBAR_MENU_WRAPPER_STYLE)
                                 .children(&mut [
                                     html!("div", {
-                                        .class(&ROW_STYLE)
-                                        .class(&TOOLBAR_MENU_STYLE)
+                                        .class(&*ROW_STYLE)
+                                        .class(&*TOOLBAR_MENU_STYLE)
 
                                         .mixin(cursor(state.is_dragging(), "pointer"))
 
-                                        .class_signal(&TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
+                                        .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
                                         .event(clone!(hovering => move |_: MouseEnterEvent| {
                                             hovering.set_neq(true);
@@ -441,7 +441,7 @@ fn initialize(state: Arc<State>) {
                 }),
 
                 html!("div", {
-                    .class(&GROUP_LIST_STYLE)
+                    .class(&*GROUP_LIST_STYLE)
 
                     .with_element(|dom, element: HtmlElement| { dom
                         // TODO also update these when groups/tabs are added/removed ?
@@ -494,7 +494,7 @@ fn initialize(state: Arc<State>) {
                     .children(&mut [
                         // TODO this is pretty hacky, but I don't know a better way to make it work
                         html!("div", {
-                            .class(&GROUP_LIST_CHILDREN_STYLE)
+                            .class(&*GROUP_LIST_CHILDREN_STYLE)
 
                             .style_signal("padding-top", state.groups_padding.signal().map(px))
                             .style_signal("height", state.scrolling.height.signal().map(px))
@@ -509,7 +509,7 @@ fn initialize(state: Arc<State>) {
                                     }
 
                                     html!("div", {
-                                        .class(&GROUP_STYLE)
+                                        .class(&*GROUP_STYLE)
 
                                         .style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0))
                                         .style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
@@ -528,16 +528,16 @@ fn initialize(state: Arc<State>) {
                                         .children(&mut [
                                             if group.show_header {
                                                 html!("div", {
-                                                    .class(&ROW_STYLE)
-                                                    .class(&GROUP_HEADER_STYLE)
+                                                    .class(&*ROW_STYLE)
+                                                    .class(&*GROUP_HEADER_STYLE)
 
                                                     .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
                                                     .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
                                                     .children(&mut [
                                                         html!("div", {
-                                                            .class(&GROUP_HEADER_TEXT_STYLE)
-                                                            .class(&STRETCH_STYLE)
+                                                            .class(&*GROUP_HEADER_TEXT_STYLE)
+                                                            .class(&*STRETCH_STYLE)
                                                             .children(&mut [
                                                                 text_signal(map_ref! {
                                                                         let name = group.name.signal_cloned(),
@@ -562,7 +562,7 @@ fn initialize(state: Arc<State>) {
                                             },
 
                                             html!("div", {
-                                                .class(&GROUP_TABS_STYLE)
+                                                .class(&*GROUP_TABS_STYLE)
 
                                                 .style_signal("padding-top", group.tabs_padding.signal().map(px))
                                                 .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
@@ -584,8 +584,8 @@ fn initialize(state: Arc<State>) {
                                                             tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom }),
 
                                                             tab_close(&tab, |dom: DomBuilder<HtmlElement>| { dom
-                                                                .class_signal(&TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
-                                                                .class_signal(&TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
+                                                                .class_signal(&*TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
+                                                                .class_signal(&*TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
 
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
@@ -612,17 +612,17 @@ fn initialize(state: Arc<State>) {
                                                             }),
 
                                                             |dom: DomBuilder<HtmlElement>| dom
-                                                                .class_signal(&TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                                .class_signal(&MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                                .class_signal(&TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
-                                                                .class_signal(&TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
+                                                                .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                                                .class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
+                                                                .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
-                                                                .class_signal(&TAB_HOLD_STYLE, state.is_tab_holding(&tab))
-                                                                .class_signal(&MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
+                                                                .class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
+                                                                .class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
 
-                                                                .class_signal(&TAB_SELECTED_STYLE, tab.selected.signal())
-                                                                .class_signal(&TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
-                                                                .class_signal(&MENU_ITEM_SHADOW_STYLE, or(state.is_tab_hovered(&tab), tab.selected.signal()))
+                                                                .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                                                                .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
+                                                                .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(state.is_tab_hovered(&tab), tab.selected.signal()))
 
                                                                 .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
 
@@ -948,16 +948,16 @@ fn main() {
         }), LOADING_MESSAGE_THRESHOLD);
 
         html!("div", {
-            .class(&TOP_STYLE)
-            .class(&TEXTURE_STYLE)
+            .class(&*TOP_STYLE)
+            .class(&*TEXTURE_STYLE)
 
             .mixin(visible(not(IS_LOADED.signal())))
 
             .children(&mut [
                 html!("div", {
-                    .class(&MODAL_STYLE)
-                    .class(&CENTER_STYLE)
-                    .class(&LOADING_STYLE)
+                    .class(&*MODAL_STYLE)
+                    .class(&*CENTER_STYLE)
+                    .class(&*LOADING_STYLE)
 
                     .mixin(visible(and(show.signal(), not(IS_LOADED.signal()))))
 

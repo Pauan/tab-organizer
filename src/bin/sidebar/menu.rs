@@ -168,13 +168,13 @@ impl MenuBuilder {
         // TODO is this inline a good idea ?
         #[inline]
         move |dom| { dom
-            .class(&ROW_STYLE)
-            .class(&MENU_ITEM_STYLE)
+            .class(&*ROW_STYLE)
+            .class(&*MENU_ITEM_STYLE)
             // TODO hacky
-            .class(&super::MENU_ITEM_STYLE)
+            .class(&*super::MENU_ITEM_STYLE)
 
-            .class_signal(&MENU_ITEM_HOVER_STYLE, hovered.signal())
-            .class_signal(&MENU_ITEM_SHADOW_STYLE, hovered.signal())
+            .class_signal(&*MENU_ITEM_HOVER_STYLE, hovered.signal())
+            .class_signal(&*MENU_ITEM_SHADOW_STYLE, hovered.signal())
 
             .event(clone!(hovered => move |_: MouseEnterEvent| {
                 hovered.set_neq(true);
@@ -198,14 +198,14 @@ impl MenuBuilder {
         });
 
         self.children.push(html!("div", {
-            .class(&ROW_STYLE)
-            .class(&MENU_ITEM_STYLE)
-            .class(&MENU_ITEM_SUBMENU_STYLE)
+            .class(&*ROW_STYLE)
+            .class(&*MENU_ITEM_STYLE)
+            .class(&*MENU_ITEM_SUBMENU_STYLE)
             // TODO hacky
-            .class(&super::MENU_ITEM_STYLE)
+            .class(&*super::MENU_ITEM_STYLE)
 
-            .class_signal(&MENU_ITEM_HOVER_STYLE, eq_index(self.hovered.signal(), index))
-            .class_signal(&MENU_ITEM_SHADOW_STYLE, eq_index(self.hovered.signal(), index))
+            .class_signal(&*MENU_ITEM_HOVER_STYLE, eq_index(self.hovered.signal(), index))
+            .class_signal(&*MENU_ITEM_SHADOW_STYLE, eq_index(self.hovered.signal(), index))
 
             // TODO make this cleaner
             .event({
@@ -218,20 +218,20 @@ impl MenuBuilder {
             .children(&mut [
                 // TODO figure out a way to avoid this wrapper div ?
                 html!("div", {
-                    .class(&STRETCH_STYLE)
+                    .class(&*STRETCH_STYLE)
                     .children(&mut [
                         text(name),
                     ])
                 }),
 
                 html!("img", {
-                    .class(&MENU_CHEVRON_STYLE)
+                    .class(&*MENU_CHEVRON_STYLE)
                     .attribute("src", "data/images/chevron-small-right.png")
                 }),
 
                 html!("div", {
-                    .class(&MENU_STYLE)
-                    .class(&SUBMENU_CHILDREN_STYLE)
+                    .class(&*MENU_STYLE)
+                    .class(&*SUBMENU_CHILDREN_STYLE)
 
                     .mixin(visible(eq_index(self.hovered.signal(), index)))
 
@@ -250,7 +250,7 @@ impl MenuBuilder {
 
     fn push_separator(&mut self) {
         self.children.push(html!("hr", {
-            .class(&SEPARATOR_STYLE)
+            .class(&*SEPARATOR_STYLE)
         }));
     }
 
@@ -273,7 +273,7 @@ impl MenuBuilder {
         self.children.push(html!("div", {
             .mixin(mixin)
 
-            .class_signal(&MENU_ITEM_SELECTED_STYLE, signal.into_signal())
+            .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal.into_signal())
 
             .event(move |_: ClickEvent| {
                 state.hide();
@@ -323,13 +323,13 @@ impl Menu {
         });
 
         html!("div", {
-            .class(&TOP_STYLE)
+            .class(&*TOP_STYLE)
 
             .mixin(visible(state.visible.signal()))
 
             .children(&mut [
                 html!("div", {
-                    .class(&MODAL_STYLE)
+                    .class(&*MODAL_STYLE)
 
                     .event(move |_: ClickEvent| {
                         state.hide();
@@ -337,7 +337,7 @@ impl Menu {
                 }),
 
                 html!("div", {
-                    .class(&MENU_STYLE)
+                    .class(&*MENU_STYLE)
 
                     .children(&mut children)
                 }),
