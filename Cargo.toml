@@ -16,10 +16,10 @@ discard = "1.0.3"
 serde = "1.0.36"
 serde_derive = "1.0.36"
 serde_json = "1.0.13"
-futures = { version = "0.2.1", features = ["std"] }
+futures-preview = "0.3.0-alpha.7"
 lazy_static = "1.0.0"
 web-extensions = { path = "./web-extensions" }
-uuid = { version = "0.6.2", features = ["serde"] }
+uuid = { version = "0.7.1", features = ["serde"] }
 stdweb = { version = "0.4.8", features = ["experimental_features_which_may_break_on_minor_version_bumps"] }
 # TODO remove this
 stdweb-derive = "0.5.0"
@@ -27,7 +27,4 @@ dominator = { git = "https://github.com/Pauan/rust-dominator" }
 futures-signals = { git = "https://github.com/Pauan/rust-signals" }
 
 [patch.crates-io]
-futures = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
-futures-core = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
-futures-util = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
-futures-channel = { git = "https://github.com/rust-lang-nursery/futures-rs", rev = "3e3a59f6d5c463beb97225a10333f724004941c9" }
+stdweb = { git = "https://github.com/koute/stdweb" }

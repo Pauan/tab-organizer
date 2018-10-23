@@ -1,3 +1,4 @@
+#![feature(futures_api)]
 #![warn(unreachable_pub)]
 
 #[macro_use]
@@ -20,13 +21,12 @@ use std::fmt;
 use std::borrow::Borrow;
 use std::sync::Arc;
 use std::cmp::Ordering;
-use stdweb::{PromiseFuture, JsSerialize, Reference, Once};
+use stdweb::{spawn_local, unwrap_future, JsSerialize, Reference, Once};
 use stdweb::web::{TypedArray, IHtmlElement, Date};
 use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
-use futures_signals::signal::{IntoSignal, Signal, SignalExt};
-use futures::future::IntoFuture;
-use futures::FutureExt;
+use futures_signals::signal::{Signal, SignalExt};
+use futures::Future;
 use dominator::{RefFn, DomBuilder};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
@@ -86,13 +86,12 @@ pub fn ease(t: Percentage) -> Percentage {
 #[inline]
 pub fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
     where A: IHtmlElement + Clone + 'static,
-          B: IntoSignal<Item = bool>,
-          B::Signal: 'static {
+          B: Signal<Item = bool> + 'static {
 
     // TODO is this inline a good idea ?
     #[inline]
     move |dom| {
-        dom.style_signal("display", signal.into_signal().map(|visible| {
+        dom.style_signal("display", signal.map(|visible| {
             if visible {
                 None
 
@@ -105,14 +104,13 @@ pub fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
 
 #[inline]
 pub fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
-    where A: IntoSignal<Item = bool>,
-          A::Signal: 'static,
+    where A: Signal<Item = bool> + 'static,
           B: IHtmlElement + Clone + 'static {
 
     // TODO is this inline a good idea ?
     #[inline]
     move |dom| {
-        dom.style_signal("cursor", is_dragging.into_signal().map(move |is_dragging| {
+        dom.style_signal("cursor", is_dragging.map(move |is_dragging| {
             if is_dragging {
                 None
 
@@ -169,13 +167,10 @@ macro_rules! log {
 }
 
 
-pub fn spawn<A>(future: A)
-    where A: IntoFuture<Item = ()>,
-          A::Future: 'static,
-          A::Error: JsSerialize + 'static {
-    PromiseFuture::spawn_local(
-        future.into_future().map_err(PromiseFuture::print_error_panic)
-    )
+pub fn spawn<A, B>(future: A)
+    where A: Future<Output = Result<(), B>> + 'static,
+          B: JsSerialize {
+    spawn_local(unwrap_future(future))
 }
 
 

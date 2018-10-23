@@ -1,7 +1,7 @@
 use tab_organizer::visible;
 use constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use std::sync::{RwLock, Arc};
-use futures_signals::signal::{Signal, IntoSignal, SignalExt, Mutable};
+use futures_signals::signal::{Signal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
 use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
 use stdweb::web::IElement;
@@ -73,8 +73,8 @@ lazy_static! {
 }
 
 
-fn eq_index<A>(signal: A, index: usize) -> impl Signal<Item = bool> where A: IntoSignal<Item = Option<usize>> {
-    signal.into_signal().map(move |hovered| {
+fn eq_index<A>(signal: A, index: usize) -> impl Signal<Item = bool> where A: Signal<Item = Option<usize>> {
+    signal.map(move |hovered| {
         hovered.map(|hovered| hovered == index).unwrap_or(false)
     })
 }
@@ -262,8 +262,7 @@ impl MenuBuilder {
 
 
     fn push_option<A, F>(&mut self, name: &str, signal: A, mut on_click: F)
-        where A: IntoSignal<Item = bool>,
-              A::Signal: 'static,
+        where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
 
         let mixin = self.menu_item();
@@ -273,7 +272,7 @@ impl MenuBuilder {
         self.children.push(html!("div", {
             .mixin(mixin)
 
-            .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal.into_signal())
+            .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal)
 
             .event(move |_: ClickEvent| {
                 state.hide();
@@ -288,8 +287,7 @@ impl MenuBuilder {
 
     #[inline]
     pub(crate) fn option<A, F>(mut self, name: &str, signal: A, on_click: F) -> Self
-        where A: IntoSignal<Item = bool>,
-              A::Signal: 'static,
+        where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
         self.push_option(name, signal, on_click);
         self

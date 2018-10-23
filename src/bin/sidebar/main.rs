@@ -1,4 +1,5 @@
 #![recursion_limit="128"]
+#![feature(futures_api, pin, arbitrary_self_types)]
 #![warn(unreachable_pub)]
 
 extern crate uuid;
@@ -22,9 +23,10 @@ use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text, text_signal, RefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
-use stdweb::PromiseFuture;
+use stdweb::print_error_panic;
 use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
+use futures::future::ready;
 use futures_signals::signal::{Mutable, SignalExt};
 use futures_signals::signal_vec::SignalVecExt;
 
@@ -487,7 +489,7 @@ fn initialize(state: Arc<State>) {
                                 }
                             }
 
-                            Ok(())
+                            ready(())
                         })))
                     })
 
@@ -890,7 +892,7 @@ fn main() {
     tab_organizer::set_panic_hook(|message| {
         let message = Arc::new(message);
         FAILED.set(Some(message.clone()));
-        PromiseFuture::print_error_panic(&*message);
+        print_error_panic(&*message);
     });
 
 
