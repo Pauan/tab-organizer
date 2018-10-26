@@ -84,25 +84,6 @@ pub fn ease(t: Percentage) -> Percentage {
 }
 
 #[inline]
-pub fn visible<A, B>(signal: B) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
-    where A: IHtmlElement + Clone + 'static,
-          B: Signal<Item = bool> + 'static {
-
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| {
-        dom.style_signal("display", signal.map(|visible| {
-            if visible {
-                None
-
-            } else {
-                Some("none")
-            }
-        }))
-    }
-}
-
-#[inline]
 pub fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
     where A: Signal<Item = bool> + 'static,
           B: IHtmlElement + Clone + 'static {
@@ -255,33 +236,6 @@ pub fn get_sorted_index<A, S>(mut iter: A, mut sort: S) -> Result<usize, usize>
     }
 
     Err(index)
-}
-
-
-// TODO only poll right if left is false
-pub fn or<A, B>(left: A, right: B) -> impl Signal<Item = bool>
-    where A: Signal<Item = bool>,
-          B: Signal<Item = bool> {
-    map_ref! {
-        let left = left,
-        let right = right =>
-        *left || *right
-    }
-}
-
-// TODO only poll right if left is true
-pub fn and<A, B>(left: A, right: B) -> impl Signal<Item = bool>
-    where A: Signal<Item = bool>,
-          B: Signal<Item = bool> {
-    map_ref! {
-        let left = left,
-        let right = right =>
-        *left && *right
-    }
-}
-
-pub fn not<A>(signal: A) -> impl Signal<Item = bool> where A: Signal<Item = bool> {
-    signal.map(|x| !x)
 }
 
 

@@ -1,8 +1,7 @@
 use url_bar;
 use types::{State, Tab};
-use tab_organizer::{and, not};
 use std::sync::Arc;
-use futures_signals::signal::Signal;
+use futures_signals::signal::{Signal, and, not};
 
 
 impl State {

@@ -1,8 +1,7 @@
-use tab_organizer::visible;
 use constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, SignalExt, Mutable};
-use dominator::{Dom, DomBuilder, text, HIGHEST_ZINDEX};
+use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX};
 use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
 use stdweb::web::IElement;
 
@@ -219,9 +218,7 @@ impl MenuBuilder {
                 // TODO figure out a way to avoid this wrapper div ?
                 html!("div", {
                     .class(&*STRETCH_STYLE)
-                    .children(&mut [
-                        text(name),
-                    ])
+                    .text(name)
                 }),
 
                 html!("img", {
@@ -233,7 +230,7 @@ impl MenuBuilder {
                     .class(&*MENU_STYLE)
                     .class(&*SUBMENU_CHILDREN_STYLE)
 
-                    .mixin(visible(eq_index(self.hovered.signal(), index)))
+                    .visible_signal(eq_index(self.hovered.signal(), index))
 
                     .children(&mut children)
                 })
@@ -279,9 +276,7 @@ impl MenuBuilder {
                 on_click();
             })
 
-            .children(&mut [
-                text(name)
-            ])
+            .text(name)
         }));
     }
 
@@ -323,7 +318,7 @@ impl Menu {
         html!("div", {
             .class(&*TOP_STYLE)
 
-            .mixin(visible(state.visible.signal()))
+            .visible_signal(state.visible.signal())
 
             .children(&mut [
                 html!("div", {

@@ -16,18 +16,18 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, and, or, not, ScrollEvent, visible, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{generate_uuid, ScrollEvent, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text, text_signal, RefFn};
+use dominator::{Dom, DomBuilder, text_signal, RefFn};
 use dominator::animation::{Percentage, MutableAnimation};
 use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
 use stdweb::print_error_panic;
 use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
 use futures::future::ready;
-use futures_signals::signal::{Mutable, SignalExt};
+use futures_signals::signal::{Mutable, SignalExt, and, or, not};
 use futures_signals::signal_vec::SignalVecExt;
 
 use types::{State, DragState, Tab, Window};
@@ -61,18 +61,16 @@ fn initialize(state: Arc<State>) {
             .class(&*URL_BAR_TEXT_STYLE)
             .class(name)
 
-            .mixin(visible(state.url_bar.signal_cloned().map(move |url_bar| {
+            .visible_signal(state.url_bar.signal_cloned().map(move |url_bar| {
                 if let Some(url_bar) = url_bar {
                     display(url_bar)
 
                 } else {
                     false
                 }
-            })))
+            }))
 
-            .children(&mut [
-                text_signal(state.url_bar.signal_cloned().map(f))
-            ])
+            .text_signal(state.url_bar.signal_cloned().map(f))
         })
     }
 
@@ -204,7 +202,7 @@ fn initialize(state: Arc<State>) {
                 html!("div", {
                     .class(&*DRAGGING_STYLE)
 
-                    .mixin(visible(state.is_dragging()))
+                    .visible_signal(state.is_dragging())
 
                     .style_signal("width", state.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { rect, .. }) = dragging {
@@ -285,7 +283,7 @@ fn initialize(state: Arc<State>) {
                     .class(&*ROW_STYLE)
                     .class(&*URL_BAR_STYLE)
 
-                    .mixin(visible(map_ref! {
+                    .visible_signal(map_ref! {
                         let is_dragging = state.is_dragging(),
                         let url_bar = state.url_bar.signal_cloned() => {
                             // TODO a bit hacky
@@ -300,7 +298,7 @@ fn initialize(state: Arc<State>) {
 
                             !is_dragging && matches
                         }
-                    }))
+                    })
 
                     // TODO check if any of these need "flex-shrink": 1
                     .children(&mut [
@@ -342,7 +340,7 @@ fn initialize(state: Arc<State>) {
 
                             .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
-                            .with_element(|dom, element: InputElement| {
+                            .with_element(|dom, element| {
                                 dom.event(clone!(state => move |_: InputEvent| {
                                     let value = Arc::new(element.raw_value());
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
@@ -393,9 +391,7 @@ fn initialize(state: Arc<State>) {
                                             state.menu.show();
                                         }))
 
-                                        .children(&mut [
-                                            text("Menu"),
-                                        ])
+                                        .text("Menu")
                                     }),
 
                                     state.menu.render(|menu| { menu
@@ -445,7 +441,7 @@ fn initialize(state: Arc<State>) {
                 html!("div", {
                     .class(&*GROUP_LIST_STYLE)
 
-                    .with_element(|dom, element: HtmlElement| { dom
+                    .with_element(|dom, element| { dom
                         // TODO also update these when groups/tabs are added/removed ?
                         .event(clone!(state, element => move |_: ScrollEvent| {
                             if IS_LOADED.get() {
@@ -540,21 +536,19 @@ fn initialize(state: Arc<State>) {
                                                         html!("div", {
                                                             .class(&*GROUP_HEADER_TEXT_STYLE)
                                                             .class(&*STRETCH_STYLE)
-                                                            .children(&mut [
-                                                                text_signal(map_ref! {
-                                                                        let name = group.name.signal_cloned(),
-                                                                        let index = index.signal() => {
-                                                                            // TODO improve the efficiency of this ?
-                                                                            name.clone().or_else(|| {
-                                                                                index.map(|index| Arc::new((index + 1).to_string()))
-                                                                            })
-                                                                        }
+                                                            .text_signal(map_ref! {
+                                                                    let name = group.name.signal_cloned(),
+                                                                    let index = index.signal() => {
+                                                                        // TODO improve the efficiency of this ?
+                                                                        name.clone().or_else(|| {
+                                                                            index.map(|index| Arc::new((index + 1).to_string()))
+                                                                        })
                                                                     }
-                                                                    // This causes it to remember the previous value if it returns `None`
-                                                                    // TODO dedicated method for this ?
-                                                                    .filter_map(|x| x)
-                                                                    .map(|x| option_str_default(x, ""))),
-                                                            ])
+                                                                }
+                                                                // This causes it to remember the previous value if it returns `None`
+                                                                // TODO dedicated method for this ?
+                                                                .filter_map(|x| x)
+                                                                .map(|x| option_str_default(x, "")))
                                                         }),
                                                     ])
                                                 })
@@ -593,7 +587,7 @@ fn initialize(state: Arc<State>) {
                                                                 .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
                                                                 .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
 
-                                                                .mixin(visible(state.is_tab_hovered(&tab)))
+                                                                .visible_signal(state.is_tab_hovered(&tab))
 
                                                                 .event(clone!(tab => move |_: MouseEnterEvent| {
                                                                     tab.close_hovered.set_neq(true);
@@ -643,7 +637,7 @@ fn initialize(state: Arc<State>) {
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 
                                                                 // TODO a bit hacky
-                                                                .with_element(|dom, element: HtmlElement| {
+                                                                .with_element(|dom, element| {
                                                                     dom.event(clone!(state, index, group, tab => move |e: MouseDownEvent| {
                                                                         tab.holding.set_neq(true);
 
@@ -953,7 +947,7 @@ fn main() {
             .class(&*TOP_STYLE)
             .class(&*TEXTURE_STYLE)
 
-            .mixin(visible(not(IS_LOADED.signal())))
+            .visible_signal(not(IS_LOADED.signal()))
 
             .children(&mut [
                 html!("div", {
@@ -961,11 +955,9 @@ fn main() {
                     .class(&*CENTER_STYLE)
                     .class(&*LOADING_STYLE)
 
-                    .mixin(visible(and(show.signal(), not(IS_LOADED.signal()))))
+                    .visible_signal(and(show.signal(), not(IS_LOADED.signal())))
 
-                    .children(&mut [
-                        text("LOADING..."),
-                    ])
+                    .text("LOADING...")
                 })
             ])
         })
