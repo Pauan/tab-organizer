@@ -311,9 +311,8 @@ impl State {
         let mut current_height: f64 = 0.0;
 
         self.groups.lock_mut().retain(|group| {
-            let mut is_invisible = group.insert_animation.current_percentage() == Percentage::new(0.0);
-
-            if group.removing.get() && is_invisible {
+            // TODO remove it when the height is 0 ?
+            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
                 false
 
             } else {
@@ -331,9 +330,8 @@ impl State {
 
                 // TODO what if there aren't any tabs in the group ?
                 group.tabs.lock_mut().retain(|tab| {
-                    let mut is_invisible = tab.insert_animation.current_percentage() == Percentage::new(0.0);
-
-                    if tab.removing.get() && is_invisible {
+                    // TODO remove it when the height is 0 ?
+                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
                         false
 
                     } else {
@@ -358,7 +356,6 @@ impl State {
 
                                 } else {
                                     tab.insert_animation.jump_to(Percentage::new(0.0));
-                                    is_invisible = true;
                                 }
                             }
                         }
@@ -368,7 +365,7 @@ impl State {
 
                             current_height += tab.height();
 
-                            if !is_invisible && old_height < bottom_y && current_height > top_y {
+                            if current_height > old_height && old_height < bottom_y && current_height > top_y {
                                 if let None = tabs_padding {
                                     tabs_padding = Some(old_height);
                                 }
@@ -406,7 +403,6 @@ impl State {
 
                         } else {
                             group.insert_animation.jump_to(Percentage::new(0.0));
-                            is_invisible = true;
                         }
                     }
                 }
@@ -415,7 +411,9 @@ impl State {
 
                 current_height += bottom_height;
 
-                if !is_invisible && old_height < bottom_y && current_height > top_y {
+                // TODO what if the group has height but the tabs don't ?
+                // TODO what if the tabs have height but the group doesn't ?
+                if current_height > old_height && old_height < bottom_y && current_height > top_y {
                     if let None = padding {
                         padding = Some(old_height);
                     }
