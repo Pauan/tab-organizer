@@ -177,10 +177,10 @@ pub fn generate_uuid() -> Uuid {
 
 
 // TODO test this
-pub fn get_len<A, F>(mut iter: A, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+pub fn get_len<A, F>(iter: &[A], mut f: F) -> usize where F: FnMut(&A) -> bool {
     let mut len = 0;
 
-    while let Some(x) = iter.next() {
+    for x in iter {
         if f(x) {
             len += 1;
         }
@@ -190,11 +190,11 @@ pub fn get_len<A, F>(mut iter: A, mut f: F) -> usize where A: Iterator, F: FnMut
 }
 
 // TODO test this
-pub fn get_index<A, F>(mut iter: A, real_index: usize, mut f: F) -> usize where A: Iterator, F: FnMut(A::Item) -> bool {
+pub fn get_index<A, F>(iter: &[A], real_index: usize, mut f: F) -> usize where F: FnMut(&A) -> bool {
     let mut index = 0;
     let mut len = 0;
 
-    while let Some(x) = iter.next() {
+    for x in iter {
         if f(x) {
             if index == real_index {
                 return len;

@@ -190,7 +190,9 @@ fn initialize(state: Arc<State>) {
                             first = false;
 
                         } else {
-                            state.change_sort(sort);
+                            time!("Changing sort", {
+                                state.change_sort(sort);
+                            });
                         }
                     }
 
@@ -985,7 +987,9 @@ fn main() {
                 }).collect(),
             };
 
-            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
+            time!("Initializing", {
+                initialize(Arc::new(State::new(Options::new(), Window::new(window))));
+            });
         }}, 1500);
     }
 }

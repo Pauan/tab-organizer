@@ -11,6 +11,24 @@ use futures_signals::signal_vec::{MutableVec, MutableVecLockRef, MutableVecLockM
 use dominator::animation::Percentage;
 
 
+// TODO better name
+trait Insertable<A>: Deref<Target = [A]> {
+    fn insert(&mut self, index: usize, value: A);
+}
+
+impl<A> Insertable<A> for Vec<A> {
+    fn insert(&mut self, index: usize, value: A) {
+        self.insert(index, value);
+    }
+}
+
+impl<'a, A> Insertable<A> for MutableVecLockMut<'a, A> where A: Clone {
+    fn insert(&mut self, index: usize, value: A) {
+        self.insert_cloned(index, value);
+    }
+}
+
+
 fn get_group_index_name(groups: &[Arc<Group>], name: &str) -> Result<usize, usize> {
     get_group_index(groups, |x| x.cmp(name))
 }
@@ -50,21 +68,27 @@ fn get_tab_index<F>(tabs: &[Arc<Tab>], mut f: F) -> usize where F: FnMut(&Tab) -
     }).unwrap_err()
 }
 
-fn insert_group(groups: &mut MutableVecLockMut<Arc<Group>>, group_index: GroupIndex, should_animate: bool) -> Arc<Group> {
+fn make_new_group(group_index: GroupIndex, should_animate: bool) -> Arc<Group> {
+    let group = match group_index.name {
+        None => Arc::new(Group::new(group_index.timestamp, false, Mutable::new(None), vec![])),
+        Some(name) => Arc::new(Group::new(group_index.timestamp, true, Mutable::new(Some(name)), vec![])),
+    };
+
+    if should_animate {
+        group.insert_animate();
+    }
+
+    group
+}
+
+fn insert_group<A>(groups: &mut A, group_index: GroupIndex, should_animate: bool) -> Arc<Group> where A: Insertable<Arc<Group>> {
     match group_index.index {
         Ok(index) => groups[index].clone(),
 
         Err(index) => {
-            let group = match group_index.name {
-                None => Arc::new(Group::new(group_index.timestamp, false, Mutable::new(None), vec![])),
-                Some(name) => Arc::new(Group::new(group_index.timestamp, true, Mutable::new(Some(name)), vec![])),
-            };
+            let group = make_new_group(group_index, should_animate);
 
-            if should_animate {
-                group.insert_animate();
-            }
-
-            groups.insert_cloned(index, group.clone());
+            groups.insert(index, group.clone());
 
             group
         },
@@ -96,7 +120,7 @@ fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
 fn get_pinned_len(groups: &[Arc<Group>]) -> usize {
     let index = get_pinned_index(groups);
 
-    index.map(|index| get_len(groups[index].tabs.lock_ref().into_iter(), Tab::is_inserted)).unwrap_or(0)
+    index.map(|index| get_len(&groups[index].tabs.lock_ref(), Tab::is_inserted)).unwrap_or(0)
 }
 
 fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
@@ -219,7 +243,7 @@ fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: 
                 tab_index -= get_pinned_len(groups);
             }
 
-            get_index(tabs.into_iter(), tab_index, Tab::is_inserted)
+            get_index(tabs, tab_index, Tab::is_inserted)
         },
 
         SortTabs::Tag => {
@@ -305,10 +329,14 @@ fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: 
 }
 
 
-fn initialize(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, window: &Window, should_animate: bool) {
-    for (index, tab) in window.tabs.iter().cloned().enumerate() {
-        tab_inserted(sort, groups, tab, index, should_animate);
+fn initialize(sort: SortTabs, window: &Window, should_animate: bool) -> Vec<Arc<Group>> {
+    let mut groups = vec![];
+
+    for (tab_index, tab) in window.tabs.iter().cloned().enumerate() {
+        tab_inserted(sort, &mut groups, tab, tab_index, should_animate);
     }
+
+    groups
 }
 
 fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool) {
@@ -325,7 +353,7 @@ fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, t
     tabs.insert_cloned(index, tab);
 }
 
-fn tab_inserted(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: Arc<TabState>, tab_index: usize, should_animate: bool) {
+fn tab_inserted<A>(sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool) where A: Insertable<Arc<Group>> {
     for group_index in sorted_group_indexes(sort, &groups, &tab) {
         let group = insert_group(groups, group_index, should_animate);
         insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, should_animate);
@@ -364,7 +392,7 @@ fn tab_removed(sort: SortTabs, groups: &MutableVecLockRef<Arc<Group>>, tab: &Tab
     }
 }
 
-fn tab_updated(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, group_indexes: Vec<GroupIndex>, tab: Arc<TabState>, tab_index: usize) {
+fn tab_updated<A>(sort: SortTabs, groups: &mut A, group_indexes: Vec<GroupIndex>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
     let mut new_groups = sorted_group_indexes(sort, &groups, &tab);
 
     for group_index in group_indexes {
@@ -409,14 +437,10 @@ pub(crate) struct Groups {
 
 impl Groups {
     pub(crate) fn new(sort_tabs: SortTabs, window: &Window) -> Self {
-        let this = Self {
+        Self {
             sort: Mutex::new(sort_tabs),
-            groups: MutableVec::new()
-        };
-
-        this.initialize(window);
-
-        this
+            groups: MutableVec::new_with_values(initialize(sort_tabs, window, false)),
+        }
     }
 
     fn update_group_titles(&self) {
@@ -461,13 +485,16 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        initialize(*sort, &mut groups, window, true);
-    }
+        let new_groups = initialize(*sort, window, true);
 
-    fn initialize(&self, window: &Window) {
-        let sort = self.sort.lock().unwrap();
-        let mut groups = self.groups.lock_mut();
-        initialize(*sort, &mut groups, window, false);
+        // TODO see which of these two looks better
+        /*for (index, group) in new_groups.into_iter().enumerate() {
+            groups.insert_cloned(index, group);
+        }*/
+
+        for group in new_groups {
+            groups.push_cloned(group);
+        }
     }
 
     fn tab_inserted(&self, tab_index: usize, tab: Arc<TabState>) {
