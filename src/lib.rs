@@ -10,7 +10,6 @@ extern crate stdweb;
 extern crate stdweb_derive;
 #[macro_use]
 extern crate serde_derive;
-#[macro_use]
 extern crate futures_signals;
 extern crate futures;
 extern crate uuid;
@@ -23,7 +22,6 @@ use std::sync::Arc;
 use std::cmp::Ordering;
 use stdweb::{spawn_local, unwrap_future, JsSerialize, Reference, Once};
 use stdweb::web::{TypedArray, IHtmlElement, Date};
-use stdweb::web::event::{IEvent, IUiEvent, ConcreteEvent};
 use stdweb::unstable::TryInto;
 use futures_signals::signal::{Signal, SignalExt};
 use futures::Future;
@@ -248,19 +246,6 @@ pub fn set_panic_hook<F>(hook: F) where F: Fn(String) + Send + Sync + 'static {
 
 pub fn decode_uri_component(input: &str) -> String {
     js!( return decodeURIComponent(@{input}); ).try_into().unwrap()
-}
-
-
-// TODO move this into stdweb
-#[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
-#[reference(instance_of = "UIEvent")] // TODO: Better type check.
-//#[reference(subclass_of(Event, UiEvent))]
-pub struct ScrollEvent(Reference);
-
-impl IEvent for ScrollEvent {}
-impl IUiEvent for ScrollEvent {}
-impl ConcreteEvent for ScrollEvent {
-    const EVENT_TYPE: &'static str = "scroll";
 }
 
 

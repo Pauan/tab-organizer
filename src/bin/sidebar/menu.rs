@@ -267,7 +267,7 @@ impl MenuBuilder {
         let state = self.state.clone();
 
         self.children.push(html!("div", {
-            .mixin(mixin)
+            .apply(mixin)
 
             .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal)
 

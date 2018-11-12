@@ -16,13 +16,13 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, ScrollEvent, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, RefFn};
 use dominator::animation::{Percentage, MutableAnimation};
-use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent};
+use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent, ScrollEvent};
 use stdweb::print_error_panic;
 use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
@@ -74,7 +74,7 @@ fn initialize(state: Arc<State>) {
         })
     }
 
-    fn tab_favicon<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
             .class(&*TAB_FAVICON_STYLE)
             .class(&*ICON_STYLE)
@@ -83,11 +83,11 @@ fn initialize(state: Arc<State>) {
 
             .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
 
-            .mixin(mixin)
+            .apply(mixin)
         })
     }
 
-    fn tab_text<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("div", {
             .class(&*STRETCH_STYLE)
             .class(&*TAB_TEXT_STYLE)
@@ -113,37 +113,37 @@ fn initialize(state: Arc<State>) {
                 text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
             ])
 
-            .mixin(mixin)
+            .apply(mixin)
         })
     }
 
-    fn tab_close<A: Mixin<DomBuilder<HtmlElement>>>(tab: &Tab, mixin: A) -> Dom {
+    fn tab_close<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
             .class(&*TAB_CLOSE_STYLE)
             .class(&*ICON_STYLE)
 
             .attribute("src", "data/images/button-close.png")
 
-            .mixin(mixin)
+            .apply(mixin)
         })
     }
 
     fn tab_template<A>(state: &State, tab: &Tab, favicon: Dom, text: Dom, close: Dom, mixin: A) -> Dom
-        where A: Mixin<DomBuilder<HtmlElement>> {
+        where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
 
         html!("div", {
             .class(&*ROW_STYLE)
             .class(&*TAB_STYLE)
             .class(&*MENU_ITEM_STYLE)
 
-            .mixin(cursor(state.is_dragging(), "pointer"))
+            .apply(cursor(state.is_dragging(), "pointer"))
 
             .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
             .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
 
             .children(&mut [favicon, text, close])
 
-            .mixin(mixin)
+            .apply(mixin)
         })
     }
 
@@ -244,36 +244,26 @@ fn initialize(state: Arc<State>) {
                                         dominator::Dom::empty()
                                     },
 
-                                    |mut dom: DomBuilder<HtmlElement>| {
-                                        dom = dom
-                                            .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
-                                            .class(&*MENU_ITEM_SHADOW_STYLE)
-                                            .style("z-index", format!("-{}", index));
+                                    |dom| dom
+                                        .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                                        .class(&*MENU_ITEM_SHADOW_STYLE)
+                                        .style("z-index", format!("-{}", index))
 
-                                        if index == 0 {
-                                            dom = dom
-                                                .class(&*TAB_HOVER_STYLE)
-                                                .class(&*MENU_ITEM_HOVER_STYLE)
-                                                .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
-                                                .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused());
-                                        }
+                                        .apply_if(index == 0, |dom| dom
+                                            .class(&*TAB_HOVER_STYLE)
+                                            .class(&*MENU_ITEM_HOVER_STYLE)
+                                            .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
+                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
+                                            .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
 
                                         // TODO use ease-out easing
-                                        if index > 0 && index < 5 {
-                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_TOTAL_HEIGHT - 2.0)));
+                                        .apply_if(index > 0 && index < 5, |dom| dom
+                                            .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_TOTAL_HEIGHT - 2.0))))
 
-                                        } else if index >= 5 {
-                                            dom = dom.style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_TOTAL_HEIGHT));
-                                        }
-
-                                        // TODO use ease-out easing
-                                        if index >= 5 {
-                                            dom = dom.style_signal("opacity", none_if(animation.signal(), 0.0, float_range, 1.0, 0.0));
-                                        }
-
-                                        dom
-                                    })
+                                        .apply_if(index >= 5, |dom| dom
+                                            .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_TOTAL_HEIGHT))
+                                            // TODO use ease-out easing
+                                            .style_signal("opacity", none_if(animation.signal(), 0.0, float_range, 1.0, 0.0))))
                             })
                         }).collect()
                     })).to_signal_vec())
@@ -320,7 +310,7 @@ fn initialize(state: Arc<State>) {
                             .class(&*SEARCH_STYLE)
                             .class(&*STRETCH_STYLE)
 
-                            .mixin(cursor(state.is_dragging(), "auto"))
+                            .apply(cursor(state.is_dragging(), "auto"))
 
                             .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
                                 if failed.is_some() {
@@ -366,7 +356,7 @@ fn initialize(state: Arc<State>) {
                                         .class(&*ROW_STYLE)
                                         .class(&*TOOLBAR_MENU_STYLE)
 
-                                        .mixin(cursor(state.is_dragging(), "pointer"))
+                                        .apply(cursor(state.is_dragging(), "pointer"))
 
                                         .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
@@ -573,13 +563,13 @@ fn initialize(state: Arc<State>) {
                                                         }
 
                                                         tab_template(&state, &tab,
-                                                            tab_favicon(&tab, |dom: DomBuilder<HtmlElement>| { dom
+                                                            tab_favicon(&tab, |dom| { dom
                                                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                                             }),
 
-                                                            tab_text(&tab, |dom: DomBuilder<HtmlElement>| { dom }),
+                                                            tab_text(&tab, |dom| { dom }),
 
-                                                            tab_close(&tab, |dom: DomBuilder<HtmlElement>| { dom
+                                                            tab_close(&tab, |dom| { dom
                                                                 .class_signal(&*TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
                                                                 .class_signal(&*TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
 
@@ -607,7 +597,7 @@ fn initialize(state: Arc<State>) {
                                                                 }))
                                                             }),
 
-                                                            |dom: DomBuilder<HtmlElement>| dom
+                                                            |dom| dom
                                                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
