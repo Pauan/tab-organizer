@@ -1,6 +1,6 @@
 //use nom::types::CompleteStr;
 use tab_organizer::RegExp;
-use Tab;
+use crate::Tab;
 
 
 /*named!(atom<CompleteStr, Parsed>,

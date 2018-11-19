@@ -22,7 +22,7 @@ pub struct Options {
 impl Options {
     pub fn new() -> Self {
         Self {
-            sort_tabs: Mutable::new(SortTabs::Window),
+            sort_tabs: Mutable::new(SortTabs::TimeFocused),
         }
     }
 
@@ -59,7 +59,7 @@ pub enum SidebarMessage {
     },
     TabChanged {
         tab_index: usize,
-        change: TabChange,
+        changes: Vec<TabChange>,
     },
 }
 

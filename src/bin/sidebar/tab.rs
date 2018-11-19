@@ -1,5 +1,5 @@
-use url_bar;
-use types::{State, Tab};
+use crate::url_bar;
+use crate::types::{State, Tab};
 use std::sync::Arc;
 use futures_signals::signal::{Signal, and, not};
 

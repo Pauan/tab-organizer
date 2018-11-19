@@ -176,64 +176,31 @@ pub fn generate_uuid() -> Uuid {
 }
 
 
-// TODO test this
-pub fn get_len<A, F>(iter: &[A], mut f: F) -> usize where F: FnMut(&A) -> bool {
-    let mut len = 0;
-
-    for x in iter {
-        if f(x) {
-            len += 1;
-        }
-    }
-
-    len
+#[derive(Debug)]
+pub enum StackVec<A> {
+    Single(A),
+    Multiple(Vec<A>),
 }
 
-// TODO test this
-pub fn get_index<A, F>(iter: &[A], real_index: usize, mut f: F) -> usize where F: FnMut(&A) -> bool {
-    let mut index = 0;
-    let mut len = 0;
-
-    for x in iter {
-        if f(x) {
-            if index == real_index {
-                return len;
-
-            } else {
-                index += 1;
-            }
-        }
-
-        len += 1;
-    }
-
-    // TODO is this correct ?
-    assert_eq!(index, real_index);
-    len
-}
-
-// TODO test this
-pub fn get_sorted_index<A, S>(mut iter: A, mut sort: S) -> Result<usize, usize>
-    where A: Iterator,
-          S: FnMut(A::Item) -> Option<Ordering> {
-
-    let mut index = 0;
-
-    while let Some(value) = iter.next() {
-        match sort(value) {
-            None | Some(Ordering::Less) => {},
-            Some(Ordering::Equal) => {
-                return Ok(index);
+impl<A> StackVec<A> {
+    pub fn any<F>(&self, mut f: F) -> bool where F: FnMut(&A) -> bool {
+        match self {
+            StackVec::Single(value) => {
+                f(value)
             },
-            Some(Ordering::Greater) => {
-                return Err(index);
+            StackVec::Multiple(values) => {
+                values.into_iter().any(f)
             },
         }
-
-        index += 1;
     }
 
-    Err(index)
+    #[inline]
+    pub fn each<F>(&self, mut f: F) where F: FnMut(&A) {
+        self.any(|value| {
+            f(value);
+            false
+        });
+    }
 }
 
 
@@ -409,8 +376,11 @@ impl TimeDifference {
 
 // TODO make this more efficient ?
 pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
+    // TODO is this okay ?
+    const EXTRA_TIME_MARGIN: f64 = 10.0;
+
     let now = Date::now();
-    let next = round_to_hour(now) + TimeDifference::HOUR;
+    let next = round_to_hour(now) + TimeDifference::HOUR + EXTRA_TIME_MARGIN;
     assert!(next > now);
 
     let callback = move || {

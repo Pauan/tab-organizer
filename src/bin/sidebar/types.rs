@@ -1,13 +1,13 @@
-use constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
+use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tab_organizer::state;
 use tab_organizer::state::Options;
-use url_bar;
-use parse;
-use menu::Menu;
-use groups::Groups;
+use crate::url_bar;
+use crate::parse;
+use crate::menu::Menu;
+use crate::groups::Groups;
 use uuid::Uuid;
 use stdweb;
 use stdweb::web::Rect;

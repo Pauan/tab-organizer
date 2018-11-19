@@ -2,6 +2,7 @@
 name = "tab-organizer"
 version = "5.0.0"
 authors = ["Pauan"]
+edition = "2018"
 
 [profile.dev]
 panic = "abort"
@@ -26,7 +27,7 @@ stdweb = { version = "0.4.10", features = ["experimental_features_which_may_brea
 stdweb-derive = "0.5.0"
 dominator = "0.3.0"
 
-#[patch.crates-io]
+[patch.crates-io]
 #stdweb = { path = "../stdweb" }
 #dominator = { path = "../rust-dominator" }
-#futures-signals = { path = "../rust-signals" }
+futures-signals = { path = "../rust-signals" }

@@ -1,6 +1,6 @@
-use constants::TAB_DRAGGING_THRESHOLD;
+use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
-use types::{State, DragState, Group, Tab};
+use crate::types::{State, DragState, Group, Tab};
 use stdweb::web::Rect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;

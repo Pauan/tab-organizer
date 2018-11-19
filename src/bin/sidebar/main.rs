@@ -1,5 +1,5 @@
 #![recursion_limit="128"]
-#![feature(futures_api, pin, arbitrary_self_types)]
+#![feature(futures_api, pin, arbitrary_self_types, async_await, await_macro)]
 #![warn(unreachable_pub)]
 
 extern crate uuid;
@@ -30,8 +30,8 @@ use futures::future::ready;
 use futures_signals::signal::{Mutable, SignalExt, and, or, not};
 use futures_signals::signal_vec::SignalVecExt;
 
-use types::{State, DragState, Tab, Window};
-use constants::*;
+use crate::types::{State, DragState, Tab, Window};
+use crate::constants::*;
 
 mod constants;
 mod types;
@@ -117,7 +117,7 @@ fn initialize(state: Arc<State>) {
         })
     }
 
-    fn tab_close<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+    fn tab_close<A>(_tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
             .class(&*TAB_CLOSE_STYLE)
             .class(&*ICON_STYLE)
@@ -174,11 +174,11 @@ fn initialize(state: Arc<State>) {
                 state.drag_move(e.client_x(), e.client_y());
             }))
 
-            .global_event(clone!(state => move |_: ResizeEvent| {
+            /*.global_event(clone!(state => move |_: ResizeEvent| {
                 state.update(false, true);
-            }))
+            }))*/
 
-            .future({
+            /*.future({
                 let mut first = true;
 
                 culling::waiter(&state, clone!(state => move |should_search, sort| {
@@ -197,6 +197,24 @@ fn initialize(state: Arc<State>) {
                     }
 
                     state.update(should_search, animate);
+                }))
+            })*/
+
+            .future({
+                let mut first = true;
+
+                state.options.sort_tabs.signal().for_each(clone!(state => move |sort| {
+                    // TODO a little bit hacky
+                    if first {
+                        first = false;
+
+                    } else {
+                        time!("Changing sort", {
+                            state.change_sort(sort);
+                        });
+                    }
+
+                    async {}
                 }))
             })
 
@@ -338,7 +356,7 @@ fn initialize(state: Arc<State>) {
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                     state.search_parser.set(parse::Parsed::new(&value));
                                     state.search_box.set(value);
-                                    state.update(true, true);
+                                    //state.update(true, true);
                                 }))
                             })
                         }),
@@ -442,7 +460,7 @@ fn initialize(state: Arc<State>) {
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
                                 state.scrolling.y.set_neq(y);
-                                state.update(false, true);
+                                //state.update(false, true);
                             }
                         }))
 
@@ -473,7 +491,7 @@ fn initialize(state: Arc<State>) {
                                         state.scrolling.y.set_neq(new_scroll_y);
                                     }
 
-                                    state.update(false, true);
+                                    //state.update(false, true);
                                 }
                             }
 
@@ -487,10 +505,14 @@ fn initialize(state: Arc<State>) {
                             .class(&*GROUP_LIST_CHILDREN_STYLE)
 
                             .style_signal("padding-top", state.groups_padding.signal().map(px))
-                            .style_signal("height", state.scrolling.height.signal().map(px))
+                            //.style_signal("height", state.scrolling.height.signal().map(px))
 
                             .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
-                                .filter_signal_cloned(|(_, group)| group.visible.signal())
+                                .delay_remove(|(_, group)| {
+                                    let signal = group.insert_animation.signal();
+                                    async { await!(signal.wait_for(Percentage::new(0.0))); }
+                                })
+                                //.filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(clone!(state => move |(index, group)| {
                                     if let Some(index) = index.get() {
                                         if state.should_be_dragging_group(index) {
@@ -556,7 +578,11 @@ fn initialize(state: Arc<State>) {
                                                 .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
                                                 .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    .filter_signal_cloned(|(_, tab)| tab.visible.signal())
+                                                    .delay_remove(|(_, tab)| {
+                                                        let signal = tab.insert_animation.signal();
+                                                        async { await!(signal.wait_for(Percentage::new(0.0))); }
+                                                    })
+                                                    //.filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(clone!(state => move |(index, tab)| {
                                                         if let Some(index) = index.get() {
                                                             if state.should_be_dragging_tab(group.id, index) {
@@ -723,34 +749,44 @@ fn initialize(state: Arc<State>) {
 
     log!("Finished");
 
+    let mut tag_counter = 0;
+
     js! { @(no_return)
         setInterval(@{clone!(state => move || {
             state.process_message(SidebarMessage::TabChanged {
                 tab_index: 2,
-                change: TabChange::Title {
-                    new_title: Some(generate_uuid().to_string()),
-                },
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some(generate_uuid().to_string()),
+                    },
+                ],
             });
 
             state.process_message(SidebarMessage::TabChanged {
                 tab_index: 3,
-                change: TabChange::Title {
-                    new_title: Some("e1".to_string()),
-                },
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some("e1".to_string()),
+                    },
+                ],
             });
 
             state.process_message(SidebarMessage::TabChanged {
                 tab_index: 3,
-                change: TabChange::Title {
-                    new_title: Some("e2".to_string()),
-                },
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some("e2".to_string()),
+                    },
+                ],
             });
 
             /*state.process_message(SidebarMessage::TabChanged {
                 tab_index: 0,
-                change: TabChange::Pinned {
-                    pinned: false,
-                },
+                changes: vec![
+                    TabChange::Pinned {
+                        pinned: false,
+                    },
+                ],
             });*/
 
             state.process_message(SidebarMessage::TabRemoved {
@@ -800,6 +836,37 @@ fn initialize(state: Arc<State>) {
                     ],
                 },
             });
+
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 13,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: timestamp
+                    },
+                    focused: false,
+                    unloaded: true,
+                    pinned: false,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("bottom".to_owned()),
+                    title: Some(format!("bottom {}", timestamp)),
+                    tags: vec![],
+                },
+            });
+
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 10,
+                changes: vec![
+                    TabChange::AddedToTag {
+                        tag: server::Tag {
+                            name: tag_counter.to_string(),
+                            timestamp_added: Date::now(),
+                        },
+                    },
+                ],
+            });
+
+            tag_counter += 1;
 
             /*for _ in 0..10 {
                 state.process_message(SidebarMessage::TabRemoved {

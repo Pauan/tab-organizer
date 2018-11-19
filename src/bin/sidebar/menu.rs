@@ -1,4 +1,4 @@
-use constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
+use crate::constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX};
