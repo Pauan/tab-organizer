@@ -782,7 +782,8 @@ fn initialize(state: Arc<State>) {
                     tab: server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: Date::now()
+                            timestamp_created: Date::now(),
+                            timestamp_focused: Date::now(),
                         },
                         focused: false,
                         unloaded: true,
@@ -800,7 +801,14 @@ fn initialize(state: Arc<State>) {
                     tab: server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: timestamp
+                            timestamp_created: timestamp,
+                            timestamp_focused: timestamp,
+                            tags: vec![
+                                server::Tag {
+                                    name: "New".to_string(),
+                                    timestamp_added: Date::now(),
+                                },
+                            ],
                         },
                         focused: false,
                         unloaded: true,
@@ -808,12 +816,6 @@ fn initialize(state: Arc<State>) {
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                         url: Some("bottom".to_owned()),
                         title: Some(format!("bottom {}", timestamp)),
-                        tags: vec![
-                            server::Tag {
-                                name: "New".to_string(),
-                                timestamp_added: Date::now(),
-                            },
-                        ],
                     },
                 });
 
@@ -822,7 +824,9 @@ fn initialize(state: Arc<State>) {
                     tab: server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: timestamp
+                            timestamp_created: timestamp,
+                            timestamp_focused: timestamp,
+                            tags: vec![],
                         },
                         focused: false,
                         unloaded: true,
@@ -830,7 +834,6 @@ fn initialize(state: Arc<State>) {
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                         url: Some("bottom".to_owned()),
                         title: Some(format!("bottom {}", timestamp)),
-                        tags: vec![],
                     },
                 });
 
@@ -866,6 +869,7 @@ fn initialize(state: Arc<State>) {
                             id: generate_uuid(),
                             name: None,
                             timestamp_created: Date::now(),
+                            timestamp_focused: Date::now(),
                         },
                         focused: false,
                         tabs: vec![],
@@ -880,6 +884,7 @@ fn initialize(state: Arc<State>) {
                             serialized: server::SerializedTab {
                                 id: generate_uuid(),
                                 timestamp_created: Date::now(),
+                                timestamp_focused: Date::now(),
                             },
                             focused: index == 7,
                             unloaded: index == 5,
@@ -900,7 +905,14 @@ fn initialize(state: Arc<State>) {
                     tab: server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: Date::now()
+                            timestamp_created: Date::now(),
+                            timestamp_focused: Date::now(),
+                            tags: vec![
+                                server::Tag {
+                                    name: "New (Pinned)".to_string(),
+                                    timestamp_added: Date::now(),
+                                },
+                            ],
                         },
                         focused: false,
                         unloaded: true,
@@ -908,12 +920,6 @@ fn initialize(state: Arc<State>) {
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                         url: Some("top".to_owned()),
                         title: Some("top".to_owned()),
-                        tags: vec![
-                            server::Tag {
-                                name: "New (Pinned)".to_string(),
-                                timestamp_added: Date::now(),
-                            },
-                        ],
                     },
                 });
             }}, @{INSERT_ANIMATION_DURATION * 3.0});
@@ -1017,6 +1023,13 @@ fn main() {
                     serialized: server::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
+                        timestamp_focused: Date::now() - (index as f64 * TimeDifference::HOUR),
+                        tags: vec![
+                            server::Tag {
+                                name: if index < 5 { "One".to_string() } else { "Two".to_string() },
+                                timestamp_added: index as f64,
+                            },
+                        ],
                     },
                     focused: index == 7,
                     unloaded: index == 5,
@@ -1024,12 +1037,6 @@ fn main() {
                     favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
                     url: Some("https://www.example.com/foo?bar#qux".to_owned()),
                     title: Some(format!("Foo {}", index)),
-                    tags: vec![
-                        server::Tag {
-                            name: if index < 5 { "One".to_string() } else { "Two".to_string() },
-                            timestamp_added: index as f64,
-                        },
-                    ],
                 }
             }).collect(),
         };

@@ -67,7 +67,9 @@ pub enum SidebarMessage {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SerializedTab {
     pub id: Uuid,
+    pub tags: Vec<Tag>,
     pub timestamp_created: f64,
+    pub timestamp_focused: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,7 +94,6 @@ pub struct Tab {
     pub favicon_url: Option<String>,
     pub url: Option<String>,
     pub title: Option<String>,
-    pub tags: Vec<Tag>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -186,15 +186,23 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<
             }
         },
 
-        SortTabs::TimeFocused => StackVec::Multiple(vec![]),
+        SortTabs::TimeFocused => StackVec::Single({
+            let timestamp = round_to_hour(tab.timestamp_focused.get());
 
-        SortTabs::TimeCreated => StackVec::Single({
-            let timestamp_created = round_to_hour(tab.timestamp_created.get());
-
-            let index = get_timestamp_index(groups, timestamp_created);
+            let index = get_timestamp_index(groups, timestamp);
             insert_group(groups, index, || {
                 // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp_created, Date::now()))), timestamp_created)
+                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp)
+            })
+        }),
+
+        SortTabs::TimeCreated => StackVec::Single({
+            let timestamp = round_to_hour(tab.timestamp_created.get());
+
+            let index = get_timestamp_index(groups, timestamp);
+            insert_group(groups, index, || {
+                // TODO pass in the current time, rather than generating it each time ?
+                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp)
             })
         }),
 
@@ -256,14 +264,20 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
         },
 
         SortTabs::TimeFocused => {
-            0
+            let timestamp = tab.timestamp_focused.get();
+
+            get_tab_index(tabs, |tab| {
+                tab.timestamp_focused.get().partial_cmp(&timestamp).unwrap().then_with(|| {
+                    tab.index.get().cmp(&tab_index)
+                }).reverse()
+            })
         },
 
         SortTabs::TimeCreated => {
-            let timestamp_created = tab.timestamp_created.get();
+            let timestamp = tab.timestamp_created.get();
 
             get_tab_index(tabs, |tab| {
-                tab.timestamp_created.get().partial_cmp(&timestamp_created).unwrap().then_with(|| {
+                tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().then_with(|| {
                     tab.index.get().cmp(&tab_index)
                 }).reverse()
             })

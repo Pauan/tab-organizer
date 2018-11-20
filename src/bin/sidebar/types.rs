@@ -143,6 +143,7 @@ pub(crate) struct TabState {
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
+    pub(crate) timestamp_focused: Mutable<f64>,
     pub(crate) tags: Mutable<Vec<state::Tag>>,
 }
 
@@ -158,7 +159,8 @@ impl TabState {
             unloaded: Mutable::new(state.unloaded),
             pinned: Mutable::new(state.pinned),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
-            tags: Mutable::new(state.tags),
+            timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
+            tags: Mutable::new(state.serialized.tags),
         }
     }
 }
