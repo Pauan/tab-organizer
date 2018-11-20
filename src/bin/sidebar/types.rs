@@ -200,7 +200,7 @@ impl Tab {
             visible: Mutable::new(false),
 
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
-            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
+            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),
         }
     }
 
@@ -272,7 +272,7 @@ impl Group {
             show_header,
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
-            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
+            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),
             last_selected_tab: Mutable::new(None),
             matches_search: Mutable::new(false),
             visible: Mutable::new(false),

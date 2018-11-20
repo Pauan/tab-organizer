@@ -104,14 +104,10 @@ fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
 }
 
 
-fn make_new_group(name: Option<Arc<String>>, timestamp: f64, should_animate: bool) -> Arc<Group> {
+fn make_new_group(name: Option<Arc<String>>, timestamp: f64) -> Arc<Group> {
     let show_header = name.is_some();
 
     let group = Arc::new(Group::new(timestamp, show_header, Mutable::new(name), vec![]));
-
-    if should_animate {
-        group.insert_animate();
-    }
 
     group
 }
@@ -135,19 +131,19 @@ fn insert_group<A, F>(groups: &mut A, index: Result<usize, usize>, create: F) ->
 }
 
 
-fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_animate: bool) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
+fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
     match sort {
         SortTabs::Window => StackVec::Single({
             if tab.pinned.get() {
                 let index = get_pinned_index(groups);
                 insert_group(groups, index, || {
-                    make_new_group(Some(Arc::new("Pinned".to_string())), 0.0, should_animate)
+                    make_new_group(Some(Arc::new("Pinned".to_string())), 0.0)
                 })
 
             } else {
                 let index = get_unpinned_index(groups);
                 insert_group(groups, index, || {
-                    make_new_group(None, 0.0, should_animate)
+                    make_new_group(None, 0.0)
                 })
             }
         }),
@@ -159,7 +155,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
                 let index = get_group_index_name(groups, &tag.name);
                 insert_group(groups, index, || {
                     // TODO make this clone more efficient (e.g. by using Arc for the tags)
-                    make_new_group(Some(Arc::new(tag.name.clone())), 0.0, should_animate)
+                    make_new_group(Some(Arc::new(tag.name.clone())), 0.0)
                 })
             };
 
@@ -169,7 +165,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
                     // TODO guarantee that this puts this group first ?
                     let index = get_group_index_name(groups, "");
                     insert_group(groups, index, || {
-                        make_new_group(Some(Arc::new("".to_string())), 0.0, should_animate)
+                        make_new_group(Some(Arc::new("".to_string())), 0.0)
                     })
                 }),
                 [tag] => StackVec::Single(f(groups, tag)),
@@ -185,7 +181,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
             let index = get_timestamp_index(groups, timestamp_created);
             insert_group(groups, index, || {
                 // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp_created, Date::now()))), timestamp_created, should_animate)
+                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp_created, Date::now()))), timestamp_created)
             })
         }),
 
@@ -206,7 +202,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
 
             let index = get_group_index_name(groups, &url);
             insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(url)), 0.0, should_animate)
+                make_new_group(Some(Arc::new(url)), 0.0)
             })
         }),
 
@@ -227,7 +223,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
 
             let index = get_group_index_name(groups, &title);
             insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(title)), 0.0, should_animate)
+                make_new_group(Some(Arc::new(title)), 0.0)
             })
         }),
     }
@@ -370,15 +366,11 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, groups: &[Arc<Group>], g
 
     let index = sorted_tab_index(sort, groups, group, &tabs, &tab, tab_index, is_initial);
 
-    if should_animate {
-        tab.insert_animate();
-    }
-
     tabs.insert_cloned(index, tab);
 }
 
 fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
-    sorted_groups(sort, groups, &tab, should_animate).each(|group| {
+    sorted_groups(sort, groups, &tab).each(|group| {
         // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
         insert_tab_into_group(state, sort, &groups, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
@@ -390,7 +382,7 @@ fn remove_group<A>(groups: &mut A, group: &Group) where A: Insertable<Arc<Group>
     // TODO make this more efficient ?
     groups.retain(|group| {
         if group.id == id {
-            group.remove_animate();
+            group.insert_animation.animate_to(Percentage::new(0.0));
             false
 
         } else {
@@ -407,7 +399,7 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
     // TODO make this more efficient ?
     tabs.retain(|tab| {
         if tab.id == id {
-            tab.remove_animate();
+            tab.insert_animation.animate_to(Percentage::new(0.0));
             false
 
         } else {
@@ -427,15 +419,14 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
 }
 
 fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: &TabState, _tab_index: usize) {
-    // TODO is this `true` correct ?
     // TODO make this more efficient
-    sorted_groups(sort, groups, tab, true).each(|group| {
+    sorted_groups(sort, groups, tab).each(|group| {
         remove_tab_from_group(groups, &group, tab, true);
     });
 }
 
 fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
-    let new_groups = sorted_groups(sort, groups, &tab, true);
+    let new_groups = sorted_groups(sort, groups, &tab);
 
     // TODO make this more efficient
     old_groups.each(|group| {
@@ -513,24 +504,25 @@ impl Groups {
 
             let mut groups = self.groups.lock_mut();
 
+            // This is necessary because other parts of the code use delay_remove
             for group in groups.iter() {
-                group.remove_animate();
+                group.insert_animation.jump_to(Percentage::new(0.0));
 
                 let tabs = group.tabs.lock_ref();
 
                 for tab in tabs.iter() {
-                    tab.remove_animate();
+                    tab.insert_animation.jump_to(Percentage::new(0.0));
                 }
             }
 
             *sort = sort_tabs;
 
-            let new_groups = time!("Creating new groups", { initialize(state, *sort, window, true) });
+            let new_groups = time!("Creating new groups", { initialize(state, *sort, window, false) });
 
             groups.replace_cloned(new_groups);
         }
 
-        state.search_tabs(true);
+        state.search_tabs(false);
     }
 
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
@@ -549,7 +541,7 @@ impl Groups {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
-        let group_indexes = sorted_groups(*sort, &mut groups, &tab, true);
+        let group_indexes = sorted_groups(*sort, &mut groups, &tab);
 
         change();
 
@@ -572,15 +564,6 @@ impl Group {
         let signal = self.insert_animation.signal();
         async { await!(signal.wait_for(Percentage::new(0.0))); }
     }
-
-    fn insert_animate(&self) {
-        self.insert_animation.jump_to(Percentage::new(0.0));
-        self.insert_animation.animate_to(Percentage::new(1.0));
-    }
-
-    fn remove_animate(&self) {
-        self.insert_animation.animate_to(Percentage::new(0.0));
-    }
 }
 
 
@@ -588,16 +571,6 @@ impl Tab {
     pub(crate) fn wait_until_removed(&self) -> impl Future<Output = ()> {
         let signal = self.insert_animation.signal();
         async { await!(signal.wait_for(Percentage::new(0.0))); }
-    }
-
-    fn insert_animate(&self) {
-        // TODO what if the tab is in multiple groups ?
-        self.insert_animation.jump_to(Percentage::new(0.0));
-        self.insert_animation.animate_to(Percentage::new(1.0));
-    }
-
-    fn remove_animate(&self) {
-        self.insert_animation.animate_to(Percentage::new(0.0));
     }
 }
 

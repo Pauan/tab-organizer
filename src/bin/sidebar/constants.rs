@@ -49,19 +49,9 @@ lazy_static! {
 
     pub(crate) static ref TOP_STYLE: String = class! {
         .style("white-space", "pre")
-        .style("font-family", "sans-serif")
-        .style("font-size", "13px")
         .style("width", "300px") // 100%
         .style("height", "100%")
-        .style("background-color", "hsl(0, 0%, 100%)")
         .style("overflow", "hidden")
-    };
-
-    pub(crate) static ref TEXTURE_STYLE: String = class! {
-        .style("background-image", "repeating-linear-gradient(0deg, \
-                                        transparent                0px, \
-                                        hsla(200, 30%, 30%, 0.022) 2px, \
-                                        hsla(200, 30%, 30%, 0.022) 3px)")
     };
 
     pub(crate) static ref MODAL_STYLE: String = class! {
@@ -75,7 +65,6 @@ lazy_static! {
 
     pub(crate) static ref LOADING_STYLE: String = class! {
         .style("z-index", HIGHEST_ZINDEX)
-        .style("background-color", "transparent")
         .style("color", "white")
         .style("font-weight", "bold")
         .style("font-size", "20px")

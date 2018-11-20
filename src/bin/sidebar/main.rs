@@ -53,6 +53,8 @@ lazy_static! {
     static ref FAILED: Mutable<Option<Arc<String>>> = Mutable::new(None);
 
     static ref IS_LOADED: Mutable<bool> = Mutable::new(false);
+
+    static ref SHOW_MODAL: Mutable<bool> = Mutable::new(false);
 }
 
 
@@ -168,7 +170,6 @@ fn initialize(state: Arc<State>) {
     dominator::append_dom(&dominator::body(),
         html!("div", {
             .class(&*TOP_STYLE)
-            .class(&*TEXTURE_STYLE)
 
             // TODO only attach this when dragging
             .global_event(clone!(state => move |_: MouseUpEvent| {
@@ -721,6 +722,7 @@ fn initialize(state: Arc<State>) {
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
     stdweb::web::window().request_animation_frame(|_| {
         IS_LOADED.set_neq(true);
+        SHOW_MODAL.set_neq(false);
         log!("Loaded");
     });
 
@@ -965,6 +967,15 @@ fn main() {
         .style("height", "100%")
 
         .style(["-moz-user-select", "user-select"], "none")
+
+        .style("font-family", "sans-serif")
+        .style("font-size", "13px")
+
+        .style("background-color", "hsl(0, 0%, 100%)")
+        .style("background-image", "repeating-linear-gradient(0deg, \
+                                        transparent                0px, \
+                                        hsla(200, 30%, 30%, 0.022) 2px, \
+                                        hsla(200, 30%, 30%, 0.022) 3px)")
     });
 
     // Disables the browser scroll restoration
@@ -974,32 +985,23 @@ fn main() {
         }
     }
 
-    dominator::append_dom(&dominator::body(), {
-        let show = Mutable::new(false);
+    dominator::append_dom(&dominator::body(), html!("div", {
+        .class(&*TOP_STYLE)
+        .class(&*MODAL_STYLE)
+        .class(&*CENTER_STYLE)
+        .class(&*LOADING_STYLE)
 
-        set_timeout(clone!(show => move || {
-            show.set_neq(true);
-        }), LOADING_MESSAGE_THRESHOLD);
+        .visible_signal(SHOW_MODAL.signal())
 
-        html!("div", {
-            .class(&*TOP_STYLE)
-            .class(&*TEXTURE_STYLE)
+        .text("LOADING...")
+    }));
 
-            .visible_signal(not(IS_LOADED.signal()))
 
-            .children(&mut [
-                html!("div", {
-                    .class(&*MODAL_STYLE)
-                    .class(&*CENTER_STYLE)
-                    .class(&*LOADING_STYLE)
-
-                    .visible_signal(and(show.signal(), not(IS_LOADED.signal())))
-
-                    .text("LOADING...")
-                })
-            ])
-        })
-    });
+    set_timeout(move || {
+        if !IS_LOADED.get() {
+            SHOW_MODAL.set_neq(true);
+        }
+    }, LOADING_MESSAGE_THRESHOLD);
 
 
     set_timeout(move || {
@@ -1035,6 +1037,5 @@ fn main() {
         time!("Initializing", {
             initialize(Arc::new(State::new(Options::new(), Window::new(window))));
         });
-    // 1500
-    }, 0);
+    }, 1500);
 }

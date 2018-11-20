@@ -29,5 +29,5 @@ dominator = "0.3.0"
 
 [patch.crates-io]
 #stdweb = { path = "../stdweb" }
-#dominator = { path = "../rust-dominator" }
+dominator = { path = "../rust-dominator" }
 futures-signals = { path = "../rust-signals" }

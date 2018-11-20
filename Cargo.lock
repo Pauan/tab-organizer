@@ -11,7 +11,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "dominator"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "discard 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-channel-preview 0.3.0-alpha.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -290,7 +289,7 @@ name = "tab-organizer"
 version = "5.0.0"
 dependencies = [
  "discard 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "dominator 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dominator 0.3.3",
  "futures-preview 0.3.0-alpha.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-signals 0.2.4",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -335,7 +334,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum base-x 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5cda5d0f5584d129112ad8bf4775b9fd2b9f1e30738c7b1a25314ba2244d6a51"
 "checksum discard 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
-"checksum dominator 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ecd754a23ca19732c38d169f210c76c1bb8c13dc2af18470131620559b62ab16"
 "checksum either 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3be565ca5c557d7f59e7cfcf1844f9e3033650c929c6566f511e8005f205c1d0"
 "checksum futures-channel-preview 0.3.0-alpha.9 (registry+https://github.com/rust-lang/crates.io-index)" = "ab71b4d4948210b1ff4703e66cc9d931afd8ba35b5657cf369374a091cca96ed"
 "checksum futures-core-preview 0.3.0-alpha.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e5fea6d4920bf1745d87f8624abdd38ed03fb5b644767b84a0de882fe46c4153"
