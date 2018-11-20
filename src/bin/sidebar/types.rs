@@ -138,6 +138,7 @@ pub(crate) struct TabState {
     pub(crate) favicon_url: Mutable<Option<Arc<String>>>,
     pub(crate) title: Mutable<Option<Arc<String>>>,
     pub(crate) url: Mutable<Option<Arc<String>>>,
+    pub(crate) index: Mutable<usize>,
     pub(crate) focused: Mutable<bool>,
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
@@ -146,12 +147,13 @@ pub(crate) struct TabState {
 }
 
 impl TabState {
-    pub(crate) fn new(state: state::Tab) -> Self {
+    pub(crate) fn new(state: state::Tab, index: usize) -> Self {
         Self {
             id: state.serialized.id,
             favicon_url: Mutable::new(state.favicon_url.map(Arc::new)),
             title: Mutable::new(state.title.map(Arc::new)),
             url: Mutable::new(state.url.map(Arc::new)),
+            index: Mutable::new(index),
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
             pinned: Mutable::new(state.pinned),
@@ -231,7 +233,7 @@ impl Window {
         Self {
             id: state.serialized.id,
             name: Mutable::new(state.serialized.name.map(Arc::new)),
-            tabs: state.tabs.into_iter().map(|tab| Arc::new(TabState::new(tab))).collect(),
+            tabs: state.tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect(),
         }
     }
 }

@@ -46,7 +46,7 @@ mod culling;
 
 
 // Whether it should automatically add/remove/update test tabs
-const DYNAMIC_TAB_TEST: bool = false;
+const DYNAMIC_TAB_TEST: bool = true;
 
 
 lazy_static! {

@@ -52,6 +52,26 @@ fn get_group_index_name(groups: &[Arc<Group>], name: &str) -> Result<usize, usiz
     get_group_index(groups, |x| x.cmp(name))
 }
 
+fn get_group_index_name_empty(groups: &[Arc<Group>], name: &str) -> Result<usize, usize> {
+    get_group_index(groups, |x| {
+        // TODO make this more efficient ?
+        if x == "" {
+            if name == "" {
+                Ordering::Equal
+
+            } else {
+                Ordering::Greater
+            }
+
+        } else if name == "" {
+            Ordering::Less
+
+        } else {
+            x.cmp(name)
+        }
+    })
+}
+
 fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> where F: FnMut(&str) -> Ordering {
     groups.binary_search_by(|group: &Arc<Group>| {
         let name = group.name.lock_ref();
@@ -90,13 +110,6 @@ fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
             Ordering::Equal
         }
     })
-}
-
-// TODO keep track of this in some Cells or something
-fn get_pinned_len(groups: &[Arc<Group>]) -> usize {
-    let index = get_pinned_index(groups);
-
-    index.map(|index| groups[index].tabs.lock_ref().len()).unwrap_or(0)
 }
 
 fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
@@ -152,7 +165,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<
             let tags = tab.tags.lock_ref();
 
             let f = |groups: &mut A, tag: &Tag| {
-                let index = get_group_index_name(groups, &tag.name);
+                let index = get_group_index_name_empty(groups, &tag.name);
                 insert_group(groups, index, || {
                     // TODO make this clone more efficient (e.g. by using Arc for the tags)
                     make_new_group(Some(Arc::new(tag.name.clone())), 0.0)
@@ -163,9 +176,9 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<
                 // TODO test this
                 [] => StackVec::Single({
                     // TODO guarantee that this puts this group first ?
-                    let index = get_group_index_name(groups, "");
+                    let index = get_group_index_name_empty(groups, "");
                     insert_group(groups, index, || {
-                        make_new_group(Some(Arc::new("".to_string())), 0.0)
+                        make_new_group(None, 0.0)
                     })
                 }),
                 [tag] => StackVec::Single(f(groups, tag)),
@@ -229,49 +242,15 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<
     }
 }
 
-fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: &[Arc<Tab>], tab: &TabState, mut tab_index: usize, is_initial: bool) -> usize {
+fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index: usize, is_initial: bool) -> usize {
     match sort {
-        SortTabs::Window => {
+        SortTabs::Window | SortTabs::Tag => {
             if is_initial {
                 tabs.len()
 
             } else {
-                if !tab.pinned.get() {
-                    // TODO make this more efficient
-                    tab_index -= get_pinned_len(groups);
-                }
-
-                tab_index
-            }
-        },
-
-        // TODO compare by tab indexes
-        SortTabs::Tag => {
-            let name = group.name.lock_ref();
-            // TODO this is wrong
-            let tag_name = str_default(&name, "");
-
-            // TODO make this more efficient
-            let tags = tab.tags.lock_ref();
-
-            let id = tab.id;
-
-            if let Some(tag) = tags.iter().find(|x| x.name == tag_name) {
-                let timestamp_added = tag.timestamp_added;
-
                 get_tab_index(tabs, |tab| {
-                    // TODO make this more efficient
-                    let tags = tab.tags.lock_ref();
-                    // TODO this shouldn't unwrap
-                    let tag = tags.iter().find(|x| x.name == tag_name).unwrap();
-
-                    // TODO better float comparison ?
-                    tag.timestamp_added.partial_cmp(&timestamp_added).unwrap().then_with(|| tab.id.cmp(&id))
-                })
-
-            } else {
-                get_tab_index(tabs, |tab| {
-                    tab.id.cmp(&id)
+                    tab.index.get().cmp(&tab_index)
                 })
             }
         },
@@ -280,63 +259,41 @@ fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: 
             0
         },
 
-        // TODO sort by the index if the timestamps are the same ?
         SortTabs::TimeCreated => {
-            let id = tab.id;
-
             let timestamp_created = tab.timestamp_created.get();
 
             get_tab_index(tabs, |tab| {
-                // TODO compare by tab indexes rather than id ?
-                tab.timestamp_created.get().partial_cmp(&timestamp_created).unwrap().then_with(|| tab.id.cmp(&id)).reverse()
+                tab.timestamp_created.get().partial_cmp(&timestamp_created).unwrap().then_with(|| {
+                    tab.index.get().cmp(&tab_index)
+                }).reverse()
             })
         },
 
         SortTabs::Url => {
-            let id = tab.id;
-
             let url = tab.url.lock_ref();
             let url = str_default(&url, "");
-
-            let title = tab.title.lock_ref();
-            let title = str_default(&title, "");
 
             get_tab_index(tabs, |tab| {
                 let x = tab.url.lock_ref();
                 let x = str_default(&x, "");
 
-                // TODO don't compare by title ?
                 x.cmp(url).then_with(|| {
-                    let y = tab.title.lock_ref();
-                    let y = str_default(&y, "");
-
-                    // TODO compare by tab indexes rather than id ?
-                    y.cmp(title).then_with(|| tab.id.cmp(&id))
+                    tab.index.get().cmp(&tab_index)
                 })
             })
         },
 
         // TODO use upper-case sorting ?
         SortTabs::Name => {
-            let id = tab.id;
-
             let title = tab.title.lock_ref();
             let title = str_default(&title, "");
-
-            let url = tab.url.lock_ref();
-            let url = str_default(&url, "");
 
             get_tab_index(tabs, |tab| {
                 let x = tab.title.lock_ref();
                 let x = str_default(&x, "");
 
-                // TODO don't compare by URL ?
                 x.cmp(title).then_with(|| {
-                    let y = tab.url.lock_ref();
-                    let y = str_default(&y, "");
-
-                    // TODO compare by tab indexes rather than id ?
-                    y.cmp(url).then_with(|| tab.id.cmp(&id))
+                    tab.index.get().cmp(&tab_index)
                 })
             })
         },
@@ -354,7 +311,7 @@ fn initialize(state: &State, sort: SortTabs, window: &Window, should_animate: bo
     groups
 }
 
-fn insert_tab_into_group(state: &State, sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
     let tab = Arc::new(Tab::new(tab));
 
     // TODO is this correct ?
@@ -364,7 +321,7 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, groups: &[Arc<Group>], g
 
     let mut tabs = group.tabs.lock_mut();
 
-    let index = sorted_tab_index(sort, groups, group, &tabs, &tab, tab_index, is_initial);
+    let index = sorted_tab_index(sort, &tabs, &tab, tab_index, is_initial);
 
     tabs.insert_cloned(index, tab);
 }
@@ -372,7 +329,7 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, groups: &[Arc<Group>], g
 fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
     sorted_groups(sort, groups, &tab).each(|group| {
         // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
-        insert_tab_into_group(state, sort, &groups, &group, tab.clone(), tab_index, should_animate, is_initial);
+        insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
 }
 
@@ -440,7 +397,7 @@ fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: Sta
     });
 
     new_groups.each(|group| {
-        insert_tab_into_group(state, sort, &groups, &group, tab.clone(), tab_index, true, false);
+        insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, true, false);
     });
 }
 
@@ -577,15 +534,29 @@ impl Tab {
 
 impl State {
     pub(crate) fn process_message(&self, message: SidebarMessage) {
+        fn increment_indexes(tabs: &[Arc<TabState>]) {
+            for tab in tabs {
+                tab.index.replace_with(|index| *index + 1);
+            }
+        }
+
+        fn decrement_indexes(tabs: &[Arc<TabState>]) {
+            for tab in tabs {
+                tab.index.replace_with(|index| *index - 1);
+            }
+        }
+
         match message {
             SidebarMessage::TabInserted { tab_index, tab } => {
                 let mut window = self.window.write().unwrap();
 
-                let tab = Arc::new(TabState::new(tab));
+                let tab = Arc::new(TabState::new(tab, tab_index));
 
-                self.groups.tab_inserted(self, tab_index, tab.clone());
+                increment_indexes(&window.tabs[tab_index..]);
 
-                window.tabs.insert(tab_index, tab);
+                window.tabs.insert(tab_index, tab.clone());
+
+                self.groups.tab_inserted(self, tab_index, tab);
             },
 
             SidebarMessage::TabRemoved { tab_index } => {
@@ -594,6 +565,8 @@ impl State {
                 let tab = window.tabs.remove(tab_index);
 
                 self.groups.tab_removed(tab_index, &tab);
+
+                decrement_indexes(&window.tabs[tab_index..]);
             },
 
             SidebarMessage::TabChanged { tab_index, changes } => {
