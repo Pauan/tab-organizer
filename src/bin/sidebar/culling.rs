@@ -1,264 +1,164 @@
 use std::pin::{Pin, Unpin};
 use std::sync::Arc;
 use tab_organizer::ease;
-use tab_organizer::state::SortTabs;
 use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
-use crate::types::{State, DragState, Group, Tab};
-use stdweb;
-use dominator::animation::{Percentage, MutableAnimationSignal};
+use crate::types::{State, Group, Tab};
+use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll};
 use futures::task::LocalWaker;
-use futures_signals::signal::{Signal, SignalExt, MutableSignal, MutableSignalCloned};
+use futures_signals::signal::{Signal, SignalExt, MutableSignal};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt, VecDiff};
 
 
-/*pub(crate) fn delay_animation(animation: &MutableAnimation, visible: &Mutable<bool>) -> impl Future<Item = (), Error = Never> {
-    animation.signal().wait_for(Percentage::new(0.0)).select(visible.signal().wait_for(false))
-        // TODO a bit gross
-        .map(|_| ())
-        .map_err(|_| unreachable!())
-}*/
-
-
-fn changed_vec<A, B, C, F>(signal: &mut Option<C>, waker: &LocalWaker, vec: &mut Vec<B>, mut f: F) -> bool
-    where C: SignalVec<Item = A> + Unpin,
-          F: FnMut(A) -> B {
-
-    let mut changed = false;
-
-    loop {
-        match signal.as_mut().map(|signal| signal.poll_vec_change_unpin(waker)) {
-            Some(Poll::Ready(Some(change))) => {
-                changed = true;
-
-                // TODO move this into futures_signals crate
-                match change {
-                    VecDiff::Replace { values } => {
-                        *vec = values.into_iter().map(|value| f(value)).collect();
-                    },
-                    VecDiff::InsertAt { index, value } => {
-                        vec.insert(index, f(value));
-                    },
-                    VecDiff::UpdateAt { index, value } => {
-                        vec[index] = f(value);
-                    },
-                    VecDiff::RemoveAt { index } => {
-                        vec.remove(index);
-                    },
-                    VecDiff::Move { old_index, new_index } => {
-                        let value = vec.remove(old_index);
-                        vec.insert(new_index, value);
-                    },
-                    VecDiff::Push { value } => {
-                        vec.push(f(value));
-                    },
-                    VecDiff::Pop {} => {
-                        vec.pop().unwrap();
-                    },
-                    VecDiff::Clear {} => {
-                        vec.clear();
-                    },
-                }
-
-                continue;
-            },
-            Some(Poll::Ready(None)) => {
-                *signal = None;
-            },
-            Some(Poll::Pending) => {},
-            None => {},
-        }
-
-        return changed;
-    }
+struct MutableSink<A> where A: Signal {
+    signal: Option<A>,
+    value: Option<A::Item>,
 }
 
-#[inline]
-fn changed<A, B>(signal: &mut Option<B>, waker: &LocalWaker) -> bool where B: Signal<Item = A> + Unpin {
-    changed_option(signal, waker).is_some()
-}
-
-fn changed_option<A, B>(signal: &mut Option<B>, waker: &LocalWaker) -> Option<A> where B: Signal<Item = A> + Unpin {
-    let mut changed = None;
-
-    loop {
-        match signal.as_mut().map(|signal| signal.poll_change_unpin(waker)) {
-            Some(Poll::Ready(Some(value))) => {
-                changed = Some(value);
-                continue;
-            },
-            Some(Poll::Ready(None)) => {
-                *signal = None;
-            },
-            Some(Poll::Pending) => {},
-            None => {},
-        }
-
-        return changed;
-    }
-}
-
-
-struct TabState {
-    url: Option<MutableSignalCloned<Option<Arc<String>>>>,
-    title: Option<MutableSignalCloned<Option<Arc<String>>>>,
-    removing: Option<MutableSignal<bool>>,
-    dragging: Option<MutableSignal<bool>>,
-    insert_animation: Option<MutableAnimationSignal>,
-}
-
-impl TabState {
-    fn new(tab: Arc<Tab>) -> Self {
+impl<A> MutableSink<A> where A: Signal + Unpin, A::Item: Copy {
+    fn new(signal: A) -> Self {
         Self {
-            url: Some(tab.url.signal_cloned()),
-            title: Some(tab.title.signal_cloned()),
-            removing: Some(tab.removing.signal()),
-            dragging: Some(tab.dragging.signal()),
-            insert_animation: Some(tab.insert_animation.signal()),
+            signal: Some(signal),
+            value: None,
         }
     }
 
-    fn changed(&mut self, waker: &LocalWaker) -> (bool, bool) {
-        let url = changed(&mut self.url, waker);
-        let title = changed(&mut self.title, waker);
-        let removing = changed(&mut self.removing, waker);
-        let dragging = changed(&mut self.dragging, waker);
-        let insert_animation = changed(&mut self.insert_animation, waker);
-        (
-            url || title || removing || dragging || insert_animation,
-            url || title
-        )
+    fn value(&self) -> A::Item {
+        self.value.unwrap()
+    }
+
+    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+        let mut changed = false;
+
+        loop {
+            match self.signal.as_mut().map(|signal| signal.poll_change_unpin(waker)) {
+                Some(Poll::Ready(Some(value))) => {
+                    self.value = Some(value);
+                    changed = true;
+                    continue;
+                },
+                Some(Poll::Ready(None)) => {
+                    self.signal = None;
+                },
+                Some(Poll::Pending) => {},
+                None => {},
+            }
+
+            return changed;
+        }
     }
 }
 
 
-struct GroupState<A> {
+struct MutableVecSink<A> where A: SignalVec {
     signal: Option<A>,
-    tabs: Vec<TabState>,
-    removing: Option<MutableSignal<bool>>,
-    insert_animation: Option<MutableAnimationSignal>,
+    values: Vec<A::Item>,
 }
 
-impl<A> GroupState<A> where A: SignalVec<Item = Arc<Tab>> + Unpin {
-    fn changed(&mut self, waker: &LocalWaker) -> (bool, bool) {
-        let removing = changed(&mut self.removing, waker);
-        let insert_animation = changed(&mut self.insert_animation, waker);
-        let signal = changed_vec(&mut self.signal, waker, &mut self.tabs, TabState::new);
-
-        let mut tabs = false;
-        let mut search = false;
-
-        for mut tab in self.tabs.iter_mut() {
-            let x = tab.changed(waker);
-
-            if x.0 {
-                tabs = true;
-            }
-
-            if x.1 {
-                search = true;
-            }
+impl<A> MutableVecSink<A> where A: SignalVec + Unpin {
+    fn new(signal: A) -> Self {
+        Self {
+            signal: Some(signal),
+            values: vec![],
         }
-
-        // TODO it should search only when a tab is inserted or updated, not removed
-        (
-            removing || insert_animation || signal || tabs,
-            signal || search
-        )
     }
-}
 
+    fn is_changed<F>(&mut self, waker: &LocalWaker, mut f: F) -> bool where F: FnMut(&mut A::Item) -> bool {
+        let mut changed = false;
 
-struct Waiter<A, B, G, F> where G: FnMut(&Group) -> B {
-    signal: Option<A>,
-    group_signal: G,
-    groups: Vec<GroupState<B>>,
-    sort_tabs: Option<MutableSignal<SortTabs>>, // TODO this might be unnecessary
-    callback: F,
-}
+        loop {
+            match self.signal.as_mut().map(|signal| signal.poll_vec_change_unpin(waker)) {
+                Some(Poll::Ready(Some(change))) => {
+                    changed = true;
 
-impl<A, B, G, F> Waiter<A, B, G, F>
-    where A: SignalVec<Item = Arc<Group>> + Unpin,
-          B: SignalVec<Item = Arc<Tab>> + Unpin,
-          G: FnMut(&Group) -> B,
-          F: FnMut(bool, Option<SortTabs>) {
+                    // TODO move this into futures_signals crate
+                    match change {
+                        VecDiff::Replace { values } => {
+                            self.values = values;
+                        },
+                        VecDiff::InsertAt { index, value } => {
+                            self.values.insert(index, value);
+                        },
+                        VecDiff::UpdateAt { index, value } => {
+                            self.values[index] = value;
+                        },
+                        VecDiff::RemoveAt { index } => {
+                            self.values.remove(index);
+                        },
+                        VecDiff::Move { old_index, new_index } => {
+                            let value = self.values.remove(old_index);
+                            self.values.insert(new_index, value);
+                        },
+                        VecDiff::Push { value } => {
+                            self.values.push(value);
+                        },
+                        VecDiff::Pop {} => {
+                            self.values.pop().unwrap();
+                        },
+                        VecDiff::Clear {} => {
+                            self.values.clear();
+                        },
+                    }
 
-    fn changed(&mut self, waker: &LocalWaker) -> (bool, bool, Option<SortTabs>) {
-        let group_signal = &mut self.group_signal;
-
-        let signal = changed_vec(&mut self.signal, waker, &mut self.groups, |group| {
-            GroupState {
-                signal: Some(group_signal(&group)),
-                tabs: vec![],
-                removing: Some(group.removing.signal()),
-                insert_animation: Some(group.insert_animation.signal()),
+                    continue;
+                },
+                Some(Poll::Ready(None)) => {
+                    self.signal = None;
+                },
+                Some(Poll::Pending) => {},
+                None => {},
             }
-        });
 
-        let mut groups_changed = false;
-        let mut groups_searched = false;
-
-        for mut group in self.groups.iter_mut() {
-            let (x, y) = group.changed(waker);
-
-            if x {
-                groups_changed = true;
+            for value in self.values.iter_mut() {
+                if f(value) {
+                    changed = true;
+                }
             }
 
-            if y {
-                groups_searched = true;
-            }
+            return changed;
         }
-
-        let sort_tabs = changed_option(&mut self.sort_tabs, waker);
-
-        // TODO it should search only when a group is inserted or updated, not removed
-        (
-            signal || groups_changed || sort_tabs.is_some(),
-            signal || groups_searched || sort_tabs.is_some(),
-            sort_tabs
-        )
     }
 }
 
-impl<A, B, G, F> Unpin for Waiter<A, B, G, F> where A: Unpin, B: Unpin, G: FnMut(&Group) -> B {}
 
-impl<A, B, G, F> Future for Waiter<A, B, G, F>
-    where A: SignalVec<Item = Arc<Group>> + Unpin,
-          B: SignalVec<Item = Arc<Tab>> + Unpin,
-          G: FnMut(&Group) -> B,
-          F: FnMut(bool, Option<SortTabs>) {
+impl State {
+    fn hide_tab(&self, tab: &Tab) {
+        tab.visible.set_neq(false);
+        tab.holding.set_neq(false);
+        tab.close_hovered.set_neq(false);
+        tab.close_holding.set_neq(false);
+        self.unhover_tab(tab);
+    }
+}
 
-    type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
-        let (changed, search, sort_tabs) = self.changed(waker);
+struct CulledTab {
+    state: Arc<Tab>,
+    is_dragging: MutableSink<MutableSignal<bool>>,
+    insert_animation: MutableSink<MutableAnimationSignal>,
+}
 
-        if changed {
-            let this: &mut Self = &mut *self;
-            (this.callback)(search, sort_tabs);
+impl CulledTab {
+    fn new(state: Arc<Tab>) -> Self {
+        Self {
+            is_dragging: MutableSink::new(state.dragging.signal()),
+            insert_animation: MutableSink::new(state.insert_animation.signal()),
+            state,
         }
-
-        Poll::Pending
     }
-}
 
-pub(crate) fn waiter<F>(state: &State, f: F) -> impl Future<Output = ()> where F: FnMut(bool, Option<SortTabs>) {
-    Waiter {
-        signal: Some(state.groups.signal_vec_cloned()/*.delay_remove(|group| delay_animation(&group.insert_animation, &group.visible))*/),
-        group_signal: |group| group.tabs.signal_vec_cloned()/*.delay_remove(|tab| delay_animation(&tab.insert_animation, &tab.visible))*/,
-        groups: vec![],
-        sort_tabs: Some(state.options.sort_tabs.signal()),
-        callback: f,
+    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+        let is_dragging = self.is_dragging.is_changed(waker);
+        let insert_animation = self.insert_animation.is_changed(waker);
+
+        is_dragging ||
+        insert_animation
     }
-}
 
-
-impl Tab {
-	// TODO hacky
+    // TODO hacky
     fn height(&self) -> f64 {
         // TODO use range_inclusive ?
-        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
+        let percentage = ease(self.insert_animation.value()).into_f64();
 
         (TAB_BORDER_WIDTH * percentage).round() +
         (TAB_PADDING * percentage).round() +
@@ -269,17 +169,39 @@ impl Tab {
 }
 
 
-impl Group {
-	// TODO hacky
+struct CulledGroup<A> where A: SignalVec {
+    state: Arc<Group>,
+    tabs: MutableVecSink<A>,
+    insert_animation: MutableSink<MutableAnimationSignal>,
+}
+
+impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
+    fn new(state: Arc<Group>, tabs_signal: A) -> Self {
+        Self {
+            tabs: MutableVecSink::new(tabs_signal),
+            insert_animation: MutableSink::new(state.insert_animation.signal()),
+            state,
+        }
+    }
+
+    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+        let tabs = self.tabs.is_changed(waker, |tab| tab.is_changed(waker));
+        let insert_animation = self.insert_animation.is_changed(waker);
+
+        tabs ||
+        insert_animation
+    }
+
+    // TODO hacky
     // TODO what about when it's dragging ?
     fn height(&self) -> (f64, f64) {
         // TODO use range_inclusive
-        let percentage = ease(self.insert_animation.current_percentage()).into_f64();
+        let percentage = ease(self.insert_animation.value()).into_f64();
 
         (
             (GROUP_BORDER_WIDTH * percentage).round() +
             (GROUP_PADDING_TOP * percentage).round() +
-            (if self.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
+            (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
 
             (GROUP_PADDING_BOTTOM * percentage).round()
         )
@@ -287,154 +209,150 @@ impl Group {
 }
 
 
-impl State {
-	fn hide_tab(&self, tab: &Tab) {
-        tab.visible.set_neq(false);
-        tab.holding.set_neq(false);
-        tab.close_hovered.set_neq(false);
-        tab.close_holding.set_neq(false);
-        self.unhover_tab(tab);
+struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: Signal {
+    state: Arc<State>,
+    groups: MutableVecSink<A>,
+    is_dragging: MutableSink<B>,
+    scroll_y: MutableSink<C>,
+    window_height: MutableSink<D>,
+}
+
+impl<A, B, C, D, E> Culler<A, C, D, E>
+    where A: SignalVec<Item = CulledGroup<B>> + Unpin,
+          B: SignalVec<Item = CulledTab> + Unpin,
+          C: Signal<Item = bool> + Unpin,
+          D: Signal<Item = f64> + Unpin,
+          E: Signal<Item = f64> + Unpin {
+
+    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+        let groups = self.groups.is_changed(waker, |group| group.is_changed(waker));
+        let is_dragging = self.is_dragging.is_changed(waker);
+        let scroll_y = self.scroll_y.is_changed(waker);
+        let window_height = self.window_height.is_changed(waker);
+
+        groups ||
+        is_dragging ||
+        scroll_y ||
+        window_height
     }
 
-	// TODO debounce this ?
+    // TODO debounce this ?
     // TODO make this simpler somehow ?
-    // TODO add in stuff to handle dragging
-    pub(crate) fn update(&self, should_search: bool, animate: bool) {
-        // TODO add STATE.dragging.state to the waiter
-        let dragging = self.dragging.state.lock_ref();
-        let search_parser = self.search_parser.lock_ref();
+    // TODO add in stuff to handle tab dragging
+    fn update(&mut self) {
+        let is_dragging = self.is_dragging.value();
 
-        let top_y = self.scrolling.y.get().round();
-        let bottom_y = top_y + (stdweb::web::window().inner_height() as f64 - TOOLBAR_TOTAL_HEIGHT);
+        // TODO is this floor correct ?
+        let top_y = self.scroll_y.value().floor();
+        // TODO is this ceil correct ?
+        let bottom_y = top_y + (self.window_height.value().ceil() - TOOLBAR_TOTAL_HEIGHT);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
-        self.groups.lock_mut().retain(|group| {
-            // TODO remove it when the height is 0 ?
-            if group.removing.get() && group.insert_animation.current_percentage() == Percentage::new(0.0) {
-                false
+        for group in self.groups.values.iter() {
+            let old_height = current_height;
 
-            } else {
-                let mut matches_search = false;
+            let mut tabs_padding: Option<f64> = None;
 
-                let old_height = current_height;
+            let (top_height, bottom_height) = group.height();
 
-                let mut tabs_padding: Option<f64> = None;
+            current_height += top_height;
 
-                let (top_height, bottom_height) = group.height();
+            let tabs_height = current_height;
 
-                current_height += top_height;
+            // TODO what if there aren't any tabs in the group ?
+            for tab in group.tabs.values.iter() {
+                // TODO is this correct ?
+                if !tab.is_dragging.value() {
+                    let old_height = current_height;
 
-                let tabs_height = current_height;
+                    current_height += tab.height();
 
-                // TODO what if there aren't any tabs in the group ?
-                group.tabs.lock_mut().retain(|tab| {
-                    // TODO remove it when the height is 0 ?
-                    if tab.removing.get() && tab.insert_animation.current_percentage() == Percentage::new(0.0) {
-                        false
+                    if current_height > old_height && old_height < bottom_y && current_height > top_y {
+                        if let None = tabs_padding {
+                            tabs_padding = Some(old_height);
+                        }
+
+                        tab.state.visible.set_neq(true);
 
                     } else {
-                        // TODO what about if all the tabs are being dragged ?
-                        if should_search && !tab.removing.get() {
-                            if search_parser.matches_tab(tab) {
-                                matches_search = true;
-                                tab.matches_search.set_neq(true);
-
-                                if animate {
-                                    tab.insert_animation.animate_to(Percentage::new(1.0));
-
-                                } else {
-                                    tab.insert_animation.jump_to(Percentage::new(1.0));
-                                }
-
-                            } else {
-                                tab.matches_search.set_neq(false);
-
-                                if animate {
-                                    tab.insert_animation.animate_to(Percentage::new(0.0));
-
-                                } else {
-                                    tab.insert_animation.jump_to(Percentage::new(0.0));
-                                }
-                            }
-                        }
-
-                        if !tab.dragging.get() {
-                            let old_height = current_height;
-
-                            current_height += tab.height();
-
-                            if current_height > old_height && old_height < bottom_y && current_height > top_y {
-                                if let None = tabs_padding {
-                                    tabs_padding = Some(old_height);
-                                }
-
-                                tab.visible.set_neq(true);
-
-                            } else {
-                                self.hide_tab(&tab);
-                            }
-
-                        } else {
-                            self.hide_tab(&tab);
-                        }
-
-                        true
+                        self.state.hide_tab(&tab.state);
                     }
-                });
-
-                if should_search {
-                    if matches_search {
-                        group.matches_search.set_neq(true);
-
-                        if animate {
-                            group.insert_animation.animate_to(Percentage::new(1.0));
-
-                        } else {
-                            group.insert_animation.jump_to(Percentage::new(1.0));
-                        }
-
-                    } else {
-                        group.matches_search.set_neq(false);
-
-                        if animate {
-                            group.insert_animation.animate_to(Percentage::new(0.0));
-
-                        } else {
-                            group.insert_animation.jump_to(Percentage::new(0.0));
-                        }
-                    }
-                }
-
-                let no_tabs_height = current_height;
-
-                current_height += bottom_height;
-
-                // TODO what if the group has height but the tabs don't ?
-                // TODO what if the tabs have height but the group doesn't ?
-                if current_height > old_height && old_height < bottom_y && current_height > top_y {
-                    if let None = padding {
-                        padding = Some(old_height);
-                    }
-
-                    group.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                    group.visible.set_neq(true);
 
                 } else {
-                    group.visible.set_neq(false);
+                    self.state.hide_tab(&tab.state);
+                }
+            }
+
+            let no_tabs_height = current_height;
+
+            current_height += bottom_height;
+
+            // TODO what if the group has height but the tabs don't ?
+            // TODO what if the tabs have height but the group doesn't ?
+            if current_height > old_height && old_height < bottom_y && current_height > top_y {
+                if let None = padding {
+                    padding = Some(old_height);
                 }
 
-                true
-            }
-        });
+                group.state.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
+                group.state.visible.set_neq(true);
 
-        if let Some(DragState::Dragging { .. }) = *dragging {
+            } else {
+                group.state.visible.set_neq(false);
+            }
+        }
+
+        if is_dragging {
             // TODO handle this better somehow ?
             current_height += DRAG_GAP_PX;
         }
 
-        self.groups_padding.set_neq(padding.unwrap_or(0.0));
-        self.scrolling.height.set_neq(current_height);
+        self.state.groups_padding.set_neq(padding.unwrap_or(0.0));
+        self.state.scrolling.height.set_neq(current_height);
+    }
+}
+
+impl<A, B, C, D> Unpin for Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: Signal {}
+
+impl<A, B, C, D, E> Future for Culler<A, C, D, E>
+    where A: SignalVec<Item = CulledGroup<B>> + Unpin,
+          B: SignalVec<Item = CulledTab> + Unpin,
+          C: Signal<Item = bool> + Unpin,
+          D: Signal<Item = f64> + Unpin,
+          E: Signal<Item = f64> + Unpin {
+
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
+        let changed = self.is_changed(waker);
+
+        if changed {
+            //time!("Culling", {
+                self.update();
+            //});
+        }
+
+        Poll::Pending
+    }
+}
+
+pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future<Output = ()> where A: Signal<Item = f64> + Unpin {
+    Culler {
+        groups: MutableVecSink::new(state.groups.signal_vec_cloned()
+            // TODO duplication with main.rs
+            .delay_remove(|group| group.wait_until_removed())
+            .map(|group| {
+                let tabs = group.tabs.signal_vec_cloned()
+                    // TODO duplication with main.rs
+                    .delay_remove(|tab| tab.wait_until_removed())
+                    .map(CulledTab::new);
+                CulledGroup::new(group, tabs)
+            })),
+        is_dragging: MutableSink::new(state.is_dragging()),
+        scroll_y: MutableSink::new(state.scrolling.y.signal()),
+        window_height: MutableSink::new(window_height),
+        state,
     }
 }

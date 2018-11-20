@@ -79,13 +79,7 @@ impl<A> Serializer<A> where A: serde::Serialize + 'static {
 
             let clone = self.clone();
 
-            js! { @(no_return)
-                var callback = @{Once(move || clone.flush())};
-
-                setTimeout(function () {
-                    callback();
-                }, @{borrow.timer});
-            }
+            set_timeout(move || clone.flush(), borrow.timer);
         }
 
         output

@@ -22,7 +22,7 @@ pub struct Options {
 impl Options {
     pub fn new() -> Self {
         Self {
-            sort_tabs: Mutable::new(SortTabs::TimeFocused),
+            sort_tabs: Mutable::new(SortTabs::Window),
         }
     }
 

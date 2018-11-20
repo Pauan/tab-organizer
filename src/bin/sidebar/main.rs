@@ -159,6 +159,8 @@ fn initialize(state: Arc<State>) {
         }))
     });
 
+    let window_height = Mutable::new(stdweb::web::window().inner_height() as f64);
+
     dominator::append_dom(&dominator::body(),
         html!("div", {
             .class(&*TOP_STYLE)
@@ -174,31 +176,11 @@ fn initialize(state: Arc<State>) {
                 state.drag_move(e.client_x(), e.client_y());
             }))
 
-            /*.global_event(clone!(state => move |_: ResizeEvent| {
-                state.update(false, true);
-            }))*/
+            .future(culling::cull_groups(state.clone(), window_height.signal()))
 
-            /*.future({
-                let mut first = true;
-
-                culling::waiter(&state, clone!(state => move |should_search, sort| {
-                    let animate = !first;
-
-                    if let Some(sort) = sort {
-                        // TODO a little bit hacky
-                        if first {
-                            first = false;
-
-                        } else {
-                            time!("Changing sort", {
-                                state.change_sort(sort);
-                            });
-                        }
-                    }
-
-                    state.update(should_search, animate);
-                }))
-            })*/
+            .global_event(move |_: ResizeEvent| {
+                window_height.set_neq(stdweb::web::window().inner_height() as f64);
+            })
 
             .future({
                 let mut first = true;
@@ -356,7 +338,6 @@ fn initialize(state: Arc<State>) {
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                     state.search_parser.set(parse::Parsed::new(&value));
                                     state.search_box.set(value);
-                                    //state.update(true, true);
                                 }))
                             })
                         }),
@@ -460,7 +441,6 @@ fn initialize(state: Arc<State>) {
                                 // TODO is there a more efficient way of converting to a string ?
                                 local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
                                 state.scrolling.y.set_neq(y);
-                                //state.update(false, true);
                             }
                         }))
 
@@ -490,8 +470,6 @@ fn initialize(state: Arc<State>) {
                                     if new_scroll_y != scroll_y {
                                         state.scrolling.y.set_neq(new_scroll_y);
                                     }
-
-                                    //state.update(false, true);
                                 }
                             }
 
@@ -505,14 +483,11 @@ fn initialize(state: Arc<State>) {
                             .class(&*GROUP_LIST_CHILDREN_STYLE)
 
                             .style_signal("padding-top", state.groups_padding.signal().map(px))
-                            //.style_signal("height", state.scrolling.height.signal().map(px))
+                            .style_signal("height", state.scrolling.height.signal().map(px))
 
                             .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
-                                .delay_remove(|(_, group)| {
-                                    let signal = group.insert_animation.signal();
-                                    async { await!(signal.wait_for(Percentage::new(0.0))); }
-                                })
-                                //.filter_signal_cloned(|(_, group)| group.visible.signal())
+                                .delay_remove(|(_, group)| group.wait_until_removed())
+                                .filter_signal_cloned(|(_, group)| group.visible.signal())
                                 .map(clone!(state => move |(index, group)| {
                                     if let Some(index) = index.get() {
                                         if state.should_be_dragging_group(index) {
@@ -578,11 +553,8 @@ fn initialize(state: Arc<State>) {
                                                 .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
                                                 .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    .delay_remove(|(_, tab)| {
-                                                        let signal = tab.insert_animation.signal();
-                                                        async { await!(signal.wait_for(Percentage::new(0.0))); }
-                                                    })
-                                                    //.filter_signal_cloned(|(_, tab)| tab.visible.signal())
+                                                    .delay_remove(|(_, tab)| tab.wait_until_removed())
+                                                    .filter_signal_cloned(|(_, tab)| tab.visible.signal())
                                                     .map(clone!(state => move |(index, tab)| {
                                                         if let Some(index) = index.get() {
                                                             if state.should_be_dragging_tab(group.id, index) {
@@ -1023,40 +995,39 @@ fn main() {
     });
 
 
-    js! { @(no_return)
-        setTimeout(@{move || {
-            let window: server::Window = server::Window {
-                serialized: server::SerializedWindow {
-                    id: generate_uuid(),
-                    name: None,
-                    timestamp_created: Date::now(),
-                },
-                focused: false,
-                tabs: (0..10000).map(|index| {
-                    server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
+    set_timeout(move || {
+        let window: server::Window = server::Window {
+            serialized: server::SerializedWindow {
+                id: generate_uuid(),
+                name: None,
+                timestamp_created: Date::now(),
+            },
+            focused: false,
+            tabs: (0..10000).map(|index| {
+                server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
+                    },
+                    focused: index == 7,
+                    unloaded: index == 5,
+                    pinned: index == 0 || index == 1 || index == 2,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                    title: Some(format!("Foo {}", index)),
+                    tags: vec![
+                        server::Tag {
+                            name: if index < 5 { "One".to_string() } else { "Two".to_string() },
+                            timestamp_added: index as f64,
                         },
-                        focused: index == 7,
-                        unloaded: index == 5,
-                        pinned: index == 0 || index == 1 || index == 2,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                        title: Some(format!("Foo {}", index)),
-                        tags: vec![
-                            server::Tag {
-                                name: if index < 5 { "One".to_string() } else { "Two".to_string() },
-                                timestamp_added: index as f64,
-                            },
-                        ],
-                    }
-                }).collect(),
-            };
+                    ],
+                }
+            }).collect(),
+        };
 
-            time!("Initializing", {
-                initialize(Arc::new(State::new(Options::new(), Window::new(window))));
-            });
-        }}, 1500);
-    }
+        time!("Initializing", {
+            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
+        });
+    // 1500
+    }, 0);
 }

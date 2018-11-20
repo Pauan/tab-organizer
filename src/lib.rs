@@ -19,9 +19,8 @@ extern crate dominator;
 use std::fmt;
 use std::borrow::Borrow;
 use std::sync::Arc;
-use std::cmp::Ordering;
-use stdweb::{spawn_local, unwrap_future, JsSerialize, Reference, Once};
-use stdweb::web::{TypedArray, IHtmlElement, Date};
+use stdweb::{spawn_local, unwrap_future, JsSerialize, Reference};
+use stdweb::web::{TypedArray, IHtmlElement, Date, set_timeout};
 use stdweb::unstable::TryInto;
 use futures_signals::signal::{Signal, SignalExt};
 use futures::Future;
@@ -131,6 +130,19 @@ macro_rules! time {
         let value = $value;
         let new = $crate::performance_now();
         log!("{} took {}ms", $name, new - old);
+        value
+    }}
+}
+
+
+#[macro_export]
+macro_rules! profile {
+    ($name:expr, $value:expr) => {{
+        let name = $name;
+        js! { @(no_return) console.timeStamp(@{&name}); }
+        let value = $value;
+        js! { @(no_return) console.timeStamp(@{&name}); }
+        //js! { @(no_return) setTimeout(function () { console.profileEnd(@{&name}); }, 0); }
         value
     }}
 }
@@ -383,13 +395,10 @@ pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
     let next = round_to_hour(now) + TimeDifference::HOUR + EXTRA_TIME_MARGIN;
     assert!(next > now);
 
-    let callback = move || {
+    set_timeout(move || {
         assert!(Date::now() >= next);
         f();
         every_hour(f);
-    };
-
-    js! { @(no_return)
-        setTimeout(@{Once(callback)}, @{next - now});
-    }
+    // TODO is this correct ?
+    }, (next - now).ceil() as u32);
 }

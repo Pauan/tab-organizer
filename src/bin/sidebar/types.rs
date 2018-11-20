@@ -172,8 +172,6 @@ pub(crate) struct Tab {
     pub(crate) close_holding: Mutable<bool>,
 
     pub(crate) matches_search: Mutable<bool>,
-
-    pub(crate) removing: Mutable<bool>,
     pub(crate) visible: Mutable<bool>,
 
     pub(crate) drag_over: MutableAnimation,
@@ -195,8 +193,6 @@ impl Tab {
             close_holding: Mutable::new(false),
 
             matches_search: Mutable::new(false),
-
-            removing: Mutable::new(false),
             visible: Mutable::new(false),
 
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
@@ -247,11 +243,9 @@ pub(crate) struct Group {
     pub(crate) show_header: bool,
 
     pub(crate) insert_animation: MutableAnimation,
-    pub(crate) removing: Mutable<bool>,
     pub(crate) visible: Mutable<bool>,
 
     pub(crate) matches_search: Mutable<bool>,
-
     pub(crate) last_selected_tab: Mutable<Option<Uuid>>,
 
     pub(crate) drag_over: MutableAnimation,
@@ -277,7 +271,6 @@ impl Group {
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(1.0)),
             last_selected_tab: Mutable::new(None),
             matches_search: Mutable::new(false),
-            removing: Mutable::new(false),
             visible: Mutable::new(false),
             tabs_padding: Mutable::new(0.0),
         }

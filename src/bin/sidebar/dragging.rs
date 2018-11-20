@@ -101,8 +101,7 @@ impl State {
     }
 
     fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
-        if !group.removing.get() {
-        }
+
     }
 
 	pub(crate) fn should_be_dragging_group(&self, new_index: usize) -> bool {
@@ -241,7 +240,7 @@ impl State {
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
                         group.tabs.lock_ref().iter()
-                            .filter(|x| x.selected.get() && x.matches_search.get() && !x.removing.get())
+                            .filter(|x| x.selected.get() && x.matches_search.get())
                             .cloned()
                             .collect()
 

@@ -6,7 +6,8 @@ use stdweb::web::Date;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::cmp::Ordering;
-use futures_signals::signal::{Mutable, Signal};
+use futures::Future;
+use futures_signals::signal::{Mutable, Signal, SignalExt};
 use futures_signals::signal_vec::{MutableVec, MutableVecLockMut};
 use dominator::animation::Percentage;
 
@@ -535,8 +536,9 @@ impl Deref for Groups {
 
 
 impl Group {
-    pub(crate) fn is_inserted(this: &Arc<Self>) -> bool {
-        !this.removing.get()
+    pub(crate) fn wait_until_removed(&self) -> impl Future<Output = ()> {
+        let signal = self.insert_animation.signal();
+        async { await!(signal.wait_for(Percentage::new(0.0))); }
     }
 
     fn insert_animate(&self) {
@@ -545,15 +547,15 @@ impl Group {
     }
 
     fn remove_animate(&self) {
-        self.removing.set_neq(true);
         self.insert_animation.animate_to(Percentage::new(0.0));
     }
 }
 
 
 impl Tab {
-    pub(crate) fn is_inserted(this: &Arc<Self>) -> bool {
-        !this.removing.get()
+    pub(crate) fn wait_until_removed(&self) -> impl Future<Output = ()> {
+        let signal = self.insert_animation.signal();
+        async { await!(signal.wait_for(Percentage::new(0.0))); }
     }
 
     fn insert_animate(&self) {
@@ -563,7 +565,6 @@ impl Tab {
     }
 
     fn remove_animate(&self) {
-        self.removing.set_neq(true);
         self.insert_animation.animate_to(Percentage::new(0.0));
     }
 }
