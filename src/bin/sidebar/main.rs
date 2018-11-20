@@ -27,7 +27,7 @@ use stdweb::print_error_panic;
 use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
 use stdweb::web::html_element::InputElement;
 use futures::future::ready;
-use futures_signals::signal::{Mutable, SignalExt, and, or, not};
+use futures_signals::signal::{Mutable, SignalExt, and, or};
 use futures_signals::signal_vec::SignalVecExt;
 
 use crate::types::{State, DragState, Tab, Window};
@@ -46,7 +46,7 @@ mod culling;
 
 
 // Whether it should automatically add/remove/update test tabs
-const DYNAMIC_TAB_TEST: bool = true;
+const DYNAMIC_TAB_TEST: bool = false;
 
 
 lazy_static! {

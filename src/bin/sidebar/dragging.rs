@@ -1,6 +1,7 @@
 use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
 use crate::types::{State, DragState, Group, Tab};
+use tab_organizer::state::SortTabs;
 use stdweb::web::Rect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
@@ -222,7 +223,7 @@ impl State {
     pub(crate) fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: Rect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
         let mut dragging = self.dragging.state.lock_mut();
 
-        if dragging.is_none() {
+        if dragging.is_none() && self.can_start_drag() {
             *dragging = Some(DragState::DragStart { mouse_x, mouse_y, rect, group, tab, tab_index });
         }
     }
@@ -328,6 +329,13 @@ impl State {
 
             *selected_tabs = vec![];
         }
+    }
+
+    pub(crate) fn can_start_drag(&self) -> bool {
+        let sort_tabs = self.options.sort_tabs.lock_ref();
+
+        *sort_tabs == SortTabs::Window ||
+        *sort_tabs == SortTabs::Tag
     }
 
     pub(crate) fn is_dragging(&self) -> impl Signal<Item = bool> {

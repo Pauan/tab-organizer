@@ -7,7 +7,7 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::cmp::Ordering;
 use futures::Future;
-use futures_signals::signal::{Mutable, Signal, SignalExt};
+use futures_signals::signal::{Mutable, SignalExt};
 use futures_signals::signal_vec::{MutableVec, MutableVecLockMut};
 use dominator::animation::Percentage;
 
@@ -626,10 +626,6 @@ impl State {
                 });
             },
         }
-    }
-
-    pub(crate) fn is_window_mode(&self) -> impl Signal<Item = bool> {
-        self.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window)
     }
 
     pub(crate) fn change_sort(&self, sort_tabs: SortTabs) {
