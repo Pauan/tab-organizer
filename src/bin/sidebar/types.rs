@@ -97,14 +97,14 @@ impl State {
         let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
         let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
-        Self {
+        let state = Self {
             search_parser: Mutable::new(parse::Parsed::new(&search_value)),
             search_box: Mutable::new(Arc::new(search_value)),
 
             url_bar: Mutable::new(None),
             groups_padding: Mutable::new(0.0),
 
-            groups: Groups::new(options.sort_tabs.get(), &window),
+            groups: Groups::new(options.sort_tabs.get()),
             window: RwLock::new(window),
             options,
 
@@ -112,7 +112,11 @@ impl State {
             scrolling: Scrolling::new(scroll_y),
 
             menu: Menu::new(),
-        }
+        };
+
+        state.groups.initialize(&state);
+
+        state
     }
 
     /*fn is_dragging_group(&self, group_id: usize) -> impl Signal<Item = bool> {

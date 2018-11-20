@@ -348,22 +348,27 @@ fn sorted_tab_index(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tabs: 
 }
 
 
-fn initialize(sort: SortTabs, window: &Window, should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(state: &State, sort: SortTabs, window: &Window, should_animate: bool) -> Vec<Arc<Group>> {
     let mut groups = vec![];
 
     for (tab_index, tab) in window.tabs.iter().cloned().enumerate() {
-        tab_inserted(sort, &mut groups, tab, tab_index, should_animate, true);
+        tab_inserted(state, sort, &mut groups, tab, tab_index, should_animate, true);
     }
 
     groups
 }
 
-fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+fn insert_tab_into_group(state: &State, sort: SortTabs, groups: &[Arc<Group>], group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+    let tab = Arc::new(Tab::new(tab));
+
+    // TODO is this correct ?
+    if !is_initial {
+        state.search_tab(&group, &tab, should_animate);
+    }
+
     let mut tabs = group.tabs.lock_mut();
 
     let index = sorted_tab_index(sort, groups, group, &tabs, &tab, tab_index, is_initial);
-
-    let tab = Arc::new(Tab::new(tab));
 
     if should_animate {
         tab.insert_animate();
@@ -372,9 +377,10 @@ fn insert_tab_into_group(sort: SortTabs, groups: &[Arc<Group>], group: &Group, t
     tabs.insert_cloned(index, tab);
 }
 
-fn tab_inserted<A>(sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
+fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
     sorted_groups(sort, groups, &tab, should_animate).each(|group| {
-        insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, should_animate, is_initial);
+        // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
+        insert_tab_into_group(state, sort, &groups, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
 }
 
@@ -409,8 +415,14 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
         }
     });
 
-    if should_remove_group && tabs.len() == 0 {
-        remove_group(groups, group);
+    if should_remove_group {
+        if tabs.len() == 0 {
+            remove_group(groups, group);
+
+        } else {
+            drop(tabs);
+            State::update_group_search(group, false, true);
+        }
     }
 }
 
@@ -422,7 +434,7 @@ fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: 
     });
 }
 
-fn tab_updated<A>(sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
+fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
     let new_groups = sorted_groups(sort, groups, &tab, true);
 
     // TODO make this more efficient
@@ -437,7 +449,7 @@ fn tab_updated<A>(sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group
     });
 
     new_groups.each(|group| {
-        insert_tab_into_group(sort, &groups, &group, tab.clone(), tab_index, true, false);
+        insert_tab_into_group(state, sort, &groups, &group, tab.clone(), tab_index, true, false);
     });
 }
 
@@ -449,11 +461,27 @@ pub(crate) struct Groups {
 }
 
 impl Groups {
-    pub(crate) fn new(sort_tabs: SortTabs, window: &Window) -> Self {
+    pub(crate) fn new(sort_tabs: SortTabs) -> Self {
         Self {
             sort: Mutex::new(sort_tabs),
-            groups: MutableVec::new_with_values(initialize(sort_tabs, window, false)),
+            groups: MutableVec::new(),
         }
+    }
+
+    pub(crate) fn initialize(&self, state: &State) {
+        {
+            let window = state.window.read().unwrap();
+
+            let sort = self.sort.lock().unwrap();
+            let mut groups = self.groups.lock_mut();
+
+            assert_eq!(groups.len(), 0);
+
+            let new_groups = time!("Creating initial groups", { initialize(state, *sort, &window, false) });
+            groups.replace_cloned(new_groups);
+        }
+
+        state.search_tabs(false);
     }
 
     fn update_group_titles(&self) {
@@ -479,32 +507,36 @@ impl Groups {
         }
     }
 
-    fn change_sort(&self, sort_tabs: SortTabs, window: &Window) {
-        let mut sort = self.sort.lock().unwrap();
+    fn change_sort(&self, state: &State, sort_tabs: SortTabs, window: &Window) {
+        {
+            let mut sort = self.sort.lock().unwrap();
 
-        let mut groups = self.groups.lock_mut();
+            let mut groups = self.groups.lock_mut();
 
-        for group in groups.iter() {
-            group.remove_animate();
+            for group in groups.iter() {
+                group.remove_animate();
 
-            let tabs = group.tabs.lock_ref();
+                let tabs = group.tabs.lock_ref();
 
-            for tab in tabs.iter() {
-                tab.remove_animate();
+                for tab in tabs.iter() {
+                    tab.remove_animate();
+                }
             }
+
+            *sort = sort_tabs;
+
+            let new_groups = time!("Creating new groups", { initialize(state, *sort, window, true) });
+
+            groups.replace_cloned(new_groups);
         }
 
-        *sort = sort_tabs;
-
-        let new_groups = time!("Initializing new groups", { initialize(*sort, window, true) });
-
-        groups.replace_cloned(new_groups);
+        state.search_tabs(true);
     }
 
-    fn tab_inserted(&self, tab_index: usize, tab: Arc<TabState>) {
+    fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_inserted(*sort, &mut groups, tab, tab_index, true, false);
+        tab_inserted(state, *sort, &mut groups, tab, tab_index, true, false);
     }
 
     fn tab_removed(&self, tab_index: usize, tab: &TabState) {
@@ -513,7 +545,7 @@ impl Groups {
         tab_removed(*sort, &mut groups, tab, tab_index);
     }
 
-    fn tab_updated<F>(&self, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
+    fn tab_updated<F>(&self, state: &State, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
@@ -521,7 +553,7 @@ impl Groups {
 
         change();
 
-        tab_updated(*sort, &mut groups, group_indexes, tab, tab_index);
+        tab_updated(state, *sort, &mut groups, group_indexes, tab, tab_index);
     }
 }
 
@@ -578,7 +610,7 @@ impl State {
 
                 let tab = Arc::new(TabState::new(tab));
 
-                self.groups.tab_inserted(tab_index, tab.clone());
+                self.groups.tab_inserted(self, tab_index, tab.clone());
 
                 window.tabs.insert(tab_index, tab);
             },
@@ -596,7 +628,7 @@ impl State {
 
                 let tab = &window.tabs[tab_index];
 
-                self.groups.tab_updated(tab_index, tab.clone(), || {
+                self.groups.tab_updated(self, tab_index, tab.clone(), || {
                     for change in changes {
                         match change {
                             TabChange::Title { new_title } => {
@@ -629,7 +661,7 @@ impl State {
 
     pub(crate) fn change_sort(&self, sort_tabs: SortTabs) {
         let window = self.window.read().unwrap();
-        self.groups.change_sort(sort_tabs, &window);
+        self.groups.change_sort(self, sort_tabs, &window);
     }
 
     pub(crate) fn update_group_titles(&self) {

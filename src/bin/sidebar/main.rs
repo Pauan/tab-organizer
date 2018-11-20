@@ -45,6 +45,10 @@ mod tab;
 mod culling;
 
 
+// Whether it should automatically add/remove/update test tabs
+const DYNAMIC_TAB_TEST: bool = true;
+
+
 lazy_static! {
     static ref FAILED: Mutable<Option<Arc<String>>> = Mutable::new(None);
 
@@ -338,6 +342,7 @@ fn initialize(state: Arc<State>) {
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                     state.search_parser.set(parse::Parsed::new(&value));
                                     state.search_box.set(value);
+                                    state.search_tabs(true);
                                 }))
                             })
                         }),
@@ -723,192 +728,194 @@ fn initialize(state: Arc<State>) {
 
     let mut tag_counter = 0;
 
-    js! { @(no_return)
-        setInterval(@{clone!(state => move || {
-            state.process_message(SidebarMessage::TabChanged {
-                tab_index: 2,
-                changes: vec![
-                    TabChange::Title {
-                        new_title: Some(generate_uuid().to_string()),
-                    },
-                ],
-            });
-
-            state.process_message(SidebarMessage::TabChanged {
-                tab_index: 3,
-                changes: vec![
-                    TabChange::Title {
-                        new_title: Some("e1".to_string()),
-                    },
-                ],
-            });
-
-            state.process_message(SidebarMessage::TabChanged {
-                tab_index: 3,
-                changes: vec![
-                    TabChange::Title {
-                        new_title: Some("e2".to_string()),
-                    },
-                ],
-            });
-
-            /*state.process_message(SidebarMessage::TabChanged {
-                tab_index: 0,
-                changes: vec![
-                    TabChange::Pinned {
-                        pinned: false,
-                    },
-                ],
-            });*/
-
-            state.process_message(SidebarMessage::TabRemoved {
-                tab_index: 0,
-            });
-
-            state.process_message(SidebarMessage::TabRemoved {
-                tab_index: 8,
-            });
-
-            /*state.process_message(SidebarMessage::TabInserted {
-                tab_index: 0,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
-                        id: generate_uuid(),
-                        timestamp_created: Date::now()
-                    },
-                    focused: false,
-                    unloaded: true,
-                    pinned: true,
-                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                    url: Some("top".to_owned()),
-                    title: Some("top".to_owned()),
-                },
-            });*/
-
-            let timestamp = Date::now();
-
-            state.process_message(SidebarMessage::TabInserted {
-                tab_index: 12,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
-                        id: generate_uuid(),
-                        timestamp_created: timestamp
-                    },
-                    focused: false,
-                    unloaded: true,
-                    pinned: false,
-                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                    url: Some("bottom".to_owned()),
-                    title: Some(format!("bottom {}", timestamp)),
-                    tags: vec![
-                        server::Tag {
-                            name: "New".to_string(),
-                            timestamp_added: Date::now(),
+    if DYNAMIC_TAB_TEST {
+        js! { @(no_return)
+            setInterval(@{clone!(state => move || {
+                state.process_message(SidebarMessage::TabChanged {
+                    tab_index: 2,
+                    changes: vec![
+                        TabChange::Title {
+                            new_title: Some(generate_uuid().to_string()),
                         },
                     ],
-                },
-            });
+                });
 
-            state.process_message(SidebarMessage::TabInserted {
-                tab_index: 13,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
-                        id: generate_uuid(),
-                        timestamp_created: timestamp
-                    },
-                    focused: false,
-                    unloaded: true,
-                    pinned: false,
-                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                    url: Some("bottom".to_owned()),
-                    title: Some(format!("bottom {}", timestamp)),
-                    tags: vec![],
-                },
-            });
-
-            state.process_message(SidebarMessage::TabChanged {
-                tab_index: 10,
-                changes: vec![
-                    TabChange::AddedToTag {
-                        tag: server::Tag {
-                            name: tag_counter.to_string(),
-                            timestamp_added: Date::now(),
+                state.process_message(SidebarMessage::TabChanged {
+                    tab_index: 3,
+                    changes: vec![
+                        TabChange::Title {
+                            new_title: Some("e1".to_string()),
                         },
-                    },
-                ],
-            });
+                    ],
+                });
 
-            tag_counter += 1;
+                state.process_message(SidebarMessage::TabChanged {
+                    tab_index: 3,
+                    changes: vec![
+                        TabChange::Title {
+                            new_title: Some("e2".to_string()),
+                        },
+                    ],
+                });
 
-            /*for _ in 0..10 {
+                /*state.process_message(SidebarMessage::TabChanged {
+                    tab_index: 0,
+                    changes: vec![
+                        TabChange::Pinned {
+                            pinned: false,
+                        },
+                    ],
+                });*/
+
                 state.process_message(SidebarMessage::TabRemoved {
-                    window_index: 2,
                     tab_index: 0,
                 });
-            }
 
-            state.process_message(SidebarMessage::WindowRemoved {
-                window_index: 2,
-            });
+                state.process_message(SidebarMessage::TabRemoved {
+                    tab_index: 8,
+                });
 
-            state.process_message(SidebarMessage::WindowInserted {
-                window_index: 2,
-                window: server::Window {
-                    serialized: server::SerializedWindow {
-                        id: generate_uuid(),
-                        name: None,
-                        timestamp_created: Date::now(),
-                    },
-                    focused: false,
-                    tabs: vec![],
-                },
-            });
-
-            for index in 0..10 {
-                state.process_message(SidebarMessage::TabInserted {
-                    window_index: 2,
-                    tab_index: index,
+                /*state.process_message(SidebarMessage::TabInserted {
+                    tab_index: 0,
                     tab: server::Tab {
                         serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            timestamp_created: Date::now(),
+                            timestamp_created: Date::now()
                         },
-                        focused: index == 7,
-                        unloaded: index == 5,
-                        pinned: index == 0 || index == 1 || index == 2,
+                        focused: false,
+                        unloaded: true,
+                        pinned: true,
                         favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                        title: Some("Foo".to_owned()),
+                        url: Some("top".to_owned()),
+                        title: Some("top".to_owned()),
+                    },
+                });*/
+
+                let timestamp = Date::now();
+
+                state.process_message(SidebarMessage::TabInserted {
+                    tab_index: 12,
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: timestamp
+                        },
+                        focused: false,
+                        unloaded: true,
+                        pinned: false,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("bottom".to_owned()),
+                        title: Some(format!("bottom {}", timestamp)),
+                        tags: vec![
+                            server::Tag {
+                                name: "New".to_string(),
+                                timestamp_added: Date::now(),
+                            },
+                        ],
                     },
                 });
-            }*/
-        })}, @{INSERT_ANIMATION_DURATION * 2.0});
-    }
 
-    js! { @(no_return)
-        setInterval(@{move || {
-            state.process_message(SidebarMessage::TabInserted {
-                tab_index: 0,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
-                        id: generate_uuid(),
-                        timestamp_created: Date::now()
+                state.process_message(SidebarMessage::TabInserted {
+                    tab_index: 13,
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: timestamp
+                        },
+                        focused: false,
+                        unloaded: true,
+                        pinned: false,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("bottom".to_owned()),
+                        title: Some(format!("bottom {}", timestamp)),
+                        tags: vec![],
                     },
-                    focused: false,
-                    unloaded: true,
-                    pinned: true,
-                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                    url: Some("top".to_owned()),
-                    title: Some("top".to_owned()),
-                    tags: vec![
-                        server::Tag {
-                            name: "New (Pinned)".to_string(),
-                            timestamp_added: Date::now(),
+                });
+
+                state.process_message(SidebarMessage::TabChanged {
+                    tab_index: 10,
+                    changes: vec![
+                        TabChange::AddedToTag {
+                            tag: server::Tag {
+                                name: tag_counter.to_string(),
+                                timestamp_added: Date::now(),
+                            },
                         },
                     ],
-                },
-            });
-        }}, @{INSERT_ANIMATION_DURATION * 3.0});
+                });
+
+                tag_counter += 1;
+
+                /*for _ in 0..10 {
+                    state.process_message(SidebarMessage::TabRemoved {
+                        window_index: 2,
+                        tab_index: 0,
+                    });
+                }
+
+                state.process_message(SidebarMessage::WindowRemoved {
+                    window_index: 2,
+                });
+
+                state.process_message(SidebarMessage::WindowInserted {
+                    window_index: 2,
+                    window: server::Window {
+                        serialized: server::SerializedWindow {
+                            id: generate_uuid(),
+                            name: None,
+                            timestamp_created: Date::now(),
+                        },
+                        focused: false,
+                        tabs: vec![],
+                    },
+                });
+
+                for index in 0..10 {
+                    state.process_message(SidebarMessage::TabInserted {
+                        window_index: 2,
+                        tab_index: index,
+                        tab: server::Tab {
+                            serialized: server::SerializedTab {
+                                id: generate_uuid(),
+                                timestamp_created: Date::now(),
+                            },
+                            focused: index == 7,
+                            unloaded: index == 5,
+                            pinned: index == 0 || index == 1 || index == 2,
+                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                            url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                            title: Some("Foo".to_owned()),
+                        },
+                    });
+                }*/
+            })}, @{INSERT_ANIMATION_DURATION * 2.0});
+        }
+
+        js! { @(no_return)
+            setInterval(@{move || {
+                state.process_message(SidebarMessage::TabInserted {
+                    tab_index: 0,
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: Date::now()
+                        },
+                        focused: false,
+                        unloaded: true,
+                        pinned: true,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("top".to_owned()),
+                        title: Some("top".to_owned()),
+                        tags: vec![
+                            server::Tag {
+                                name: "New (Pinned)".to_string(),
+                                timestamp_added: Date::now(),
+                            },
+                        ],
+                    },
+                });
+            }}, @{INSERT_ANIMATION_DURATION * 3.0});
+        }
     }
 }
 
