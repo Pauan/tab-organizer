@@ -35,7 +35,7 @@ use crate::constants::*;
 
 mod constants;
 mod types;
-mod parse;
+mod search;
 mod url_bar;
 mod menu;
 mod groups;
@@ -341,7 +341,7 @@ fn initialize(state: Arc<State>) {
                                 dom.event(clone!(state => move |_: InputEvent| {
                                     let value = Arc::new(element.raw_value());
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
-                                    state.search_parser.set(parse::Parsed::new(&value));
+                                    state.search_parser.set(search::Parsed::new(&value));
                                     state.search_box.set(value);
                                     state.search_tabs(true);
                                 }))

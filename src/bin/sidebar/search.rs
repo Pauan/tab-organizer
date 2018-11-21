@@ -1,6 +1,6 @@
 //use nom::types::CompleteStr;
 use tab_organizer::RegExp;
-use dominator::animation::Percentage;
+//use dominator::animation::Percentage;
 use crate::types::{State, Group, Tab};
 
 
