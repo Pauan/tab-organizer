@@ -135,7 +135,6 @@ impl State {
 struct CulledTab {
     state: Arc<Tab>,
     is_dragging: MutableSink<MutableSignal<bool>>,
-    matches_search: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
@@ -144,36 +143,28 @@ impl CulledTab {
         Self {
             is_dragging: MutableSink::new(state.dragging.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
-            matches_search: MutableSink::new(state.matches_search.signal()),
             state,
         }
     }
 
     fn is_changed(&mut self, waker: &LocalWaker) -> bool {
         let is_dragging = self.is_dragging.is_changed(waker);
-        let matches_search = self.matches_search.is_changed(waker);
         let insert_animation = self.insert_animation.is_changed(waker);
 
         is_dragging ||
-        matches_search ||
         insert_animation
     }
 
     // TODO hacky
     fn height(&self) -> f64 {
-        if self.matches_search.value() {
-            // TODO use range_inclusive ?
-            let percentage = ease(self.insert_animation.value()).into_f64();
+        // TODO use range_inclusive ?
+        let percentage = ease(self.insert_animation.value()).into_f64();
 
-            (TAB_BORDER_WIDTH * percentage).round() +
-            (TAB_PADDING * percentage).round() +
-            (TAB_HEIGHT * percentage).round() +
-            (TAB_PADDING * percentage).round() +
-            (TAB_BORDER_WIDTH * percentage).round()
-
-        } else {
-            0.0
-        }
+        (TAB_BORDER_WIDTH * percentage).round() +
+        (TAB_PADDING * percentage).round() +
+        (TAB_HEIGHT * percentage).round() +
+        (TAB_PADDING * percentage).round() +
+        (TAB_BORDER_WIDTH * percentage).round()
     }
 }
 
@@ -181,7 +172,6 @@ impl CulledTab {
 struct CulledGroup<A> where A: SignalVec {
     state: Arc<Group>,
     tabs: MutableVecSink<A>,
-    matches_search: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
@@ -190,39 +180,31 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
         Self {
             tabs: MutableVecSink::new(tabs_signal),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
-            matches_search: MutableSink::new(state.matches_search.signal()),
             state,
         }
     }
 
     fn is_changed(&mut self, waker: &LocalWaker) -> bool {
         let tabs = self.tabs.is_changed(waker, |tab| tab.is_changed(waker));
-        let matches_search = self.matches_search.is_changed(waker);
         let insert_animation = self.insert_animation.is_changed(waker);
 
         tabs ||
-        matches_search ||
         insert_animation
     }
 
     // TODO hacky
     // TODO what about when it's dragging ?
     fn height(&self) -> (f64, f64) {
-        if self.matches_search.value() {
-            // TODO use range_inclusive
-            let percentage = ease(self.insert_animation.value()).into_f64();
+        // TODO use range_inclusive
+        let percentage = ease(self.insert_animation.value()).into_f64();
 
-            (
-                (GROUP_BORDER_WIDTH * percentage).round() +
-                (GROUP_PADDING_TOP * percentage).round() +
-                (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
+        (
+            (GROUP_BORDER_WIDTH * percentage).round() +
+            (GROUP_PADDING_TOP * percentage).round() +
+            (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
 
-                (GROUP_PADDING_BOTTOM * percentage).round()
-            )
-
-        } else {
-            (0.0, 0.0)
-        }
+            (GROUP_PADDING_BOTTOM * percentage).round()
+        )
     }
 }
 
@@ -344,13 +326,13 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
-        //time!("Culling", {
-            let changed = self.is_changed(waker);
+        let changed = self.is_changed(waker);
 
-            if changed {
+        if changed {
+            //time!("Culling", {
                 self.update();
-            }
-        //});
+            //});
+        }
 
         Poll::Pending
     }

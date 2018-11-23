@@ -32,10 +32,10 @@ named!(parse<CompleteStr, Parsed>,
 
 
 impl Group {
-    fn set_matches_search(&self, matches: bool, _animate: bool) {
+    fn set_matches_search(&self, matches: bool, animate: bool) {
         self.matches_search.set_neq(matches);
 
-        /*let percentage = if matches {
+        let percentage = if matches {
             Percentage::new(1.0)
 
         } else {
@@ -47,16 +47,16 @@ impl Group {
 
         } else {
             self.insert_animation.jump_to(percentage);
-        }*/
+        }
     }
 }
 
 
 impl Tab {
-    fn set_matches_search(&self, matches: bool, _animate: bool) {
+    fn set_matches_search(&self, matches: bool, animate: bool) {
         self.matches_search.set_neq(matches);
 
-        /*let percentage = if matches {
+        let percentage = if matches {
             Percentage::new(1.0)
 
         } else {
@@ -68,7 +68,7 @@ impl Tab {
 
         } else {
             self.insert_animation.jump_to(percentage);
-        }*/
+        }
     }
 }
 
@@ -96,7 +96,7 @@ impl State {
     }
 
     pub(crate) fn search_tabs(&self, animate: bool) {
-        //time!("Searching tabs", {
+        time!("Searching tabs", {
             let search_parser = self.search_parser.lock_ref();
 
             for group in self.groups.lock_ref().iter() {
@@ -114,7 +114,7 @@ impl State {
 
                 group.set_matches_search(group_matches, animate);
             }
-        //});
+        });
     }
 }
 

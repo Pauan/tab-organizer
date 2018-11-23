@@ -117,17 +117,10 @@ fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
 }
 
 
-fn make_new_group(name: Option<Arc<String>>, timestamp: f64, should_animate: bool) -> Arc<Group> {
+fn make_new_group(name: Option<Arc<String>>, timestamp: f64) -> Arc<Group> {
     let show_header = name.is_some();
 
     let group = Arc::new(Group::new(timestamp, show_header, Mutable::new(name), vec![]));
-
-    if should_animate {
-        group.insert_animation.animate_to(Percentage::new(1.0));
-
-    } else {
-        group.insert_animation.jump_to(Percentage::new(1.0));
-    }
 
     group
 }
@@ -151,19 +144,19 @@ fn insert_group<A, F>(groups: &mut A, index: Result<usize, usize>, create: F) ->
 }
 
 
-fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_animate: bool) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
+fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
     match sort {
         SortTabs::Window => StackVec::Single({
             if tab.pinned.get() {
                 let index = get_pinned_index(groups);
                 insert_group(groups, index, || {
-                    make_new_group(Some(Arc::new("Pinned".to_string())), 0.0, should_animate)
+                    make_new_group(Some(Arc::new("Pinned".to_string())), 0.0)
                 })
 
             } else {
                 let index = get_unpinned_index(groups);
                 insert_group(groups, index, || {
-                    make_new_group(None, 0.0, should_animate)
+                    make_new_group(None, 0.0)
                 })
             }
         }),
@@ -175,7 +168,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
                 let index = get_group_index_name_empty(groups, &tag.name);
                 insert_group(groups, index, || {
                     // TODO make this clone more efficient (e.g. by using Arc for the tags)
-                    make_new_group(Some(Arc::new(tag.name.clone())), 0.0, should_animate)
+                    make_new_group(Some(Arc::new(tag.name.clone())), 0.0)
                 })
             };
 
@@ -185,7 +178,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
                     // TODO guarantee that this puts this group first ?
                     let index = get_group_index_name_empty(groups, "");
                     insert_group(groups, index, || {
-                        make_new_group(None, 0.0, should_animate)
+                        make_new_group(None, 0.0)
                     })
                 }),
                 [tag] => StackVec::Single(f(groups, tag)),
@@ -199,7 +192,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
             let index = get_timestamp_index(groups, timestamp);
             insert_group(groups, index, || {
                 // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
+                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp)
             })
         }),
 
@@ -209,7 +202,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
             let index = get_timestamp_index(groups, timestamp);
             insert_group(groups, index, || {
                 // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
+                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp)
             })
         }),
 
@@ -230,7 +223,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
 
             let index = get_group_index_name(groups, &url);
             insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(url)), 0.0, should_animate)
+                make_new_group(Some(Arc::new(url)), 0.0)
             })
         }),
 
@@ -251,7 +244,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
 
             let index = get_group_index_name(groups, &title);
             insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(title)), 0.0, should_animate)
+                make_new_group(Some(Arc::new(title)), 0.0)
             })
         }),
     }
@@ -340,13 +333,6 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<
         state.search_tab(&group, &tab, should_animate);
     }
 
-    if should_animate {
-        tab.insert_animation.animate_to(Percentage::new(1.0));
-
-    } else {
-        tab.insert_animation.jump_to(Percentage::new(1.0));
-    }
-
     let mut tabs = group.tabs.lock_mut();
 
     let index = sorted_tab_index(sort, &tabs, &tab, tab_index, is_initial);
@@ -355,7 +341,7 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<
 }
 
 fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
-    sorted_groups(sort, groups, &tab, should_animate).each(|group| {
+    sorted_groups(sort, groups, &tab).each(|group| {
         // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
         insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
@@ -405,13 +391,13 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
 
 fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: &TabState, _tab_index: usize) {
     // TODO make this more efficient
-    sorted_groups(sort, groups, tab, true).each(|group| {
+    sorted_groups(sort, groups, tab).each(|group| {
         remove_tab_from_group(groups, &group, tab, true);
     });
 }
 
 fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
-    let new_groups = sorted_groups(sort, groups, &tab, true);
+    let new_groups = sorted_groups(sort, groups, &tab);
 
     // TODO make this more efficient
     old_groups.each(|group| {
@@ -526,7 +512,7 @@ impl Groups {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
-        let group_indexes = sorted_groups(*sort, &mut groups, &tab, true);
+        let group_indexes = sorted_groups(*sort, &mut groups, &tab);
 
         change();
 
