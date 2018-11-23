@@ -326,13 +326,13 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
-        let changed = self.is_changed(waker);
+        //time!("Culling", {
+            let changed = self.is_changed(waker);
 
-        if changed {
-            //time!("Culling", {
+            if changed {
                 self.update();
-            //});
-        }
+            }
+        //});
 
         Poll::Pending
     }
