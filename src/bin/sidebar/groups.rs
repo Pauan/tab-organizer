@@ -578,6 +578,8 @@ impl State {
 
                 let tab = window.tabs.remove(tab_index);
 
+                tab.removed.set_neq(true);
+
                 self.groups.tab_removed(tab_index, &tab);
 
                 decrement_indexes(&window.tabs[tab_index..]);

@@ -102,7 +102,7 @@ impl State {
     }
 
     fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
-
+        let _tabs = tabs.into_iter().filter(|x| !x.removed.get());
     }
 
 	pub(crate) fn should_be_dragging_group(&self, new_index: usize) -> bool {

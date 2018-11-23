@@ -142,6 +142,7 @@ pub(crate) struct TabState {
     pub(crate) focused: Mutable<bool>,
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
+    pub(crate) removed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
     pub(crate) timestamp_focused: Mutable<f64>,
     pub(crate) tags: Mutable<Vec<state::Tag>>,
@@ -158,6 +159,7 @@ impl TabState {
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.unloaded),
             pinned: Mutable::new(state.pinned),
+            removed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
             timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
             tags: Mutable::new(state.serialized.tags),
@@ -244,11 +246,10 @@ impl Window {
 #[derive(Debug)]
 pub(crate) struct Group {
     pub(crate) id: usize,
+    pub(crate) show_header: bool,
     pub(crate) timestamp: f64,
     pub(crate) name: Mutable<Option<Arc<String>>>,
     pub(crate) tabs: MutableVec<Arc<Tab>>,
-
-    pub(crate) show_header: bool,
 
     pub(crate) insert_animation: MutableAnimation,
     pub(crate) visible: Mutable<bool>,
@@ -270,16 +271,19 @@ impl Group {
         Self {
             // TODO investigate whether it's possible to use a faster Ordering
             id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            show_header,
             timestamp,
             name,
             tabs: MutableVec::new_with_values(tabs),
-            show_header,
+
+            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),
+            visible: Mutable::new(false),
+
+            matches_search: Mutable::new(false),
+            last_selected_tab: Mutable::new(None),
+
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
-            insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),
-            last_selected_tab: Mutable::new(None),
-            matches_search: Mutable::new(false),
-            visible: Mutable::new(false),
             tabs_padding: Mutable::new(0.0),
         }
     }
