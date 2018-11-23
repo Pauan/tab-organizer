@@ -922,6 +922,29 @@ fn initialize(state: Arc<State>) {
                         title: Some("top".to_owned()),
                     },
                 });
+
+                state.process_message(SidebarMessage::TabInserted {
+                    tab_index: 0,
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
+                            id: generate_uuid(),
+                            timestamp_created: Date::now(),
+                            timestamp_focused: Date::now(),
+                            tags: vec![
+                                server::Tag {
+                                    name: "New (Pinned)".to_string(),
+                                    timestamp_added: Date::now(),
+                                },
+                            ],
+                        },
+                        focused: false,
+                        unloaded: true,
+                        pinned: true,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("top test".to_owned()),
+                        title: Some("top test".to_owned()),
+                    },
+                });
             }}, @{INSERT_ANIMATION_DURATION * 3.0});
         }
     }
