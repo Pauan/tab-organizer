@@ -343,7 +343,7 @@ fn initialize(state: Arc<State>) {
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
                                     state.search_parser.set(search::Parsed::new(&value));
                                     state.search_box.set(value);
-                                    state.search_tabs(true);
+                                    state.search_tabs(false);
                                 }))
                             })
                         }),
@@ -768,6 +768,10 @@ fn initialize(state: Arc<State>) {
                         },
                     ],
                 });*/
+
+                state.process_message(SidebarMessage::TabRemoved {
+                    tab_index: 0,
+                });
 
                 state.process_message(SidebarMessage::TabRemoved {
                     tab_index: 0,
