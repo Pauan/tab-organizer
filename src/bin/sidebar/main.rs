@@ -46,7 +46,7 @@ mod culling;
 
 
 // Whether it should automatically add/remove/update test tabs
-const DYNAMIC_TAB_TEST: bool = true;
+const DYNAMIC_TAB_TEST: bool = false;
 
 
 lazy_static! {
@@ -341,9 +341,9 @@ fn initialize(state: Arc<State>) {
                                 dom.event(clone!(state => move |_: InputEvent| {
                                     let value = Arc::new(element.raw_value());
                                     stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
-                                    state.search_parser.set(search::Parsed::new(&value));
+                                    // TODO is it faster to not use Arc ?
+                                    state.search_parser.set(Arc::new(search::Parsed::new(&value)));
                                     state.search_box.set(value);
-                                    state.search_tabs(false);
                                 }))
                             })
                         }),

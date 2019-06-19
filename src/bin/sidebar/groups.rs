@@ -431,19 +431,15 @@ impl Groups {
     }
 
     pub(crate) fn initialize(&self, state: &State) {
-        {
-            let window = state.window.read().unwrap();
+        let window = state.window.read().unwrap();
 
-            let sort = self.sort.lock().unwrap();
-            let mut groups = self.groups.lock_mut();
+        let sort = self.sort.lock().unwrap();
+        let mut groups = self.groups.lock_mut();
 
-            assert_eq!(groups.len(), 0);
+        assert_eq!(groups.len(), 0);
 
-            let new_groups = time!("Creating initial groups", { initialize(state, *sort, &window, false) });
-            groups.replace_cloned(new_groups);
-        }
-
-        state.search_tabs(false);
+        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &window, false) });
+        groups.replace_cloned(new_groups);
     }
 
     fn update_group_titles(&self) {
@@ -470,30 +466,26 @@ impl Groups {
     }
 
     fn change_sort(&self, state: &State, sort_tabs: SortTabs, window: &Window) {
-        {
-            let mut sort = self.sort.lock().unwrap();
+        let mut sort = self.sort.lock().unwrap();
 
-            let mut groups = self.groups.lock_mut();
+        let mut groups = self.groups.lock_mut();
 
-            // This is necessary because other parts of the code use delay_remove
-            for group in groups.iter() {
-                group.insert_animation.jump_to(Percentage::new(0.0));
+        // This is necessary because other parts of the code use delay_remove
+        for group in groups.iter() {
+            group.insert_animation.jump_to(Percentage::new(0.0));
 
-                let tabs = group.tabs.lock_ref();
+            let tabs = group.tabs.lock_ref();
 
-                for tab in tabs.iter() {
-                    tab.insert_animation.jump_to(Percentage::new(0.0));
-                }
+            for tab in tabs.iter() {
+                tab.insert_animation.jump_to(Percentage::new(0.0));
             }
-
-            *sort = sort_tabs;
-
-            let new_groups = time!("Creating new groups", { initialize(state, *sort, window, false) });
-
-            groups.replace_cloned(new_groups);
         }
 
-        state.search_tabs(false);
+        let new_groups = time!("Creating new groups", { initialize(state, *sort, window, false) });
+
+        groups.replace_cloned(new_groups);
+
+        *sort = sort_tabs;
     }
 
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {

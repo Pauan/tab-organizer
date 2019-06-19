@@ -32,7 +32,7 @@ named!(parse<CompleteStr, Parsed>,
 
 
 impl Group {
-    fn set_matches_search(&self, matches: bool, animate: bool) {
+    pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
         self.matches_search.set_neq(matches);
 
         let percentage = if matches {
@@ -53,7 +53,7 @@ impl Group {
 
 
 impl Tab {
-    fn set_matches_search(&self, matches: bool, animate: bool) {
+    pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
         self.matches_search.set_neq(matches);
 
         let percentage = if matches {

@@ -1,12 +1,14 @@
 use std::pin::{Pin, Unpin};
 use std::sync::Arc;
 use tab_organizer::ease;
+use tab_organizer::state::SortTabs;
 use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab};
+use crate::search;
 use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll};
 use futures::task::LocalWaker;
-use futures_signals::signal::{Signal, SignalExt, MutableSignal};
+use futures_signals::signal::{Signal, SignalExt, MutableSignal, MutableSignalCloned};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt, VecDiff};
 
 
@@ -15,7 +17,7 @@ struct MutableSink<A> where A: Signal {
     value: Option<A::Item>,
 }
 
-impl<A> MutableSink<A> where A: Signal + Unpin, A::Item: Copy {
+impl<A> MutableSink<A> where A: Signal + Unpin {
     fn new(signal: A) -> Self {
         Self {
             signal: Some(signal),
@@ -23,7 +25,7 @@ impl<A> MutableSink<A> where A: Signal + Unpin, A::Item: Copy {
         }
     }
 
-    fn value(&self) -> A::Item {
+    fn unwrap(&self) -> A::Item where A::Item: Copy {
         self.value.unwrap()
     }
 
@@ -46,6 +48,12 @@ impl<A> MutableSink<A> where A: Signal + Unpin, A::Item: Copy {
 
             return changed;
         }
+    }
+}
+
+impl<A> AsRef<A::Item> for MutableSink<A> where A: Signal {
+    fn as_ref(&self) -> &A::Item {
+        self.value.as_ref().unwrap()
     }
 }
 
@@ -158,7 +166,7 @@ impl CulledTab {
     // TODO hacky
     fn height(&self) -> f64 {
         // TODO use range_inclusive ?
-        let percentage = ease(self.insert_animation.value()).into_f64();
+        let percentage = ease(self.insert_animation.unwrap()).into_f64();
 
         (TAB_BORDER_WIDTH * percentage).round() +
         (TAB_PADDING * percentage).round() +
@@ -196,7 +204,7 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
     // TODO what about when it's dragging ?
     fn height(&self) -> (f64, f64) {
         // TODO use range_inclusive
-        let percentage = ease(self.insert_animation.value()).into_f64();
+        let percentage = ease(self.insert_animation.unwrap()).into_f64();
 
         (
             (GROUP_BORDER_WIDTH * percentage).round() +
@@ -213,6 +221,8 @@ struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: Signal {
     state: Arc<State>,
     groups: MutableVecSink<A>,
     is_dragging: MutableSink<B>,
+    search_parser: MutableSink<MutableSignalCloned<Arc<search::Parsed>>>,
+    sort_tabs: MutableSink<MutableSignal<SortTabs>>,
     scroll_y: MutableSink<C>,
     window_height: MutableSink<D>,
 }
@@ -224,31 +234,43 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
           D: Signal<Item = f64> + Unpin,
           E: Signal<Item = f64> + Unpin {
 
-    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+    fn is_changed(&mut self, waker: &LocalWaker) -> (bool, bool) {
         let groups = self.groups.is_changed(waker, |group| group.is_changed(waker));
         let is_dragging = self.is_dragging.is_changed(waker);
         let scroll_y = self.scroll_y.is_changed(waker);
         let window_height = self.window_height.is_changed(waker);
 
-        groups ||
-        is_dragging ||
-        scroll_y ||
-        window_height
+        let search_parser = self.search_parser.is_changed(waker);
+        let sort_tabs = self.sort_tabs.is_changed(waker);
+
+        (
+            groups ||
+            is_dragging ||
+            scroll_y ||
+            window_height,
+
+            search_parser ||
+            sort_tabs
+        )
     }
 
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
-    fn update(&mut self) {
-        let is_dragging = self.is_dragging.value();
+    fn update(&mut self, should_search: bool) {
+        let search_parser = self.search_parser.as_ref();
+
+        let is_dragging = self.is_dragging.unwrap();
 
         // TODO is this floor correct ?
-        let top_y = self.scroll_y.value().floor();
+        let top_y = self.scroll_y.unwrap().floor();
         // TODO is this ceil correct ?
-        let bottom_y = top_y + (self.window_height.value().ceil() - TOOLBAR_TOTAL_HEIGHT);
+        let bottom_y = top_y + (self.window_height.unwrap().ceil() - TOOLBAR_TOTAL_HEIGHT);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
+
+        let mut tabs = 0;
 
         for group in self.groups.values.iter() {
             let old_height = current_height;
@@ -263,8 +285,10 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
 
             // TODO what if there aren't any tabs in the group ?
             for tab in group.tabs.values.iter() {
+                tabs += 1;
+
                 // TODO is this correct ?
-                if !tab.is_dragging.value() {
+                if !tab.is_dragging.unwrap() {
                     let old_height = current_height;
 
                     current_height += tab.height();
@@ -304,6 +328,8 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
             }
         }
 
+        log!("{}", tabs);
+
         if is_dragging {
             // TODO handle this better somehow ?
             current_height += DRAG_GAP_PX;
@@ -327,10 +353,10 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
 
     fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
         //time!("Culling", {
-            let changed = self.is_changed(waker);
+            let (changed, should_search) = self.is_changed(waker);
 
-            if changed {
-                self.update();
+            if changed || should_search {
+                self.update(should_search);
             }
         //});
 
@@ -351,6 +377,8 @@ pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future
                 CulledGroup::new(group, tabs)
             })),
         is_dragging: MutableSink::new(state.is_dragging()),
+        search_parser: MutableSink::new(state.search_parser.signal_cloned()),
+        sort_tabs: MutableSink::new(state.options.sort_tabs.signal()),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),
         window_height: MutableSink::new(window_height),
         state,

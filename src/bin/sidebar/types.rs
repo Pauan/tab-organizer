@@ -75,7 +75,7 @@ impl Scrolling {
 #[derive(Debug)]
 pub(crate) struct State {
     pub(crate) search_box: Mutable<Arc<String>>,
-    pub(crate) search_parser: Mutable<search::Parsed>,
+    pub(crate) search_parser: Mutable<Arc<search::Parsed>>,
 
     pub(crate) url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
     pub(crate) groups_padding: Mutable<f64>, // TODO use u32 instead ?
@@ -98,7 +98,7 @@ impl State {
         let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
         let state = Self {
-            search_parser: Mutable::new(search::Parsed::new(&search_value)),
+            search_parser: Mutable::new(Arc::new(search::Parsed::new(&search_value))),
             search_box: Mutable::new(Arc::new(search_value)),
 
             url_bar: Mutable::new(None),
