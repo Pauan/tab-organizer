@@ -33,20 +33,25 @@ named!(parse<CompleteStr, Parsed>,
 
 impl Group {
     pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
-        self.matches_search.set_neq(matches);
+        let mut matches_search = self.matches_search.lock_mut();
 
-        let percentage = if matches {
-            Percentage::new(1.0)
+        // TODO verify that this doesn't trigger any notifications
+        if *matches_search != matches {
+            *matches_search = matches;
 
-        } else {
-            Percentage::new(0.0)
-        };
+            let percentage = if matches {
+                Percentage::new(1.0)
 
-        if animate {
-            self.insert_animation.animate_to(percentage);
+            } else {
+                Percentage::new(0.0)
+            };
 
-        } else {
-            self.insert_animation.jump_to(percentage);
+            if animate {
+                self.insert_animation.animate_to(percentage);
+
+            } else {
+                self.insert_animation.jump_to(percentage);
+            }
         }
     }
 }
@@ -54,20 +59,25 @@ impl Group {
 
 impl Tab {
     pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
-        self.matches_search.set_neq(matches);
+        let mut matches_search = self.matches_search.lock_mut();
 
-        let percentage = if matches {
-            Percentage::new(1.0)
+        // TODO verify that this doesn't trigger any notifications
+        if *matches_search != matches {
+            *matches_search = matches;
 
-        } else {
-            Percentage::new(0.0)
-        };
+            let percentage = if matches {
+                Percentage::new(1.0)
 
-        if animate {
-            self.insert_animation.animate_to(percentage);
+            } else {
+                Percentage::new(0.0)
+            };
 
-        } else {
-            self.insert_animation.jump_to(percentage);
+            if animate {
+                self.insert_animation.animate_to(percentage);
+
+            } else {
+                self.insert_animation.jump_to(percentage);
+            }
         }
     }
 }
@@ -93,28 +103,6 @@ impl State {
         tab.set_matches_search(tab_matches, animate);
 
         Self::update_group_search(group, tab_matches, animate);
-    }
-
-    pub(crate) fn search_tabs(&self, animate: bool) {
-        time!("Searching tabs", {
-            let search_parser = self.search_parser.lock_ref();
-
-            for group in self.groups.lock_ref().iter() {
-                let mut group_matches = false;
-
-                for tab in group.tabs.lock_ref().iter() {
-                    let tab_matches = search_parser.matches_tab(tab);
-
-                    tab.set_matches_search(tab_matches, animate);
-
-                    if tab_matches {
-                        group_matches = true;
-                    }
-                }
-
-                group.set_matches_search(group_matches, animate);
-            }
-        });
     }
 }
 

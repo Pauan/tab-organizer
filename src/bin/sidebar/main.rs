@@ -1,5 +1,5 @@
 #![recursion_limit="128"]
-#![feature(futures_api, pin, arbitrary_self_types, async_await, await_macro)]
+#![feature(arbitrary_self_types, async_await, await_macro)]
 #![warn(unreachable_pub)]
 
 extern crate uuid;

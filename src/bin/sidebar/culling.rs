@@ -1,4 +1,5 @@
-use std::pin::{Pin, Unpin};
+use std::pin::Pin;
+use std::marker::Unpin;
 use std::sync::Arc;
 use tab_organizer::ease;
 use tab_organizer::state::SortTabs;
@@ -7,7 +8,7 @@ use crate::types::{State, Group, Tab};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll};
-use futures::task::LocalWaker;
+use futures::task::Context;
 use futures_signals::signal::{Signal, SignalExt, MutableSignal, MutableSignalCloned};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt, VecDiff};
 
@@ -29,11 +30,11 @@ impl<A> MutableSink<A> where A: Signal + Unpin {
         self.value.unwrap()
     }
 
-    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
+    fn is_changed(&mut self, cx: &mut Context) -> bool {
         let mut changed = false;
 
         loop {
-            match self.signal.as_mut().map(|signal| signal.poll_change_unpin(waker)) {
+            match self.signal.as_mut().map(|signal| signal.poll_change_unpin(cx)) {
                 Some(Poll::Ready(Some(value))) => {
                     self.value = Some(value);
                     changed = true;
@@ -71,11 +72,11 @@ impl<A> MutableVecSink<A> where A: SignalVec + Unpin {
         }
     }
 
-    fn is_changed<F>(&mut self, waker: &LocalWaker, mut f: F) -> bool where F: FnMut(&mut A::Item) -> bool {
+    fn is_changed<F>(&mut self, cx: &mut Context, mut f: F) -> bool where F: FnMut(&mut Context, &mut A::Item) -> bool {
         let mut changed = false;
 
         loop {
-            match self.signal.as_mut().map(|signal| signal.poll_vec_change_unpin(waker)) {
+            match self.signal.as_mut().map(|signal| signal.poll_vec_change_unpin(cx)) {
                 Some(Poll::Ready(Some(change))) => {
                     changed = true;
 
@@ -118,7 +119,7 @@ impl<A> MutableVecSink<A> where A: SignalVec + Unpin {
             }
 
             for value in self.values.iter_mut() {
-                if f(value) {
+                if f(cx, value) {
                     changed = true;
                 }
             }
@@ -155,9 +156,9 @@ impl CulledTab {
         }
     }
 
-    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
-        let is_dragging = self.is_dragging.is_changed(waker);
-        let insert_animation = self.insert_animation.is_changed(waker);
+    fn is_changed(&mut self, cx: &mut Context) -> bool {
+        let is_dragging = self.is_dragging.is_changed(cx);
+        let insert_animation = self.insert_animation.is_changed(cx);
 
         is_dragging ||
         insert_animation
@@ -192,9 +193,9 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
         }
     }
 
-    fn is_changed(&mut self, waker: &LocalWaker) -> bool {
-        let tabs = self.tabs.is_changed(waker, |tab| tab.is_changed(waker));
-        let insert_animation = self.insert_animation.is_changed(waker);
+    fn is_changed(&mut self, cx: &mut Context) -> bool {
+        let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx));
+        let insert_animation = self.insert_animation.is_changed(cx);
 
         tabs ||
         insert_animation
@@ -234,14 +235,14 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
           D: Signal<Item = f64> + Unpin,
           E: Signal<Item = f64> + Unpin {
 
-    fn is_changed(&mut self, waker: &LocalWaker) -> (bool, bool) {
-        let groups = self.groups.is_changed(waker, |group| group.is_changed(waker));
-        let is_dragging = self.is_dragging.is_changed(waker);
-        let scroll_y = self.scroll_y.is_changed(waker);
-        let window_height = self.window_height.is_changed(waker);
+    fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
+        let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
+        let is_dragging = self.is_dragging.is_changed(cx);
+        let scroll_y = self.scroll_y.is_changed(cx);
+        let window_height = self.window_height.is_changed(cx);
 
-        let search_parser = self.search_parser.is_changed(waker);
-        let sort_tabs = self.sort_tabs.is_changed(waker);
+        let search_parser = self.search_parser.is_changed(cx);
+        let sort_tabs = self.sort_tabs.is_changed(cx);
 
         (
             groups ||
@@ -257,7 +258,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
-    fn update(&mut self, should_search: bool) {
+    fn update(&mut self, should_search: bool, animate: bool) {
         let search_parser = self.search_parser.as_ref();
 
         let is_dragging = self.is_dragging.unwrap();
@@ -273,6 +274,23 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
         let mut tabs = 0;
 
         for group in self.groups.values.iter() {
+            if should_search {
+                let mut group_matches = false;
+
+                // TODO figure out a way to merge this with the other tabs loop
+                for tab in group.tabs.values.iter() {
+                    let tab_matches = search_parser.matches_tab(&tab.state);
+
+                    tab.state.set_matches_search(tab_matches, animate);
+
+                    if tab_matches {
+                        group_matches = true;
+                    }
+                }
+
+                group.state.set_matches_search(group_matches, animate);
+            }
+
             let old_height = current_height;
 
             let mut tabs_padding: Option<f64> = None;
@@ -351,14 +369,14 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
 
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, waker: &LocalWaker) -> Poll<Self::Output> {
-        //time!("Culling", {
-            let (changed, should_search) = self.is_changed(waker);
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        time!("Culling", {
+            let (changed, should_search) = self.is_changed(cx);
 
             if changed || should_search {
-                self.update(should_search);
+                self.update(should_search, false);
             }
-        //});
+        });
 
         Poll::Pending
     }
