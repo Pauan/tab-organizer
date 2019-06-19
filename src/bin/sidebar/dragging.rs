@@ -279,11 +279,19 @@ impl State {
                 }
             },
 
-            Some(DragState::Dragging { ref mut mouse_x, ref mut mouse_y, .. }) => {
-                self.start_scrolling(new_y);
-                *mouse_x = new_x;
-                *mouse_y = new_y;
-                None
+            Some(DragState::Dragging { .. }) => {
+                // TODO hacky
+                match *dragging {
+                    Some(DragState::Dragging { ref mut mouse_x, ref mut mouse_y, .. }) => {
+                        self.start_scrolling(new_y);
+                        *mouse_x = new_x;
+                        *mouse_y = new_y;
+                        None
+                    },
+                    _ => {
+                        unreachable!();
+                    },
+                }
             },
 
             None => None,

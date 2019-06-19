@@ -143,6 +143,7 @@ impl State {
 
 struct CulledTab {
     state: Arc<Tab>,
+    drag_over: MutableSink<MutableAnimationSignal>,
     is_dragging: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
@@ -150,6 +151,7 @@ struct CulledTab {
 impl CulledTab {
     fn new(state: Arc<Tab>) -> Self {
         Self {
+            drag_over: MutableSink::new(state.drag_over.signal()),
             is_dragging: MutableSink::new(state.dragging.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
             state,
@@ -157,23 +159,29 @@ impl CulledTab {
     }
 
     fn is_changed(&mut self, cx: &mut Context) -> bool {
+        let drag_over = self.drag_over.is_changed(cx);
         let is_dragging = self.is_dragging.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
 
+        drag_over ||
         is_dragging ||
         insert_animation
     }
 
-    // TODO hacky
+    // TODO this must be kept in sync with main.rs
     fn height(&self) -> f64 {
-        // TODO use range_inclusive ?
-        let percentage = ease(self.insert_animation.unwrap()).into_f64();
+        let percentage = ease(self.insert_animation.unwrap());
 
-        (TAB_BORDER_WIDTH * percentage).round() +
-        (TAB_PADDING * percentage).round() +
-        (TAB_HEIGHT * percentage).round() +
-        (TAB_PADDING * percentage).round() +
-        (TAB_BORDER_WIDTH * percentage).round()
+        let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
+        let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
+        let height = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
+
+        border + padding + height + padding + border
+    }
+
+    // TODO this must be kept in sync with main.rs
+    fn drag_height(&self) -> f64 {
+        ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round()
     }
 }
 
@@ -218,26 +226,23 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 }
 
 
-struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: Signal {
+struct Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {
     state: Arc<State>,
     groups: MutableVecSink<A>,
-    is_dragging: MutableSink<B>,
     search_parser: MutableSink<MutableSignalCloned<Arc<search::Parsed>>>,
     sort_tabs: MutableSink<MutableSignal<SortTabs>>,
-    scroll_y: MutableSink<C>,
-    window_height: MutableSink<D>,
+    scroll_y: MutableSink<B>,
+    window_height: MutableSink<C>,
 }
 
-impl<A, B, C, D, E> Culler<A, C, D, E>
+impl<A, B, C, D> Culler<A, C, D>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
-          C: Signal<Item = bool> + Unpin,
-          D: Signal<Item = f64> + Unpin,
-          E: Signal<Item = f64> + Unpin {
+          C: Signal<Item = f64> + Unpin,
+          D: Signal<Item = f64> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
         let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
-        let is_dragging = self.is_dragging.is_changed(cx);
         let scroll_y = self.scroll_y.is_changed(cx);
         let window_height = self.window_height.is_changed(cx);
 
@@ -246,7 +251,6 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
 
         (
             groups ||
-            is_dragging ||
             scroll_y ||
             window_height,
 
@@ -261,8 +265,6 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     fn update(&mut self, should_search: bool, animate: bool) {
         let search_parser = self.search_parser.as_ref();
 
-        let is_dragging = self.is_dragging.unwrap();
-
         // TODO is this floor correct ?
         let top_y = self.scroll_y.unwrap().floor();
         // TODO is this ceil correct ?
@@ -274,6 +276,9 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
         let mut tabs = 0;
 
         for group in self.groups.values.iter() {
+            // TODO should this be in total, rather than per group ?
+            let mut seen_dragging = false;
+
             if should_search {
                 let mut group_matches = false;
 
@@ -323,6 +328,12 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
                     }
 
                 } else {
+                    // TODO super hacky
+                    if !seen_dragging {
+                        seen_dragging = true;
+                        current_height += tab.drag_height();
+                    }
+
                     self.state.hide_tab(&tab.state);
                 }
             }
@@ -348,24 +359,18 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
 
         log!("{}", tabs);
 
-        if is_dragging {
-            // TODO handle this better somehow ?
-            current_height += DRAG_GAP_PX;
-        }
-
         self.state.groups_padding.set_neq(padding.unwrap_or(0.0));
         self.state.scrolling.height.set_neq(current_height);
     }
 }
 
-impl<A, B, C, D> Unpin for Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: Signal {}
+impl<A, B, C> Unpin for Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {}
 
-impl<A, B, C, D, E> Future for Culler<A, C, D, E>
+impl<A, B, C, D> Future for Culler<A, C, D>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
-          C: Signal<Item = bool> + Unpin,
-          D: Signal<Item = f64> + Unpin,
-          E: Signal<Item = f64> + Unpin {
+          C: Signal<Item = f64> + Unpin,
+          D: Signal<Item = f64> + Unpin {
 
     type Output = ();
 
@@ -394,7 +399,6 @@ pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future
                     .map(CulledTab::new);
                 CulledGroup::new(group, tabs)
             })),
-        is_dragging: MutableSink::new(state.is_dragging()),
         search_parser: MutableSink::new(state.search_parser.signal_cloned()),
         sort_tabs: MutableSink::new(state.options.sort_tabs.signal()),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),

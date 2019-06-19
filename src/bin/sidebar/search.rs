@@ -35,7 +35,6 @@ impl Group {
     pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
         let mut matches_search = self.matches_search.lock_mut();
 
-        // TODO verify that this doesn't trigger any notifications
         if *matches_search != matches {
             *matches_search = matches;
 
@@ -61,7 +60,6 @@ impl Tab {
     pub(crate) fn set_matches_search(&self, matches: bool, animate: bool) {
         let mut matches_search = self.matches_search.lock_mut();
 
-        // TODO verify that this doesn't trigger any notifications
         if *matches_search != matches {
             *matches_search = matches;
 
