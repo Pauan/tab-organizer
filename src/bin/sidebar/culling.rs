@@ -170,13 +170,18 @@ impl CulledTab {
 
     // TODO this must be kept in sync with main.rs
     fn height(&self) -> f64 {
-        let percentage = ease(self.insert_animation.unwrap());
+        if self.state.matches_search.get() {
+            let percentage = ease(self.insert_animation.unwrap());
 
-        let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
-        let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
-        let height = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
+            let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
+            let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
+            let height = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
 
-        border + padding + height + padding + border
+            (border * 2.0) + (padding * 2.0) + height
+
+        } else {
+            0.0
+        }
     }
 
     // TODO this must be kept in sync with main.rs
@@ -212,16 +217,21 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
     // TODO hacky
     // TODO what about when it's dragging ?
     fn height(&self) -> (f64, f64) {
-        // TODO use range_inclusive
-        let percentage = ease(self.insert_animation.unwrap()).into_f64();
+        if self.state.matches_search.get() {
+            // TODO use range_inclusive
+            let percentage = ease(self.insert_animation.unwrap()).into_f64();
 
-        (
-            (GROUP_BORDER_WIDTH * percentage).round() +
-            (GROUP_PADDING_TOP * percentage).round() +
-            (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
+            (
+                (GROUP_BORDER_WIDTH * percentage).round() +
+                (GROUP_PADDING_TOP * percentage).round() +
+                (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
 
-            (GROUP_PADDING_BOTTOM * percentage).round()
-        )
+                (GROUP_PADDING_BOTTOM * percentage).round()
+            )
+
+        } else {
+            (0.0, 0.0)
+        }
     }
 }
 
@@ -262,7 +272,7 @@ impl<A, B, C, D> Culler<A, C, D>
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
-    fn update(&mut self, should_search: bool, animate: bool) {
+    fn update(&mut self, should_search: bool) {
         let search_parser = self.search_parser.as_ref();
 
         // TODO is this floor correct ?
@@ -286,14 +296,14 @@ impl<A, B, C, D> Culler<A, C, D>
                 for tab in group.tabs.values.iter() {
                     let tab_matches = search_parser.matches_tab(&tab.state);
 
-                    tab.state.set_matches_search(tab_matches, animate);
+                    tab.state.set_matches_search(tab_matches);
 
                     if tab_matches {
                         group_matches = true;
                     }
                 }
 
-                group.state.set_matches_search(group_matches, animate);
+                group.state.set_matches_search(group_matches);
             }
 
             let old_height = current_height;
@@ -329,6 +339,7 @@ impl<A, B, C, D> Culler<A, C, D>
 
                 } else {
                     // TODO super hacky
+                    // TODO is this correct ?
                     if !seen_dragging {
                         seen_dragging = true;
                         current_height += tab.drag_height();
@@ -379,7 +390,7 @@ impl<A, B, C, D> Future for Culler<A, C, D>
             let (changed, should_search) = self.is_changed(cx);
 
             if changed || should_search {
-                self.update(should_search, false);
+                self.update(should_search);
             }
         });
 
