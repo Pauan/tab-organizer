@@ -187,24 +187,6 @@ fn initialize(state: Arc<State>) {
                 window_height.set_neq(stdweb::web::window().inner_height() as f64);
             })
 
-            .future({
-                let mut first = true;
-
-                state.options.sort_tabs.signal().for_each(clone!(state => move |sort| {
-                    // TODO a little bit hacky
-                    if first {
-                        first = false;
-
-                    } else {
-                        time!("Changing sort", {
-                            state.change_sort(sort);
-                        });
-                    }
-
-                    async {}
-                }))
-            })
-
             .children(&mut [
                 html!("div", {
                     .class(&*DRAGGING_STYLE)

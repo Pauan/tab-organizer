@@ -249,6 +249,7 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 
 
 struct Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {
+    first: bool,
     state: Arc<State>,
     groups: MutableVecSink<A>,
     search_parser: MutableSink<MutableSignalCloned<Arc<search::Parsed>>>,
@@ -264,12 +265,27 @@ impl<A, B, C, D> Culler<A, C, D>
           D: Signal<Item = f64> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
+        let sort_tabs = self.sort_tabs.is_changed(cx);
+
+        // This must be before groups
+        // TODO is it guaranteed that groups will synchronously update ?
+        if sort_tabs {
+            // TODO a little hacky
+            if self.first {
+                self.first = false;
+
+            } else {
+                time!("Changing sort", {
+                    self.state.change_sort(self.sort_tabs.unwrap());
+                });
+            }
+        }
+
         let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
         let scroll_y = self.scroll_y.is_changed(cx);
         let window_height = self.window_height.is_changed(cx);
 
         let search_parser = self.search_parser.is_changed(cx);
-        let sort_tabs = self.sort_tabs.is_changed(cx);
 
         (
             groups ||
@@ -293,8 +309,6 @@ impl<A, B, C, D> Culler<A, C, D>
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
-        let mut tabs = 0;
-
         for group in self.groups.values.iter() {
             if should_search {
                 let search_parser = self.search_parser.as_ref();
@@ -313,8 +327,6 @@ impl<A, B, C, D> Culler<A, C, D>
                 }
 
                 group.state.set_matches_search(group_matches);
-
-                log!("{}", group_matches);
             }
 
             if let Some((top_height, bottom_height)) = group.height() {
@@ -328,8 +340,6 @@ impl<A, B, C, D> Culler<A, C, D>
 
                 // TODO what if there aren't any tabs in the group ?
                 for tab in group.tabs.values.iter() {
-                    tabs += 1;
-
                     if let Some((offset, height)) = tab.height() {
                         let old_height = current_height;
 
@@ -376,8 +386,6 @@ impl<A, B, C, D> Culler<A, C, D>
             }
         }
 
-        log!("{}", tabs);
-
         self.state.groups_padding.set_neq(padding.unwrap_or(0.0));
         self.state.scrolling.height.set_neq(current_height);
     }
@@ -408,6 +416,7 @@ impl<A, B, C, D> Future for Culler<A, C, D>
 
 pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future<Output = ()> where A: Signal<Item = f64> + Unpin {
     Culler {
+        first: true,
         groups: MutableVecSink::new(state.groups.signal_vec_cloned()
             // TODO duplication with main.rs
             .delay_remove(|group| group.wait_until_removed())
