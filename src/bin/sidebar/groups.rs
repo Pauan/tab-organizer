@@ -496,11 +496,11 @@ impl Groups {
             }
         }
 
+        *sort = sort_tabs;
+
         let new_groups = time!("Creating new groups", { initialize(state, *sort, window, false) });
 
         groups.replace_cloned(new_groups);
-
-        *sort = sort_tabs;
     }
 
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {

@@ -144,7 +144,7 @@ impl State {
 struct CulledTab {
     state: Arc<Tab>,
     drag_over: MutableSink<MutableAnimationSignal>,
-    is_dragging: MutableSink<MutableSignal<bool>>,
+    dragging: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
@@ -152,7 +152,7 @@ impl CulledTab {
     fn new(state: Arc<Tab>) -> Self {
         Self {
             drag_over: MutableSink::new(state.drag_over.signal()),
-            is_dragging: MutableSink::new(state.dragging.signal()),
+            dragging: MutableSink::new(state.dragging.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
             state,
         }
@@ -160,33 +160,35 @@ impl CulledTab {
 
     fn is_changed(&mut self, cx: &mut Context) -> bool {
         let drag_over = self.drag_over.is_changed(cx);
-        let is_dragging = self.is_dragging.is_changed(cx);
+        let dragging = self.dragging.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
 
         drag_over ||
-        is_dragging ||
+        dragging ||
         insert_animation
     }
 
     // TODO this must be kept in sync with main.rs
-    fn height(&self) -> f64 {
-        if self.state.matches_search.get() {
+    fn height(&self) -> Option<(f64, f64)> {
+        // TODO make matches_search a MutableSink ?
+        if self.state.matches_search.get() && !self.dragging.unwrap() {
             let percentage = ease(self.insert_animation.unwrap());
 
             let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
             let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
             let height = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
 
-            (border * 2.0) + (padding * 2.0) + height
+            Some((
+                // offset top
+                ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round(),
+
+                // height
+                (border * 2.0) + (padding * 2.0) + height
+            ))
 
         } else {
-            0.0
+            None
         }
-    }
-
-    // TODO this must be kept in sync with main.rs
-    fn drag_height(&self) -> f64 {
-        ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round()
     }
 }
 
@@ -194,6 +196,7 @@ impl CulledTab {
 struct CulledGroup<A> where A: SignalVec {
     state: Arc<Group>,
     tabs: MutableVecSink<A>,
+    drag_over: MutableSink<MutableAnimationSignal>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
@@ -201,6 +204,7 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
     fn new(state: Arc<Group>, tabs_signal: A) -> Self {
         Self {
             tabs: MutableVecSink::new(tabs_signal),
+            drag_over: MutableSink::new(state.drag_over.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
             state,
         }
@@ -208,29 +212,37 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> bool {
         let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx));
+        let drag_over = self.drag_over.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
 
         tabs ||
+        drag_over ||
         insert_animation
     }
 
-    // TODO hacky
-    // TODO what about when it's dragging ?
-    fn height(&self) -> (f64, f64) {
+    // TODO this must be kept in sync with main.rs
+    // There is no offset, because the group list has `top: 1px` and the groups have `top: -1px` so it cancels out
+    fn height(&self) -> Option<(f64, f64)> {
         if self.state.matches_search.get() {
-            // TODO use range_inclusive
-            let percentage = ease(self.insert_animation.unwrap()).into_f64();
+            let percentage = ease(self.insert_animation.unwrap());
 
-            (
-                (GROUP_BORDER_WIDTH * percentage).round() +
-                (GROUP_PADDING_TOP * percentage).round() +
-                (if self.state.show_header { (GROUP_HEADER_HEIGHT * percentage).round() } else { 0.0 }),
+            Some((
+                // height top
+                percentage.range_inclusive(0.0, GROUP_BORDER_WIDTH).round() +
+                percentage.range_inclusive(0.0, GROUP_PADDING_TOP).round() +
+                (if self.state.show_header {
+                    percentage.range_inclusive(0.0, GROUP_HEADER_HEIGHT).round()
+                } else {
+                    0.0
+                }),
 
-                (GROUP_PADDING_BOTTOM * percentage).round()
-            )
+                // height bottom
+                percentage.range_inclusive(0.0, GROUP_PADDING_BOTTOM).round() +
+                ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round()
+            ))
 
         } else {
-            (0.0, 0.0)
+            None
         }
     }
 }
@@ -273,8 +285,6 @@ impl<A, B, C, D> Culler<A, C, D>
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
     fn update(&mut self, should_search: bool) {
-        let search_parser = self.search_parser.as_ref();
-
         // TODO is this floor correct ?
         let top_y = self.scroll_y.unwrap().floor();
         // TODO is this ceil correct ?
@@ -286,10 +296,9 @@ impl<A, B, C, D> Culler<A, C, D>
         let mut tabs = 0;
 
         for group in self.groups.values.iter() {
-            // TODO should this be in total, rather than per group ?
-            let mut seen_dragging = false;
-
             if should_search {
+                let search_parser = self.search_parser.as_ref();
+
                 let mut group_matches = false;
 
                 // TODO figure out a way to merge this with the other tabs loop
@@ -304,64 +313,63 @@ impl<A, B, C, D> Culler<A, C, D>
                 }
 
                 group.state.set_matches_search(group_matches);
+
+                log!("{}", group_matches);
             }
 
-            let old_height = current_height;
+            if let Some((top_height, bottom_height)) = group.height() {
+                let old_height = current_height;
 
-            let mut tabs_padding: Option<f64> = None;
+                let mut tabs_padding: Option<f64> = None;
 
-            let (top_height, bottom_height) = group.height();
+                current_height += top_height;
 
-            current_height += top_height;
+                let tabs_height = current_height;
 
-            let tabs_height = current_height;
+                // TODO what if there aren't any tabs in the group ?
+                for tab in group.tabs.values.iter() {
+                    tabs += 1;
 
-            // TODO what if there aren't any tabs in the group ?
-            for tab in group.tabs.values.iter() {
-                tabs += 1;
+                    if let Some((offset, height)) = tab.height() {
+                        let old_height = current_height;
 
-                // TODO is this correct ?
-                if !tab.is_dragging.unwrap() {
-                    let old_height = current_height;
+                        current_height += height;
 
-                    current_height += tab.height();
+                        let tab_top = old_height + offset;
+                        let tab_bottom = current_height + offset;
 
-                    if current_height > old_height && old_height < bottom_y && current_height > top_y {
-                        if let None = tabs_padding {
-                            tabs_padding = Some(old_height);
+                        if tab_bottom > tab_top && tab_top < bottom_y && tab_bottom > top_y {
+                            if let None = tabs_padding {
+                                // This must not use the offset
+                                tabs_padding = Some(old_height - tabs_height);
+                            }
+
+                            tab.state.visible.set_neq(true);
+
+                        } else {
+                            self.state.hide_tab(&tab.state);
                         }
-
-                        tab.state.visible.set_neq(true);
 
                     } else {
                         self.state.hide_tab(&tab.state);
                     }
+                }
 
-                } else {
-                    // TODO super hacky
-                    // TODO is this correct ?
-                    if !seen_dragging {
-                        seen_dragging = true;
-                        current_height += tab.drag_height();
+                current_height += bottom_height;
+
+                // TODO what if the group has height but the tabs don't ?
+                // TODO what if the tabs have height but the group doesn't ?
+                if current_height > old_height && old_height < bottom_y && current_height > top_y {
+                    if let None = padding {
+                        padding = Some(old_height);
                     }
 
-                    self.state.hide_tab(&tab.state);
+                    group.state.tabs_padding.set_neq(tabs_padding.unwrap_or(0.0));
+                    group.state.visible.set_neq(true);
+
+                } else {
+                    group.state.visible.set_neq(false);
                 }
-            }
-
-            let no_tabs_height = current_height;
-
-            current_height += bottom_height;
-
-            // TODO what if the group has height but the tabs don't ?
-            // TODO what if the tabs have height but the group doesn't ?
-            if current_height > old_height && old_height < bottom_y && current_height > top_y {
-                if let None = padding {
-                    padding = Some(old_height);
-                }
-
-                group.state.tabs_padding.set_neq(tabs_padding.unwrap_or(no_tabs_height) - tabs_height);
-                group.state.visible.set_neq(true);
 
             } else {
                 group.state.visible.set_neq(false);

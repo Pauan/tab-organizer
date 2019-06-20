@@ -16,7 +16,7 @@ extern crate stdweb;
 extern crate lazy_static;
 
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
@@ -488,8 +488,8 @@ fn initialize(state: Arc<State>) {
                         html!("div", {
                             .class(&*GROUP_LIST_CHILDREN_STYLE)
 
-                            .style_signal("padding-top", state.groups_padding.signal().map(px))
-                            .style_signal("height", state.scrolling.height.signal().map(px))
+                            .style_signal("padding-top", state.groups_padding.signal().map(none_if_px(0.0)))
+                            .style_signal("height", state.scrolling.height.signal().map(none_if_px(0.0)))
 
                             .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
                                 .delay_remove(|(_, group)| group.wait_until_removed())
@@ -555,7 +555,7 @@ fn initialize(state: Arc<State>) {
                                             html!("div", {
                                                 .class(&*GROUP_TABS_STYLE)
 
-                                                .style_signal("padding-top", group.tabs_padding.signal().map(px))
+                                                .style_signal("padding-top", group.tabs_padding.signal().map(none_if_px(0.0)))
                                                 .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
                                                 .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
@@ -1007,8 +1007,8 @@ fn main() {
         .style("background-color", "hsl(0, 0%, 100%)")
         .style("background-image", "repeating-linear-gradient(0deg, \
                                         transparent                0px, \
-                                        hsla(200, 30%, 30%, 0.022) 2px, \
-                                        hsla(200, 30%, 30%, 0.022) 3px)")
+                                        hsla(200, 30%, 30%, 0.017) 2px, \
+                                        hsla(200, 30%, 30%, 0.017) 3px)")
     });
 
     // Disables the browser scroll restoration

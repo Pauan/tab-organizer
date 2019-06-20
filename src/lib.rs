@@ -105,6 +105,17 @@ pub fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> i
     signal.map(move |t| t.none_if(none_if).map(|t| f(ease(t), min, max)))
 }
 
+pub fn none_if_px(value: f64) -> impl FnMut(f64) -> Option<String> {
+    move |t| {
+        if t == value {
+            None
+
+        } else {
+            Some(px(t))
+        }
+    }
+}
+
 
 // TODO put this into a separate crate or something ?
 pub fn normalize(value: f64, min: f64, max: f64) -> f64 {
