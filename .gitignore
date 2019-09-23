@@ -1,3 +1,6 @@
-/static/js
+node_modules
+/dist
 /target
-**/*.rs.bk
+pkg
+/wasm-pack.log
+/yarn-error.log

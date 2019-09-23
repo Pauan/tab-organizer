@@ -1,45 +1,46 @@
-use tab_organizer::{RegExp, decode_uri_component};
+use wasm_bindgen::prelude::*;
+use regex::{Regex, RegexBuilder, Match};
+use tab_organizer::decode_uri_component;
+use lazy_static::lazy_static;
+
 
 lazy_static! {
     // http://en.wikipedia.org/wiki/URI_scheme#Generic_syntax
     // TODO test this
-    static ref URL_REGEXP: RegExp = RegExp::new(
-        "^([a-zA-Z][a-zA-Z0-9\\+\\.\\-]*:)?(?:(\\/\\/)([^\\@]+\\@)?([^\\/\\?\\#\\:]*)(\\:[0-9]+)?)?([^\\?\\#]*?)([^\\/\\?\\#]*)(\\?[^\\#]*)?(\\#.*)?$",
-        ""
-    );
+    static ref URL_REGEXP: Regex = Regex::new(
+        r"^([a-zA-Z][a-zA-Z0-9\+\.\-]*:)?(?:(//)([^@]+@)?([^/\?#:]*)(:[0-9]+)?)?([^\?#]*?)([^/\?#]*)(\?[^#]*)?(#.*)?$"
+    ).unwrap_throw();
 
     // http://en.wikipedia.org/wiki/List_of_Internet_top-level_domains
     // TODO test this
-    static ref DOMAIN_REGEXP: RegExp = RegExp::new(
-        "(?:^www?\\.)|(?:(?:\\.[a-z][a-z])?\\.[a-z]+$)",
-        "gi"
-    );
+    static ref DOMAIN_REGEXP: Regex = RegexBuilder::new(
+            r"(?:^www?\.)|(?:(?:\.[a-z][a-z])?\.[a-z]+$)"
+        )
+        .case_insensitive(true)
+        .build()
+        .unwrap_throw();
 
-    static ref SPACIFY_REGEXP: RegExp = RegExp::new(
-        "[_\\-\\n\\r]",
-        "g"
-    );
+    static ref SPACIFY_REGEXP: Regex = Regex::new(
+        r"[_\-\n\r]"
+    ).unwrap_throw();
 
-    static ref FILE_REGEXP: RegExp = RegExp::new(
-        "\\.(?:html?|php|asp)$",
-        "g"
-    );
+    static ref FILE_REGEXP: Regex = Regex::new(
+        r"\.(?:html?|php|asp)$"
+    ).unwrap_throw();
 
-    static ref QUERY_REMOVE_REGEXP: RegExp = RegExp::new(
-        "^\\??[\\+&;]?",
-        ""
-    );
+    static ref QUERY_REMOVE_REGEXP: Regex = Regex::new(
+        r"^\??[\+&;]?"
+    ).unwrap_throw();
 
-    static ref QUERY_SEPARATOR_REGEXP: RegExp = RegExp::new(
-        "[\\+&;]",
-        "g"
-    );
+    static ref QUERY_SEPARATOR_REGEXP: Regex = Regex::new(
+        r"[\+&;]"
+    ).unwrap_throw();
 
-    static ref QUERY_KEY_VALUE_REGEXP: RegExp = RegExp::new(
-        "=",
-        "g"
-    );
+    static ref QUERY_KEY_VALUE_REGEXP: Regex = Regex::new(
+        r"="
+    ).unwrap_throw();
 }
+
 
 #[derive(Debug)]
 pub(crate) struct UrlBar {
@@ -55,28 +56,34 @@ pub(crate) struct UrlBar {
 }
 
 fn minify_domain(domain: String) -> String {
-    DOMAIN_REGEXP.replace(&domain, "")
+    // TODO remove the into_owned ?
+    DOMAIN_REGEXP.replace_all(&domain, "").into_owned()
 }
 
 fn spacify(input: &str) -> String {
-    SPACIFY_REGEXP.replace(input, " ")
+    // TODO remove the into_owned ?
+    SPACIFY_REGEXP.replace_all(input, " ").into_owned()
 }
 
 impl UrlBar {
     pub(crate) fn new(url: &str) -> Option<Self> {
-        let parsed = URL_REGEXP.first_match(url);
+        let parsed = URL_REGEXP.captures(url);
 
-        parsed.map(|mut parsed| {
+        parsed.map(|parsed| {
+            fn to_str<'a>(x: Match<'a>) -> String {
+                x.as_str().to_owned()
+            }
+
             // TODO is there a better way of doing this ?
-            let protocol = parsed.remove(1); // TODO lower case this ?
-            let separator = parsed.remove(1);
-            let authority = parsed.remove(1);
-            let domain = parsed.remove(1);
-            let port = parsed.remove(1);
-            let path = parsed.remove(1);
-            let file = parsed.remove(1);
-            let query = parsed.remove(1);
-            let hash = parsed.remove(1);
+            let protocol = parsed.get(1).map(to_str); // TODO lower case this ?
+            let separator = parsed.get(2).map(to_str);
+            let authority = parsed.get(3).map(to_str);
+            let domain = parsed.get(4).map(to_str);
+            let port = parsed.get(5).map(to_str);
+            let path = parsed.get(6).map(to_str);
+            let file = parsed.get(7).map(to_str);
+            let query = parsed.get(8).map(to_str);
+            let hash = parsed.get(9).map(to_str);
 
             Self { protocol, separator, authority, domain, port, path, file, query, hash }
         })
@@ -100,14 +107,14 @@ impl UrlBar {
         if let Some(old_query) = old_query {
             query = Some({
                 let query = QUERY_REMOVE_REGEXP.replace(&old_query, "");
-                let query = QUERY_SEPARATOR_REGEXP.replace(&query, ", ");
-                let query = QUERY_KEY_VALUE_REGEXP.replace(&query, ":");
+                let query = QUERY_SEPARATOR_REGEXP.replace_all(&query, ", ");
+                let query = QUERY_KEY_VALUE_REGEXP.replace_all(&query, ":");
                 let query = spacify(&decode_uri_component(&query));
                 query
             });
 
         } else if let Some(old_file) = self.file {
-            file = Some(spacify(&decode_uri_component(&FILE_REGEXP.replace(&old_file, ""))));
+            file = Some(spacify(&decode_uri_component(&FILE_REGEXP.replace_all(&old_file, ""))));
 
         } else if let Some(old_path) = self.path {
             if old_path != "/" {

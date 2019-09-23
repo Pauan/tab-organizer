@@ -1,3 +1,4 @@
+use serde_derive::{Serialize, Deserialize};
 use uuid::Uuid;
 use futures_signals::signal::Mutable;
 

@@ -2,7 +2,7 @@ use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
 use crate::types::{State, DragState, Group, Tab};
 use tab_organizer::state::SortTabs;
-use stdweb::web::Rect;
+use web_sys::DomRect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
 
@@ -220,7 +220,7 @@ impl State {
         self.get_dragging_index(group_id).map(|old_index| new_index > old_index).unwrap_or(false)
     }
 
-    pub(crate) fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: Rect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
+    pub(crate) fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: DomRect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
         let mut dragging = self.dragging.state.lock_mut();
 
         if dragging.is_none() && self.can_start_drag() {

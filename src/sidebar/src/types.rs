@@ -2,18 +2,18 @@ use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tab_organizer::state;
+use tab_organizer::{local_storage_get, state};
 use tab_organizer::state::Options;
 use crate::url_bar;
 use crate::search;
 use crate::menu::Menu;
 use crate::groups::Groups;
 use uuid::Uuid;
-use stdweb;
-use stdweb::web::Rect;
+use web_sys::DomRect;
 use futures_signals::signal::{Signal, Mutable};
 use futures_signals::signal_vec::MutableVec;
 use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
+use lazy_static::lazy_static;
 
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub(crate) enum DragState {
     DragStart {
         mouse_x: i32,
         mouse_y: i32,
-        rect: Rect,
+        rect: DomRect,
         group: Arc<Group>,
         tab: Arc<Tab>,
         tab_index: usize,
@@ -31,7 +31,7 @@ pub(crate) enum DragState {
     Dragging {
         mouse_x: i32,
         mouse_y: i32,
-        rect: Rect,
+        rect: DomRect,
         group: Arc<Group>,
         tab_index: Option<usize>,
     },
@@ -92,10 +92,8 @@ pub(crate) struct State {
 
 impl State {
     pub(crate) fn new(options: Options, window: Window) -> Self {
-        let local_storage = stdweb::web::window().local_storage();
-
-        let search_value = local_storage.get("tab-organizer.search").unwrap_or_else(|| "".to_string());
-        let scroll_y = local_storage.get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
+        let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
+        let scroll_y = local_storage_get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
         let state = Self {
             search_parser: Mutable::new(Arc::new(search::Parsed::new(&search_value))),

@@ -2,13 +2,8 @@
 name = "web-extensions"
 version = "0.1.0"
 authors = ["Pauan <pcxunlimited@gmail.com>"]
+edition = "2018"
 
 [dependencies]
-discard = "1.0.3"
-serde = "1.0.36"
-serde_derive = "1.0.36"
-stdweb-derive = "0.5.0"
-
-[dependencies.stdweb]
-version = "0.4.0"
-features = ["experimental_features_which_may_break_on_minor_version_bumps"]
+wasm-bindgen = "0.2.45"
+js-sys = "0.3.27"

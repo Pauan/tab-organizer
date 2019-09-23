@@ -1,17 +1,31 @@
-#[macro_use]
-extern crate stdweb;
-#[macro_use]
-extern crate stdweb_derive;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate discard;
+use wasm_bindgen::prelude::*;
+use js_sys::Function;
 
-#[macro_use]
-mod macros;
 pub mod storage;
+pub mod tabs;
 pub mod windows;
+pub mod session;
+
+
+// TODO getRules, removeRules, and addRules
+#[wasm_bindgen]
+extern "C" {
+    pub type Listener;
+
+    #[wasm_bindgen(method, js_name = addListener)]
+    pub fn add_listener(this: &Listener, callback: &Function);
+
+    #[wasm_bindgen(method, js_name = removeListener)]
+    pub fn remove_listener(this: &Listener, callback: &Function);
+
+    #[wasm_bindgen(method, js_name = hasListener)]
+    pub fn has_listener(this: &Listener, callback: &Function) -> bool;
+
+    #[wasm_bindgen(method, js_name = hasListeners)]
+    pub fn has_listeners(this: &Listener) -> bool;
+}
+
 
 pub mod traits {
-    pub use storage::{StorageAreaRead, StorageAreaWrite};
+    pub use crate::storage::{StorageAreaRead, StorageAreaWrite};
 }

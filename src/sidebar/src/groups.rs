@@ -1,8 +1,8 @@
 use crate::types::{State, TabState, Group, Tab, Window};
 use crate::url_bar::UrlBar;
-use tab_organizer::{str_default, round_to_hour, TimeDifference, StackVec};
+use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
 use tab_organizer::state::{SidebarMessage, TabChange, SortTabs, Tag};
-use stdweb::web::Date;
+use js_sys::Date;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 use std::cmp::Ordering;
@@ -541,7 +541,7 @@ impl Deref for Groups {
 impl Group {
     pub(crate) fn wait_until_removed(&self) -> impl Future<Output = ()> {
         let signal = self.insert_animation.signal();
-        async { await!(signal.wait_for(Percentage::new(0.0))); }
+        async { signal.wait_for(Percentage::new(0.0)).await; }
     }
 }
 
@@ -549,7 +549,7 @@ impl Group {
 impl Tab {
     pub(crate) fn wait_until_removed(&self) -> impl Future<Output = ()> {
         let signal = self.insert_animation.signal();
-        async { await!(signal.wait_for(Percentage::new(0.0))); }
+        async { signal.wait_for(Percentage::new(0.0)).await; }
     }
 }
 

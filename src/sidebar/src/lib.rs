@@ -1,34 +1,21 @@
-#![recursion_limit="128"]
-#![feature(arbitrary_self_types, async_await, await_macro)]
 #![warn(unreachable_pub)]
 
-extern crate uuid;
-extern crate futures;
-#[macro_use]
-extern crate futures_signals;
-#[macro_use]
-extern crate dominator;
-#[macro_use]
-extern crate tab_organizer;
-#[macro_use]
-extern crate stdweb;
-#[macro_use]
-extern crate lazy_static;
-
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use std::sync::Arc;
-use tab_organizer::{generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{set_timeout, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text_signal, RefFn};
+use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, events, with_node};
 use dominator::animation::{Percentage, MutableAnimation};
-use dominator::events::{MouseDownEvent, MouseEnterEvent, InputEvent, MouseLeaveEvent, MouseMoveEvent, MouseUpEvent, MouseButton, IMouseEvent, ResizeEvent, ClickEvent, ScrollEvent};
-use stdweb::print_error_panic;
-use stdweb::web::{Date, HtmlElement, IElement, IHtmlElement, set_timeout};
-use stdweb::web::html_element::InputElement;
+use js_sys::Date;
 use futures::future::ready;
+use futures_signals::map_ref;
 use futures_signals::signal::{Mutable, SignalExt, and, or};
 use futures_signals::signal_vec::SignalVecExt;
+use lazy_static::lazy_static;
+use web_sys::{HtmlElement, window, ScrollRestoration, HtmlInputElement};
 
 use crate::types::{State, DragState, Tab, Window};
 use crate::constants::*;
@@ -142,7 +129,7 @@ fn initialize(state: Arc<State>) {
             .class(&*TAB_STYLE)
             .class(&*MENU_ITEM_STYLE)
 
-            .apply(cursor(state.is_dragging(), "pointer"))
+            .cursor!(state.is_dragging(), "pointer")
 
             .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
             .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
@@ -165,26 +152,26 @@ fn initialize(state: Arc<State>) {
         }))
     });
 
-    let window_height = Mutable::new(stdweb::web::window().inner_height() as f64);
+    let window_height = Mutable::new(tab_organizer::window_height());
 
     dominator::append_dom(&dominator::body(),
         html!("div", {
             .class(&*TOP_STYLE)
 
             // TODO only attach this when dragging
-            .global_event(clone!(state => move |_: MouseUpEvent| {
+            .global_event(clone!(state => move |_: events::MouseUp| {
                 state.drag_end();
             }))
 
             // TODO only attach this when dragging
-            .global_event(clone!(state => move |e: MouseMoveEvent| {
-                state.drag_move(e.client_x(), e.client_y());
+            .global_event(clone!(state => move |e: events::MouseMove| {
+                state.drag_move(e.mouse_x(), e.mouse_y());
             }))
 
             .future(culling::cull_groups(state.clone(), window_height.signal()))
 
-            .global_event(move |_: ResizeEvent| {
-                window_height.set_neq(stdweb::web::window().inner_height() as f64);
+            .global_event(move |_: events::Resize| {
+                window_height.set_neq(tab_organizer::window_height());
             })
 
             .children(&mut [
@@ -195,7 +182,7 @@ fn initialize(state: Arc<State>) {
 
                     .style_signal("width", state.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { rect, .. }) = dragging {
-                            Some(px(rect.get_width()))
+                            Some(px(rect.width()))
 
                         } else {
                             None
@@ -204,7 +191,7 @@ fn initialize(state: Arc<State>) {
 
                     .style_signal("transform", state.dragging.state.signal_ref(|dragging| {
                         if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
-                            Some(format!("translate({}px, {}px)", rect.get_left().round(), (mouse_y - TAB_DRAGGING_TOP)))
+                            Some(format!("translate({}px, {}px)", rect.x().round(), (mouse_y - TAB_DRAGGING_TOP)))
 
                         } else {
                             None
@@ -295,11 +282,11 @@ fn initialize(state: Arc<State>) {
                     .class(&*TOOLBAR_STYLE)
 
                     .children(&mut [
-                        html!("input" => InputElement, {
+                        html!("input" => HtmlInputElement, {
                             .class(&*SEARCH_STYLE)
                             .class(&*STRETCH_STYLE)
 
-                            .apply(cursor(state.is_dragging(), "auto"))
+                            .cursor!(state.is_dragging(), "auto")
 
                             .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
                                 if failed.is_some() {
@@ -319,10 +306,10 @@ fn initialize(state: Arc<State>) {
 
                             .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
-                            .with_element(|dom, element| {
-                                dom.event(clone!(state => move |_: InputEvent| {
-                                    let value = Arc::new(element.raw_value());
-                                    stdweb::web::window().local_storage().insert("tab-organizer.search", &value).unwrap();
+                            .with_node!(element => {
+                                .event(clone!(state => move |_: events::Input| {
+                                    let value = Arc::new(element.value());
+                                    local_storage_set("tab-organizer.search", &value);
                                     // TODO is it faster to not use Arc ?
                                     state.search_parser.set(Arc::new(search::Parsed::new(&value)));
                                     state.search_box.set(value);
@@ -345,28 +332,28 @@ fn initialize(state: Arc<State>) {
                                         .class(&*ROW_STYLE)
                                         .class(&*TOOLBAR_MENU_STYLE)
 
-                                        .apply(cursor(state.is_dragging(), "pointer"))
+                                        .cursor!(state.is_dragging(), "pointer")
 
                                         .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
 
-                                        .event(clone!(hovering => move |_: MouseEnterEvent| {
+                                        .event(clone!(hovering => move |_: events::MouseEnter| {
                                             hovering.set_neq(true);
                                         }))
 
-                                        .event(move |_: MouseLeaveEvent| {
+                                        .event(move |_: events::MouseLeave| {
                                             hovering.set_neq(false);
                                         })
 
-                                        .event(clone!(holding => move |_: MouseDownEvent| {
+                                        .event(clone!(holding => move |_: events::MouseDown| {
                                             holding.set_neq(true);
                                         }))
 
                                         // TODO only attach this when holding
-                                        .global_event(move |_: MouseUpEvent| {
+                                        .global_event(move |_: events::MouseUp| {
                                             holding.set_neq(false);
                                         })
 
-                                        .event(clone!(state => move |_: ClickEvent| {
+                                        .event(clone!(state => move |_: events::Click| {
                                             state.menu.show();
                                         }))
 
@@ -420,14 +407,13 @@ fn initialize(state: Arc<State>) {
                 html!("div", {
                     .class(&*GROUP_LIST_STYLE)
 
-                    .with_element(|dom, element| { dom
+                    .with_node!(element => {
                         // TODO also update these when groups/tabs are added/removed ?
-                        .event(clone!(state, element => move |_: ScrollEvent| {
+                        .event(clone!(state, element => move |_: events::Scroll| {
                             if IS_LOADED.get() {
-                                let local_storage = stdweb::web::window().local_storage();
-                                let y = element.scroll_top();
+                                let y = element.scroll_top() as f64;
                                 // TODO is there a more efficient way of converting to a string ?
-                                local_storage.insert("tab-organizer.scroll.y", &y.to_string()).unwrap();
+                                local_storage_set("tab-organizer.scroll.y", &y.to_string());
                                 state.scrolling.y.set_neq(y);
                             }
                         }))
@@ -447,13 +433,13 @@ fn initialize(state: Arc<State>) {
                         }.for_each(clone!(state => move |scroll_y| {
                             if let Some(scroll_y) = scroll_y {
                                 let scroll_y = scroll_y.round();
-                                let old_scroll_y = element.scroll_top();
+                                let old_scroll_y = element.scroll_top() as f64;
 
                                 if old_scroll_y != scroll_y {
-                                    element.set_scroll_top(scroll_y);
+                                    element.set_scroll_top(scroll_y as i32);
 
                                     // TODO does this cause a reflow ?
-                                    let new_scroll_y = element.scroll_top();
+                                    let new_scroll_y = element.scroll_top() as f64;
 
                                     if new_scroll_y != scroll_y {
                                         state.scrolling.y.set_neq(new_scroll_y);
@@ -494,7 +480,7 @@ fn initialize(state: Arc<State>) {
                                         .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
                                         .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                                        .event(clone!(state, group, index => move |_: MouseEnterEvent| {
+                                        .event(clone!(state, group, index => move |_: events::MouseEnter| {
                                             if let Some(index) = index.get() {
                                                 state.drag_over_group(group.clone(), index);
                                             }
@@ -567,20 +553,20 @@ fn initialize(state: Arc<State>) {
 
                                                                 .visible_signal(state.is_tab_hovered(&tab))
 
-                                                                .event(clone!(tab => move |_: MouseEnterEvent| {
+                                                                .event(clone!(tab => move |_: events::MouseEnter| {
                                                                     tab.close_hovered.set_neq(true);
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseLeaveEvent| {
+                                                                .event(clone!(tab => move |_: events::MouseLeave| {
                                                                     tab.close_hovered.set_neq(false);
                                                                 }))
 
-                                                                .event(clone!(tab => move |_: MouseDownEvent| {
+                                                                .event(clone!(tab => move |_: events::MouseDown| {
                                                                     tab.close_holding.set_neq(true);
                                                                 }))
 
                                                                 // TODO only attach this when hovering
-                                                                .global_event(clone!(tab => move |_: MouseUpEvent| {
+                                                                .global_event(clone!(tab => move |_: events::MouseUp| {
                                                                     tab.close_holding.set_neq(false);
                                                                 }))
                                                             }),
@@ -614,33 +600,33 @@ fn initialize(state: Arc<State>) {
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 
-                                                                // TODO a bit hacky
-                                                                .with_element(|dom, element| {
-                                                                    dom.event(clone!(state, index, group, tab => move |e: MouseDownEvent| {
-                                                                        tab.holding.set_neq(true);
+                                                                .apply(|dom| {
+                                                                    with_node!(dom, element => {
+                                                                        .event(clone!(state, index, group, tab => move |e: events::MouseDown| {
+                                                                            tab.holding.set_neq(true);
 
-                                                                        if let Some(index) = index.get() {
-                                                                            let shift = e.shift_key();
-                                                                            // TODO is this correct ?
-                                                                            // TODO test this, especially on Mac
-                                                                            // TODO what if both of these are true ?
-                                                                            let ctrl = e.ctrl_key() || e.meta_key();
-                                                                            let alt = e.alt_key();
+                                                                            if let Some(index) = index.get() {
+                                                                                let shift = e.shift_key();
+                                                                                // TODO is this correct ?
+                                                                                // TODO test this, especially on Mac
+                                                                                let ctrl = e.ctrl_key();
+                                                                                let alt = e.alt_key();
 
-                                                                            if !shift && !ctrl && !alt {
-                                                                                let rect = element.get_bounding_client_rect();
-                                                                                state.drag_start(e.client_x(), e.client_y(), rect, group.clone(), tab.clone(), index);
+                                                                                if !shift && !ctrl && !alt {
+                                                                                    let rect = element.get_bounding_client_rect();
+                                                                                    state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
+                                                                                }
                                                                             }
-                                                                        }
-                                                                    }))
+                                                                        }))
+                                                                    })
                                                                 })
 
                                                                 // TODO only attach this when holding
-                                                                .global_event(clone!(tab => move |_: MouseUpEvent| {
+                                                                .global_event(clone!(tab => move |_: events::MouseUp| {
                                                                     tab.holding.set_neq(false);
                                                                 }))
 
-                                                                .event(clone!(state, index, group, tab => move |_: MouseEnterEvent| {
+                                                                .event(clone!(state, index, group, tab => move |_: events::MouseEnter| {
                                                                     // TODO should this be inside of the if ?
                                                                     state.hover_tab(&tab);
 
@@ -649,37 +635,33 @@ fn initialize(state: Arc<State>) {
                                                                     }
                                                                 }))
 
-                                                                .event(clone!(state, tab => move |_: MouseLeaveEvent| {
+                                                                .event(clone!(state, tab => move |_: events::MouseLeave| {
                                                                     // TODO should this check the index, like MouseEnterEvent ?
                                                                     state.unhover_tab(&tab);
                                                                 }))
 
                                                                 // TODO replace with MouseClickEvent
-                                                                .event(clone!(index, group, tab => move |e: MouseUpEvent| {
+                                                                .event(clone!(index, group, tab => move |e: events::MouseUp| {
                                                                     if index.get().is_some() {
                                                                         let shift = e.shift_key();
                                                                         // TODO is this correct ?
                                                                         // TODO test this, especially on Mac
-                                                                        // TODO what if both of these are true ?
-                                                                        let ctrl = e.ctrl_key() || e.meta_key();
+                                                                        let ctrl = e.ctrl_key();
                                                                         let alt = e.alt_key();
 
-                                                                        match e.button() {
-                                                                            MouseButton::Left => {
-                                                                                // TODO a little hacky
-                                                                                if !tab.close_hovered.get() {
-                                                                                    if ctrl && !shift && !alt {
-                                                                                        group.ctrl_select_tab(&tab);
+                                                                        if let events::MouseButton::Left = e.button() {
+                                                                            // TODO a little hacky
+                                                                            if !tab.close_hovered.get() {
+                                                                                if ctrl && !shift && !alt {
+                                                                                    group.ctrl_select_tab(&tab);
 
-                                                                                    } else if !ctrl && shift && !alt {
-                                                                                        group.shift_select_tab(&tab);
+                                                                                } else if !ctrl && shift && !alt {
+                                                                                    group.shift_select_tab(&tab);
 
-                                                                                    } else if !ctrl && !shift && !alt {
-                                                                                        group.click_tab(&tab);
-                                                                                    }
+                                                                                } else if !ctrl && !shift && !alt {
+                                                                                    group.click_tab(&tab);
                                                                                 }
-                                                                            },
-                                                                            _ => {},
+                                                                            }
                                                                         }
                                                                     }
                                                                 })))
@@ -702,247 +684,248 @@ fn initialize(state: Arc<State>) {
     }));
 
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
-    stdweb::web::window().request_animation_frame(|_| {
-        IS_LOADED.set_neq(true);
-        SHOW_MODAL.set_neq(false);
-        log!("Loaded");
-    });
+    window()
+        .unwrap_throw()
+        .request_animation_frame(Closure::once_into_js(move |_: f64| {
+            IS_LOADED.set_neq(true);
+            SHOW_MODAL.set_neq(false);
+            log!("Loaded");
+        }).unchecked_ref())
+        .unwrap_throw();
 
     log!("Finished");
 
     let mut tag_counter = 0;
 
     if DYNAMIC_TAB_TEST {
-        js! { @(no_return)
-            setInterval(@{clone!(state => move || {
-                state.process_message(SidebarMessage::TabChanged {
-                    tab_index: 2,
-                    changes: vec![
-                        TabChange::Title {
-                            new_title: Some(generate_uuid().to_string()),
-                        },
-                    ],
-                });
-
-                state.process_message(SidebarMessage::TabChanged {
-                    tab_index: 3,
-                    changes: vec![
-                        TabChange::Title {
-                            new_title: Some("e1".to_string()),
-                        },
-                    ],
-                });
-
-                state.process_message(SidebarMessage::TabChanged {
-                    tab_index: 3,
-                    changes: vec![
-                        TabChange::Title {
-                            new_title: Some("e2".to_string()),
-                        },
-                    ],
-                });
-
-                /*state.process_message(SidebarMessage::TabChanged {
-                    tab_index: 0,
-                    changes: vec![
-                        TabChange::Pinned {
-                            pinned: false,
-                        },
-                    ],
-                });*/
-
-                state.process_message(SidebarMessage::TabRemoved {
-                    tab_index: 0,
-                });
-
-                state.process_message(SidebarMessage::TabRemoved {
-                    tab_index: 0,
-                });
-
-                state.process_message(SidebarMessage::TabRemoved {
-                    tab_index: 8,
-                });
-
-                /*state.process_message(SidebarMessage::TabInserted {
-                    tab_index: 0,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: Date::now(),
-                            timestamp_focused: Date::now(),
-                        },
-                        focused: false,
-                        unloaded: true,
-                        pinned: true,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("top".to_owned()),
-                        title: Some("top".to_owned()),
+        set_interval(clone!(state => move || {
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 2,
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some(generate_uuid().to_string()),
                     },
-                });*/
+                ],
+            });
 
-                let timestamp = Date::now();
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 3,
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some("e1".to_string()),
+                    },
+                ],
+            });
 
-                state.process_message(SidebarMessage::TabInserted {
-                    tab_index: 12,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: timestamp,
-                            timestamp_focused: timestamp,
-                            tags: vec![
-                                server::Tag {
-                                    name: "New".to_string(),
-                                    timestamp_added: Date::now(),
-                                },
-                            ],
-                        },
-                        focused: false,
-                        unloaded: true,
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 3,
+                changes: vec![
+                    TabChange::Title {
+                        new_title: Some("e2".to_string()),
+                    },
+                ],
+            });
+
+            /*state.process_message(SidebarMessage::TabChanged {
+                tab_index: 0,
+                changes: vec![
+                    TabChange::Pinned {
                         pinned: false,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("bottom".to_owned()),
-                        title: Some(format!("bottom {}", timestamp)),
                     },
-                });
+                ],
+            });*/
 
-                state.process_message(SidebarMessage::TabInserted {
-                    tab_index: 13,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: timestamp,
-                            timestamp_focused: timestamp,
-                            tags: vec![],
-                        },
-                        focused: false,
-                        unloaded: true,
-                        pinned: false,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("bottom".to_owned()),
-                        title: Some(format!("bottom {}", timestamp)),
+            state.process_message(SidebarMessage::TabRemoved {
+                tab_index: 0,
+            });
+
+            state.process_message(SidebarMessage::TabRemoved {
+                tab_index: 0,
+            });
+
+            state.process_message(SidebarMessage::TabRemoved {
+                tab_index: 8,
+            });
+
+            /*state.process_message(SidebarMessage::TabInserted {
+                tab_index: 0,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now(),
+                        timestamp_focused: Date::now(),
                     },
-                });
+                    focused: false,
+                    unloaded: true,
+                    pinned: true,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("top".to_owned()),
+                    title: Some("top".to_owned()),
+                },
+            });*/
 
-                state.process_message(SidebarMessage::TabChanged {
-                    tab_index: 10,
-                    changes: vec![
-                        TabChange::AddedToTag {
-                            tag: server::Tag {
-                                name: tag_counter.to_string(),
+            let timestamp = Date::now();
+
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 12,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: timestamp,
+                        timestamp_focused: timestamp,
+                        tags: vec![
+                            server::Tag {
+                                name: "New".to_string(),
                                 timestamp_added: Date::now(),
                             },
+                        ],
+                    },
+                    focused: false,
+                    unloaded: true,
+                    pinned: false,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("bottom".to_owned()),
+                    title: Some(format!("bottom {}", timestamp)),
+                },
+            });
+
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 13,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: timestamp,
+                        timestamp_focused: timestamp,
+                        tags: vec![],
+                    },
+                    focused: false,
+                    unloaded: true,
+                    pinned: false,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("bottom".to_owned()),
+                    title: Some(format!("bottom {}", timestamp)),
+                },
+            });
+
+            state.process_message(SidebarMessage::TabChanged {
+                tab_index: 10,
+                changes: vec![
+                    TabChange::AddedToTag {
+                        tag: server::Tag {
+                            name: tag_counter.to_string(),
+                            timestamp_added: Date::now(),
                         },
-                    ],
-                });
+                    },
+                ],
+            });
 
-                tag_counter += 1;
+            tag_counter += 1;
 
-                /*for _ in 0..10 {
-                    state.process_message(SidebarMessage::TabRemoved {
-                        window_index: 2,
-                        tab_index: 0,
-                    });
-                }
-
-                state.process_message(SidebarMessage::WindowRemoved {
+            /*for _ in 0..10 {
+                state.process_message(SidebarMessage::TabRemoved {
                     window_index: 2,
+                    tab_index: 0,
                 });
+            }
 
-                state.process_message(SidebarMessage::WindowInserted {
+            state.process_message(SidebarMessage::WindowRemoved {
+                window_index: 2,
+            });
+
+            state.process_message(SidebarMessage::WindowInserted {
+                window_index: 2,
+                window: server::Window {
+                    serialized: server::SerializedWindow {
+                        id: generate_uuid(),
+                        name: None,
+                        timestamp_created: Date::now(),
+                        timestamp_focused: Date::now(),
+                    },
+                    focused: false,
+                    tabs: vec![],
+                },
+            });
+
+            for index in 0..10 {
+                state.process_message(SidebarMessage::TabInserted {
                     window_index: 2,
-                    window: server::Window {
-                        serialized: server::SerializedWindow {
+                    tab_index: index,
+                    tab: server::Tab {
+                        serialized: server::SerializedTab {
                             id: generate_uuid(),
-                            name: None,
                             timestamp_created: Date::now(),
                             timestamp_focused: Date::now(),
                         },
-                        focused: false,
-                        tabs: vec![],
+                        focused: index == 7,
+                        unloaded: index == 5,
+                        pinned: index == 0 || index == 1 || index == 2,
+                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                        url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                        title: Some("Foo".to_owned()),
                     },
                 });
+            }*/
+        }), (INSERT_ANIMATION_DURATION * 2.0) as u32);
 
-                for index in 0..10 {
-                    state.process_message(SidebarMessage::TabInserted {
-                        window_index: 2,
-                        tab_index: index,
-                        tab: server::Tab {
-                            serialized: server::SerializedTab {
-                                id: generate_uuid(),
-                                timestamp_created: Date::now(),
-                                timestamp_focused: Date::now(),
+        set_interval(move || {
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 0,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now(),
+                        timestamp_focused: Date::now(),
+                        tags: vec![
+                            server::Tag {
+                                name: "New (Pinned)".to_string(),
+                                timestamp_added: Date::now(),
                             },
-                            focused: index == 7,
-                            unloaded: index == 5,
-                            pinned: index == 0 || index == 1 || index == 2,
-                            favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                            url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                            title: Some("Foo".to_owned()),
-                        },
-                    });
-                }*/
-            })}, @{INSERT_ANIMATION_DURATION * 2.0});
-        }
-
-        js! { @(no_return)
-            setInterval(@{move || {
-                state.process_message(SidebarMessage::TabInserted {
-                    tab_index: 0,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: Date::now(),
-                            timestamp_focused: Date::now(),
-                            tags: vec![
-                                server::Tag {
-                                    name: "New (Pinned)".to_string(),
-                                    timestamp_added: Date::now(),
-                                },
-                            ],
-                        },
-                        focused: false,
-                        unloaded: true,
-                        pinned: true,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("top".to_owned()),
-                        title: Some("top".to_owned()),
+                        ],
                     },
-                });
+                    focused: false,
+                    unloaded: true,
+                    pinned: true,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("top".to_owned()),
+                    title: Some("top".to_owned()),
+                },
+            });
 
-                state.process_message(SidebarMessage::TabInserted {
-                    tab_index: 0,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
-                            id: generate_uuid(),
-                            timestamp_created: Date::now(),
-                            timestamp_focused: Date::now(),
-                            tags: vec![
-                                server::Tag {
-                                    name: "New (Pinned)".to_string(),
-                                    timestamp_added: Date::now(),
-                                },
-                            ],
-                        },
-                        focused: false,
-                        unloaded: true,
-                        pinned: true,
-                        favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                        url: Some("top test".to_owned()),
-                        title: Some("top test".to_owned()),
+            state.process_message(SidebarMessage::TabInserted {
+                tab_index: 0,
+                tab: server::Tab {
+                    serialized: server::SerializedTab {
+                        id: generate_uuid(),
+                        timestamp_created: Date::now(),
+                        timestamp_focused: Date::now(),
+                        tags: vec![
+                            server::Tag {
+                                name: "New (Pinned)".to_string(),
+                                timestamp_added: Date::now(),
+                            },
+                        ],
                     },
-                });
-            }}, @{INSERT_ANIMATION_DURATION * 3.0});
-        }
+                    focused: false,
+                    unloaded: true,
+                    pinned: true,
+                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                    url: Some("top test".to_owned()),
+                    title: Some("top test".to_owned()),
+                },
+            });
+        }, (INSERT_ANIMATION_DURATION * 3.0) as u32);
     }
 }
 
 
-fn main() {
-    tab_organizer::set_panic_hook(|message| {
-        let message = Arc::new(message);
+#[wasm_bindgen(start)]
+pub fn main_js() {
+    #[cfg(debug_assertions)]
+    std::panic::set_hook(Box::new(move |info| {
+    	let message = Arc::new(info.to_string());
         FAILED.set(Some(message.clone()));
-        print_error_panic(&*message);
-    });
+        console_error_panic_hook::hook(info);
+    }));
 
 
     log!("Starting");
@@ -994,11 +977,12 @@ fn main() {
     });
 
     // Disables the browser scroll restoration
-    js! { @(no_return)
-        if ("scrollRestoration" in history) {
-            history.scrollRestoration = "manual";
-        }
-    }
+    window()
+        .unwrap_throw()
+        .history()
+        .unwrap_throw()
+        .set_scroll_restoration(ScrollRestoration::Manual)
+        .unwrap_throw();
 
     dominator::append_dom(&dominator::body(), html!("div", {
         .class(&*TOP_STYLE)

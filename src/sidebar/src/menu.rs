@@ -1,9 +1,9 @@
 use crate::constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
 use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, SignalExt, Mutable};
-use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX};
-use dominator::events::{MouseEnterEvent, MouseLeaveEvent, ClickEvent};
-use stdweb::web::IElement;
+use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX, html, clone, events, class};
+use lazy_static::lazy_static;
+use web_sys::{Element, EventTarget};
 
 
 lazy_static! {
@@ -153,7 +153,7 @@ impl MenuBuilder {
         }
     }
 
-    fn menu_item<A>(&mut self) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A> where A: IElement + Clone + 'static {
+    fn menu_item<A>(&mut self) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A> where A: AsRef<Element> + AsRef<EventTarget> + Clone + 'static {
         let index = self.children.len();
 
         let mutable = self.hovered.clone();
@@ -175,12 +175,12 @@ impl MenuBuilder {
             .class_signal(&*MENU_ITEM_HOVER_STYLE, hovered.signal())
             .class_signal(&*MENU_ITEM_SHADOW_STYLE, hovered.signal())
 
-            .event(clone!(hovered => move |_: MouseEnterEvent| {
+            .event(clone!(hovered => move |_: events::MouseEnter| {
                 hovered.set_neq(true);
                 mutable.set_neq(Some(index));
             }))
 
-            .event(move |_: MouseLeaveEvent| {
+            .event(move |_: events::MouseLeave| {
                 hovered.set_neq(false);
             })
         }
@@ -209,7 +209,7 @@ impl MenuBuilder {
             // TODO make this cleaner
             .event({
                 let hovered = self.hovered.clone();
-                move |_: MouseEnterEvent| {
+                move |_: events::MouseEnter| {
                     hovered.set_neq(Some(index));
                 }
             })
@@ -271,7 +271,7 @@ impl MenuBuilder {
 
             .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal)
 
-            .event(move |_: ClickEvent| {
+            .event(move |_: events::Click| {
                 state.hide();
                 on_click();
             })
@@ -324,7 +324,7 @@ impl Menu {
                 html!("div", {
                     .class(&*MODAL_STYLE)
 
-                    .event(move |_: ClickEvent| {
+                    .event(move |_: events::Click| {
                         state.hide();
                     })
                 }),

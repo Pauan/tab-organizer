@@ -1,5 +1,6 @@
 use tab_organizer::px;
-use dominator::HIGHEST_ZINDEX;
+use dominator::{class, HIGHEST_ZINDEX};
+use lazy_static::lazy_static;
 
 
 pub(crate) const LOADING_MESSAGE_THRESHOLD: u32 = 500;

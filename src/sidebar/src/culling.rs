@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::marker::Unpin;
 use std::sync::Arc;
-use tab_organizer::ease;
+use tab_organizer::{time, ease};
 use tab_organizer::state::SortTabs;
 use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab};

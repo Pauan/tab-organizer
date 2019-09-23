@@ -1,6 +1,5 @@
 use crate::constants::{TOOLBAR_TOTAL_HEIGHT, MOUSE_SCROLL_SPEED, MOUSE_SCROLL_THRESHOLD};
-use tab_organizer::normalize;
-use stdweb;
+use tab_organizer::{window_height, normalize};
 use crate::types::State;
 use dominator::animation::{easing, Percentage, OnTimestampDiff};
 
@@ -9,7 +8,7 @@ impl State {
 	pub(crate) fn start_scrolling(&self, mouse_y: i32) {
         // TODO is there a better way of calculating this ?
         let top = TOOLBAR_TOTAL_HEIGHT;
-        let bottom = stdweb::web::window().inner_height() as f64;
+        let bottom = window_height();
         let threshold = MOUSE_SCROLL_THRESHOLD / (bottom - top).abs();
         let percentage = normalize(mouse_y as f64, top, bottom);
         let percentage = percentage - 0.5;

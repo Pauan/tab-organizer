@@ -1,32 +1,18 @@
-#![feature(futures_api)]
 #![warn(unreachable_pub)]
 
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate stdweb;
-// TODO remove this
-#[macro_use]
-extern crate stdweb_derive;
-#[macro_use]
-extern crate serde_derive;
-extern crate futures_signals;
-extern crate futures;
-extern crate uuid;
-extern crate web_extensions;
-extern crate dominator;
-
-use std::fmt;
 use std::borrow::Borrow;
 use std::sync::Arc;
-use stdweb::{spawn_local, unwrap_future, JsSerialize, Reference};
-use stdweb::web::{TypedArray, IHtmlElement, Date, set_timeout};
-use stdweb::unstable::TryInto;
 use futures_signals::signal::{Signal, SignalExt};
-use futures::Future;
-use dominator::{RefFn, DomBuilder};
+use std::future::Future;
+use dominator::RefFn;
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
+use js_sys::Date;
+use web_sys::{window, Performance, Storage};
+use wasm_bindgen_futures::futures_0_3::spawn_local;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
+
 
 pub mod state;
 
@@ -80,23 +66,19 @@ pub fn ease(t: Percentage) -> Percentage {
     easing::in_out(t, easing::cubic)
 }
 
-#[inline]
-pub fn cursor<A, B>(is_dragging: A, cursor: &'static str) -> impl FnOnce(DomBuilder<B>) -> DomBuilder<B>
-    where A: Signal<Item = bool> + 'static,
-          B: IHtmlElement + Clone + 'static {
 
-    // TODO is this inline a good idea ?
-    #[inline]
-    move |dom| {
-        dom.style_signal("cursor", is_dragging.map(move |is_dragging| {
+#[macro_export]
+macro_rules! cursor {
+    ($this:ident, $signal:expr, $type:expr) => {
+        $this.style_signal("cursor", $signal.map(move |is_dragging| {
             if is_dragging {
                 None
 
             } else {
-                Some(cursor)
+                Some($type)
             }
         }))
-    }
+    };
 }
 
 pub fn none_if<A, F>(signal: A, none_if: f64, mut f: F, min: f64, max: f64) -> impl Signal<Item = Option<String>>
@@ -131,7 +113,11 @@ pub fn normalize(value: f64, min: f64, max: f64) -> f64 {
 
 #[inline]
 pub fn performance_now() -> f64 {
-    js!( return performance.now(); ).try_into().unwrap()
+    thread_local! {
+        static PERFORMANCE: Performance = window().unwrap_throw().performance().unwrap_throw();
+    }
+
+    PERFORMANCE.with(|a| a.now())
 }
 
 #[macro_export]
@@ -140,62 +126,93 @@ macro_rules! time {
         let old = $crate::performance_now();
         let value = $value;
         let new = $crate::performance_now();
-        log!("{} took {}ms", $name, new - old);
+        $crate::log!("{} took {}ms", $name, new - old);
         value
     }}
 }
 
+
+/*pub fn timestamp(name: &str) {
+    web_sys::console::time_stamp_with_data(&JsValue::from(name))
+}
 
 #[macro_export]
 macro_rules! profile {
     ($name:expr, $value:expr) => {{
         let name = $name;
-        js! { @(no_return) console.timeStamp(@{&name}); }
+        $crate::timestamp(&name);
         let value = $value;
-        js! { @(no_return) console.timeStamp(@{&name}); }
+        $crate::timestamp(&name);
         //js! { @(no_return) setTimeout(function () { console.profileEnd(@{&name}); }, 0); }
         value
     }}
-}
+}*/
 
 
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        js! { @(no_return)
-            console.log(@{format!($($args)*)});
-        }
+        web_sys::console::log_1(&wasm_bindgen::JsValue::from(format!($($args)*)));
     };
 }
 
 
-pub fn spawn<A, B>(future: A)
-    where A: Future<Output = Result<(), B>> + 'static,
-          B: JsSerialize {
+pub fn unwrap_future<F>(future: F) -> impl Future<Output = ()>
+    where F: Future<Output = Result<(), JsValue>> {
+    async {
+        if let Err(e) = future.await {
+            // TODO better logging of the error
+            wasm_bindgen::throw_val(e);
+        }
+    }
+}
+
+
+pub fn spawn<A>(future: A) where A: Future<Output = Result<(), JsValue>> + 'static {
     spawn_local(unwrap_future(future))
 }
 
 
+/*
 // TODO verify that this is cryptographically secure
-// TODO add in [u8; 16] implementations for TryFrom<Value>
-fn generate_random_bytes() -> Vec<u8> {
-    // TODO maybe this lazy_static doesn't actually help performance ?
-    lazy_static! {
-        static ref UUID_ARRAY: TypedArray<u8> = js!( return new Uint8Array(16); ).try_into().unwrap();
+fn generate_random_bytes() -> [u8; 16] {
+    // TODO maybe this thread_local doesn't actually help performance ?
+    thread_local! {
+        static UUID_ARRAY: Uint8Array = Uint8Array::new_with_length(16);
+
+        static CRYPTO: web_sys::Crypto = window().unwrap_throw().crypto().unwrap_throw();
     }
 
-    js! { @(no_return)
-        crypto.getRandomValues(@{&*UUID_ARRAY});
-    }
+    CRYPTO.with(|crypto| {
+        UUID_ARRAY.with(|array| {
+            crypto.get_random_values_with_array_buffer_view(&array).unwrap_throw();
 
-    UUID_ARRAY.to_vec()
-}
+            let mut out = [0; 16];
+            array.copy_to(&mut out);
+            out
+        })
+    })
+}*/
 
 pub fn generate_uuid() -> Uuid {
-    // TODO a little gross
-    let mut bytes = [0; 16];
-    bytes.copy_from_slice(&generate_random_bytes());
-    Uuid::from_random_bytes(bytes)
+    Uuid::new_v4()
+}
+
+
+thread_local! {
+    static STORAGE: Storage = window()
+        .unwrap_throw()
+        .local_storage()
+        .unwrap_throw()
+        .unwrap_throw();
+}
+
+pub fn local_storage_get(key: &str) -> Option<String> {
+    STORAGE.with(|x| x.get_item(key).unwrap_throw())
+}
+
+pub fn local_storage_set(key: &str, value: &str) {
+    STORAGE.with(|x| x.set_item(key, value).unwrap_throw())
 }
 
 
@@ -227,18 +244,29 @@ impl<A> StackVec<A> {
 }
 
 
-pub fn set_panic_hook<F>(hook: F) where F: Fn(String) + Send + Sync + 'static {
+/*pub fn set_panic_hook<F>(hook: F) where F: Fn(String) + Send + Sync + 'static {
     std::panic::set_hook(Box::new(move |info| {
         hook(info.to_string());
     }));
-}
+}*/
 
 
 pub fn decode_uri_component(input: &str) -> String {
-    js!( return decodeURIComponent(@{input}); ).try_into().unwrap()
+    js_sys::decode_uri_component(input).unwrap_throw().into()
 }
 
 
+pub fn window_height() -> f64 {
+    window()
+        .unwrap_throw()
+        .inner_height()
+        .unwrap_throw()
+        .as_f64()
+        .unwrap_throw()
+}
+
+
+/*
 // TODO move this into stdweb
 #[derive(Clone, PartialEq, Eq, ReferenceType)]
 #[reference(instance_of = "RegExp")]
@@ -295,15 +323,16 @@ impl fmt::Debug for RegExp {
             .field(&flags)
             .finish()
     }
-}
+}*/
 
 
 pub fn round_to_hour(time: f64) -> f64 {
-    js!(
-        var t = new Date(@{time});
-        t.setUTCMinutes(0, 0, 0);
-        return t.getTime();
-    ).try_into().unwrap()
+    // TODO direct f64 bindings for Date
+    let t = Date::new(&JsValue::from(time));
+    t.set_utc_minutes(0);
+    t.set_utc_seconds(0);
+    t.set_utc_milliseconds(0);
+    t.get_time()
 }
 
 
@@ -394,6 +423,36 @@ impl TimeDifference {
             format!("{} ago", output.join(" "))
         }
     }
+}
+
+
+pub fn set_timeout<F>(f: F, ms: u32) where F: FnOnce() + 'static {
+    let f = Closure::once_into_js(f);
+
+    window()
+        .unwrap_throw()
+        .set_timeout_with_callback_and_timeout_and_arguments_0(
+            f.unchecked_ref(),
+            // TODO is this conversion correct ?
+            ms as i32,
+        )
+        .unwrap_throw();
+}
+
+
+pub fn set_interval<F>(f: F, ms: u32) where F: FnMut() + 'static {
+    let f = Closure::wrap(Box::new(f) as Box<dyn FnMut()>);
+
+    window()
+        .unwrap_throw()
+        .set_interval_with_callback_and_timeout_and_arguments_0(
+            f.as_ref().unchecked_ref(),
+            // TODO is this conversion correct ?
+            ms as i32,
+        )
+        .unwrap_throw();
+
+    f.forget();
 }
 
 

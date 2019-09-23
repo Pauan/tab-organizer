@@ -1,5 +1,6 @@
 //use nom::types::CompleteStr;
-use tab_organizer::RegExp;
+use wasm_bindgen::prelude::*;
+use regex::{Regex, RegexBuilder, escape};
 use crate::types::{State, Group, Tab};
 
 
@@ -71,7 +72,7 @@ impl State {
 #[derive(Debug)]
 pub(crate) enum Parsed {
     True,
-    Literal(RegExp),
+    Literal(Regex),
     And(Box<Parsed>, Box<Parsed>),
 }
 
@@ -82,7 +83,12 @@ impl Parsed {
 
         input.split(" ")
             .filter(|x| *x != "")
-            .map(|x| Parsed::Literal(RegExp::new(&RegExp::escape(x), "i")))
+            .map(|x| {
+                Parsed::Literal(RegexBuilder::new(&escape(x))
+                    .case_insensitive(true)
+                    .build()
+                    .unwrap_throw())
+            })
             .fold(Parsed::True, |old, new| {
                 if let Parsed::True = old {
                     new

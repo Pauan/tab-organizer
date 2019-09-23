@@ -3,7 +3,16 @@
   "name": "tab-organizer",
   "version": "5.0.0-beta",
   "scripts": {
-    "build": "cargo web build --target wasm32-unknown-unknown --release && node build.js release",
-    "test": "cargo web test --target wasm32-unknown-unknown"
+    "build": "rimraf dist pkg && webpack",
+    "start": "rimraf dist pkg && webpack-dev-server -d",
+    "test": "cargo test && wasm-pack test --headless"
+  },
+  "devDependencies": {
+    "@wasm-tool/wasm-pack-plugin": "^0.4.2",
+    "copy-webpack-plugin": "^5.0.3",
+    "webpack": "^4.33.0",
+    "webpack-cli": "^3.3.3",
+    "webpack-dev-server": "^3.7.1",
+    "rimraf": "^2.6.3"
   }
 }
