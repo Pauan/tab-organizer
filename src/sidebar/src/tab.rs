@@ -1,6 +1,4 @@
-use crate::url_bar;
 use crate::types::{State, Tab};
-use std::sync::Arc;
 use futures_signals::signal::{Signal, and, not};
 
 
@@ -21,11 +19,8 @@ impl State {
         if !tab.hovered.get() {
             tab.hovered.set(true);
 
-            let url = tab.url.lock_ref();
-
-            self.url_bar.set(url.as_ref().and_then(|url| {
-                url_bar::UrlBar::new(&url).map(|x| Arc::new(x.minify()))
-            }));
+            let url_bar = tab.url_bar.lock_ref();
+            self.url_bar.set(url_bar.clone());
         }
     }
 

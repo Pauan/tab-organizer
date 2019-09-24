@@ -1,13 +1,13 @@
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{intern, JsCast};
 use std::sync::Arc;
 use tab_organizer::{set_timeout, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
-use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, events, with_node};
+use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, events, with_node, apply_methods};
 use dominator::animation::{Percentage, MutableAnimation};
 use js_sys::Date;
 use futures::future::ready;
@@ -51,8 +51,10 @@ fn initialize(state: Arc<State>) {
               D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
               F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
         html!("div", {
-            .class(&*URL_BAR_TEXT_STYLE)
-            .class(name)
+            .class([
+                &*URL_BAR_TEXT_STYLE,
+                name,
+            ])
 
             .visible_signal(state.url_bar.signal_cloned().map(move |url_bar| {
                 if let Some(url_bar) = url_bar {
@@ -69,8 +71,10 @@ fn initialize(state: Arc<State>) {
 
     fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
-            .class(&*TAB_FAVICON_STYLE)
-            .class(&*ICON_STYLE)
+            .class([
+                &*TAB_FAVICON_STYLE,
+                &*ICON_STYLE,
+            ])
 
             .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
 
@@ -82,8 +86,10 @@ fn initialize(state: Arc<State>) {
 
     fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("div", {
-            .class(&*STRETCH_STYLE)
-            .class(&*TAB_TEXT_STYLE)
+            .class([
+                &*STRETCH_STYLE,
+                &*TAB_TEXT_STYLE,
+            ])
 
             .children(&mut [
                 text_signal(map_ref! {
@@ -112,8 +118,10 @@ fn initialize(state: Arc<State>) {
 
     fn tab_close<A>(_tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
-            .class(&*TAB_CLOSE_STYLE)
-            .class(&*ICON_STYLE)
+            .class([
+                &*TAB_CLOSE_STYLE,
+                &*ICON_STYLE,
+            ])
 
             .attribute("src", "data/images/button-close.png")
 
@@ -125,11 +133,13 @@ fn initialize(state: Arc<State>) {
         where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
 
         html!("div", {
-            .class(&*ROW_STYLE)
-            .class(&*TAB_STYLE)
-            .class(&*MENU_ITEM_STYLE)
+            .class([
+                &*ROW_STYLE,
+                &*TAB_STYLE,
+                &*MENU_ITEM_STYLE,
+            ])
 
-            .cursor!(state.is_dragging(), "pointer")
+            .cursor!(state.is_dragging(), intern("pointer"))
 
             .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
             .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
@@ -226,8 +236,10 @@ fn initialize(state: Arc<State>) {
                                         .style("z-index", format!("-{}", index))
 
                                         .apply_if(index == 0, |dom| dom
-                                            .class(&*TAB_HOVER_STYLE)
-                                            .class(&*MENU_ITEM_HOVER_STYLE)
+                                            .class([
+                                                &*TAB_HOVER_STYLE,
+                                                &*MENU_ITEM_HOVER_STYLE,
+                                            ])
                                             .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                             .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
                                             .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
@@ -246,8 +258,10 @@ fn initialize(state: Arc<State>) {
                 }),
 
                 html!("div", {
-                    .class(&*ROW_STYLE)
-                    .class(&*URL_BAR_STYLE)
+                    .class([
+                        &*ROW_STYLE,
+                        &*URL_BAR_STYLE,
+                    ])
 
                     .visible_signal(map_ref! {
                         let is_dragging = state.is_dragging(),
@@ -278,13 +292,17 @@ fn initialize(state: Arc<State>) {
                 }),
 
                 html!("div", {
-                    .class(&*ROW_STYLE)
-                    .class(&*TOOLBAR_STYLE)
+                    .class([
+                        &*ROW_STYLE,
+                        &*TOOLBAR_STYLE,
+                    ])
 
                     .children(&mut [
                         html!("input" => HtmlInputElement, {
-                            .class(&*SEARCH_STYLE)
-                            .class(&*STRETCH_STYLE)
+                            .class([
+                                &*SEARCH_STYLE,
+                                &*STRETCH_STYLE,
+                            ])
 
                             .cursor!(state.is_dragging(), "auto")
 
@@ -329,8 +347,10 @@ fn initialize(state: Arc<State>) {
                                 .class(&*TOOLBAR_MENU_WRAPPER_STYLE)
                                 .children(&mut [
                                     html!("div", {
-                                        .class(&*ROW_STYLE)
-                                        .class(&*TOOLBAR_MENU_STYLE)
+                                        .class([
+                                            &*ROW_STYLE,
+                                            &*TOOLBAR_MENU_STYLE,
+                                        ])
 
                                         .cursor!(state.is_dragging(), "pointer")
 
@@ -489,16 +509,20 @@ fn initialize(state: Arc<State>) {
                                         .children(&mut [
                                             if group.show_header {
                                                 html!("div", {
-                                                    .class(&*ROW_STYLE)
-                                                    .class(&*GROUP_HEADER_STYLE)
+                                                    .class([
+                                                        &*ROW_STYLE,
+                                                        &*GROUP_HEADER_STYLE,
+                                                    ])
 
                                                     .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
                                                     .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
 
                                                     .children(&mut [
                                                         html!("div", {
-                                                            .class(&*GROUP_HEADER_TEXT_STYLE)
-                                                            .class(&*STRETCH_STYLE)
+                                                            .class([
+                                                                &*GROUP_HEADER_TEXT_STYLE,
+                                                                &*STRETCH_STYLE,
+                                                            ])
                                                             .text_signal(map_ref! {
                                                                     let name = group.name.signal_cloned(),
                                                                     let index = index.signal() => {
@@ -571,7 +595,7 @@ fn initialize(state: Arc<State>) {
                                                                 }))
                                                             }),
 
-                                                            |dom| dom
+                                                            |dom| apply_methods!(dom, {
                                                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
@@ -600,25 +624,23 @@ fn initialize(state: Arc<State>) {
 
                                                                 .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
 
-                                                                .apply(|dom| {
-                                                                    with_node!(dom, element => {
-                                                                        .event(clone!(state, index, group, tab => move |e: events::MouseDown| {
-                                                                            tab.holding.set_neq(true);
+                                                                .with_node!(element => {
+                                                                    .event(clone!(state, index, group, tab => move |e: events::MouseDown| {
+                                                                        tab.holding.set_neq(true);
 
-                                                                            if let Some(index) = index.get() {
-                                                                                let shift = e.shift_key();
-                                                                                // TODO is this correct ?
-                                                                                // TODO test this, especially on Mac
-                                                                                let ctrl = e.ctrl_key();
-                                                                                let alt = e.alt_key();
+                                                                        if let Some(index) = index.get() {
+                                                                            let shift = e.shift_key();
+                                                                            // TODO is this correct ?
+                                                                            // TODO test this, especially on Mac
+                                                                            let ctrl = e.ctrl_key();
+                                                                            let alt = e.alt_key();
 
-                                                                                if !shift && !ctrl && !alt {
-                                                                                    let rect = element.get_bounding_client_rect();
-                                                                                    state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
-                                                                                }
+                                                                            if !shift && !ctrl && !alt {
+                                                                                let rect = element.get_bounding_client_rect();
+                                                                                state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
                                                                             }
-                                                                        }))
-                                                                    })
+                                                                        }
+                                                                    }))
                                                                 })
 
                                                                 // TODO only attach this when holding
@@ -664,7 +686,9 @@ fn initialize(state: Arc<State>) {
                                                                             }
                                                                         }
                                                                     }
-                                                                })))
+                                                                }))
+                                                            })
+                                                        )
                                                     })))
                                             }),
                                         ])
@@ -985,10 +1009,12 @@ pub fn main_js() {
         .unwrap_throw();
 
     dominator::append_dom(&dominator::body(), html!("div", {
-        .class(&*TOP_STYLE)
-        .class(&*MODAL_STYLE)
-        .class(&*CENTER_STYLE)
-        .class(&*LOADING_STYLE)
+        .class([
+            &*TOP_STYLE,
+            &*MODAL_STYLE,
+            &*CENTER_STYLE,
+            &*LOADING_STYLE,
+        ])
 
         .visible_signal(SHOW_MODAL.signal())
 

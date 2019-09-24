@@ -8,7 +8,7 @@ module.exports = {
   mode: "production",
   stats: "errors-warnings",
   entry: {
-    "js/sidebar": "./js/sidebar.js"
+    sidebar: "./js/sidebar.js"
   },
   output: {
     path: dist,

@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tab_organizer::{local_storage_get, state};
 use tab_organizer::state::Options;
-use crate::url_bar;
+use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
 use crate::groups::Groups;
@@ -77,7 +77,7 @@ pub(crate) struct State {
     pub(crate) search_box: Mutable<Arc<String>>,
     pub(crate) search_parser: Mutable<Arc<search::Parsed>>,
 
-    pub(crate) url_bar: Mutable<Option<Arc<url_bar::UrlBar>>>,
+    pub(crate) url_bar: Mutable<Option<Arc<UrlBar>>>,
     pub(crate) groups_padding: Mutable<f64>, // TODO use u32 instead ?
 
     pub(crate) groups: Groups,
@@ -181,6 +181,7 @@ pub(crate) struct Tab {
 
     pub(crate) matches_search: Mutable<bool>,
     pub(crate) visible: Mutable<bool>,
+    pub(crate) url_bar: Mutable<Option<Arc<UrlBar>>>,
 
     pub(crate) drag_over: MutableAnimation,
     pub(crate) insert_animation: MutableAnimation,
@@ -188,6 +189,10 @@ pub(crate) struct Tab {
 
 impl Tab {
     pub(crate) fn new(state: Arc<TabState>) -> Self {
+        let url_bar = state.url.lock_ref().as_ref().and_then(|url| {
+            UrlBar::new(&url).map(|x| Arc::new(x.minify()))
+        });
+
         Self {
             state,
 
@@ -202,6 +207,7 @@ impl Tab {
 
             matches_search: Mutable::new(false),
             visible: Mutable::new(false),
+            url_bar: Mutable::new(url_bar),
 
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),

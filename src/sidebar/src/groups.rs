@@ -218,7 +218,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
             let url = str_default(&url, "");
 
             // TODO make this faster/more efficient
-            let url =  UrlBar::new(url)
+            let url = UrlBar::new(url)
                 .map(|url| url.minify())
                 .map(|url| format!("{}{}{}{}{}",
                     str_default(&url.protocol, ""),

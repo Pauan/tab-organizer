@@ -86,6 +86,7 @@ impl Parsed {
             .map(|x| {
                 Parsed::Literal(RegexBuilder::new(&escape(x))
                     .case_insensitive(true)
+                    .unicode(false)
                     .build()
                     .unwrap_throw())
             })
