@@ -1,6 +1,7 @@
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
 const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
+const ZipPlugin = require("zip-webpack-plugin");
 
 const dist = path.resolve(__dirname, "dist");
 
@@ -28,6 +29,10 @@ module.exports = {
     new WasmPackPlugin({
       crateDirectory: path.join(__dirname, "src", "sidebar"),
       extraArgs: "--out-name sidebar"
+    }),
+
+    new ZipPlugin({
+      filename: "tab-organizer.zip"
     }),
   ]
 };

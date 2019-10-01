@@ -10,30 +10,31 @@
     }
   },
   "icons": {
-     "16": "data/icons/icon16.png",
-     "32": "data/icons/icon32.png",
-     "48": "data/icons/icon48.png",
+    "16": "data/icons/icon16.png",
+    "19": "data/icons/icon19.png",
+    "32": "data/icons/icon32.png",
+    "48": "data/icons/icon48.png",
     "128": "data/icons/icon128.png"
   },
   "background": {
-    "scripts": ["js/background.js"]
+    "scripts": ["background.js"]
   },
   "options_ui": {
     "page": "options.html",
     "browser_style": true
   },
-  "browser_action": {
+  "sidebar_action": {
     "default_icon": {
-      "19": "data/icons/icon19.png"
-    }
-  },
-  "commands": {
-    "_execute_browser_action": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+E",
-        "mac": "Command+Shift+E"
-      }
-    }
+      "16": "data/icons/icon16.png",
+      "19": "data/icons/icon19.png",
+      "32": "data/icons/icon32.png",
+      "48": "data/icons/icon48.png",
+      "128": "data/icons/icon128.png"
+    },
+    "default_title": "Tab Organizer",
+    "default_panel": "sidebar.html",
+    "browser_style": true,
+    "open_at_install": true
   },
   "permissions": [
     "tabs",
