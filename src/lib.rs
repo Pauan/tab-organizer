@@ -7,11 +7,14 @@ use std::future::Future;
 use dominator::RefFn;
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
-use js_sys::Date;
+use js_sys::{Date, Promise};
 use web_sys::{window, Performance, Storage};
-use wasm_bindgen_futures::futures_0_3::spawn_local;
+use wasm_bindgen_futures::futures_0_3::{JsFuture, spawn_local, future_to_promise};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use web_extension::browser;
 
 
 pub mod state;
@@ -263,6 +266,65 @@ pub fn window_height() -> f64 {
         .unwrap_throw()
         .as_f64()
         .unwrap_throw()
+}
+
+
+pub struct Listener<A> where A: ?Sized {
+    target: web_extension::Listener,
+    closure: Option<Closure<A>>,
+}
+
+impl<A> Listener<A> where A: ?Sized {
+    pub fn new(target: web_extension::Listener, closure: Closure<A>) -> Self {
+        target.add_listener(closure.as_ref().unchecked_ref());
+        Self { target, closure: Some(closure) }
+    }
+}
+
+impl<A> Listener<A> where A: ?Sized + wasm_bindgen::closure::WasmClosure {
+    pub fn forget(mut self) {
+        self.closure.take().unwrap_throw().forget();
+    }
+}
+
+impl<A> Drop for Listener<A> where A: ?Sized {
+    fn drop(&mut self) {
+        if let Some(closure) = &self.closure {
+            self.target.remove_listener(closure.as_ref().unchecked_ref());
+        }
+    }
+}
+
+
+pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, JsValue) -> Promise>
+    where D: DeserializeOwned,
+          S: Serialize,
+          P: Future<Output = Result<S, JsValue>> + 'static,
+          F: FnMut(D) -> P + 'static {
+
+    Listener::new(browser.runtime().on_message(), Closure::new(move |message: String, _: JsValue, _: JsValue| {
+        let message: D = serde_json::from_str(&message).unwrap_throw();
+        let future = f(message);
+        future_to_promise(async move {
+            let reply = future.await?;
+            let reply = serde_json::to_string(&reply).unwrap_throw();
+            Ok(JsValue::from(reply))
+        })
+    }))
+}
+
+
+pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue>>
+    where A: Serialize,
+          B: DeserializeOwned {
+    let message = serde_json::to_string(message).unwrap_throw();
+
+    async move {
+        let reply = JsFuture::from(browser.runtime().send_message(None, &JsValue::from(message), None)).await?;
+        let reply = reply.as_string().unwrap_throw();
+        let reply = serde_json::from_str(&reply).unwrap_throw();
+        Ok(reply)
+    }
 }
 
 

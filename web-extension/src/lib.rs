@@ -19,6 +19,9 @@ pub use sidebar_action::*;
 mod browser_action;
 pub use browser_action::*;
 
+mod runtime;
+pub use runtime::*;
+
 
 #[wasm_bindgen]
 extern "C" {
@@ -31,6 +34,9 @@ extern "C" {
 
     #[wasm_bindgen(method, getter, js_name = browserAction)]
     pub fn browser_action(this: &Browser) -> BrowserAction;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn runtime(this: &Browser) -> Runtime;
 }
 
 

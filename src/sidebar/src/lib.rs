@@ -5,7 +5,7 @@ use wasm_bindgen::{intern, JsCast};
 use std::sync::Arc;
 use tab_organizer::{set_timeout, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
-use tab_organizer::state::{SidebarMessage, TabChange, Options, SortTabs};
+use tab_organizer::state::{SidebarMessage, BackgroundMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, events, with_node, apply_methods};
 use dominator::animation::{Percentage, MutableAnimation};
@@ -719,11 +719,11 @@ fn initialize(state: Arc<State>) {
 
     log!("Finished");
 
-    let mut tag_counter = 0;
+    /*let mut tag_counter = 0;
 
     if DYNAMIC_TAB_TEST {
         set_interval(clone!(state => move || {
-            state.process_message(SidebarMessage::TabChanged {
+            state.process_message(BackgroundMessage::TabChanged {
                 tab_index: 2,
                 changes: vec![
                     TabChange::Title {
@@ -732,7 +732,7 @@ fn initialize(state: Arc<State>) {
                 ],
             });
 
-            state.process_message(SidebarMessage::TabChanged {
+            state.process_message(BackgroundMessage::TabChanged {
                 tab_index: 3,
                 changes: vec![
                     TabChange::Title {
@@ -741,7 +741,7 @@ fn initialize(state: Arc<State>) {
                 ],
             });
 
-            state.process_message(SidebarMessage::TabChanged {
+            state.process_message(BackgroundMessage::TabChanged {
                 tab_index: 3,
                 changes: vec![
                     TabChange::Title {
@@ -750,7 +750,7 @@ fn initialize(state: Arc<State>) {
                 ],
             });
 
-            /*state.process_message(SidebarMessage::TabChanged {
+            /*state.process_message(BackgroundMessage::TabChanged {
                 tab_index: 0,
                 changes: vec![
                     TabChange::Pinned {
@@ -759,19 +759,19 @@ fn initialize(state: Arc<State>) {
                 ],
             });*/
 
-            state.process_message(SidebarMessage::TabRemoved {
+            state.process_message(BackgroundMessage::TabRemoved {
                 tab_index: 0,
             });
 
-            state.process_message(SidebarMessage::TabRemoved {
+            state.process_message(BackgroundMessage::TabRemoved {
                 tab_index: 0,
             });
 
-            state.process_message(SidebarMessage::TabRemoved {
+            state.process_message(BackgroundMessage::TabRemoved {
                 tab_index: 8,
             });
 
-            /*state.process_message(SidebarMessage::TabInserted {
+            /*state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
@@ -790,7 +790,7 @@ fn initialize(state: Arc<State>) {
 
             let timestamp = Date::now();
 
-            state.process_message(SidebarMessage::TabInserted {
+            state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 12,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
@@ -813,7 +813,7 @@ fn initialize(state: Arc<State>) {
                 },
             });
 
-            state.process_message(SidebarMessage::TabInserted {
+            state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 13,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
@@ -831,7 +831,7 @@ fn initialize(state: Arc<State>) {
                 },
             });
 
-            state.process_message(SidebarMessage::TabChanged {
+            state.process_message(BackgroundMessage::TabChanged {
                 tab_index: 10,
                 changes: vec![
                     TabChange::AddedToTag {
@@ -846,17 +846,17 @@ fn initialize(state: Arc<State>) {
             tag_counter += 1;
 
             /*for _ in 0..10 {
-                state.process_message(SidebarMessage::TabRemoved {
+                state.process_message(BackgroundMessage::TabRemoved {
                     window_index: 2,
                     tab_index: 0,
                 });
             }
 
-            state.process_message(SidebarMessage::WindowRemoved {
+            state.process_message(BackgroundMessage::WindowRemoved {
                 window_index: 2,
             });
 
-            state.process_message(SidebarMessage::WindowInserted {
+            state.process_message(BackgroundMessage::WindowInserted {
                 window_index: 2,
                 window: server::Window {
                     serialized: server::SerializedWindow {
@@ -871,7 +871,7 @@ fn initialize(state: Arc<State>) {
             });
 
             for index in 0..10 {
-                state.process_message(SidebarMessage::TabInserted {
+                state.process_message(BackgroundMessage::TabInserted {
                     window_index: 2,
                     tab_index: index,
                     tab: server::Tab {
@@ -892,7 +892,7 @@ fn initialize(state: Arc<State>) {
         }), (INSERT_ANIMATION_DURATION * 2.0) as u32);
 
         set_interval(move || {
-            state.process_message(SidebarMessage::TabInserted {
+            state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
@@ -915,7 +915,7 @@ fn initialize(state: Arc<State>) {
                 },
             });
 
-            state.process_message(SidebarMessage::TabInserted {
+            state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
                 tab: server::Tab {
                     serialized: server::SerializedTab {
@@ -938,7 +938,7 @@ fn initialize(state: Arc<State>) {
                 },
             });
         }, (INSERT_ANIMATION_DURATION * 3.0) as u32);
-    }
+    }*/
 }
 
 
@@ -1030,7 +1030,31 @@ pub fn main_js() {
     }, LOADING_MESSAGE_THRESHOLD);
 
 
-    set_timeout(move || {
+    fn search_to_id() -> i32 {
+        let search = window()
+                .unwrap_throw()
+                .location()
+                .search()
+                .unwrap_throw();
+
+        search[1..].parse().unwrap_throw()
+    }
+
+    tab_organizer::spawn(async {
+        let window: server::Window = tab_organizer::send_message(&SidebarMessage::Initialize {
+            id: search_to_id(),
+        }).await?;
+
+        log!("{}", search_to_id());
+
+        time!("Initializing", {
+            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
+        });
+
+        Ok(())
+    });
+
+    /*set_timeout(move || {
         let window: server::Window = server::Window {
             serialized: server::SerializedWindow {
                 id: generate_uuid(),
@@ -1061,8 +1085,6 @@ pub fn main_js() {
             }).collect(),
         };
 
-        time!("Initializing", {
-            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
-        });
-    }, 1500);
+
+    }, 1500);*/
 }

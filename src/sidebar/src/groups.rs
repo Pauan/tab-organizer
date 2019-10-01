@@ -1,7 +1,7 @@
 use crate::types::{State, TabState, Group, Tab, Window};
 use crate::url_bar::UrlBar;
 use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
-use tab_organizer::state::{SidebarMessage, TabChange, SortTabs, Tag};
+use tab_organizer::state::{BackgroundMessage, TabChange, SortTabs, Tag};
 use js_sys::Date;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
@@ -555,7 +555,7 @@ impl Tab {
 
 
 impl State {
-    pub(crate) fn process_message(&self, message: SidebarMessage) {
+    pub(crate) fn process_message(&self, message: BackgroundMessage) {
         fn increment_indexes(tabs: &[Arc<TabState>]) {
             for tab in tabs {
                 tab.index.replace_with(|index| *index + 1);
@@ -569,7 +569,7 @@ impl State {
         }
 
         match message {
-            SidebarMessage::TabInserted { tab_index, tab } => {
+            BackgroundMessage::TabInserted { tab_index, tab } => {
                 let mut window = self.window.write().unwrap();
 
                 let tab = Arc::new(TabState::new(tab, tab_index));
@@ -581,7 +581,7 @@ impl State {
                 self.groups.tab_inserted(self, tab_index, tab);
             },
 
-            SidebarMessage::TabRemoved { tab_index } => {
+            BackgroundMessage::TabRemoved { tab_index } => {
                 let mut window = self.window.write().unwrap();
 
                 let tab = window.tabs.remove(tab_index);
@@ -593,7 +593,7 @@ impl State {
                 decrement_indexes(&window.tabs[tab_index..]);
             },
 
-            SidebarMessage::TabChanged { tab_index, changes } => {
+            BackgroundMessage::TabChanged { tab_index, changes } => {
                 let window = self.window.read().unwrap();
 
                 let tab = &window.tabs[tab_index];

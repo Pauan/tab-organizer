@@ -3,6 +3,14 @@ use uuid::Uuid;
 use futures_signals::signal::Mutable;
 
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SidebarMessage {
+    Initialize {
+        id: i32,
+    },
+}
+
+
 // TODO this is a common option
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SortTabs {
@@ -50,7 +58,7 @@ pub enum TabChange {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum SidebarMessage {
+pub enum BackgroundMessage {
     TabInserted {
         tab_index: usize,
         tab: Tab,
