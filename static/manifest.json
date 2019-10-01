@@ -36,10 +36,22 @@
     "browser_style": true,
     "open_at_install": true
   },
+  "browser_action": {
+    "default_icon": {
+      "16": "data/icons/icon16.png",
+      "19": "data/icons/icon19.png",
+      "32": "data/icons/icon32.png",
+      "48": "data/icons/icon48.png",
+      "128": "data/icons/icon128.png"
+    },
+    "default_title": "Tab Organizer",
+    "browser_style": true
+  },
   "permissions": [
     "tabs",
     "storage",
     "sessions",
     "unlimitedStorage"
-  ]
+  ],
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'"
 }

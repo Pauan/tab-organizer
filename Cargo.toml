@@ -9,7 +9,8 @@ edition = "2018"
 [workspace]
 members = [
     "src/sidebar",
-    "web-extensions",
+    "src/background",
+    "web-extension",
 ]
 
 [dependencies]

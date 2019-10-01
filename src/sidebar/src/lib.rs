@@ -956,6 +956,7 @@ pub fn main_js() {
 
     stylesheet!("*", {
         .style("text-overflow", "ellipsis")
+        .style("box-sizing", "content-box")
 
         .style("vertical-align", "middle") /* TODO I can probably get rid of this */
 
@@ -1037,7 +1038,7 @@ pub fn main_js() {
                 timestamp_created: Date::now(),
             },
             focused: false,
-            tabs: (0..10000).map(|index| {
+            tabs: (0..1000).map(|index| {
                 server::Tab {
                     serialized: server::SerializedTab {
                         id: generate_uuid(),

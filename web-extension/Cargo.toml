@@ -1,5 +1,5 @@
 [package]
-name = "web-extensions"
+name = "web-extension"
 version = "0.1.0"
 authors = ["Pauan <pcxunlimited@gmail.com>"]
 edition = "2018"

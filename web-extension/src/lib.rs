@@ -1,10 +1,37 @@
 use wasm_bindgen::prelude::*;
 use js_sys::Function;
 
-pub mod storage;
-pub mod tabs;
-pub mod windows;
-pub mod session;
+mod storage;
+pub use storage::*;
+
+mod tabs;
+pub use tabs::*;
+
+mod windows;
+pub use windows::*;
+
+mod session;
+pub use session::*;
+
+mod sidebar_action;
+pub use sidebar_action::*;
+
+mod browser_action;
+pub use browser_action::*;
+
+
+#[wasm_bindgen]
+extern "C" {
+    pub type Browser;
+
+    pub static browser: Browser;
+
+    #[wasm_bindgen(method, getter, js_name = sidebarAction)]
+    pub fn sidebar_action(this: &Browser) -> SidebarAction;
+
+    #[wasm_bindgen(method, getter, js_name = browserAction)]
+    pub fn browser_action(this: &Browser) -> BrowserAction;
+}
 
 
 // TODO getRules, removeRules, and addRules

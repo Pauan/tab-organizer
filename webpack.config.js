@@ -9,7 +9,8 @@ module.exports = {
   mode: "production",
   stats: "errors-warnings",
   entry: {
-    sidebar: "./js/sidebar.js"
+    sidebar: "./js/sidebar.js",
+    background: "./js/background.js"
   },
   output: {
     path: dist,
@@ -29,6 +30,11 @@ module.exports = {
     new WasmPackPlugin({
       crateDirectory: path.join(__dirname, "src", "sidebar"),
       extraArgs: "--out-name sidebar"
+    }),
+
+    new WasmPackPlugin({
+      crateDirectory: path.join(__dirname, "src", "background"),
+      extraArgs: "--out-name background"
     }),
 
     new ZipPlugin({

@@ -50,7 +50,7 @@ lazy_static! {
 
     pub(crate) static ref TOP_STYLE: String = class! {
         .style("white-space", "pre")
-        .style("width", "300px") // 100%
+        .style("width", "100%")
         .style("height", "100%")
         .style("overflow", "hidden")
     };

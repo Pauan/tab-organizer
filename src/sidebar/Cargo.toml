@@ -12,7 +12,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
-#debug-assertions = true
+debug-assertions = true
 lto = true
 
 [dependencies]
