@@ -45,9 +45,6 @@ extern "C" {
 extern "C" {
     pub type Storage;
 
-    #[wasm_bindgen(js_namespace = browser)]
-    pub fn storage() -> Storage;
-
     #[wasm_bindgen(method, getter)]
     pub fn sync(this: &Storage) -> Sync;
 

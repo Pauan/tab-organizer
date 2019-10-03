@@ -5,6 +5,7 @@ use crate::Listener;
 
 #[wasm_bindgen]
 extern "C" {
+    #[derive(Debug)]
     pub type MutedInfo;
 
     #[wasm_bindgen(method, getter)]
@@ -20,6 +21,7 @@ extern "C" {
 
 #[wasm_bindgen]
 extern "C" {
+    #[derive(Debug)]
     pub type Tab;
 
     #[wasm_bindgen(method, getter)]
@@ -111,11 +113,8 @@ extern "C" {
 extern "C" {
     pub type Tabs;
 
-    #[wasm_bindgen(js_namespace = browser)]
-    pub fn tabs() -> Tabs;
-
-    #[wasm_bindgen(method, getter)]
-    pub fn TAB_ID_NONE(this: &Tabs) -> i32;
+    #[wasm_bindgen(method, getter, js_name = TAB_ID_NONE)]
+    pub fn tab_id_none(this: &Tabs) -> i32;
 
     #[wasm_bindgen(method, js_name = captureTab)]
     pub fn capture_tab(this: &Tabs, tab_id: Option<i32>, info: Option<&Object>) -> Promise;

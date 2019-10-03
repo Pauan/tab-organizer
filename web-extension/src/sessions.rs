@@ -7,6 +7,7 @@ use crate::windows::Window;
 
 #[wasm_bindgen]
 extern "C" {
+    #[derive(Debug)]
     pub type Session;
 
     #[wasm_bindgen(method, getter, js_name = lastModified)]
@@ -24,12 +25,9 @@ extern "C" {
 extern "C" {
     pub type Sessions;
 
-    #[wasm_bindgen(js_namespace = browser)]
-    pub fn sessions() -> Sessions;
-
-    #[wasm_bindgen(method, getter)]
+    #[wasm_bindgen(method, getter, js_name = MAX_SESSION_RESULTS)]
     // TODO is u32 correct ?
-    pub fn MAX_SESSION_RESULTS(this: &Sessions) -> u32;
+    pub fn max_session_results(this: &Sessions) -> u32;
 
     #[wasm_bindgen(method, js_name = forgetClosedTab)]
     pub fn forget_closed_tab(this: &Sessions, window_id: i32, session_id: &str) -> Promise;

@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{intern, JsCast};
 use std::sync::Arc;
-use tab_organizer::{set_timeout, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{Timer, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as server;
 use tab_organizer::state::{SidebarMessage, BackgroundMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
@@ -1023,11 +1023,11 @@ pub fn main_js() {
     }));
 
 
-    set_timeout(move || {
+    Timer::new(LOADING_MESSAGE_THRESHOLD, move || {
         if !IS_LOADED.get() {
             SHOW_MODAL.set_neq(true);
         }
-    }, LOADING_MESSAGE_THRESHOLD);
+    }).forget();
 
 
     fn search_to_id() -> i32 {
@@ -1054,7 +1054,7 @@ pub fn main_js() {
         Ok(())
     });
 
-    /*set_timeout(move || {
+    /*Timer::new(1500, move || {
         let window: server::Window = server::Window {
             serialized: server::SerializedWindow {
                 id: generate_uuid(),
@@ -1086,5 +1086,5 @@ pub fn main_js() {
         };
 
 
-    }, 1500);*/
+    }).forget();*/
 }

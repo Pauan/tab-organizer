@@ -1,20 +1,22 @@
 #![warn(unreachable_pub)]
 
 use std::borrow::Borrow;
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::sync::Arc;
 use futures_signals::signal::{Signal, SignalExt};
 use std::future::Future;
 use dominator::RefFn;
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
-use js_sys::{Date, Promise};
+use js_sys::{Date, Promise, Object, Reflect, Array, Set};
 use web_sys::{window, Performance, Storage};
 use wasm_bindgen_futures::futures_0_3::{JsFuture, spawn_local, future_to_promise};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use web_extension::browser;
+use web_extension::{browser, Window};
 
 
 pub mod state;
@@ -296,6 +298,17 @@ impl<A> Drop for Listener<A> where A: ?Sized {
 }
 
 
+pub fn serialize<A>(value: &A) -> JsValue where A: Serialize {
+    JsValue::from(serde_json::to_string(value).unwrap_throw())
+}
+
+
+pub fn deserialize<A>(value: &JsValue) -> A where A: DeserializeOwned {
+    let value = value.as_string().unwrap_throw();
+    serde_json::from_str(&value).unwrap_throw()
+}
+
+
 pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, JsValue) -> Promise>
     where D: DeserializeOwned,
           S: Serialize,
@@ -317,13 +330,292 @@ pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, J
 pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue>>
     where A: Serialize,
           B: DeserializeOwned {
-    let message = serde_json::to_string(message).unwrap_throw();
+    let message = serialize(message);
 
     async move {
-        let reply = JsFuture::from(browser.runtime().send_message(None, &JsValue::from(message), None)).await?;
-        let reply = reply.as_string().unwrap_throw();
-        let reply = serde_json::from_str(&reply).unwrap_throw();
-        Ok(reply)
+        let reply = JsFuture::from(browser.runtime().send_message(None, &message, None)).await?;
+        Ok(deserialize(&reply))
+    }
+}
+
+
+#[derive(Debug)]
+enum Change {
+    Remove(JsValue),
+    Set(JsValue, JsValue),
+}
+
+#[derive(Debug)]
+struct TransactionState {
+    changes: Vec<Change>,
+    is_delayed: bool,
+    timer: Option<Timer>,
+}
+
+impl TransactionState {
+    fn new(is_delayed: bool) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self {
+            changes: vec![],
+            is_delayed,
+            timer: None,
+        }))
+    }
+
+    // TODO use some sort of global lock to prevent overlapping commits ?
+    fn commit(&mut self) {
+        let start = performance_now();
+
+        self.is_delayed = false;
+        self.timer = None;
+
+        if !self.changes.is_empty() {
+            let updated = Object::new();
+            let removed = Array::new();
+            let seen = Set::new(&JsValue::null());
+
+            let mut should_update = false;
+            let mut should_remove = false;
+
+            let mut iter = self.changes.drain(..);
+
+            while let Some(change) = iter.next_back() {
+                match change {
+                    Change::Remove(key) => {
+                        // If we have not seen the key yet...
+                        if !seen.has(&key) {
+                            seen.add(&key);
+                            should_remove = true;
+                            removed.push(&key);
+                        }
+                    },
+                    Change::Set(key, value) => {
+                        // If we have not seen the key yet...
+                        if !seen.has(&key) {
+                            seen.add(&key);
+                            should_update = true;
+                            Reflect::set(&updated, &key, &value).unwrap_throw();
+                        }
+                    },
+                }
+            }
+
+            // TODO maybe use join ?
+            if should_update {
+                spawn(async move {
+                    let _ = JsFuture::from(browser.storage().local().set(&updated)).await?;
+                    let end = performance_now();
+                    log!("Updating keys took {} ms", end - start);
+                    Ok(())
+                });
+            }
+
+            if should_remove {
+                spawn(async move {
+                    let _ = JsFuture::from(browser.storage().local().remove(&removed)).await?;
+                    let end = performance_now();
+                    log!("Removing keys took {} ms", end - start);
+                    Ok(())
+                });
+            }
+        }
+    }
+
+    fn delay(&self) -> u32 {
+        if self.is_delayed {
+            10_000
+
+        } else {
+            1_000
+        }
+    }
+
+    fn start_commit(&mut self, state: &Rc<RefCell<Self>>) {
+        if let None = self.timer {
+            let state = state.clone();
+
+            self.timer = Some(Timer::new(self.delay(), move || {
+                let mut state = state.borrow_mut();
+                state.commit();
+            }));
+        }
+    }
+
+    fn reset_timer(&mut self) {
+        self.timer = None;
+    }
+}
+
+
+#[derive(Debug)]
+pub struct Transaction<'a> {
+    db: &'a Object,
+    state: &'a Rc<RefCell<TransactionState>>,
+}
+
+impl<'a> Transaction<'a> {
+    pub fn get_raw(&self, key: &str) -> Option<JsValue> {
+        // TODO make this more efficient
+        let key = JsValue::from(key);
+
+        if Reflect::has(&self.db, &key).unwrap_throw() {
+            Some(Reflect::get(&self.db, &key).unwrap_throw())
+
+        } else {
+            None
+        }
+    }
+
+    pub fn set_raw(&self, key: &str, value: JsValue) {
+        // TODO make this more efficient
+        let key = JsValue::from(key);
+
+        Reflect::set(&self.db, &key, &value).unwrap_throw();
+
+        let mut state = self.state.borrow_mut();
+
+        state.changes.push(Change::Set(key, value));
+
+        state.start_commit(&self.state);
+    }
+
+    pub fn get<T>(&self, key: &str) -> Option<T> where T: DeserializeOwned {
+        let value = self.get_raw(key)?;
+        Some(deserialize(&value))
+    }
+
+    pub fn set<T>(&self, key: &str, value: T) where T: Serialize {
+        self.set_raw(key, serialize(&value));
+    }
+
+    fn remove_raw(&self, key: JsValue) {
+        Reflect::delete_property(&self.db, &key).unwrap_throw();
+
+        let mut state = self.state.borrow_mut();
+
+        state.changes.push(Change::Remove(key));
+
+        state.start_commit(&self.state);
+    }
+
+    pub fn remove(&self, key: &str) {
+        // TODO make this more efficient
+        let key = JsValue::from(key);
+        self.remove_raw(key);
+    }
+
+    pub fn clear(&self) {
+        // TODO make this more efficient
+        for key in Object::keys(&self.db).values() {
+            self.remove_raw(key.unwrap_throw());
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct Database {
+    db: Object,
+    state: Rc<RefCell<TransactionState>>,
+}
+
+impl Database {
+    pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
+        async move {
+            let db = JsFuture::from(browser.storage().local().get(&JsValue::null())).await?;
+            let db: Object = db.unchecked_into();
+            Ok(Self {
+                db,
+                state: TransactionState::new(false),
+            })
+        }
+    }
+
+    pub fn transaction<A, F>(&self, f: F) -> A where F: FnOnce(&Transaction) -> A {
+        f(&Transaction {
+            db: &self.db,
+            state: &self.state,
+        })
+    }
+
+    pub fn delay_transactions(&mut self) {
+        {
+            let mut state = self.state.borrow_mut();
+
+            if state.is_delayed {
+                assert!(state.timer.is_some());
+                state.reset_timer();
+
+            } else if let None = state.timer {
+                assert_eq!(state.changes.len(), 0);
+                state.is_delayed = true;
+
+            } else {
+                drop(state);
+                self.state = TransactionState::new(true);
+            }
+        }
+
+        self.state.borrow_mut().start_commit(&self.state);
+    }
+}
+
+
+macro_rules! array {
+    ($($value:expr),*) => {{
+        let array = Array::new();
+        $(array.push(&JsValue::from($value));)*
+        array
+    }};
+}
+
+macro_rules! object {
+    ($($key:literal: $value:expr,)*) => {{
+        let obj = Object::new();
+        // TODO make this more efficient
+        $(Reflect::set(&obj, &JsValue::from(intern($key)), &JsValue::from($value)).unwrap_throw();)*
+        obj
+    }};
+}
+
+
+pub enum WindowChange {
+}
+
+#[derive(Debug)]
+pub struct Windows {
+    windows: Vec<Window>,
+}
+
+impl Windows {
+    pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
+        async move {
+            let windows = JsFuture::from(browser.windows().get_all(&object! {
+                "populate": true,
+                "windowTypes": array![ intern("normal") ],
+            })).await?;
+
+            // TODO make this more efficient
+            let windows: Vec<Window> = windows
+                .unchecked_into::<Array>()
+                .values()
+                .into_iter()
+                .map(|x| x.unwrap_throw().unchecked_into())
+                .collect();
+
+            Ok(Self { windows })
+        }
+    }
+
+    /*pub fn changes() -> impl Stream<Item = WindowChange> {
+
+    }*/
+}
+
+impl std::ops::Deref for Windows {
+    type Target = [Window];
+
+    fn deref(&self) -> &Self::Target {
+        &self.windows
     }
 }
 
@@ -488,17 +780,41 @@ impl TimeDifference {
 }
 
 
-pub fn set_timeout<F>(f: F, ms: u32) where F: FnOnce() + 'static {
-    let f = Closure::once_into_js(f);
+#[derive(Debug)]
+pub struct Timer {
+    closure: Option<Closure<dyn FnMut()>>,
+    id: i32,
+}
 
-    window()
-        .unwrap_throw()
-        .set_timeout_with_callback_and_timeout_and_arguments_0(
-            f.unchecked_ref(),
-            // TODO is this conversion correct ?
-            ms as i32,
-        )
-        .unwrap_throw();
+impl Timer {
+    pub fn new<F>(ms: u32, f: F) -> Self where F: FnOnce() + 'static {
+        let closure = Closure::once(f);
+
+        let id = window()
+            .unwrap_throw()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                closure.as_ref().unchecked_ref(),
+                // TODO is this conversion correct ?
+                ms as i32,
+            )
+            .unwrap_throw();
+
+        Self { closure: Some(closure), id }
+    }
+
+    pub fn forget(mut self) {
+        self.closure.take().unwrap_throw().forget();
+    }
+}
+
+impl Drop for Timer {
+    fn drop(&mut self) {
+        if let Some(_) = self.closure {
+            window()
+                .unwrap_throw()
+                .clear_timeout_with_handle(self.id);
+        }
+    }
 }
 
 
@@ -527,10 +843,12 @@ pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
     let next = round_to_hour(now) + TimeDifference::HOUR + EXTRA_TIME_MARGIN;
     assert!(next > now);
 
-    set_timeout(move || {
+    // TODO is this correct ?
+    let diff = (next - now).ceil();
+
+    Timer::new(diff as u32, move || {
         assert!(Date::now() >= next);
         f();
         every_hour(f);
-    // TODO is this correct ?
-    }, (next - now).ceil() as u32);
+    }).forget();
 }

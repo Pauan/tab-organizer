@@ -10,8 +10,8 @@ pub use tabs::*;
 mod windows;
 pub use windows::*;
 
-mod session;
-pub use session::*;
+mod sessions;
+pub use sessions::*;
 
 mod sidebar_action;
 pub use sidebar_action::*;
@@ -37,6 +37,18 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     pub fn runtime(this: &Browser) -> Runtime;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn storage(this: &Browser) -> Storage;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn windows(this: &Browser) -> Windows;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn tabs(this: &Browser) -> Tabs;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn sessions(this: &Browser) -> Sessions;
 }
 
 

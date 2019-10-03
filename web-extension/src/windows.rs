@@ -5,6 +5,7 @@ use crate::Listener;
 
 #[wasm_bindgen]
 extern "C" {
+    #[derive(Debug)]
     pub type Window;
 
     #[wasm_bindgen(method, getter, js_name = alwaysOnTop)]
@@ -57,14 +58,11 @@ extern "C" {
 extern "C" {
     pub type Windows;
 
-    #[wasm_bindgen(js_namespace = browser)]
-    pub fn windows() -> Windows;
+    #[wasm_bindgen(method, getter, js_name = WINDOW_ID_NONE)]
+    pub fn window_id_none(this: &Windows) -> i32;
 
-    #[wasm_bindgen(method, getter)]
-    pub fn WINDOW_ID_NONE(this: &Windows) -> i32;
-
-    #[wasm_bindgen(method, getter)]
-    pub fn WINDOW_ID_CURRENT(this: &Windows) -> i32;
+    #[wasm_bindgen(method, getter, js_name = WINDOW_ID_CURRENT)]
+    pub fn window_id_current(this: &Windows) -> i32;
 
     #[wasm_bindgen(method)]
     pub fn get(this: &Windows, window_id: i32, info: &Object) -> Promise;
