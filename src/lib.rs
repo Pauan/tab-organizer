@@ -5,8 +5,10 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::Arc;
 use futures_signals::signal::{Signal, SignalExt};
+use futures::channel::mpsc;
+use futures::stream::Stream;
 use std::future::Future;
-use dominator::RefFn;
+use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 use js_sys::{Date, Promise, Object, Reflect, Array, Set};
@@ -16,7 +18,7 @@ use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use web_extension::{browser, Window};
+use web_extension::{browser, Window, Tab, TabActiveInfo, TabDetachInfo, TabAttachInfo, TabMoveInfo, TabRemoveInfo};
 
 
 pub mod state;
@@ -578,16 +580,56 @@ macro_rules! object {
 }
 
 
+#[derive(Debug)]
 pub enum WindowChange {
+    WindowCreated {
+        window: Window,
+    },
+    WindowRemoved {
+        window_id: i32,
+    },
+    WindowFocused {
+        window_id: Option<i32>,
+    },
+    TabCreated {
+        tab: Tab,
+    },
+    TabFocused {
+        old_tab_id: Option<i32>,
+        new_tab_id: i32,
+        window_id: i32,
+    },
+    TabDetached {
+        tab_id: i32,
+        old_window_id: i32,
+        old_index: u32,
+    },
+    TabAttached {
+        tab_id: i32,
+        new_window_id: i32,
+        new_index: u32,
+    },
+    TabMoved {
+        tab_id: i32,
+        window_id: i32,
+        old_index: u32,
+        new_index: u32,
+    },
+    TabUpdated {
+        tab: Tab,
+    },
+    TabRemoved {
+        tab_id: i32,
+        window_id: i32,
+        is_window_closing: bool,
+    },
 }
 
 #[derive(Debug)]
-pub struct Windows {
-    windows: Vec<Window>,
-}
+pub struct Windows;
 
 impl Windows {
-    pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
+    pub fn current() -> impl Future<Output = Result<Vec<Window>, JsValue>> {
         async move {
             let windows = JsFuture::from(browser.windows().get_all(&object! {
                 "populate": true,
@@ -602,20 +644,128 @@ impl Windows {
                 .map(|x| x.unwrap_throw().unchecked_into())
                 .collect();
 
-            Ok(Self { windows })
+            Ok(windows)
         }
     }
 
-    /*pub fn changes() -> impl Stream<Item = WindowChange> {
+    // TODO browser.tabs.onReplaced
+    pub fn changes() -> impl Stream<Item = WindowChange> {
+        let (sender, receiver) = mpsc::unbounded();
 
-    }*/
+        WindowsChanges {
+            _window_created: Listener::new(browser.windows().on_created(), Closure::new(clone!(sender => move |window| {
+                sender.unbounded_send(
+                    WindowChange::WindowCreated { window }
+                ).unwrap_throw();
+            }))),
+
+            _window_removed: Listener::new(browser.windows().on_removed(), Closure::new(clone!(sender => move |window_id| {
+                sender.unbounded_send(
+                    WindowChange::WindowRemoved { window_id }
+                ).unwrap_throw();
+            }))),
+
+            _window_focused: Listener::new(browser.windows().on_focus_changed(), Closure::new(clone!(sender => move |window_id| {
+                sender.unbounded_send(
+                    WindowChange::WindowFocused {
+                        window_id: if window_id == browser.windows().window_id_none() {
+                            None
+
+                        } else {
+                            Some(window_id)
+                        }
+                    }
+                ).unwrap_throw();
+            }))),
+
+            _tab_created: Listener::new(browser.tabs().on_created(), Closure::new(clone!(sender => move |tab| {
+                sender.unbounded_send(
+                    WindowChange::TabCreated { tab }
+                ).unwrap_throw();
+            }))),
+
+            _tab_focused: Listener::new(browser.tabs().on_activated(), Closure::new(clone!(sender => move |active_info: TabActiveInfo| {
+                sender.unbounded_send(
+                    WindowChange::TabFocused {
+                        old_tab_id: active_info.previous_tab_id(),
+                        new_tab_id: active_info.tab_id(),
+                        window_id: active_info.window_id(),
+                    }
+                ).unwrap_throw();
+            }))),
+
+            _tab_detached: Listener::new(browser.tabs().on_detached(), Closure::new(clone!(sender => move |tab_id, detach_info: TabDetachInfo| {
+                sender.unbounded_send(
+                    WindowChange::TabDetached {
+                        tab_id,
+                        old_window_id: detach_info.old_window_id(),
+                        old_index: detach_info.old_position(),
+                    }
+                ).unwrap_throw();
+            }))),
+
+            _tab_attached: Listener::new(browser.tabs().on_attached(), Closure::new(clone!(sender => move |tab_id, attach_info: TabAttachInfo| {
+                sender.unbounded_send(
+                    WindowChange::TabAttached {
+                        tab_id,
+                        new_window_id: attach_info.new_window_id(),
+                        new_index: attach_info.new_position(),
+                    }
+                ).unwrap_throw();
+            }))),
+
+            _tab_moved: Listener::new(browser.tabs().on_moved(), Closure::new(clone!(sender => move |tab_id, move_info: TabMoveInfo| {
+                sender.unbounded_send(
+                    WindowChange::TabMoved {
+                        tab_id,
+                        window_id: move_info.window_id(),
+                        old_index: move_info.from_index(),
+                        new_index: move_info.to_index(),
+                    }
+                ).unwrap_throw();
+            }))),
+
+            _tab_updated: Listener::new(browser.tabs().on_updated(), Closure::new(clone!(sender => move |_tab_id, _change_info, tab| {
+                sender.unbounded_send(
+                    WindowChange::TabUpdated { tab }
+                ).unwrap_throw();
+            }))),
+
+            _tab_removed: Listener::new(browser.tabs().on_removed(), Closure::new(clone!(sender => move |tab_id, remove_info: TabRemoveInfo| {
+                sender.unbounded_send(
+                    WindowChange::TabRemoved {
+                        tab_id,
+                        window_id: remove_info.window_id(),
+                        is_window_closing: remove_info.is_window_closing(),
+                    }
+                ).unwrap_throw();
+            }))),
+
+            receiver,
+        }
+    }
 }
 
-impl std::ops::Deref for Windows {
-    type Target = [Window];
+struct WindowsChanges {
+    _window_created: Listener<dyn FnMut(Window)>,
+    _window_removed: Listener<dyn FnMut(i32)>,
+    _window_focused: Listener<dyn FnMut(i32)>,
+    _tab_created: Listener<dyn FnMut(Tab)>,
+    _tab_focused: Listener<dyn FnMut(TabActiveInfo)>,
+    _tab_detached: Listener<dyn FnMut(i32, TabDetachInfo)>,
+    _tab_attached: Listener<dyn FnMut(i32, TabAttachInfo)>,
+    _tab_moved: Listener<dyn FnMut(i32, TabMoveInfo)>,
+    _tab_updated: Listener<dyn FnMut(i32, JsValue, Tab)>,
+    _tab_removed: Listener<dyn FnMut(i32, TabRemoveInfo)>,
+    receiver: mpsc::UnboundedReceiver<WindowChange>,
+}
 
-    fn deref(&self) -> &Self::Target {
-        &self.windows
+impl Stream for WindowsChanges {
+    type Item = WindowChange;
+
+    #[inline]
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
     }
 }
 

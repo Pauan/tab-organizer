@@ -6,16 +6,87 @@ use crate::Listener;
 #[wasm_bindgen]
 extern "C" {
     #[derive(Debug)]
-    pub type MutedInfo;
+    pub type TabActiveInfo;
+
+    #[wasm_bindgen(method, getter, js_name = previousTabId)]
+    pub fn previous_tab_id(this: &TabActiveInfo) -> Option<i32>;
+
+    #[wasm_bindgen(method, getter, js_name = tabId)]
+    pub fn tab_id(this: &TabActiveInfo) -> i32;
+
+    #[wasm_bindgen(method, getter, js_name = windowId)]
+    pub fn window_id(this: &TabActiveInfo) -> i32;
+}
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    pub type TabDetachInfo;
+
+    #[wasm_bindgen(method, getter, js_name = oldWindowId)]
+    pub fn old_window_id(this: &TabDetachInfo) -> i32;
+
+    #[wasm_bindgen(method, getter, js_name = oldPosition)]
+    pub fn old_position(this: &TabDetachInfo) -> u32;
+}
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    pub type TabAttachInfo;
+
+    #[wasm_bindgen(method, getter, js_name = newWindowId)]
+    pub fn new_window_id(this: &TabAttachInfo) -> i32;
+
+    #[wasm_bindgen(method, getter, js_name = newPosition)]
+    pub fn new_position(this: &TabAttachInfo) -> u32;
+}
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    pub type TabMoveInfo;
+
+    #[wasm_bindgen(method, getter, js_name = windowId)]
+    pub fn window_id(this: &TabMoveInfo) -> i32;
+
+    #[wasm_bindgen(method, getter, js_name = fromIndex)]
+    pub fn from_index(this: &TabMoveInfo) -> u32;
+
+    #[wasm_bindgen(method, getter, js_name = toIndex)]
+    pub fn to_index(this: &TabMoveInfo) -> u32;
+}
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    pub type TabRemoveInfo;
+
+    #[wasm_bindgen(method, getter, js_name = windowId)]
+    pub fn window_id(this: &TabRemoveInfo) -> i32;
+
+    #[wasm_bindgen(method, getter, js_name = isWindowClosing)]
+    pub fn is_window_closing(this: &TabRemoveInfo) -> bool;
+}
+
+
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    pub type TabMutedInfo;
 
     #[wasm_bindgen(method, getter)]
-    pub fn muted(this: &MutedInfo) -> bool;
+    pub fn muted(this: &TabMutedInfo) -> bool;
 
     #[wasm_bindgen(method, getter, js_name = extensionId)]
-    pub fn extension_id(this: &MutedInfo) -> Option<String>;
+    pub fn extension_id(this: &TabMutedInfo) -> Option<String>;
 
     #[wasm_bindgen(method, getter)]
-    pub fn reason(this: &MutedInfo) -> Option<String>;
+    pub fn reason(this: &TabMutedInfo) -> Option<String>;
 }
 
 
@@ -90,7 +161,7 @@ extern "C" {
     pub fn index(this: &Tab) -> u32;
 
     #[wasm_bindgen(method, getter, js_name = mutedInfo)]
-    pub fn muted_info(this: &Tab) -> MutedInfo;
+    pub fn muted_info(this: &Tab) -> TabMutedInfo;
 
     #[wasm_bindgen(method, getter, js_name = sessionId)]
     pub fn session_id(this: &Tab) -> Option<String>;

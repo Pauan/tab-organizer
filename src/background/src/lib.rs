@@ -1,7 +1,10 @@
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 use futures::try_join;
+use futures::stream::StreamExt;
 use web_extension::browser;
 use wasm_bindgen::intern;
 use wasm_bindgen_futures::futures_0_3::JsFuture;
@@ -21,16 +24,36 @@ pub fn main_js() {
         version: u32,
     }
 
+    impl Db {
+        fn new(database: &Database) -> Rc<RefCell<Self>> {
+            database.transaction(|tx| {
+                Rc::new(RefCell::new(Self {
+                    version: tx.get(intern("version")).unwrap_or(0),
+                }))
+            })
+        }
+    }
+
+
     spawn(async {
         let (windows, database) = try_join!(
-            Windows::new(),
+            Windows::current(),
             Database::new(),
         )?;
 
-        let db = database.transaction(|tx| {
-            Db {
-                version: tx.get(intern("version")).unwrap_or(0),
-            }
+        let db = Db::new(&database);
+
+
+        spawn(async {
+            Windows::changes().for_each(|change| {
+                log!("{:#?}", change);
+
+                async move {
+
+                }
+            }).await;
+
+            Ok(())
         });
 
 

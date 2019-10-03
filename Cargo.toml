@@ -17,6 +17,7 @@ members = [
 wasm-bindgen = { version = "0.2.45", features = ["nightly"] }
 wasm-bindgen-futures = { version = "0.3.27", features = ["futures_0_3"] }
 js-sys = "0.3.27"
+futures-preview = "0.3.0-alpha.19"
 futures-signals = "0.3.0"
 uuid = { version = "0.7.1", features = ["serde", "v4", "wasm-bindgen"] }
 dominator = "0.5.0"
