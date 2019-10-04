@@ -32,9 +32,9 @@
       "128": "data/icons/icon128.png"
     },
     "default_title": "Tab Organizer",
-    "default_panel": "sidebar.html?1234",
+    "default_panel": "empty.html",
     "browser_style": true,
-    "open_at_install": true
+    "open_at_install": false
   },
   "browser_action": {
     "default_icon": {
@@ -44,7 +44,7 @@
       "48": "data/icons/icon48.png",
       "128": "data/icons/icon128.png"
     },
-    "default_title": "Tab Organizer",
+    "default_title": "Toggle Tab Organizer",
     "browser_style": true
   },
   "permissions": [

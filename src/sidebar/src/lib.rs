@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::{intern, JsCast};
 use std::sync::Arc;
 use tab_organizer::{Timer, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
-use tab_organizer::state as server;
+use tab_organizer::state as shared;
 use tab_organizer::state::{SidebarMessage, BackgroundMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
 use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, events, with_node, apply_methods};
@@ -17,7 +17,7 @@ use futures_signals::signal_vec::SignalVecExt;
 use lazy_static::lazy_static;
 use web_sys::{HtmlElement, window, ScrollRestoration, HtmlInputElement};
 
-use crate::types::{State, DragState, Tab, Window};
+use crate::types::{State, DragState, Tab};
 use crate::constants::*;
 
 mod constants;
@@ -773,8 +773,8 @@ fn initialize(state: Arc<State>) {
 
             /*state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
+                tab: shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now(),
                         timestamp_focused: Date::now(),
@@ -792,13 +792,13 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 12,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
+                tab: shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: timestamp,
                         timestamp_focused: timestamp,
                         tags: vec![
-                            server::Tag {
+                            shared::Tag {
                                 name: "New".to_string(),
                                 timestamp_added: Date::now(),
                             },
@@ -815,8 +815,8 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 13,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
+                tab: shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: timestamp,
                         timestamp_focused: timestamp,
@@ -835,7 +835,7 @@ fn initialize(state: Arc<State>) {
                 tab_index: 10,
                 changes: vec![
                     TabChange::AddedToTag {
-                        tag: server::Tag {
+                        tag: shared::Tag {
                             name: tag_counter.to_string(),
                             timestamp_added: Date::now(),
                         },
@@ -858,8 +858,8 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(BackgroundMessage::WindowInserted {
                 window_index: 2,
-                window: server::Window {
-                    serialized: server::SerializedWindow {
+                window: shared::Window {
+                    serialized: shared::SerializedWindow {
                         id: generate_uuid(),
                         name: None,
                         timestamp_created: Date::now(),
@@ -874,8 +874,8 @@ fn initialize(state: Arc<State>) {
                 state.process_message(BackgroundMessage::TabInserted {
                     window_index: 2,
                     tab_index: index,
-                    tab: server::Tab {
-                        serialized: server::SerializedTab {
+                    tab: shared::Tab {
+                        serialized: shared::SerializedTab {
                             id: generate_uuid(),
                             timestamp_created: Date::now(),
                             timestamp_focused: Date::now(),
@@ -894,13 +894,13 @@ fn initialize(state: Arc<State>) {
         set_interval(move || {
             state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
+                tab: shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now(),
                         timestamp_focused: Date::now(),
                         tags: vec![
-                            server::Tag {
+                            shared::Tag {
                                 name: "New (Pinned)".to_string(),
                                 timestamp_added: Date::now(),
                             },
@@ -917,13 +917,13 @@ fn initialize(state: Arc<State>) {
 
             state.process_message(BackgroundMessage::TabInserted {
                 tab_index: 0,
-                tab: server::Tab {
-                    serialized: server::SerializedTab {
+                tab: shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now(),
                         timestamp_focused: Date::now(),
                         tags: vec![
-                            server::Tag {
+                            shared::Tag {
                                 name: "New (Pinned)".to_string(),
                                 timestamp_added: Date::now(),
                             },
@@ -944,7 +944,7 @@ fn initialize(state: Arc<State>) {
 
 #[wasm_bindgen(start)]
 pub fn main_js() {
-    #[cfg(debug_assertions)]
+    //#[cfg(debug_assertions)]
     std::panic::set_hook(Box::new(move |info| {
     	let message = Arc::new(info.to_string());
         FAILED.set(Some(message.clone()));
@@ -1030,46 +1030,48 @@ pub fn main_js() {
     }).forget();
 
 
-    fn search_to_id() -> i32 {
+    fn search_to_id() -> String {
         let search = window()
                 .unwrap_throw()
                 .location()
                 .search()
                 .unwrap_throw();
 
-        search[1..].parse().unwrap_throw()
+        js_sys::decode_uri_component(&search[1..])
+            .unwrap_throw()
+            .into()
     }
 
     tab_organizer::spawn(async {
-        let window: server::Window = tab_organizer::send_message(&SidebarMessage::Initialize {
+        log!("{}", search_to_id());
+
+        let tabs: Vec<shared::Tab> = tab_organizer::send_message(&SidebarMessage::Initialize {
             id: search_to_id(),
         }).await?;
 
-        log!("{}", search_to_id());
-
         time!("Initializing", {
-            initialize(Arc::new(State::new(Options::new(), Window::new(window))));
+            initialize(Arc::new(State::new(Options::new(), tabs)));
         });
 
         Ok(())
     });
 
     /*Timer::new(1500, move || {
-        let window: server::Window = server::Window {
-            serialized: server::SerializedWindow {
+        let window: shared::Window = shared::Window {
+            serialized: shared::SerializedWindow {
                 id: generate_uuid(),
                 name: None,
                 timestamp_created: Date::now(),
             },
             focused: false,
             tabs: (0..1000).map(|index| {
-                server::Tab {
-                    serialized: server::SerializedTab {
+                shared::Tab {
+                    serialized: shared::SerializedTab {
                         id: generate_uuid(),
                         timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
                         timestamp_focused: Date::now() - (index as f64 * TimeDifference::HOUR),
                         tags: vec![
-                            server::Tag {
+                            shared::Tag {
                                 name: if index < 5 { "One".to_string() } else { "Two".to_string() },
                                 timestamp_added: index as f64,
                             },

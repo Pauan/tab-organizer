@@ -1,4 +1,4 @@
-use crate::types::{State, TabState, Group, Tab, Window};
+use crate::types::{State, TabState, Group, Tab};
 use crate::url_bar::UrlBar;
 use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
 use tab_organizer::state::{BackgroundMessage, TabChange, SortTabs, Tag};
@@ -194,7 +194,7 @@ fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_anima
         },
 
         SortTabs::TimeFocused => StackVec::Single({
-            let timestamp = round_to_hour(tab.timestamp_focused.get());
+            let timestamp = round_to_hour(tab.timestamp_focused.get().unwrap_or_else(|| tab.timestamp_created.get()));
 
             let index = get_timestamp_index(groups, timestamp);
             insert_group(groups, index, || {
@@ -322,10 +322,10 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 }
 
 
-fn initialize(state: &State, sort: SortTabs, window: &Window, should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(state: &State, sort: SortTabs, tabs: &[Arc<TabState>], should_animate: bool) -> Vec<Arc<Group>> {
     let mut groups = vec![];
 
-    for (tab_index, tab) in window.tabs.iter().cloned().enumerate() {
+    for (tab_index, tab) in tabs.iter().cloned().enumerate() {
         tab_inserted(state, sort, &mut groups, tab, tab_index, should_animate, true);
     }
 
@@ -446,14 +446,14 @@ impl Groups {
     }
 
     pub(crate) fn initialize(&self, state: &State) {
-        let window = state.window.read().unwrap();
+        let tabs = state.tabs.read().unwrap();
 
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &window, false) });
+        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &tabs, false) });
         groups.replace_cloned(new_groups);
     }
 
@@ -480,7 +480,7 @@ impl Groups {
         }
     }
 
-    fn change_sort(&self, state: &State, sort_tabs: SortTabs, window: &Window) {
+    fn change_sort(&self, state: &State, sort_tabs: SortTabs, tabs: &[Arc<TabState>]) {
         let mut sort = self.sort.lock().unwrap();
 
         let mut groups = self.groups.lock_mut();
@@ -498,7 +498,7 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        let new_groups = time!("Creating new groups", { initialize(state, *sort, window, false) });
+        let new_groups = time!("Creating new groups", { initialize(state, *sort, tabs, false) });
 
         groups.replace_cloned(new_groups);
     }
@@ -570,33 +570,33 @@ impl State {
 
         match message {
             BackgroundMessage::TabInserted { tab_index, tab } => {
-                let mut window = self.window.write().unwrap();
+                let mut tabs = self.tabs.write().unwrap();
 
                 let tab = Arc::new(TabState::new(tab, tab_index));
 
-                increment_indexes(&window.tabs[tab_index..]);
+                increment_indexes(&tabs[tab_index..]);
 
-                window.tabs.insert(tab_index, tab.clone());
+                tabs.insert(tab_index, tab.clone());
 
                 self.groups.tab_inserted(self, tab_index, tab);
             },
 
             BackgroundMessage::TabRemoved { tab_index } => {
-                let mut window = self.window.write().unwrap();
+                let mut tabs = self.tabs.write().unwrap();
 
-                let tab = window.tabs.remove(tab_index);
+                let tab = tabs.remove(tab_index);
 
                 tab.removed.set_neq(true);
 
                 self.groups.tab_removed(tab_index, &tab);
 
-                decrement_indexes(&window.tabs[tab_index..]);
+                decrement_indexes(&tabs[tab_index..]);
             },
 
             BackgroundMessage::TabChanged { tab_index, changes } => {
-                let window = self.window.read().unwrap();
+                let tabs = self.tabs.read().unwrap();
 
-                let tab = &window.tabs[tab_index];
+                let tab = &tabs[tab_index];
 
                 self.groups.tab_updated(self, tab_index, tab.clone(), || {
                     for change in changes {
@@ -626,8 +626,8 @@ impl State {
     }
 
     pub(crate) fn change_sort(&self, sort_tabs: SortTabs) {
-        let window = self.window.read().unwrap();
-        self.groups.change_sort(self, sort_tabs, &window);
+        let tabs = self.tabs.read().unwrap();
+        self.groups.change_sort(self, sort_tabs, &tabs);
     }
 
     pub(crate) fn update_group_titles(&self) {

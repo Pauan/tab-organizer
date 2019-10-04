@@ -2,7 +2,8 @@ use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tab_organizer::{local_storage_get, state};
+use tab_organizer::{local_storage_get};
+use tab_organizer::state as shared;
 use tab_organizer::state::Options;
 use crate::url_bar::UrlBar;
 use crate::search;
@@ -81,7 +82,7 @@ pub(crate) struct State {
     pub(crate) groups_padding: Mutable<f64>, // TODO use u32 instead ?
 
     pub(crate) groups: Groups,
-    pub(crate) window: RwLock<Window>,
+    pub(crate) tabs: RwLock<Vec<Arc<TabState>>>,
     pub(crate) options: Options,
 
     pub(crate) dragging: Dragging,
@@ -91,7 +92,9 @@ pub(crate) struct State {
 }
 
 impl State {
-    pub(crate) fn new(options: Options, window: Window) -> Self {
+    pub(crate) fn new(options: Options, tabs: Vec<shared::Tab>) -> Self {
+        let tabs = tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect();
+
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
         let scroll_y = local_storage_get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
@@ -103,7 +106,7 @@ impl State {
             groups_padding: Mutable::new(0.0),
 
             groups: Groups::new(options.sort_tabs.get()),
-            window: RwLock::new(window),
+            tabs: RwLock::new(tabs),
             options,
 
             dragging: Dragging::new(),
@@ -142,20 +145,20 @@ pub(crate) struct TabState {
     pub(crate) pinned: Mutable<bool>,
     pub(crate) removed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
-    pub(crate) timestamp_focused: Mutable<f64>,
-    pub(crate) tags: Mutable<Vec<state::Tag>>,
+    pub(crate) timestamp_focused: Mutable<Option<f64>>,
+    pub(crate) tags: Mutable<Vec<shared::Tag>>,
 }
 
 impl TabState {
-    pub(crate) fn new(state: state::Tab, index: usize) -> Self {
+    pub(crate) fn new(state: shared::Tab, index: usize) -> Self {
         Self {
             id: state.serialized.id,
-            favicon_url: Mutable::new(state.favicon_url.map(Arc::new)),
-            title: Mutable::new(state.title.map(Arc::new)),
-            url: Mutable::new(state.url.map(Arc::new)),
+            favicon_url: Mutable::new(state.serialized.favicon_url.map(Arc::new)),
+            title: Mutable::new(state.serialized.title.map(Arc::new)),
+            url: Mutable::new(state.serialized.url.map(Arc::new)),
             index: Mutable::new(index),
             focused: Mutable::new(state.focused),
-            unloaded: Mutable::new(state.unloaded),
+            unloaded: Mutable::new(state.serialized.unloaded),
             pinned: Mutable::new(state.pinned),
             removed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
@@ -225,24 +228,6 @@ impl Deref for Tab {
     #[inline]
     fn deref(&self) -> &Self::Target {
         &*self.state
-    }
-}
-
-
-#[derive(Debug)]
-pub(crate) struct Window {
-    pub(crate) id: Uuid,
-    pub(crate) name: Mutable<Option<Arc<String>>>,
-    pub(crate) tabs: Vec<Arc<TabState>>,
-}
-
-impl Window {
-    pub(crate) fn new(state: state::Window) -> Self {
-        Self {
-            id: state.serialized.id,
-            name: Mutable::new(state.serialized.name.map(Arc::new)),
-            tabs: state.tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect(),
-        }
     }
 }
 

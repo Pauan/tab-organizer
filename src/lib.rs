@@ -300,14 +300,22 @@ impl<A> Drop for Listener<A> where A: ?Sized {
 }
 
 
+pub fn serialize_str<A>(value: &A) -> String where A: Serialize {
+    serde_json::to_string(value).unwrap_throw()
+}
+
 pub fn serialize<A>(value: &A) -> JsValue where A: Serialize {
-    JsValue::from(serde_json::to_string(value).unwrap_throw())
+    JsValue::from(serialize_str(value))
 }
 
 
+pub fn deserialize_str<A>(value: &str) -> A where A: DeserializeOwned {
+    serde_json::from_str(&value).unwrap_throw()
+}
+
 pub fn deserialize<A>(value: &JsValue) -> A where A: DeserializeOwned {
     let value = value.as_string().unwrap_throw();
-    serde_json::from_str(&value).unwrap_throw()
+    deserialize_str(&value)
 }
 
 
@@ -485,8 +493,21 @@ impl<'a> Transaction<'a> {
         Some(deserialize(&value))
     }
 
-    pub fn set<T>(&self, key: &str, value: T) where T: Serialize {
-        self.set_raw(key, serialize(&value));
+    pub fn get_or_insert<T, F>(&self, key: &str, f: F) -> T
+        where T: Serialize + DeserializeOwned,
+              F: FnOnce() -> T {
+        match self.get(key) {
+            Some(value) => value,
+            None => {
+                let out = f();
+                self.set(key, &out);
+                out
+            },
+        }
+    }
+
+    pub fn set<T>(&self, key: &str, value: &T) where T: Serialize {
+        self.set_raw(key, serialize(value));
     }
 
     fn remove_raw(&self, key: JsValue) {
@@ -559,22 +580,32 @@ impl Database {
 
         self.state.borrow_mut().start_commit(&self.state);
     }
+
+    pub fn debug(&self) {
+        web_sys::console::log_1(&self.db);
+    }
 }
 
 
+#[macro_export]
 macro_rules! array {
     ($($value:expr),*) => {{
-        let array = Array::new();
-        $(array.push(&JsValue::from($value));)*
+        let array = js_sys::Array::new();
+        $(array.push(&wasm_bindgen::JsValue::from($value));)*
         array
     }};
 }
 
+#[macro_export]
 macro_rules! object {
     ($($key:literal: $value:expr,)*) => {{
-        let obj = Object::new();
+        let obj = js_sys::Object::new();
         // TODO make this more efficient
-        $(Reflect::set(&obj, &JsValue::from(intern($key)), &JsValue::from($value)).unwrap_throw();)*
+        $(wasm_bindgen::UnwrapThrowExt::unwrap_throw(js_sys::Reflect::set(
+            &obj,
+            &wasm_bindgen::JsValue::from(wasm_bindgen::intern($key)),
+            &wasm_bindgen::JsValue::from($value),
+        ));)*
         obj
     }};
 }
