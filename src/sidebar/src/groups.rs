@@ -1,7 +1,8 @@
 use crate::types::{State, TabState, Group, Tab};
 use crate::url_bar::UrlBar;
 use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
-use tab_organizer::state::{BackgroundMessage, TabChange, SortTabs, Tag};
+use tab_organizer::state as shared;
+use tab_organizer::state::{TabChange, SortTabs, Tag};
 use js_sys::Date;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};
@@ -554,75 +555,71 @@ impl Tab {
 }
 
 
+fn increment_indexes(tabs: &[Arc<TabState>]) {
+    for tab in tabs {
+        tab.index.replace_with(|index| *index + 1);
+    }
+}
+
+fn decrement_indexes(tabs: &[Arc<TabState>]) {
+    for tab in tabs {
+        tab.index.replace_with(|index| *index - 1);
+    }
+}
+
 impl State {
-    pub(crate) fn process_message(&self, message: BackgroundMessage) {
-        fn increment_indexes(tabs: &[Arc<TabState>]) {
-            for tab in tabs {
-                tab.index.replace_with(|index| *index + 1);
+    pub(crate) fn insert_tab(&self, tab_index: usize, tab: shared::Tab) {
+        let mut tabs = self.tabs.write().unwrap();
+
+        let tab = Arc::new(TabState::new(tab, tab_index));
+
+        increment_indexes(&tabs[tab_index..]);
+
+        tabs.insert(tab_index, tab.clone());
+
+        self.groups.tab_inserted(self, tab_index, tab);
+    }
+
+    pub(crate) fn remove_tab(&self, tab_index: usize) {
+        let mut tabs = self.tabs.write().unwrap();
+
+        let tab = tabs.remove(tab_index);
+
+        tab.removed.set_neq(true);
+
+        self.groups.tab_removed(tab_index, &tab);
+
+        decrement_indexes(&tabs[tab_index..]);
+    }
+
+    pub(crate) fn change_tab(&self, tab_index: usize, changes: Vec<TabChange>) {
+        let tabs = self.tabs.read().unwrap();
+
+        let tab = &tabs[tab_index];
+
+        self.groups.tab_updated(self, tab_index, tab.clone(), || {
+            for change in changes {
+                match change {
+                    TabChange::Title { new_title } => {
+                        tab.title.set(new_title.map(Arc::new));
+                    },
+                    TabChange::Pinned { pinned } => {
+                        tab.pinned.set_neq(pinned);
+                    },
+                    TabChange::AddedToTag { tag } => {
+                        let mut tags = tab.tags.lock_mut();
+                        assert!(tags.iter().all(|x| x.name != tag.name));
+                        tags.push(tag);
+                    },
+                    TabChange::RemovedFromTag { tag_name } => {
+                        let mut tags = tab.tags.lock_mut();
+                        // TODO use remove_item
+                        let index = tags.iter().position(|x| x.name == tag_name).unwrap();
+                        tags.remove(index);
+                    },
+                }
             }
-        }
-
-        fn decrement_indexes(tabs: &[Arc<TabState>]) {
-            for tab in tabs {
-                tab.index.replace_with(|index| *index - 1);
-            }
-        }
-
-        match message {
-            BackgroundMessage::TabInserted { tab_index, tab } => {
-                let mut tabs = self.tabs.write().unwrap();
-
-                let tab = Arc::new(TabState::new(tab, tab_index));
-
-                increment_indexes(&tabs[tab_index..]);
-
-                tabs.insert(tab_index, tab.clone());
-
-                self.groups.tab_inserted(self, tab_index, tab);
-            },
-
-            BackgroundMessage::TabRemoved { tab_index } => {
-                let mut tabs = self.tabs.write().unwrap();
-
-                let tab = tabs.remove(tab_index);
-
-                tab.removed.set_neq(true);
-
-                self.groups.tab_removed(tab_index, &tab);
-
-                decrement_indexes(&tabs[tab_index..]);
-            },
-
-            BackgroundMessage::TabChanged { tab_index, changes } => {
-                let tabs = self.tabs.read().unwrap();
-
-                let tab = &tabs[tab_index];
-
-                self.groups.tab_updated(self, tab_index, tab.clone(), || {
-                    for change in changes {
-                        match change {
-                            TabChange::Title { new_title } => {
-                                tab.title.set(new_title.map(Arc::new));
-                            },
-                            TabChange::Pinned { pinned } => {
-                                tab.pinned.set_neq(pinned);
-                            },
-                            TabChange::AddedToTag { tag } => {
-                                let mut tags = tab.tags.lock_mut();
-                                assert!(tags.iter().all(|x| x.name != tag.name));
-                                tags.push(tag);
-                            },
-                            TabChange::RemovedFromTag { tag_name } => {
-                                let mut tags = tab.tags.lock_mut();
-                                // TODO use remove_item
-                                let index = tags.iter().position(|x| x.name == tag_name).unwrap();
-                                tags.remove(index);
-                            },
-                        }
-                    }
-                });
-            },
-        }
+        });
     }
 
     pub(crate) fn change_sort(&self, sort_tabs: SortTabs) {

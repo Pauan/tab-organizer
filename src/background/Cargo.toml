@@ -23,6 +23,7 @@ futures-preview = { version = "0.3.0-alpha.19", features = ["async-await"] }
 futures-signals = "0.3.0"
 tab-organizer = { path = "../.." }
 serde_json = "1.0.40"
+dominator = "0.5.0"
 uuid = "0.7.1"
 
 [dependencies.wasm-bindgen-futures]

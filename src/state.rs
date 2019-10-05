@@ -64,6 +64,9 @@ pub enum TabChange {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum BackgroundMessage {
+    Initial {
+        tabs: Vec<Tab>,
+    },
     TabInserted {
         tab_index: usize,
         tab: Tab,

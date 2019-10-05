@@ -402,13 +402,13 @@ impl<A, B, C, D> Future for Culler<A, C, D>
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        time!("Culling", {
+        //time!("Culling", {
             let (changed, should_search) = self.is_changed(cx);
 
             if changed || should_search {
                 self.update(should_search);
             }
-        });
+        //});
 
         Poll::Pending
     }

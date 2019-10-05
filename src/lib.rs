@@ -319,36 +319,6 @@ pub fn deserialize<A>(value: &JsValue) -> A where A: DeserializeOwned {
 }
 
 
-pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, JsValue) -> Promise>
-    where D: DeserializeOwned,
-          S: Serialize,
-          P: Future<Output = Result<S, JsValue>> + 'static,
-          F: FnMut(D) -> P + 'static {
-
-    Listener::new(browser.runtime().on_message(), Closure::new(move |message: String, _: JsValue, _: JsValue| {
-        let message: D = serde_json::from_str(&message).unwrap_throw();
-        let future = f(message);
-        future_to_promise(async move {
-            let reply = future.await?;
-            let reply = serde_json::to_string(&reply).unwrap_throw();
-            Ok(JsValue::from(reply))
-        })
-    }))
-}
-
-
-pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue>>
-    where A: Serialize,
-          B: DeserializeOwned {
-    let message = serialize(message);
-
-    async move {
-        let reply = JsFuture::from(browser.runtime().send_message(None, &message, None)).await?;
-        Ok(deserialize(&reply))
-    }
-}
-
-
 #[derive(Debug)]
 enum Change {
     Remove(JsValue),
@@ -585,6 +555,112 @@ impl Database {
         web_sys::console::log_1(&self.db);
     }
 }
+
+
+struct OnMessage<A> {
+    _on_message: Listener<dyn FnMut(JsValue)>,
+    _on_disconnect: Listener<dyn FnMut(web_extension::Port)>,
+    receiver: mpsc::UnboundedReceiver<A>,
+}
+
+impl<A> Stream for OnMessage<A> {
+    type Item = A;
+
+    #[inline]
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Port {
+    port: web_extension::Port,
+}
+
+impl Port {
+    pub fn send_message<A>(&self, message: &A) where A: Serialize {
+        self.port.post_message(&serialize(message));
+    }
+
+    pub fn on_message<A>(&self) -> impl Stream<Item = A> where A: DeserializeOwned + 'static {
+        let (mut sender, receiver) = mpsc::unbounded();
+
+        let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message| {
+            sender.unbounded_send(deserialize(&message)).unwrap_throw();
+        })));
+
+        let _on_disconnect = Listener::new(self.port.on_disconnect(), Closure::new(move |_| {
+            sender.close_channel();
+        }));
+
+        OnMessage { _on_message, _on_disconnect, receiver }
+    }
+}
+
+
+struct OnConnect {
+    _listener: Listener<dyn FnMut(web_extension::Port)>,
+    receiver: mpsc::UnboundedReceiver<Port>,
+}
+
+impl Stream for OnConnect {
+    type Item = Port;
+
+    #[inline]
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
+    }
+}
+
+pub fn on_connect() -> impl Stream<Item = Port> {
+    let (sender, receiver) = mpsc::unbounded();
+
+    let _listener = Listener::new(browser.runtime().on_connect(), Closure::new(move |port| {
+        sender.unbounded_send(Port { port }).unwrap_throw();
+    }));
+
+    OnConnect { _listener, receiver }
+}
+
+
+pub fn connect(name: &str) -> Port {
+    Port {
+        port: browser.runtime().connect(None, &object! {
+            "name": name,
+        }),
+    }
+}
+
+
+/*pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, JsValue) -> Promise>
+    where D: DeserializeOwned,
+          S: Serialize,
+          P: Future<Output = Result<S, JsValue>> + 'static,
+          F: FnMut(D) -> P + 'static {
+
+    Listener::new(browser.runtime().on_message(), Closure::new(move |message: String, _: JsValue, _: JsValue| {
+        let message: D = serde_json::from_str(&message).unwrap_throw();
+        let future = f(message);
+        future_to_promise(async move {
+            let reply = future.await?;
+            let reply = serde_json::to_string(&reply).unwrap_throw();
+            Ok(JsValue::from(reply))
+        })
+    }))
+}
+
+
+pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue>>
+    where A: Serialize,
+          B: DeserializeOwned {
+    let message = serialize(message);
+
+    async move {
+        let reply = JsFuture::from(browser.runtime().send_message(None, &message, None)).await?;
+        Ok(deserialize(&reply))
+    }
+}*/
 
 
 #[macro_export]

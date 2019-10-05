@@ -22,6 +22,9 @@ pub use browser_action::*;
 mod runtime;
 pub use runtime::*;
 
+mod port;
+pub use port::*;
+
 
 #[wasm_bindgen]
 extern "C" {

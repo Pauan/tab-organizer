@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{intern, JsCast};
 use std::sync::Arc;
-use tab_organizer::{Timer, set_interval, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
+use tab_organizer::{Timer, set_interval, connect, local_storage_set, log, time, generate_uuid, option_str, option_str_default, option_str_default_fn, is_empty, cursor, none_if, none_if_px, px, px_range, float_range, ease, TimeDifference, every_hour};
 use tab_organizer::state as shared;
 use tab_organizer::state::{SidebarMessage, BackgroundMessage, TabChange, Options, SortTabs};
 use dominator::traits::*;
@@ -11,6 +11,7 @@ use dominator::{Dom, DomBuilder, text_signal, RefFn, html, stylesheet, clone, ev
 use dominator::animation::{Percentage, MutableAnimation};
 use js_sys::Date;
 use futures::future::ready;
+use futures::stream::{StreamExt, TryStreamExt};
 use futures_signals::map_ref;
 use futures_signals::signal::{Mutable, SignalExt, and, or};
 use futures_signals::signal_vec::SignalVecExt;
@@ -1042,16 +1043,43 @@ pub fn main_js() {
             .into()
     }
 
-    tab_organizer::spawn(async {
-        log!("{}", search_to_id());
 
-        let tabs: Vec<shared::Tab> = tab_organizer::send_message(&SidebarMessage::Initialize {
+    tab_organizer::spawn(async move {
+        let port = connect("sidebar");
+
+        port.send_message(&SidebarMessage::Initialize {
             id: search_to_id(),
-        }).await?;
-
-        time!("Initializing", {
-            initialize(Arc::new(State::new(Options::new(), tabs)));
         });
+
+        let _ = port.on_message()
+            .map(|x| -> Result<BackgroundMessage, JsValue> { Ok(x) })
+            .try_fold(None, move |mut state, message| {
+                async move {
+                    match message {
+                        BackgroundMessage::Initial { tabs } => {
+                            state = time!("Initializing", {
+                                let state = Arc::new(State::new(Options::new(), tabs));
+                                initialize(state.clone());
+                                Some(state)
+                            });
+                        },
+
+                        BackgroundMessage::TabInserted { tab_index, tab } => {
+                            state.as_ref().unwrap_throw().insert_tab(tab_index, tab);
+                        },
+
+                        BackgroundMessage::TabRemoved { tab_index } => {
+                            state.as_ref().unwrap_throw().remove_tab(tab_index);
+                        },
+
+                        BackgroundMessage::TabChanged { tab_index, changes } => {
+                            state.as_ref().unwrap_throw().change_tab(tab_index, changes);
+                        },
+                    }
+
+                    Ok(state)
+                }
+            }).await?;
 
         Ok(())
     });

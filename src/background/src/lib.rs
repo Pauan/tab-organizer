@@ -1,19 +1,21 @@
+#![feature(vec_remove_item)]
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use uuid::Uuid;
 use futures::try_join;
 use futures::future::try_join_all;
-use futures::stream::StreamExt;
+use futures::stream::{StreamExt, TryStreamExt};
 use web_extension::browser;
 use wasm_bindgen::{intern, JsCast};
 use wasm_bindgen_futures::futures_0_3::JsFuture;
 use js_sys::{Array, Date};
-use tab_organizer::{spawn, log, object, deserialize_str, serialize_str, Listener, Windows, Database};
-use tab_organizer::state::{Window, Tab, SidebarMessage, SerializedWindow, SerializedTab};
+use dominator::clone;
+use tab_organizer::{spawn, log, object, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port};
+use tab_organizer::state::{Window, Tab, SidebarMessage, BackgroundMessage, SerializedWindow, SerializedTab};
 
 
 #[wasm_bindgen(start)]
@@ -71,6 +73,7 @@ pub fn main_js() {
         windows: Vec<Uuid>,
 
         database: Database,
+        ports: HashMap<Uuid, Vec<Port>>,
     }
 
     impl State {
@@ -84,6 +87,7 @@ pub fn main_js() {
                 windows: vec![],
 
                 database,
+                ports: HashMap::new(),
             }))
         }
 
@@ -182,8 +186,6 @@ pub fn main_js() {
                 Self::tabs(state, timestamp_created, window.tabs()),
             )?;
 
-            log!("{}", id);
-
             let mut state = state.borrow_mut();
 
             let serialized: SerializedWindow = state.database.transaction(|tx| {
@@ -214,6 +216,7 @@ pub fn main_js() {
             });
 
             state.browser_windows.insert(window_id, id);
+            state.ports.entry(id).or_insert_with(|| vec![]);
 
             let _ = JsFuture::from(browser.sidebar_action().set_panel(&object! {
                 "panel": format!("sidebar.html?{}", serialize_str(&id)),
@@ -238,8 +241,98 @@ pub fn main_js() {
 
         State::initialize(&state, windows).await?;
 
-        spawn(async {
-            Windows::changes().for_each(|change| {
+
+        spawn(clone!(state => async move {
+            on_connect()
+                .map(|x| -> Result<Port, JsValue> { Ok(x) })
+                .try_for_each_concurrent(None, move |port| {
+                    clone!(state => async move {
+                        let port_uuid = Rc::new(Cell::new(None));
+
+                        port.on_message()
+                            .map(|x| -> Result<SidebarMessage, JsValue> { Ok(x) })
+                            .try_for_each(clone!(port_uuid, state, port => move |message| {
+                                clone!(port_uuid, state, port => async move {
+                                    match message {
+                                        SidebarMessage::Initialize { id } => {
+                                            let uuid: Uuid = deserialize_str(&id);
+
+                                            let mut state = state.borrow_mut();
+
+                                            {
+                                                let ports = state.ports.get_mut(&uuid).unwrap_throw();
+                                                ports.push(port.clone());
+                                            }
+
+                                            port_uuid.set(Some(uuid));
+
+                                            let window = state.windows_by_id.get(&uuid).unwrap_throw();
+
+                                            // TODO figure out a way to avoid this clone
+                                            let tabs: Vec<Tab> = window.serialized.tabs.iter()
+                                                .map(|id| state.tabs_by_id.get(id).unwrap_throw().clone())
+                                                .collect();
+
+                                            port.send_message(&BackgroundMessage::Initial { tabs });
+
+                                            /*Ok((0..1000).map(|index| {
+                                                shared::Tab {
+                                                    serialized: shared::SerializedTab {
+                                                        id: generate_uuid(),
+                                                        timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
+                                                        timestamp_focused: Date::now() - (index as f64 * TimeDifference::HOUR),
+                                                        tags: vec![
+                                                            shared::Tag {
+                                                                name: if index < 5 { "One".to_string() } else { "Two".to_string() },
+                                                                timestamp_added: index as f64,
+                                                            },
+                                                        ],
+                                                    },
+                                                    focused: index == 7,
+                                                    unloaded: index == 5,
+                                                    pinned: index == 0 || index == 1 || index == 2,
+                                                    favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
+                                                    url: Some("https://www.example.com/foo?bar#qux".to_owned()),
+                                                    title: Some(format!("Foo {}", index)),
+                                                }
+                                            }).collect())
+
+
+                                            Ok(shared::Window {
+                                                serialized: shared::SerializedWindow {
+                                                    id: generate_uuid(),
+                                                    name: None,
+                                                    timestamp_created: Date::now(),
+                                                    tabs: vec![],
+                                                },
+                                                focused: false,
+                                                tabs: ,
+                                            })*/
+                                        },
+                                    }
+
+                                    Ok(()) as Result<(), JsValue>
+                                })
+                            })).await?;
+
+                        log!("Port stopped {:?}", port_uuid);
+
+                        if let Some(uuid) = port_uuid.get() {
+                            let mut state = state.borrow_mut();
+                            let ports = state.ports.get_mut(&uuid).unwrap_throw();
+                            ports.remove_item(&port);
+                        }
+
+                        Ok(())
+                    })
+                }).await?;
+
+            Ok(())
+        }));
+
+
+        spawn(async move {
+            Windows::changes().for_each(move |change| {
                 log!("{:#?}", change);
 
                 async move {
@@ -261,60 +354,14 @@ pub fn main_js() {
         }) as Box<dyn FnMut(JsValue)>)).forget();
 
 
-        tab_organizer::on_message(move |message: SidebarMessage| {
-            let state = state.clone();
+        /*{
+            let promise = browser.sidebar_action().open();
 
-            async move {
-                match message {
-                    SidebarMessage::Initialize { id } => {
-                        let state = state.borrow();
-                        let uuid: Uuid = deserialize_str(&id);
-                        let window = state.windows_by_id.get(&uuid).unwrap_throw();
-
-                        // TODO figure out a way to avoid this clone
-                        let tabs: Vec<Tab> = window.serialized.tabs.iter()
-                            .map(|id| state.tabs_by_id.get(id).unwrap_throw().clone())
-                            .collect();
-
-                        Ok(tabs)
-
-                        /*Ok((0..1000).map(|index| {
-                            shared::Tab {
-                                serialized: shared::SerializedTab {
-                                    id: generate_uuid(),
-                                    timestamp_created: Date::now() - (index as f64 * TimeDifference::HOUR),
-                                    timestamp_focused: Date::now() - (index as f64 * TimeDifference::HOUR),
-                                    tags: vec![
-                                        shared::Tag {
-                                            name: if index < 5 { "One".to_string() } else { "Two".to_string() },
-                                            timestamp_added: index as f64,
-                                        },
-                                    ],
-                                },
-                                focused: index == 7,
-                                unloaded: index == 5,
-                                pinned: index == 0 || index == 1 || index == 2,
-                                favicon_url: Some("http://www.saltybet.com/favicon.ico".to_owned()),
-                                url: Some("https://www.example.com/foo?bar#qux".to_owned()),
-                                title: Some(format!("Foo {}", index)),
-                            }
-                        }).collect())
-
-
-                        Ok(shared::Window {
-                            serialized: shared::SerializedWindow {
-                                id: generate_uuid(),
-                                name: None,
-                                timestamp_created: Date::now(),
-                                tabs: vec![],
-                            },
-                            focused: false,
-                            tabs: ,
-                        })*/
-                    },
-                }
-            }
-        }).forget();
+            spawn(async move {
+                let _ = JsFuture::from(promise).await?;
+                Ok(())
+            });
+        }*/
 
 
         log!("Backrgound page started");
