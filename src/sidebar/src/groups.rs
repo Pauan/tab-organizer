@@ -592,6 +592,42 @@ impl State {
         decrement_indexes(&tabs[tab_index..]);
     }
 
+    // TODO test this
+    pub(crate) fn focus_tab(&self, old_tab_index: Option<usize>, new_tab_index: usize, new_timestamp_focused: f64) {
+        let tabs = self.tabs.read().unwrap();
+
+        let new_tab = &tabs[new_tab_index];
+
+        if let Some(old_tab_index) = old_tab_index {
+            let old_tab = &tabs[old_tab_index];
+
+            self.groups.tab_updated(self, old_tab_index, old_tab.clone(), || {
+                old_tab.focused.set_neq(false);
+            });
+        }
+
+        self.groups.tab_updated(self, new_tab_index, new_tab.clone(), || {
+            new_tab.timestamp_focused.set_neq(Some(new_timestamp_focused));
+            new_tab.focused.set_neq(true);
+        });
+    }
+
+    // TODO test this
+    pub(crate) fn move_tab(&self, old_tab_index: usize, new_tab_index: usize) {
+        let mut tabs = self.tabs.write().unwrap();
+
+        let tab = tabs.remove(old_tab_index);
+
+        self.groups.tab_removed(old_tab_index, &tab);
+
+        decrement_indexes(&tabs[old_tab_index..]);
+        increment_indexes(&tabs[new_tab_index..]);
+
+        tabs.insert(new_tab_index, tab.clone());
+
+        self.groups.tab_inserted(self, new_tab_index, tab);
+    }
+
     pub(crate) fn change_tab(&self, tab_index: usize, changes: Vec<TabChange>) {
         let tabs = self.tabs.read().unwrap();
 
@@ -600,8 +636,14 @@ impl State {
         self.groups.tab_updated(self, tab_index, tab.clone(), || {
             for change in changes {
                 match change {
+                    TabChange::FaviconUrl { new_favicon_url } => {
+                        tab.favicon_url.set(new_favicon_url.map(Arc::new));
+                    },
                     TabChange::Title { new_title } => {
                         tab.title.set(new_title.map(Arc::new));
+                    },
+                    TabChange::Url { new_url } => {
+                        tab.url.set(new_url.map(Arc::new));
                     },
                     TabChange::Pinned { pinned } => {
                         tab.pinned.set_neq(pinned);

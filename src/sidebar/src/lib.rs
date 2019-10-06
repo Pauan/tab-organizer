@@ -1075,6 +1075,14 @@ pub fn main_js() {
                         BackgroundMessage::TabChanged { tab_index, changes } => {
                             state.as_ref().unwrap_throw().change_tab(tab_index, changes);
                         },
+
+                        BackgroundMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused } => {
+                            state.as_ref().unwrap_throw().focus_tab(old_tab_index, new_tab_index, new_timestamp_focused);
+                        },
+
+                        BackgroundMessage::TabMoved { old_tab_index, new_tab_index } => {
+                            state.as_ref().unwrap_throw().move_tab(old_tab_index, new_tab_index);
+                        },
                     }
 
                     Ok(state)

@@ -11,9 +11,9 @@ use std::future::Future;
 use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
-use js_sys::{Date, Promise, Object, Reflect, Array, Set};
+use js_sys::{Date, Object, Reflect, Array, Set};
 use web_sys::{window, Performance, Storage};
-use wasm_bindgen_futures::futures_0_3::{JsFuture, spawn_local, future_to_promise};
+use wasm_bindgen_futures::futures_0_3::{JsFuture, spawn_local};
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
@@ -579,12 +579,16 @@ pub struct Port {
 }
 
 impl Port {
+    pub fn send_message_raw(&self, message: &JsValue) {
+        self.port.post_message(message);
+    }
+
     pub fn send_message<A>(&self, message: &A) where A: Serialize {
-        self.port.post_message(&serialize(message));
+        self.send_message_raw(&serialize(message));
     }
 
     pub fn on_message<A>(&self) -> impl Stream<Item = A> where A: DeserializeOwned + 'static {
-        let (mut sender, receiver) = mpsc::unbounded();
+        let (sender, receiver) = mpsc::unbounded();
 
         let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message| {
             sender.unbounded_send(deserialize(&message)).unwrap_throw();

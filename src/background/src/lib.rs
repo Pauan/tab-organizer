@@ -1,4 +1,4 @@
-#![feature(vec_remove_item)]
+#![feature(vec_remove_item, option_unwrap_none)]
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
@@ -14,7 +14,8 @@ use wasm_bindgen::{intern, JsCast};
 use wasm_bindgen_futures::futures_0_3::JsFuture;
 use js_sys::{Array, Date};
 use dominator::clone;
-use tab_organizer::{spawn, log, object, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port};
+use serde::Serialize;
+use tab_organizer::{spawn, log, object, serialize, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange};
 use tab_organizer::state::{Window, Tab, SidebarMessage, BackgroundMessage, SerializedWindow, SerializedTab};
 
 
@@ -64,13 +65,24 @@ pub fn main_js() {
     }
 
 
+    #[derive(Debug)]
+    struct BrowserTab {
+        uuid: Uuid,
+    }
+
+    #[derive(Debug)]
+    struct BrowserWindow {
+        uuid: Uuid,
+        tabs: Vec<Uuid>,
+    }
+
     struct State {
-        browser_tabs: HashMap<i32, Uuid>,
-        browser_windows: HashMap<i32, Uuid>,
+        browser_tabs: HashMap<i32, BrowserTab>,
+        browser_windows: HashMap<i32, BrowserWindow>,
 
         windows_by_id: HashMap<Uuid, Window>,
         tabs_by_id: HashMap<Uuid, Tab>,
-        windows: Vec<Uuid>,
+        focused_window: Option<Uuid>,
 
         database: Database,
         ports: HashMap<Uuid, Vec<Port>>,
@@ -84,7 +96,7 @@ pub fn main_js() {
 
                 windows_by_id: HashMap::new(),
                 tabs_by_id: HashMap::new(),
-                windows: vec![],
+                focused_window: None,
 
                 database,
                 ports: HashMap::new(),
@@ -100,9 +112,9 @@ pub fn main_js() {
                 .into_iter()
                 .map(|x| Self::new_window(state, timestamp_created, x))).await?;
 
-            let mut state = state.borrow_mut();
+            let state = state.borrow();
 
-            let window_ids = state.database.transaction(|tx| {
+            state.database.transaction(|tx| {
                 let mut window_ids: Vec<Uuid> = tx.get_or_insert(intern("windows"), || vec![]);
 
                 let changed = merge_ids(&mut window_ids, &new_windows);
@@ -110,33 +122,32 @@ pub fn main_js() {
                 if changed {
                     tx.set(intern("windows"), &window_ids);
                 }
-
-                window_ids
             });
 
-            state.windows = window_ids;
-
-            state.database.debug();
-
             Ok(())
+        }
+
+        fn tab_key(uuid: Uuid) -> String {
+            format!("tab-ids.{}", uuid)
         }
 
         async fn new_tab(state: &Rc<RefCell<Self>>, timestamp_created: f64, tab: web_extension::Tab) -> Result<Uuid, JsValue> {
             let tab_id = tab.id().unwrap_throw();
 
-            let id = Tab::get_id(tab_id).await?;
+            let uuid = Tab::get_id(tab_id).await?;
 
             let mut state = state.borrow_mut();
 
             let serialized = state.database.transaction(|tx| {
-                let key = format!("tab-ids.{}", id);
+                let key = Self::tab_key(uuid);
 
                 let mut serialized: SerializedTab = tx.get_or_insert(&key, || {
                     SerializedTab {
-                        id,
+                        id: uuid,
                         tags: vec![],
                         timestamp_created,
                         timestamp_focused: None,
+                        pinned: false,
                         unloaded: false,
                         favicon_url: None,
                         url: None,
@@ -144,7 +155,14 @@ pub fn main_js() {
                     }
                 });
 
-                let changed = serialized.update(timestamp_created, &tab);
+                let changes = serialized.update(&tab);
+
+                let mut changed = !changes.is_empty();
+
+                if tab.active() && serialized.timestamp_focused.is_none() {
+                    changed = true;
+                    serialized.timestamp_focused = Some(timestamp_created);
+                }
 
                 if changed {
                     tx.set(&key, &serialized);
@@ -153,16 +171,15 @@ pub fn main_js() {
                 serialized
             });
 
-            state.tabs_by_id.insert(id, Tab {
+            state.tabs_by_id.insert(uuid, Tab {
                 serialized,
                 id: tab_id,
                 focused: tab.active(),
-                pinned: tab.pinned(),
-            });
+            }).unwrap_none();
 
-            state.browser_tabs.insert(tab_id, id);
+            state.browser_tabs.insert(tab_id, BrowserTab { uuid }).unwrap_none();
 
-            Ok(id)
+            Ok(uuid)
         }
 
         async fn tabs(state: &Rc<RefCell<Self>>, timestamp_created: f64, tabs: Option<Array>) -> Result<Vec<Uuid>, JsValue> {
@@ -178,10 +195,14 @@ pub fn main_js() {
             }
         }
 
+        fn window_key(uuid: Uuid) -> String {
+            format!("window-ids.{}", uuid)
+        }
+
         async fn new_window(state: &Rc<RefCell<Self>>, timestamp_created: f64, window: web_extension::Window) -> Result<Uuid, JsValue> {
             let window_id = window.id().unwrap_throw();
 
-            let (id, tabs) = try_join!(
+            let (uuid, tabs) = try_join!(
                 Window::get_id(window_id),
                 Self::tabs(state, timestamp_created, window.tabs()),
             )?;
@@ -189,11 +210,11 @@ pub fn main_js() {
             let mut state = state.borrow_mut();
 
             let serialized: SerializedWindow = state.database.transaction(|tx| {
-                let key = format!("window-ids.{}", id);
+                let key = Self::window_key(uuid);
 
                 let mut serialized = tx.get_or_insert(&key, || {
                     SerializedWindow {
-                        id,
+                        id: uuid,
                         name: None,
                         timestamp_created,
                         tabs: vec![],
@@ -209,37 +230,88 @@ pub fn main_js() {
                 serialized
             });
 
-            state.windows_by_id.insert(id, Window {
+            let window = Window {
                 id: window_id,
                 serialized,
                 focused: window.focused(),
-            });
+            };
 
-            state.browser_windows.insert(window_id, id);
-            state.ports.entry(id).or_insert_with(|| vec![]);
+            if window.focused {
+                state.focused_window = Some(uuid);
+            }
+
+            state.windows_by_id.insert(uuid, window).unwrap_none();
+
+            state.browser_windows.insert(window_id, BrowserWindow {
+                uuid,
+                tabs,
+            }).unwrap_none();
+
+            state.ports.insert(uuid, vec![]).unwrap_none();
 
             let _ = JsFuture::from(browser.sidebar_action().set_panel(&object! {
-                "panel": format!("sidebar.html?{}", serialize_str(&id)),
+                "panel": format!("sidebar.html?{}", serialize_str(&uuid)),
                 "windowId": window_id,
             })).await?;
 
-            Ok(id)
+            Ok(uuid)
+        }
+
+        fn insert_tab(&mut self, tab_uuid: Uuid, new_window_id: i32, new_index: u32) {
+            let browser_window = self.browser_windows.get_mut(&new_window_id).unwrap_throw();
+            let window_uuid = browser_window.uuid;
+            let window = self.windows_by_id.get_mut(&window_uuid).unwrap_throw();
+            let new_index = new_index as usize;
+
+            let tab_index = if let Some(new_uuid) = browser_window.tabs.get(new_index) {
+                window.serialized.tabs.iter().position(|x| *x == *new_uuid).unwrap_throw()
+
+            } else {
+                0
+            };
+
+            browser_window.tabs.insert(new_index, tab_uuid);
+            window.serialized.tabs.insert(tab_index, tab_uuid);
+
+            self.database.transaction(|tx| {
+                tx.set(&State::window_key(window_uuid), &window.serialized);
+            });
+
+            let tab = self.tabs_by_id.get(&tab_uuid).unwrap_throw();
+
+            // TODO figure out a way to avoid this clone
+            self.send_message(window_uuid, &BackgroundMessage::TabInserted { tab_index, tab: tab.clone() });
+        }
+
+        fn send_message<A>(&self, uuid: Uuid, message: &A) where A: Serialize {
+            let ports = self.ports.get(&uuid).unwrap_throw();
+
+            if !ports.is_empty() {
+                let message = serialize(&message);
+
+                for port in ports {
+                    port.send_message_raw(&message);
+                }
+            }
         }
     }
 
 
     spawn(async {
+        log!("Starting");
+
         let (windows, database) = try_join!(
             Windows::current(),
             Database::new(),
         )?;
 
-        // TODO remove this
-        database.transaction(|tx| tx.clear());
-
         let state = State::new(database);
 
+        log!("Initializing state");
+
         State::initialize(&state, windows).await?;
+
+        log!("Initializing listeners");
 
 
         spawn(clone!(state => async move {
@@ -332,13 +404,217 @@ pub fn main_js() {
 
 
         spawn(async move {
-            Windows::changes().for_each(move |change| {
-                log!("{:#?}", change);
+            Windows::changes()
+                .map(|x| -> Result<WindowChange, JsValue> { Ok(x) })
+                .try_for_each(move |change| {
+                    clone!(state => async move {
+                        match change {
+                            WindowChange::WindowCreated { window } => {
+                                let timestamp_created = Date::now();
+                                let uuid = State::new_window(&state, timestamp_created, window).await?;
 
-                async move {
+                                state.borrow().database.transaction(|tx| {
+                                    let mut window_ids: Vec<Uuid> = tx.get_or_insert(intern("windows"), || vec![]);
 
-                }
-            }).await;
+                                    window_ids.push(uuid);
+
+                                    tx.set(intern("windows"), &window_ids);
+                                });
+                            },
+
+                            // TODO call browser.sidebar_action().set_panel ?
+                            WindowChange::WindowRemoved { window_id } => {
+                                let mut state = state.borrow_mut();
+
+                                state.database.delay_transactions();
+
+                                let browser_window = state.browser_windows.remove(&window_id).unwrap_throw();
+
+                                assert_eq!(browser_window.tabs.len(), 0);
+
+                                let uuid = browser_window.uuid;
+
+                                let window = state.windows_by_id.remove(&uuid).unwrap_throw();
+
+                                assert_eq!(window.serialized.tabs.len(), 0);
+
+                                state.ports.remove(&uuid).unwrap_throw();
+
+                                state.database.transaction(|tx| {
+                                    tx.remove(&State::window_key(uuid));
+
+                                    let mut window_ids: Vec<Uuid> = tx.get_or_insert(intern("windows"), || vec![]);
+
+                                    window_ids.remove_item(&uuid);
+
+                                    tx.set(intern("windows"), &window_ids);
+                                });
+                            },
+
+                            WindowChange::WindowFocused { window_id } => {
+                                let state: &mut State = &mut state.borrow_mut();
+
+                                if let Some(uuid) = state.focused_window {
+                                    let window = state.windows_by_id.get_mut(&uuid).unwrap_throw();
+                                    window.focused = false;
+                                    state.focused_window = None;
+                                }
+
+                                if let Some(window_id) = window_id {
+                                    let uuid = state.browser_windows.get(&window_id).unwrap_throw().uuid;
+                                    let window = state.windows_by_id.get_mut(&uuid).unwrap_throw();
+                                    window.focused = true;
+                                    state.focused_window = Some(uuid);
+                                }
+                            },
+
+                            WindowChange::TabCreated { tab } => {
+                                let timestamp_created = Date::now();
+                                let window_id = tab.window_id();
+                                let index = tab.index();
+                                let tab_uuid = State::new_tab(&state, timestamp_created, tab).await?;
+                                state.borrow_mut().insert_tab(tab_uuid, window_id, index);
+                            },
+
+                            WindowChange::TabFocused { old_tab_id, new_tab_id, window_id } => {
+                                let timestamp_focused = Date::now();
+
+                                let state: &mut State = &mut state.borrow_mut();
+
+                                let old_tab_uuid = old_tab_id.map(|old_tab_id| state.browser_tabs.get(&old_tab_id).unwrap_throw().uuid);
+                                let new_tab_uuid = state.browser_tabs.get(&new_tab_id).unwrap_throw().uuid;
+
+                                if let Some(old_tab_uuid) = old_tab_uuid {
+                                    state.tabs_by_id.get_mut(&old_tab_uuid).unwrap_throw().focused = false;
+                                }
+
+                                let tab = state.tabs_by_id.get_mut(&new_tab_uuid).unwrap_throw();
+                                tab.focused = true;
+                                tab.serialized.timestamp_focused = Some(timestamp_focused);
+
+                                let window_uuid = state.browser_windows.get_mut(&window_id).unwrap_throw().uuid;
+                                let window = state.windows_by_id.get_mut(&window_uuid).unwrap_throw();
+
+                                // TODO use uuid instead of indexes ?
+                                let old_tab_index = old_tab_uuid.map(|old_tab_uuid| window.serialized.tabs.iter().position(|x| *x == old_tab_uuid).unwrap_throw());
+                                let new_tab_index = window.serialized.tabs.iter().position(|x| *x == new_tab_uuid).unwrap_throw();
+
+                                state.database.transaction(|tx| {
+                                    tx.set(&State::tab_key(new_tab_uuid), &tab.serialized);
+                                });
+
+                                state.send_message(window_uuid, &BackgroundMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused: timestamp_focused });
+                            },
+
+                            WindowChange::TabDetached { tab_id, old_window_id, old_index } => {
+                                let state: &mut State = &mut state.borrow_mut();
+
+                                let tab_uuid = state.browser_tabs.get(&tab_id).unwrap_throw().uuid;
+
+                                let browser_window = state.browser_windows.get_mut(&old_window_id).unwrap_throw();
+                                let window_uuid = browser_window.uuid;
+                                let window = state.windows_by_id.get_mut(&window_uuid).unwrap_throw();
+
+                                assert_eq!(browser_window.tabs.remove(old_index as usize), tab_uuid);
+
+                                let tab_index = window.serialized.tabs.iter().position(|x| *x == tab_uuid).unwrap_throw();
+                                window.serialized.tabs.remove(tab_index);
+
+                                state.database.transaction(|tx| {
+                                    tx.set(&State::window_key(window_uuid), &window.serialized);
+                                });
+
+                                state.send_message(window_uuid, &BackgroundMessage::TabRemoved { tab_index });
+                            },
+
+                            WindowChange::TabAttached { tab_id, new_window_id, new_index } => {
+                                let state: &mut State = &mut state.borrow_mut();
+                                let tab_uuid = state.browser_tabs.get(&tab_id).unwrap_throw().uuid;
+                                state.insert_tab(tab_uuid, new_window_id, new_index);
+                            },
+
+                            WindowChange::TabMoved { tab_id: _, window_id, old_index, new_index } => {
+                                if old_index != new_index {
+                                    let state: &mut State = &mut state.borrow_mut();
+
+                                    let browser_window = state.browser_windows.get_mut(&window_id).unwrap_throw();
+                                    let window_uuid = browser_window.uuid;
+                                    let window = state.windows_by_id.get_mut(&window_uuid).unwrap_throw();
+
+                                    assert!(browser_window.tabs.len() > 1);
+                                    assert!(window.serialized.tabs.len() > 1);
+
+                                    let tab_uuid = browser_window.tabs.remove(old_index as usize);
+                                    let new_tab_uuid = browser_window.tabs[new_index as usize];
+                                    browser_window.tabs.insert(new_index as usize, tab_uuid);
+
+                                    let old_tab_index = window.serialized.tabs.iter().position(|x| *x == tab_uuid).unwrap_throw();
+                                    window.serialized.tabs.remove(old_tab_index);
+                                    let new_tab_index = window.serialized.tabs.iter().position(|x| *x == new_tab_uuid).unwrap_throw();
+                                    window.serialized.tabs.insert(new_tab_index, tab_uuid);
+
+                                    state.database.transaction(|tx| {
+                                        tx.set(&State::window_key(window_uuid), &window.serialized);
+                                    });
+
+                                    state.send_message(window_uuid, &BackgroundMessage::TabMoved { old_tab_index, new_tab_index });
+                                }
+                            },
+
+                            WindowChange::TabUpdated { tab: browser_tab } => {
+                                let state: &mut State = &mut state.borrow_mut();
+
+                                let tab_uuid = state.browser_tabs.get(&browser_tab.id().unwrap_throw()).unwrap_throw().uuid;
+                                let tab = state.tabs_by_id.get_mut(&tab_uuid).unwrap_throw();
+
+                                let changes = tab.serialized.update(&browser_tab);
+
+                                if !changes.is_empty() {
+                                    let window_uuid = state.browser_windows.get(&browser_tab.window_id()).unwrap_throw().uuid;
+                                    let window = state.windows_by_id.get(&window_uuid).unwrap_throw();
+
+                                    // TODO use tab id instead of index ?
+                                    let tab_index = window.serialized.tabs.iter().position(|x| *x == tab_uuid).unwrap_throw();
+
+                                    state.database.transaction(|tx| {
+                                        tx.set(&State::tab_key(tab_uuid), &tab.serialized);
+                                    });
+
+                                    state.send_message(window_uuid, &BackgroundMessage::TabChanged { tab_index, changes });
+                                }
+                            },
+
+                            WindowChange::TabRemoved { tab_id, window_id, is_window_closing } => {
+                                let state: &mut State = &mut state.borrow_mut();
+
+                                if is_window_closing {
+                                    state.database.delay_transactions();
+                                }
+
+                                let browser_window = state.browser_windows.get_mut(&window_id).unwrap_throw();
+                                let window_uuid = browser_window.uuid;
+                                let window = state.windows_by_id.get_mut(&window_uuid).unwrap_throw();
+
+                                let tab_uuid = state.browser_tabs.remove(&tab_id).unwrap_throw().uuid;
+
+                                browser_window.tabs.remove_item(&tab_uuid);
+                                state.tabs_by_id.remove(&tab_uuid);
+
+                                let tab_index = window.serialized.tabs.iter().position(|x| *x == tab_uuid).unwrap_throw();
+                                window.serialized.tabs.remove(tab_index);
+
+                                state.database.transaction(|tx| {
+                                    tx.remove(&State::tab_key(tab_uuid));
+                                    tx.set(&State::window_key(window_uuid), &window.serialized);
+                                });
+
+                                state.send_message(window_uuid, &BackgroundMessage::TabRemoved { tab_index });
+                            },
+                        }
+
+                        Ok(())
+                    })
+                }).await?;
 
             Ok(())
         });

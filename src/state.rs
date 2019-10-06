@@ -48,8 +48,14 @@ impl Options {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TabChange {
+    FaviconUrl {
+        new_favicon_url: Option<String>,
+    },
     Title {
         new_title: Option<String>,
+    },
+    Url {
+        new_url: Option<String>,
     },
     Pinned {
         pinned: bool,
@@ -78,6 +84,15 @@ pub enum BackgroundMessage {
         tab_index: usize,
         changes: Vec<TabChange>,
     },
+    TabFocused {
+        old_tab_index: Option<usize>,
+        new_tab_index: usize,
+        new_timestamp_focused: f64,
+    },
+    TabMoved {
+        old_tab_index: usize,
+        new_tab_index: usize,
+    },
 }
 
 
@@ -87,6 +102,7 @@ pub struct SerializedTab {
     pub tags: Vec<Tag>,
     pub timestamp_created: f64,
     pub timestamp_focused: Option<f64>,
+    pub pinned: bool,
     pub unloaded: bool,
     pub favicon_url: Option<String>,
     pub url: Option<String>,
@@ -94,36 +110,38 @@ pub struct SerializedTab {
 }
 
 impl SerializedTab {
-    pub fn update(&mut self, timestamp: f64, tab: &web_extension::Tab) -> bool {
-        let mut changed = false;
+    pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<TabChange> {
+        let mut changes = vec![];
 
         let favicon_url = tab.fav_icon_url();
 
         if self.favicon_url != favicon_url {
-            changed = true;
-            self.favicon_url = favicon_url;
+            self.favicon_url = favicon_url.clone();
+            changes.push(TabChange::FaviconUrl { new_favicon_url: favicon_url });
         }
 
         let url = tab.url();
 
         if self.url != url {
-            changed = true;
-            self.url = url;
+            self.url = url.clone();
+            changes.push(TabChange::Url { new_url: url });
         }
 
         let title = tab.title();
 
         if self.title != title {
-            changed = true;
-            self.title = title;
+            self.title = title.clone();
+            changes.push(TabChange::Title { new_title: title });
         }
 
-        if tab.active() && self.timestamp_focused.is_none() {
-            changed = true;
-            self.timestamp_focused = Some(timestamp);
+        let pinned = tab.pinned();
+
+        if self.pinned != pinned {
+            self.pinned = pinned;
+            changes.push(TabChange::Pinned { pinned });
         }
 
-        changed
+        changes
     }
 }
 
@@ -148,11 +166,12 @@ pub struct Tab {
     pub serialized: SerializedTab,
     pub id: i32,
     pub focused: bool,
-    pub pinned: bool,
 }
 
 impl Tab {
     pub async fn get_id(tab_id: i32) -> Result<Uuid, JsValue> {
+        //JsFuture::from(browser.sessions().remove_tab_value(tab_id, intern("id"))).await?;
+
         let id = JsFuture::from(browser.sessions().get_tab_value(tab_id, intern("id"))).await?;
 
         // TODO better implementation of this
@@ -178,6 +197,8 @@ pub struct Window {
 impl Window {
     // TODO code duplication
     pub async fn get_id(window_id: i32) -> Result<Uuid, JsValue> {
+        //JsFuture::from(browser.sessions().remove_window_value(window_id, intern("id"))).await?;
+
         let id = JsFuture::from(browser.sessions().get_window_value(window_id, intern("id"))).await?;
 
         // TODO better implementation of this

@@ -159,7 +159,7 @@ impl TabState {
             index: Mutable::new(index),
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.serialized.unloaded),
-            pinned: Mutable::new(state.pinned),
+            pinned: Mutable::new(state.serialized.pinned),
             removed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
             timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
