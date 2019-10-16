@@ -1,5 +1,6 @@
 #![warn(unreachable_pub)]
 
+use lazy_static::lazy_static;
 use std::borrow::Borrow;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -70,7 +71,14 @@ pub fn float_range(t: Percentage, min: f64, max: f64) -> String {
 }
 
 pub fn ease(t: Percentage) -> Percentage {
-    easing::in_out(t, easing::cubic)
+    lazy_static! {
+        static ref EASING: easing::CubicBezier = easing::CubicBezier::new(0.85, 0.0, 0.15, 1.0);
+        //static ref EASING: easing::CubicBezier = easing::CubicBezier::new(1.0, 0.0, 0.66, 0.66);
+    }
+
+    EASING.easing(t)
+
+    //easing::in_out(t, |t| EASING.easing(t))
 }
 
 
@@ -594,6 +602,7 @@ impl Port {
             sender.unbounded_send(deserialize(&message)).unwrap_throw();
         })));
 
+        // TODO check port error ?
         let _on_disconnect = Listener::new(self.port.on_disconnect(), Closure::new(move |_| {
             sender.close_channel();
         }));
@@ -729,6 +738,10 @@ pub enum WindowChange {
     TabUpdated {
         tab: Tab,
     },
+    TabReplaced {
+        old_tab_id: i32,
+        new_tab_id: i32,
+    },
     TabRemoved {
         tab_id: i32,
         window_id: i32,
@@ -759,7 +772,6 @@ impl Windows {
         }
     }
 
-    // TODO browser.tabs.onReplaced
     pub fn changes() -> impl Stream<Item = WindowChange> {
         let (sender, receiver) = mpsc::unbounded();
 
@@ -815,6 +827,12 @@ impl Windows {
                 ).unwrap_throw();
             }))),
 
+            _tab_replaced: Listener::new(browser.tabs().on_replaced(), Closure::new(clone!(sender => move |new_tab_id, old_tab_id| {
+                sender.unbounded_send(
+                    WindowChange::TabReplaced { old_tab_id, new_tab_id }
+                ).unwrap_throw();
+            }))),
+
             _tab_attached: Listener::new(browser.tabs().on_attached(), Closure::new(clone!(sender => move |tab_id, attach_info: TabAttachInfo| {
                 sender.unbounded_send(
                     WindowChange::TabAttached {
@@ -864,6 +882,7 @@ struct WindowsChanges {
     _tab_created: Listener<dyn FnMut(Tab)>,
     _tab_focused: Listener<dyn FnMut(TabActiveInfo)>,
     _tab_detached: Listener<dyn FnMut(i32, TabDetachInfo)>,
+    _tab_replaced: Listener<dyn FnMut(i32, i32)>,
     _tab_attached: Listener<dyn FnMut(i32, TabAttachInfo)>,
     _tab_moved: Listener<dyn FnMut(i32, TabMoveInfo)>,
     _tab_updated: Listener<dyn FnMut(i32, JsValue, Tab)>,

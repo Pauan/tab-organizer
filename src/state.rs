@@ -110,6 +110,20 @@ pub struct SerializedTab {
 }
 
 impl SerializedTab {
+    pub fn new(id: Uuid, timestamp_created: f64) -> Self {
+        Self {
+            id,
+            tags: vec![],
+            timestamp_created,
+            timestamp_focused: None,
+            pinned: false,
+            unloaded: false,
+            favicon_url: None,
+            url: None,
+            title: None,
+        }
+    }
+
     pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<TabChange> {
         let mut changes = vec![];
 
@@ -143,6 +157,17 @@ impl SerializedTab {
 
         changes
     }
+
+    pub fn initialize(&mut self, tab: &web_extension::Tab, timestamp_focused: f64) -> bool {
+        let mut changed = false;
+
+        if tab.active() && self.timestamp_focused.is_none() {
+            self.timestamp_focused = Some(timestamp_focused);
+            changed = true;
+        }
+
+        changed
+    }
 }
 
 
@@ -169,6 +194,14 @@ pub struct Tab {
 }
 
 impl Tab {
+    pub fn new(serialized: SerializedTab, id: i32, tab: &web_extension::Tab) -> Self {
+        Tab {
+            serialized,
+            id,
+            focused: tab.active(),
+        }
+    }
+
     pub async fn get_id(tab_id: i32) -> Result<Uuid, JsValue> {
         //JsFuture::from(browser.sessions().remove_tab_value(tab_id, intern("id"))).await?;
 

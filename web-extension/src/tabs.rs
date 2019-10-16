@@ -92,7 +92,7 @@ extern "C" {
 
 #[wasm_bindgen]
 extern "C" {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub type Tab;
 
     #[wasm_bindgen(method, getter)]

@@ -6,6 +6,14 @@ categories = ["wasm"]
 readme = "README.md"
 edition = "2018"
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+debug-assertions = true
+lto = true
+
 [workspace]
 members = [
     "src/sidebar",
@@ -24,6 +32,7 @@ dominator = "0.5.0"
 serde = "1.0.36"
 serde_derive = "1.0.36"
 serde_json = "1.0.40"
+lazy_static = "1.0.0"
 web-extension = { path = "web-extension" }
 
 [dependencies.web-sys]
