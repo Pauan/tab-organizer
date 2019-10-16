@@ -133,6 +133,7 @@ pub fn main_js() {
 
         async fn new_tab(state: &Rc<RefCell<Self>>, timestamp_created: f64, tab: web_extension::Tab) -> Result<Uuid, JsValue> {
             let tab_id = tab.id().unwrap_throw();
+            let window_id = tab.window_id();
             let uuid = Tab::get_id(tab_id).await?;
 
             let mut state = state.borrow_mut();
@@ -152,7 +153,7 @@ pub fn main_js() {
                 serialized
             });
 
-            state.tabs_by_id.insert(uuid, Tab::new(serialized, tab_id, &tab)).unwrap_none();
+            state.tabs_by_id.insert(uuid, Tab::new(serialized, tab_id, window_id, &tab)).unwrap_none();
 
             state.browser_tabs.insert(tab_id, BrowserTab { uuid }).unwrap_none();
 
@@ -185,7 +186,7 @@ pub fn main_js() {
                         })
                     });
 
-                    Tab::new(serialized, tab_id, &browser_tab)
+                    Tab::new(serialized, tab_id, window_id, &browser_tab)
                 });
 
                 state.browser_tabs.entry(tab_id).or_insert_with(|| BrowserTab { uuid });
@@ -313,10 +314,14 @@ pub fn main_js() {
                 tx.set(&State::window_key(window_uuid), &window.serialized);
             });
 
-            let tab = self.tabs_by_id.get(&tab_uuid).unwrap_throw();
+            let tab = {
+                let tab = self.tabs_by_id.get_mut(&tab_uuid).unwrap_throw();
+                tab.window_id = window_id;
+                tab.clone()
+            };
 
             // TODO figure out a way to avoid this clone
-            self.send_message(window_uuid, &BackgroundMessage::TabInserted { tab_index, tab: tab.clone() });
+            self.send_message(window_uuid, &BackgroundMessage::TabInserted { tab_index, tab });
         }
 
         fn send_message<A>(&self, uuid: Uuid, message: &A) where A: Serialize {
@@ -419,6 +424,29 @@ pub fn main_js() {
                                                 focused: false,
                                                 tabs: ,
                                             })*/
+                                        },
+
+                                        SidebarMessage::ClickTab { id } => {
+                                            // TODO can this use unwrap_throw ?
+                                            if let Some(tab) = state.borrow().tabs_by_id.get(&id) {
+                                                let id = tab.id;
+                                                let window_id = tab.window_id;
+
+                                                let fut1 = JsFuture::from(browser.tabs().update(Some(id), &object! {
+                                                    "active": true,
+                                                }));
+
+                                                let fut2 = JsFuture::from(browser.windows().update(window_id, &object! {
+                                                    "focused": true,
+                                                }));
+
+                                                // TODO should this spawn ?
+                                                spawn(async {
+                                                    try_join!(fut1, fut2)?;
+
+                                                    Ok(())
+                                                });
+                                            }
                                         },
                                     }
 

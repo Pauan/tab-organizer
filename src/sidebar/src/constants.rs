@@ -3,6 +3,9 @@ use dominator::{class, HIGHEST_ZINDEX};
 use lazy_static::lazy_static;
 
 
+// "chrome://mozapps/skin/places/defaultFavicon.svg"
+pub(crate) const DEFAULT_FAVICON: &'static str = "favicons/default.svg";
+
 pub(crate) const LOADING_MESSAGE_THRESHOLD: u32 = 500;
 
 pub(crate) const MOUSE_SCROLL_THRESHOLD: f64 = 30.0; // Number of pixels before it starts scrolling
@@ -29,7 +32,7 @@ pub(crate) const GROUP_PADDING_BOTTOM: f64 = 3.0;
 
 pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_PADDING: f64 = 1.0;
-pub(crate) const TAB_HEIGHT: f64 = 16.0;
+pub(crate) const TAB_HEIGHT: f64 = 18.0;
 pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
 pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
@@ -287,7 +290,7 @@ lazy_static! {
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
         .style("width", px(TAB_FAVICON_SIZE))
         .style("margin-left", "2px")
-        .style("margin-right", "1px")
+        .style("margin-right", "2px")
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
@@ -297,7 +300,7 @@ lazy_static! {
     pub(crate) static ref TAB_TEXT_STYLE: String = class! {
         .style("overflow", "hidden")
         .style("padding-left", "3px")
-        .style("padding-right", "1px")
+        //.style("padding-right", "1px")
     };
 
     pub(crate) static ref TAB_CLOSE_STYLE: String = class! {
@@ -306,6 +309,7 @@ lazy_static! {
         .style("border-width", px(TAB_CLOSE_BORDER_WIDTH))
         .style("padding-left", "1px")
         .style("padding-right", "1px")
+        .style("margin-right", "1px")
     };
 
     pub(crate) static ref TAB_CLOSE_HOVER_STYLE: String = class! {

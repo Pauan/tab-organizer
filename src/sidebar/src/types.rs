@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tab_organizer::{local_storage_get};
 use tab_organizer::state as shared;
-use tab_organizer::state::Options;
+use tab_organizer::state::{Options, SidebarMessage};
 use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
@@ -89,10 +89,11 @@ pub(crate) struct State {
     pub(crate) scrolling: Scrolling,
 
     pub(crate) menu: Menu,
+    pub(crate) port: tab_organizer::Port,
 }
 
 impl State {
-    pub(crate) fn new(options: Options, tabs: Vec<shared::Tab>) -> Self {
+    pub(crate) fn new(port: tab_organizer::Port, options: Options, tabs: Vec<shared::Tab>) -> Self {
         let tabs = tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect();
 
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
@@ -113,6 +114,7 @@ impl State {
             scrolling: Scrolling::new(scroll_y),
 
             menu: Menu::new(),
+            port,
         };
 
         state.groups.initialize(&state);
@@ -130,6 +132,24 @@ impl State {
             }
         })
     }*/
+
+    pub(crate) fn click_tab(&self, group: &Group, tab: &Tab) {
+        if !tab.selected.get() {
+            {
+                let tabs = group.tabs.lock_ref();
+
+                for tab in tabs.iter() {
+                    tab.selected.set_neq(false);
+                }
+            }
+
+            group.last_selected_tab.set_neq(None);
+        }
+
+        self.port.send_message(&SidebarMessage::ClickTab {
+            id: tab.id,
+        });
+    }
 }
 
 
@@ -274,20 +294,6 @@ impl Group {
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             drag_top: MutableAnimation::new(DRAG_ANIMATION_DURATION),
             tabs_padding: Mutable::new(0.0),
-        }
-    }
-
-    pub(crate) fn click_tab(&self, tab: &Tab) {
-        if !tab.selected.get() {
-            {
-                let tabs = self.tabs.lock_ref();
-
-                for tab in tabs.iter() {
-                    tab.selected.set_neq(false);
-                }
-            }
-
-            self.last_selected_tab.set_neq(None);
         }
     }
 

@@ -34,7 +34,7 @@
     "default_title": "Tab Organizer",
     "default_panel": "empty.html",
     "browser_style": true,
-    "open_at_install": false
+    "open_at_install": true
   },
   "browser_action": {
     "default_icon": {

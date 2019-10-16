@@ -333,7 +333,7 @@ fn initialize(state: &State, sort: SortTabs, tabs: &[Arc<TabState>], should_anim
     groups
 }
 
-fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+fn create_new_tab(state: &State, group: &Group, tab: Arc<TabState>, should_animate: bool, is_initial: bool) -> Arc<Tab> {
     let tab = Arc::new(Tab::new(tab));
 
     if should_animate {
@@ -347,6 +347,12 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<
     if !is_initial {
         state.search_tab(&group, &tab);
     }
+
+    tab
+}
+
+fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+    let tab = create_new_tab(state, group, tab, should_animate, is_initial);
 
     let mut tabs = group.tabs.lock_mut();
 
@@ -377,7 +383,7 @@ fn remove_group<A>(groups: &mut A, group: &Group) where A: Insertable<Arc<Group>
     });
 }
 
-fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, should_remove_group: bool) where A: Insertable<Arc<Group>> {
+fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState) where A: Insertable<Arc<Group>> {
     let mut tabs = group.tabs.lock_mut();
 
     let id = tab.id;
@@ -393,14 +399,12 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
         }
     });
 
-    if should_remove_group {
-        if tabs.len() == 0 {
-            remove_group(groups, group);
+    if tabs.len() == 0 {
+        remove_group(groups, group);
 
-        } else {
-            drop(tabs);
-            State::update_group_search(group, false);
-        }
+    } else {
+        drop(tabs);
+        State::update_group_search(group, false);
     }
 }
 
@@ -408,7 +412,7 @@ fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: 
     // TODO make this more efficient
     // TODO should this be animated ?
     sorted_groups(sort, groups, tab, true).each(|group| {
-        remove_tab_from_group(groups, &group, tab, true);
+        remove_tab_from_group(groups, &group, tab);
     });
 }
 
@@ -422,12 +426,40 @@ fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: Sta
         // TODO make this more efficient ?
         let is_in_new_group = new_groups.any(|group| group.id == id);
 
-        // Remove the group if the group does not exist in new_groups AND group is empty
-        remove_tab_from_group(groups, &group, &tab, !is_in_new_group);
+        if !is_in_new_group {
+            // Remove the group if the group does not exist in new_groups AND group is empty
+            remove_tab_from_group(groups, &group, &tab);
+        }
     });
 
     new_groups.each(|group| {
-        insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, true, false);
+        let mut tabs = group.tabs.lock_mut();
+
+        // TODO make this more efficient
+        let mut tabs_copy = tabs.iter().cloned().collect::<Vec<_>>();
+
+        if let Some(old_index) = tabs_copy.iter().position(|x| x.id == tab.id) {
+            let old_tab = tabs_copy.remove(old_index);
+            let new_index = sorted_tab_index(sort, &tabs_copy, &tab, tab_index, false);
+
+            if old_index == new_index {
+                state.search_tab(&group, &old_tab);
+
+            } else {
+                old_tab.insert_animation.animate_to(Percentage::new(0.0));
+                tabs.remove(old_index);
+
+                // TODO pass over some (or all) of the tab's state ?
+                let tab = create_new_tab(state, group, tab.clone(), true, false);
+                tabs.insert_cloned(new_index, tab);
+            }
+
+        } else {
+            let new_index = sorted_tab_index(sort, &tabs, &tab, tab_index, false);
+
+            let tab = create_new_tab(state, group, tab.clone(), true, false);
+            tabs.insert_cloned(new_index, tab);
+        }
     });
 }
 
@@ -601,6 +633,7 @@ impl State {
         if let Some(old_tab_index) = old_tab_index {
             let old_tab = &tabs[old_tab_index];
 
+            // TODO does this need to use tab_updated ?
             self.groups.tab_updated(self, old_tab_index, old_tab.clone(), || {
                 old_tab.focused.set_neq(false);
             });
@@ -614,18 +647,25 @@ impl State {
 
     // TODO test this
     pub(crate) fn move_tab(&self, old_tab_index: usize, new_tab_index: usize) {
+        assert!(old_tab_index != new_tab_index);
+
         let mut tabs = self.tabs.write().unwrap();
 
         let tab = tabs.remove(old_tab_index);
 
-        self.groups.tab_removed(old_tab_index, &tab);
-
-        decrement_indexes(&tabs[old_tab_index..]);
-        increment_indexes(&tabs[new_tab_index..]);
-
         tabs.insert(new_tab_index, tab.clone());
 
-        self.groups.tab_inserted(self, new_tab_index, tab);
+        // TODO can this be made more efficient ?
+        self.groups.tab_updated(self, new_tab_index, tab.clone(), || {
+            if old_tab_index < new_tab_index {
+                decrement_indexes(&tabs[old_tab_index..new_tab_index]);
+
+            } else {
+                increment_indexes(&tabs[(new_tab_index + 1)..(old_tab_index + 1)]);
+            }
+
+            tab.index.set(new_tab_index);
+        });
     }
 
     pub(crate) fn change_tab(&self, tab_index: usize, changes: Vec<TabChange>) {

@@ -6,12 +6,17 @@ use uuid::Uuid;
 use futures_signals::signal::Mutable;
 use crate::{serialize, deserialize, generate_uuid};
 use web_extension::browser;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SidebarMessage {
     Initialize {
         id: String,
+    },
+    ClickTab {
+        id: Uuid,
     },
 }
 
@@ -124,17 +129,46 @@ impl SerializedTab {
         }
     }
 
+    // TODO hack needed because Firefox doesn't provide favicon URLs for built-in pages
+    fn get_favicon(favicon: Option<String>, url: &Option<String>) -> Option<String> {
+        lazy_static! {
+            static ref FAVICONS: HashMap<&'static str, &'static str> = vec![
+                // "chrome://branding/content/icon32.png"
+                ("about:blank", "favicons/icon32.png"),
+                ("about:newtab", "favicons/icon32.png"),
+                ("about:home", "favicons/icon32.png"),
+                ("about:welcome", "favicons/icon32.png"),
+
+                // "chrome://browser/skin/privatebrowsing/favicon.svg"
+                ("about:privatebrowsing", "favicons/privatebrowsing.svg"),
+            ].into_iter().collect();
+        }
+
+        favicon.map(|favicon| {
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=1462948
+            if favicon == "chrome://mozapps/skin/extensions/extensionGeneric-16.svg" {
+                "favicons/extensionGeneric-16.svg".to_string()
+
+            } else {
+                favicon
+            }
+        }).or_else(|| {
+            url.as_ref()
+                .and_then(|url| FAVICONS.get(url.as_str()))
+                .map(|x| x.to_string())
+        })
+    }
+
     pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<TabChange> {
         let mut changes = vec![];
 
-        let favicon_url = tab.fav_icon_url();
+        let url = tab.url();
+        let favicon_url = Self::get_favicon(tab.fav_icon_url(), &url);
 
         if self.favicon_url != favicon_url {
             self.favicon_url = favicon_url.clone();
             changes.push(TabChange::FaviconUrl { new_favicon_url: favicon_url });
         }
-
-        let url = tab.url();
 
         if self.url != url {
             self.url = url.clone();
@@ -190,14 +224,17 @@ pub struct Tag {
 pub struct Tab {
     pub serialized: SerializedTab,
     pub id: i32,
+    // TODO this should be Option<i32>
+    pub window_id: i32,
     pub focused: bool,
 }
 
 impl Tab {
-    pub fn new(serialized: SerializedTab, id: i32, tab: &web_extension::Tab) -> Self {
+    pub fn new(serialized: SerializedTab, id: i32, window_id: i32, tab: &web_extension::Tab) -> Self {
         Tab {
             serialized,
             id,
+            window_id,
             focused: tab.active(),
         }
     }

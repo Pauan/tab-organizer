@@ -79,7 +79,9 @@ fn initialize(state: Arc<State>) {
 
             .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
 
-            .attribute_signal("src", tab.favicon_url.signal_cloned().map(option_str))
+            .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
+                RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
+            }))
 
             .apply(mixin)
         })
@@ -664,7 +666,7 @@ fn initialize(state: Arc<State>) {
                                                                 }))
 
                                                                 // TODO replace with MouseClickEvent
-                                                                .event(clone!(index, group, tab => move |e: events::MouseUp| {
+                                                                .event(clone!(state, index, group, tab => move |e: events::MouseUp| {
                                                                     if index.get().is_some() {
                                                                         let shift = e.shift_key();
                                                                         // TODO is this correct ?
@@ -682,7 +684,7 @@ fn initialize(state: Arc<State>) {
                                                                                     group.shift_select_tab(&tab);
 
                                                                                 } else if !ctrl && !shift && !alt {
-                                                                                    group.click_tab(&tab);
+                                                                                    state.click_tab(&group, &tab);
                                                                                 }
                                                                             }
                                                                         }
@@ -992,7 +994,7 @@ pub fn main_js() {
 
         .style(["-moz-user-select", "user-select"], "none")
 
-        .style("font-family", "sans-serif")
+        //.style("font-family", "message-box")
         .style("font-size", "13px")
 
         .style("background-color", "hsl(0, 0%, 100%)")
@@ -1054,11 +1056,11 @@ pub fn main_js() {
         let _ = port.on_message()
             .map(|x| -> Result<BackgroundMessage, JsValue> { Ok(x) })
             .try_fold(None, move |mut state, message| {
-                async move {
+                clone!(port => async move {
                     match message {
                         BackgroundMessage::Initial { tabs } => {
                             state = time!("Initializing", {
-                                let state = Arc::new(State::new(Options::new(), tabs));
+                                let state = Arc::new(State::new(port, Options::new(), tabs));
                                 initialize(state.clone());
                                 Some(state)
                             });
@@ -1086,7 +1088,7 @@ pub fn main_js() {
                     }
 
                     Ok(state)
-                }
+                })
             }).await?;
 
         Ok(())
