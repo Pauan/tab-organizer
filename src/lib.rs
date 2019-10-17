@@ -72,7 +72,8 @@ pub fn float_range(t: Percentage, min: f64, max: f64) -> String {
 
 pub fn ease(t: Percentage) -> Percentage {
     lazy_static! {
-        static ref EASING: easing::CubicBezier = easing::CubicBezier::new(0.85, 0.0, 0.15, 1.0);
+        static ref EASING: easing::CubicBezier = easing::CubicBezier::new(0.66, 0.0, 0.34, 1.0);
+        //static ref EASING: easing::CubicBezier = easing::CubicBezier::new(0.85, 0.0, 0.15, 1.0);
         //static ref EASING: easing::CubicBezier = easing::CubicBezier::new(1.0, 0.0, 0.66, 0.66);
     }
 
@@ -172,12 +173,20 @@ macro_rules! log {
 }
 
 
+#[wasm_bindgen(inline_js = "
+    export function stack(e) { return e.stack || e.message; }
+")]
+extern "C" {
+    fn stack(v: &JsValue) -> JsValue;
+}
+
 pub fn unwrap_future<F>(future: F) -> impl Future<Output = ()>
     where F: Future<Output = Result<(), JsValue>> {
     async {
         if let Err(e) = future.await {
             // TODO better logging of the error
-            wasm_bindgen::throw_val(e);
+            //wasm_bindgen::throw_val(e);
+            web_sys::console::error_1(&stack(&e));
         }
     }
 }
@@ -679,7 +688,7 @@ pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue
 #[macro_export]
 macro_rules! array {
     ($($value:expr),*) => {{
-        let array = js_sys::Array::new();
+        let array: js_sys::Array = js_sys::Array::new();
         $(array.push(&wasm_bindgen::JsValue::from($value));)*
         array
     }};
@@ -688,7 +697,7 @@ macro_rules! array {
 #[macro_export]
 macro_rules! object {
     ($($key:literal: $value:expr,)*) => {{
-        let obj = js_sys::Object::new();
+        let obj: js_sys::Object = js_sys::Object::new();
         // TODO make this more efficient
         $(wasm_bindgen::UnwrapThrowExt::unwrap_throw(js_sys::Reflect::set(
             &obj,

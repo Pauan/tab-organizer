@@ -7,13 +7,13 @@ impl State {
         and(tab.hovered.signal(), not(self.is_dragging()))
     }
 
-    pub(crate) fn is_tab_holding(&self, tab: &Tab) -> impl Signal<Item = bool> {
+    /*pub(crate) fn is_tab_holding(&self, tab: &Tab) -> impl Signal<Item = bool> {
         and(
             and(self.is_tab_hovered(tab), tab.holding.signal()),
             // TODO a little bit hacky
             not(tab.close_hovered.signal())
         )
-    }
+    }*/
 
     pub(crate) fn hover_tab(&self, tab: &Tab) {
         if !tab.hovered.get() {

@@ -18,6 +18,9 @@ pub enum SidebarMessage {
     ClickTab {
         id: Uuid,
     },
+    CloseTab {
+        id: Uuid,
+    },
 }
 
 

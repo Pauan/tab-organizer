@@ -15,7 +15,7 @@ use wasm_bindgen_futures::futures_0_3::JsFuture;
 use js_sys::{Array, Date};
 use dominator::clone;
 use serde::Serialize;
-use tab_organizer::{spawn, log, object, serialize, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange};
+use tab_organizer::{spawn, log, object, array, serialize, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange};
 use tab_organizer::state::{Window, Tab, SidebarMessage, BackgroundMessage, SerializedWindow, SerializedTab};
 
 
@@ -429,21 +429,31 @@ pub fn main_js() {
                                         SidebarMessage::ClickTab { id } => {
                                             // TODO can this use unwrap_throw ?
                                             if let Some(tab) = state.borrow().tabs_by_id.get(&id) {
-                                                let id = tab.id;
-                                                let window_id = tab.window_id;
-
-                                                let fut1 = JsFuture::from(browser.tabs().update(Some(id), &object! {
+                                                let fut1 = JsFuture::from(browser.tabs().update(Some(tab.id), &object! {
                                                     "active": true,
                                                 }));
 
-                                                let fut2 = JsFuture::from(browser.windows().update(window_id, &object! {
+                                                let fut2 = JsFuture::from(browser.windows().update(tab.window_id, &object! {
                                                     "focused": true,
                                                 }));
 
                                                 // TODO should this spawn ?
                                                 spawn(async {
                                                     try_join!(fut1, fut2)?;
+                                                    Ok(())
+                                                });
+                                            }
+                                        },
 
+                                        SidebarMessage::CloseTab { id } => {
+                                            // TODO can this use unwrap_throw ?
+                                            if let Some(tab) = state.borrow().tabs_by_id.get(&id) {
+                                                let ids = array![ tab.id ];
+                                                let fut = JsFuture::from(browser.tabs().remove(&ids));
+
+                                                // TODO should this spawn ?
+                                                spawn(async {
+                                                    fut.await?;
                                                     Ok(())
                                                 });
                                             }

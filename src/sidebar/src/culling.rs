@@ -133,7 +133,7 @@ impl<A> MutableVecSink<A> where A: SignalVec + Unpin {
 impl State {
     fn hide_tab(&self, tab: &Tab) {
         tab.visible.set_neq(false);
-        tab.holding.set_neq(false);
+        //tab.holding.set_neq(false);
         tab.close_hovered.set_neq(false);
         tab.close_holding.set_neq(false);
         self.unhover_tab(tab);
@@ -145,6 +145,7 @@ struct CulledTab {
     state: Arc<Tab>,
     drag_over: MutableSink<MutableAnimationSignal>,
     dragging: MutableSink<MutableSignal<bool>>,
+    manually_closed: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
@@ -153,6 +154,7 @@ impl CulledTab {
         Self {
             drag_over: MutableSink::new(state.drag_over.signal()),
             dragging: MutableSink::new(state.dragging.signal()),
+            manually_closed: MutableSink::new(state.manually_closed.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
             state,
         }
@@ -161,17 +163,19 @@ impl CulledTab {
     fn is_changed(&mut self, cx: &mut Context) -> bool {
         let drag_over = self.drag_over.is_changed(cx);
         let dragging = self.dragging.is_changed(cx);
+        let manually_closed = self.manually_closed.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
 
         drag_over ||
         dragging ||
+        manually_closed ||
         insert_animation
     }
 
     // TODO this must be kept in sync with main.rs
     fn height(&self) -> Option<(f64, f64)> {
         // TODO make matches_search a MutableSink ?
-        if self.state.matches_search.get() && !self.dragging.unwrap() {
+        if self.state.matches_search.get() && !self.dragging.unwrap() && !self.manually_closed.unwrap() {
             let percentage = ease(self.insert_animation.unwrap());
 
             let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();

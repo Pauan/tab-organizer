@@ -150,6 +150,14 @@ impl State {
             id: tab.id,
         });
     }
+
+    pub(crate) fn close_tab(&self, tab: &TabState) {
+        tab.manually_closed.set_neq(true);
+
+        self.port.send_message(&SidebarMessage::CloseTab {
+            id: tab.id,
+        });
+    }
 }
 
 
@@ -164,6 +172,7 @@ pub(crate) struct TabState {
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
     pub(crate) removed: Mutable<bool>,
+    pub(crate) manually_closed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
     pub(crate) timestamp_focused: Mutable<Option<f64>>,
     pub(crate) tags: Mutable<Vec<shared::Tag>>,
@@ -181,6 +190,7 @@ impl TabState {
             unloaded: Mutable::new(state.serialized.unloaded),
             pinned: Mutable::new(state.serialized.pinned),
             removed: Mutable::new(false),
+            manually_closed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
             timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
             tags: Mutable::new(state.serialized.tags),
@@ -197,7 +207,7 @@ pub(crate) struct Tab {
     pub(crate) dragging: Mutable<bool>,
 
     pub(crate) hovered: Mutable<bool>,
-    pub(crate) holding: Mutable<bool>,
+    //pub(crate) holding: Mutable<bool>,
 
     pub(crate) close_hovered: Mutable<bool>,
     pub(crate) close_holding: Mutable<bool>,
@@ -223,7 +233,7 @@ impl Tab {
             dragging: Mutable::new(false),
 
             hovered: Mutable::new(false),
-            holding: Mutable::new(false),
+            //holding: Mutable::new(false),
 
             close_hovered: Mutable::new(false),
             close_holding: Mutable::new(false),

@@ -72,10 +72,11 @@ fn initialize(state: Arc<State>) {
 
     fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
         html!("img", {
-            .class([
+            .class(&*TAB_FAVICON_STYLE)
+            /*.class([
                 &*TAB_FAVICON_STYLE,
                 &*ICON_STYLE,
-            ])
+            ])*/
 
             .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
 
@@ -95,38 +96,49 @@ fn initialize(state: Arc<State>) {
             ])
 
             .children(&mut [
-                text_signal(map_ref! {
-                    let title = tab.title.signal_cloned(),
-                    let unloaded = tab.unloaded.signal() => {
-                        if *unloaded {
-                            if title.is_some() {
-                                "➔ "
+                html!("span", {
+                    .children(&mut [
+                        text_signal(map_ref! {
+                            let title = tab.title.signal_cloned(),
+                            let unloaded = tab.unloaded.signal() => {
+                                if *unloaded {
+                                    if title.is_some() {
+                                        "➔ "
 
-                            } else {
-                                "➔"
+                                    } else {
+                                        "➔"
+                                    }
+
+                                } else {
+                                    ""
+                                }
                             }
+                        }.first()),
 
-                        } else {
-                            ""
-                        }
-                    }
-                }.first()),
-
-                text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
+                        text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
+                    ])
+                })
             ])
 
             .apply(mixin)
         })
     }
 
-    fn tab_close<A>(_tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
-        html!("img", {
-            .class([
-                &*TAB_CLOSE_STYLE,
-                &*ICON_STYLE,
-            ])
+    fn tab_close<A>(mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+        html!("div", {
+            .class(&*TAB_CLOSE_STYLE)
 
-            .attribute("src", "data/images/button-close.png")
+            .children(&mut [
+                html!("img", {
+                    .class(&*TAB_CLOSE_ICON_STYLE)
+                    /*.class([
+                        &*TAB_CLOSE_STYLE,
+                        &*ICON_STYLE,
+                    ])*/
+
+                    .attribute("src", "data/images/button-close.png")
+                }),
+            ])
 
             .apply(mixin)
         })
@@ -139,7 +151,7 @@ fn initialize(state: Arc<State>) {
             .class([
                 &*ROW_STYLE,
                 &*TAB_STYLE,
-                &*MENU_ITEM_STYLE,
+                //&*MENU_ITEM_STYLE,
             ])
 
             .cursor!(state.is_dragging(), intern("pointer"))
@@ -227,7 +239,7 @@ fn initialize(state: Arc<State>) {
                                     tab_text(&tab, |dom| dom),
 
                                     if index == 0 {
-                                        tab_close(&tab, |dom| dom)
+                                        tab_close(|dom| dom)
 
                                     } else {
                                         dominator::Dom::empty()
@@ -239,10 +251,11 @@ fn initialize(state: Arc<State>) {
                                         .style("z-index", format!("-{}", index))
 
                                         .apply_if(index == 0, |dom| dom
-                                            .class([
+                                            .class(&*TAB_HOVER_STYLE)
+                                            /*.class([
                                                 &*TAB_HOVER_STYLE,
                                                 &*MENU_ITEM_HOVER_STYLE,
-                                            ])
+                                            ])*/
                                             .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                                             .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
                                             .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
@@ -430,6 +443,10 @@ fn initialize(state: Arc<State>) {
                 html!("div", {
                     .class(&*GROUP_LIST_STYLE)
 
+                    .event_preventable(move |e: events::MouseDown| {
+                        e.prevent_default();
+                    })
+
                     .with_node!(element => {
                         // TODO also update these when groups/tabs are added/removed ?
                         .event(clone!(state, element => move |_: events::Scroll| {
@@ -570,7 +587,7 @@ fn initialize(state: Arc<State>) {
 
                                                             tab_text(&tab, |dom| { dom }),
 
-                                                            tab_close(&tab, |dom| { dom
+                                                            tab_close(|dom| { dom
                                                                 .class_signal(&*TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
                                                                 .class_signal(&*TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
 
@@ -596,20 +613,24 @@ fn initialize(state: Arc<State>) {
                                                                 .global_event(clone!(tab => move |_: events::MouseUp| {
                                                                     tab.close_holding.set_neq(false);
                                                                 }))
+
+                                                                .event(clone!(state, tab => move |_: events::Click| {
+                                                                    state.close_tab(&tab);
+                                                                }))
                                                             }),
 
                                                             |dom| apply_methods!(dom, {
                                                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                                .class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                                                //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                                                                 .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
                                                                 .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
-                                                                .class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
-                                                                .class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
+                                                                //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
+                                                                //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
 
                                                                 .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
                                                                 .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
-                                                                .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(state.is_tab_hovered(&tab), tab.selected.signal()))
+                                                                .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(tab.is_focused(), tab.selected.signal()))
 
                                                                 .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
 
@@ -629,27 +650,41 @@ fn initialize(state: Arc<State>) {
 
                                                                 .with_node!(element => {
                                                                     .event(clone!(state, index, group, tab => move |e: events::MouseDown| {
-                                                                        tab.holding.set_neq(true);
+                                                                        // TODO a little hacky
+                                                                        if !tab.close_hovered.get() {
+                                                                            //tab.holding.set_neq(true);
 
-                                                                        if let Some(index) = index.get() {
-                                                                            let shift = e.shift_key();
-                                                                            // TODO is this correct ?
-                                                                            // TODO test this, especially on Mac
-                                                                            let ctrl = e.ctrl_key();
-                                                                            let alt = e.alt_key();
+                                                                            if let Some(index) = index.get() {
+                                                                                let shift = e.shift_key();
+                                                                                // TODO is this correct ?
+                                                                                // TODO test this, especially on Mac
+                                                                                let ctrl = e.ctrl_key();
+                                                                                let alt = e.alt_key();
 
-                                                                            if !shift && !ctrl && !alt {
-                                                                                let rect = element.get_bounding_client_rect();
-                                                                                state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
+                                                                                if let events::MouseButton::Left = e.button() {
+                                                                                    // TODO a little hacky
+                                                                                    if ctrl && !shift && !alt {
+                                                                                        group.ctrl_select_tab(&tab);
+
+                                                                                    } else if !ctrl && shift && !alt {
+                                                                                        group.shift_select_tab(&tab);
+
+                                                                                    } else if !ctrl && !shift && !alt {
+                                                                                        state.click_tab(&group, &tab);
+
+                                                                                        let rect = element.get_bounding_client_rect();
+                                                                                        state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
+                                                                                    }
+                                                                                }
                                                                             }
                                                                         }
                                                                     }))
                                                                 })
 
                                                                 // TODO only attach this when holding
-                                                                .global_event(clone!(tab => move |_: events::MouseUp| {
+                                                                /*.global_event(clone!(tab => move |_: events::MouseUp| {
                                                                     tab.holding.set_neq(false);
-                                                                }))
+                                                                }))*/
 
                                                                 .event(clone!(state, index, group, tab => move |_: events::MouseEnter| {
                                                                     // TODO should this be inside of the if ?
@@ -666,7 +701,7 @@ fn initialize(state: Arc<State>) {
                                                                 }))
 
                                                                 // TODO replace with MouseClickEvent
-                                                                .event(clone!(state, index, group, tab => move |e: events::MouseUp| {
+                                                                .event(clone!(state, index, tab => move |e: events::MouseUp| {
                                                                     if index.get().is_some() {
                                                                         let shift = e.shift_key();
                                                                         // TODO is this correct ?
@@ -674,19 +709,18 @@ fn initialize(state: Arc<State>) {
                                                                         let ctrl = e.ctrl_key();
                                                                         let alt = e.alt_key();
 
-                                                                        if let events::MouseButton::Left = e.button() {
-                                                                            // TODO a little hacky
-                                                                            if !tab.close_hovered.get() {
-                                                                                if ctrl && !shift && !alt {
-                                                                                    group.ctrl_select_tab(&tab);
+                                                                        match e.button() {
+                                                                            events::MouseButton::Left => {
 
-                                                                                } else if !ctrl && shift && !alt {
-                                                                                    group.shift_select_tab(&tab);
-
-                                                                                } else if !ctrl && !shift && !alt {
-                                                                                    state.click_tab(&group, &tab);
+                                                                            },
+                                                                            events::MouseButton::Middle => {
+                                                                                if !shift && !ctrl && !alt {
+                                                                                    state.close_tab(&tab);
                                                                                 }
-                                                                            }
+                                                                            },
+                                                                            events::MouseButton::Right => {
+                                                                            },
+                                                                            _ => {},
                                                                         }
                                                                     }
                                                                 }))
@@ -697,6 +731,10 @@ fn initialize(state: Arc<State>) {
                                         ])
                                     })
                                 })))
+                        }),
+
+                        html!("div", {
+                            .class(&*GROUP_LIST_RIGHT_BORDER)
                         }),
                     ])
                 }),
@@ -997,11 +1035,12 @@ pub fn main_js() {
         //.style("font-family", "message-box")
         .style("font-size", "13px")
 
-        .style("background-color", "hsl(0, 0%, 100%)")
-        .style("background-image", "repeating-linear-gradient(0deg, \
+        //.style("background-color", "hsl(0, 0%, 100%)")
+        /*.style("background-image", "repeating-linear-gradient(0deg, \
                                         transparent                0px, \
                                         hsla(200, 30%, 30%, 0.017) 2px, \
-                                        hsla(200, 30%, 30%, 0.017) 3px)")
+                                        hsla(200, 30%, 30%, 0.017) 3px)")*/
+        .style("background-color", "#fdfeff") // rgb(245, 246, 247) rgb(227, 228, 230)
     });
 
     // Disables the browser scroll restoration

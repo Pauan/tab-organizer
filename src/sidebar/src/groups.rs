@@ -275,9 +275,9 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
             let timestamp = tab.timestamp_focused.get();
 
             get_tab_index(tabs, |tab| {
-                tab.timestamp_focused.get().partial_cmp(&timestamp).unwrap().then_with(|| {
+                tab.timestamp_focused.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
                     tab.index.get().cmp(&tab_index)
-                }).reverse()
+                })
             })
         },
 
@@ -285,9 +285,9 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
             let timestamp = tab.timestamp_created.get();
 
             get_tab_index(tabs, |tab| {
-                tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().then_with(|| {
+                tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
                     tab.index.get().cmp(&tab_index)
-                }).reverse()
+                })
             })
         },
 
@@ -368,13 +368,19 @@ fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabSt
     });
 }
 
-fn remove_group<A>(groups: &mut A, group: &Group) where A: Insertable<Arc<Group>> {
+fn remove_group<A>(groups: &mut A, group: &Group, should_animate: bool) where A: Insertable<Arc<Group>> {
     let id = group.id;
 
     // TODO make this more efficient ?
     groups.retain(|group| {
         if group.id == id {
-            group.insert_animation.animate_to(Percentage::new(0.0));
+            if should_animate {
+                group.insert_animation.animate_to(Percentage::new(0.0));
+
+            } else {
+                group.insert_animation.jump_to(Percentage::new(0.0));
+            }
+
             false
 
         } else {
@@ -383,7 +389,7 @@ fn remove_group<A>(groups: &mut A, group: &Group) where A: Insertable<Arc<Group>
     });
 }
 
-fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState) where A: Insertable<Arc<Group>> {
+fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, should_animate: bool) where A: Insertable<Arc<Group>> {
     let mut tabs = group.tabs.lock_mut();
 
     let id = tab.id;
@@ -391,7 +397,13 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState) where
     // TODO make this more efficient ?
     tabs.retain(|tab| {
         if tab.id == id {
-            tab.insert_animation.animate_to(Percentage::new(0.0));
+            if should_animate {
+                tab.insert_animation.animate_to(Percentage::new(0.0));
+
+            } else {
+                tab.insert_animation.jump_to(Percentage::new(0.0));
+            }
+
             false
 
         } else {
@@ -400,7 +412,7 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState) where
     });
 
     if tabs.len() == 0 {
-        remove_group(groups, group);
+        remove_group(groups, group, should_animate);
 
     } else {
         drop(tabs);
@@ -410,9 +422,8 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState) where
 
 fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: &TabState, _tab_index: usize) {
     // TODO make this more efficient
-    // TODO should this be animated ?
     sorted_groups(sort, groups, tab, true).each(|group| {
-        remove_tab_from_group(groups, &group, tab);
+        remove_tab_from_group(groups, &group, tab, true);
     });
 }
 
@@ -428,7 +439,7 @@ fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: Sta
 
         if !is_in_new_group {
             // Remove the group if the group does not exist in new_groups AND group is empty
-            remove_tab_from_group(groups, &group, &tab);
+            remove_tab_from_group(groups, &group, &tab, true);
         }
     });
 
