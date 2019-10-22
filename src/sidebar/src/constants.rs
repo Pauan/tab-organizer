@@ -20,14 +20,14 @@ pub(crate) const TAB_DRAGGING_TOP: i32 = 11;
 pub(crate) const DRAG_GAP_PX: f64 = 32.0; // TODO adjust this based on how many tabs are being dragged
 pub(crate) const INSERT_LEFT_MARGIN: f64 = 12.0;
 
-pub(crate) const TOOLBAR_HEIGHT: f64 = 22.0;
+pub(crate) const TOOLBAR_HEIGHT: f64 = 30.0;
 pub(crate) const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
-pub(crate) const TOOLBAR_MARGIN: f64 = 2.0;
-pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_MARGIN + (TOOLBAR_BORDER_WIDTH * 2.0) + TOOLBAR_HEIGHT;
+//pub(crate) const TOOLBAR_MARGIN: f64 = 2.0;
+pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_BORDER_WIDTH + TOOLBAR_HEIGHT;
 
 pub(crate) const GROUP_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const GROUP_PADDING_TOP: f64 = 3.0;
-pub(crate) const GROUP_HEADER_HEIGHT: f64 = 16.0;
+pub(crate) const GROUP_HEADER_HEIGHT: f64 = 18.0;
 pub(crate) const GROUP_PADDING_BOTTOM: f64 = 3.0;
 
 pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
@@ -113,19 +113,19 @@ lazy_static! {
 
     pub(crate) static ref TOOLBAR_STYLE: String = class! {
         .style("height", px(TOOLBAR_HEIGHT))
-        .style("border-width", px(TOOLBAR_BORDER_WIDTH))
-        .style("margin-top", px(TOOLBAR_MARGIN))
-        .style("margin-left", "2px")
-        .style("margin-right", "2px")
+        .style("border-bottom-width", px(TOOLBAR_BORDER_WIDTH))
+        //.style("margin-top", px(TOOLBAR_MARGIN))
+        //.style("margin-left", "2px")
+        .style("margin-right", "4px")
         .style("background-color", "hsl(0, 0%, 100%)")
         .style("z-index", "3")
-        .style("border-radius", "2px")
+        //.style("border-radius", "2px")
         /*.style("border-color", "hsl(0, 0%, 50%) \
                                 hsl(0, 0%, 40%) \
                                 hsl(0, 0%, 40%) \
                                 hsl(0, 0%, 50%)")*/
-        .style("border-color", "rgb(0, 120, 215)")
-        .style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
+        .style("border-color", "rgb(202, 202, 202)") // rgb(0, 120, 215)
+        //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
     };
 
     pub(crate) static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
@@ -156,8 +156,11 @@ lazy_static! {
         .style("padding-bottom", "2px")
         .style("padding-left", "5px")
         .style("padding-right", "5px")
-        .style("height", "100%")
-        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
+        .style("margin-left", "4px")
+        //.style("height", "100%")
+        //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%), inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
+        .style("border-radius", "3px")
+        .style("border", "1px solid rgb(0, 120, 215)")
     };
 
     pub(crate) static ref GROUP_LIST_STYLE: String = class! {
@@ -165,6 +168,7 @@ lazy_static! {
         .style("overflow", "auto")
         // This moves the scrollbar to the left side
         .style("direction", "rtl")
+        .style("box-shadow", "inset 0px 1px 5px 0px hsla(0, 0%, 0%, 0.1)")
     };
 
     pub(crate) static ref GROUP_LIST_CHILDREN_STYLE: String = class! {
@@ -173,7 +177,9 @@ lazy_static! {
         .style("top", "1px")
         // This resets the direction so it works properly
         .style("direction", "ltr")
-        .style("margin-right", "5px")
+        .style("margin-right", "4px")
+        .style("border-left", "1px solid rgb(202, 202, 202)")
+        .style("min-height", "calc(100% - 1px)")
     };
 
     pub(crate) static ref GROUP_LIST_RIGHT_BORDER: String = class! {
@@ -182,9 +188,9 @@ lazy_static! {
         .style("right", "0px")
         .style("width", "3px")
         .style("height", "100%")
-        .style("border-left", "1px solid rgb(158, 159, 160)") // rgb(104, 150, 185)
-        .style("border-right", "2px solid rgb(158, 159, 160)")
-        .style("background-color", "rgb(245, 246, 247)") // rgb(217, 237, 255)
+        .style("border-left", "1px solid rgb(202, 202, 202)") // rgb(104, 150, 185)
+        .style("border-right", "1px solid #e3e3e3")
+        .style("background-color", "white") // rgb(217, 237, 255)
     };
 
     pub(crate) static ref GROUP_STYLE: String = class! {
@@ -198,7 +204,8 @@ lazy_static! {
     pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
         .style("box-sizing", "border-box")
         .style("height", px(GROUP_HEADER_HEIGHT))
-        .style("padding-left", "5px")
+        .style("padding-left", "12px")
+        .style("padding-bottom", "2px")
         .style("font-size", "11px")
     };
 
@@ -257,6 +264,7 @@ lazy_static! {
         .style("border-left-width", "4px")
         .style("border-right", "none")
         //.style("margin-bottom", "-1px")
+        .style("font-size", "12px")
     };
 
     pub(crate) static ref TAB_HOVER_STYLE: String = class! {
@@ -297,20 +305,25 @@ lazy_static! {
                                           hsl(30, 70%, 57%) \
                                           hsl(30, 70%, 52%) \
                                           hsl(30, 70%, 57%)")*/
-        .style("background-image", "linear-gradient(to right, rgb(217, 237, 255), rgb(217, 237, 255) 25%, rgb(245, 246, 247))") // #bfe1ff rgb(254, 254, 255)
-        .style("border-image", "linear-gradient(to right, rgb(10, 132, 255), rgb(10, 132, 255) 25%, rgb(158, 159, 160)) 1") // rgb(104, 150, 185) rgb(132, 161, 189) rgb(158, 159, 160)
-        //.style("border-left-color", "rgb(10, 132, 255)")
+        .style("background-color", "white")
+        //.style("background-image", "linear-gradient(to right, rgb(217, 237, 255), white)") // #bfe1ff rgb(254, 254, 255)
+        //.style("border-image", "linear-gradient(to right, rgb(10, 132, 255), rgb(202, 202, 202)) 1") // rgb(104, 150, 185) rgb(132, 161, 189) rgb(158, 159, 160)
+        .style("border-color", "rgb(202, 202, 202)")
+        .style("border-left-color", "rgb(10, 132, 255)")
         .style("z-index", "1")
     };
 
     pub(crate) static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
+        .style("background-color", "white")
+        .style("border-color", "rgb(202, 202, 202)")
+        .style("border-left-color", "rgb(10, 132, 255)")
         //.style("background-color", "hsl(30, 85%, 57%)")
-        .style("background-image", "linear-gradient(to right, #b0daff, #b0daff 25%, rgb(245, 246, 247))")
+        //.style("background-image", "linear-gradient(to right, #b0daff 61.8%, white)")
     };
 
     pub(crate) static ref TAB_SELECTED_STYLE: String = class! {
-        .style("background-image", "linear-gradient(to right, hsl(100, 78%, 80%), hsl(100, 78%, 80%) 25%, rgb(245, 246, 247))")
-        .style("border-image", "linear-gradient(to right, hsl(100, 50%, 50%), hsl(100, 50%, 50%) 25%, rgb(158, 159, 160)) 1")
+        .style("background-image", "linear-gradient(to right, hsl(100, 78%, 80%) 61.8%, white)")
+        .style("border-image", "linear-gradient(to right, hsl(100, 50%, 50%) 61.8%, rgb(202, 202, 202)) 1")
         // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
         /*.style_important("border-color", "hsl(100, 50%, 55%) \
                                           hsl(100, 50%, 50%) \
@@ -319,7 +332,7 @@ lazy_static! {
     };
 
     pub(crate) static ref TAB_SELECTED_HOVER_STYLE: String = class! {
-        .style("background-image", "linear-gradient(to right, hsl(100, 80%, 65%), hsl(100, 80%, 65%) 25%, rgb(245, 246, 247))")
+        .style("background-image", "linear-gradient(to right, hsl(100, 80%, 65%) 61.8%, white)")
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {

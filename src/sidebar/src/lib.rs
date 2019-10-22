@@ -1040,7 +1040,7 @@ pub fn main_js() {
                                         transparent                0px, \
                                         hsla(200, 30%, 30%, 0.017) 2px, \
                                         hsla(200, 30%, 30%, 0.017) 3px)")*/
-        .style("background-color", "#fdfeff") // rgb(245, 246, 247) rgb(227, 228, 230)
+        .style("background-color", "rgb(247, 248, 249)") // rgb(244, 244, 244) #fdfeff rgb(227, 228, 230)
     });
 
     // Disables the browser scroll restoration
