@@ -75,15 +75,25 @@ fn get_group_index_name_empty(groups: &[Arc<Group>], name: &str) -> Result<usize
 
 fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> where F: FnMut(&str) -> Ordering {
     groups.binary_search_by(|group: &Arc<Group>| {
-        let name = group.name.lock_ref();
-        let name = str_default(&name, "");
-        f(name)
+        if group.pinned {
+            Ordering::Less
+
+        } else {
+            let name = group.name.lock_ref();
+            let name = str_default(&name, "");
+            f(name)
+        }
     })
 }
 
 fn get_timestamp_index(groups: &[Arc<Group>], timestamp: f64) -> Result<usize, usize> {
     groups.binary_search_by(|group: &Arc<Group>| {
-        group.timestamp.partial_cmp(&timestamp).unwrap().reverse()
+        if group.pinned {
+            Ordering::Less
+
+        } else {
+            group.timestamp.partial_cmp(&timestamp).unwrap().reverse()
+        }
     })
 }
 
@@ -92,25 +102,31 @@ fn get_tab_index<F>(tabs: &[Arc<Tab>], f: F) -> usize where F: FnMut(&Arc<Tab>) 
 }
 
 fn get_pinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
-    get_group_index(groups, |name| {
-        if name == "Pinned" {
-            Ordering::Equal
+    if groups.get(0).map(|x| x.pinned).unwrap_or(false) {
+        Ok(0)
 
-        } else {
-            Ordering::Greater
-        }
-    })
+    } else {
+        Err(0)
+    }
 }
 
 fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
-    get_group_index(groups, |name| {
-        if name == "Pinned" {
-            Ordering::Less
+    match groups.get(0) {
+        Some(group) => {
+            if group.pinned {
+                if groups.len() > 1 {
+                    Ok(1)
 
-        } else {
-            Ordering::Equal
-        }
-    })
+                } else {
+                    Err(1)
+                }
+
+            } else {
+                Ok(0)
+            }
+        },
+        None => Err(0),
+    }
 }
 
 fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
@@ -118,10 +134,10 @@ fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
 }
 
 
-fn make_new_group(name: Option<Arc<String>>, timestamp: f64, should_animate: bool) -> Arc<Group> {
+fn make_new_group(pinned: bool, name: Option<Arc<String>>, timestamp: f64, should_animate: bool) -> Arc<Group> {
     let show_header = name.is_some();
 
-    let group = Arc::new(Group::new(timestamp, show_header, Mutable::new(name), vec![]));
+    let group = Arc::new(Group::new(timestamp, pinned, show_header, Mutable::new(name), vec![]));
 
     if should_animate {
         group.insert_animation.animate_to(Percentage::new(1.0));
@@ -153,172 +169,187 @@ fn insert_group<A, F>(groups: &mut A, index: Result<usize, usize>, create: F) ->
 
 
 fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_animate: bool) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
-    match sort {
-        SortTabs::Window => StackVec::Single({
-            if tab.pinned.get() {
-                let index = get_pinned_index(groups);
-                insert_group(groups, index, || {
-                    make_new_group(Some(Arc::new("Pinned".to_string())), 0.0, should_animate)
-                })
+    if tab.pinned.get() {
+        StackVec::Single({
+            let index = get_pinned_index(groups);
+            insert_group(groups, index, || {
+                make_new_group(true, None, 0.0, should_animate)
+            })
+        })
 
-            } else {
+    } else {
+        match sort {
+            SortTabs::Window => StackVec::Single({
                 let index = get_unpinned_index(groups);
                 insert_group(groups, index, || {
-                    make_new_group(None, 0.0, should_animate)
+                    make_new_group(false, None, 0.0, should_animate)
                 })
-            }
-        }),
+            }),
 
-        SortTabs::Tag => {
-            let tags = tab.tags.lock_ref();
+            SortTabs::Tag => {
+                let tags = tab.tags.lock_ref();
 
-            let f = |groups: &mut A, tag: &Tag| {
-                let index = get_group_index_name_empty(groups, &tag.name);
-                insert_group(groups, index, || {
-                    // TODO make this clone more efficient (e.g. by using Arc for the tags)
-                    make_new_group(Some(Arc::new(tag.name.clone())), 0.0, should_animate)
-                })
-            };
-
-            match tags.as_slice() {
-                // TODO test this
-                [] => StackVec::Single({
-                    // TODO guarantee that this puts this group first ?
-                    let index = get_group_index_name_empty(groups, "");
+                let f = |groups: &mut A, tag: &Tag| {
+                    let index = get_group_index_name_empty(groups, &tag.name);
                     insert_group(groups, index, || {
-                        make_new_group(None, 0.0, should_animate)
+                        // TODO make this clone more efficient (e.g. by using Arc for the tags)
+                        make_new_group(false, Some(Arc::new(tag.name.clone())), 0.0, should_animate)
                     })
-                }),
-                [tag] => StackVec::Single(f(groups, tag)),
-                tags => StackVec::Multiple(tags.into_iter().map(|tag| f(groups, tag)).collect()),
-            }
-        },
+                };
 
-        SortTabs::TimeFocused => StackVec::Single({
-            let timestamp = round_to_hour(tab.timestamp_focused.get().unwrap_or_else(|| tab.timestamp_created.get()));
+                match tags.as_slice() {
+                    // TODO test this
+                    [] => StackVec::Single({
+                        // TODO guarantee that this puts this group first ?
+                        let index = get_group_index_name_empty(groups, "");
+                        insert_group(groups, index, || {
+                            make_new_group(false, None, 0.0, should_animate)
+                        })
+                    }),
+                    [tag] => StackVec::Single(f(groups, tag)),
+                    tags => StackVec::Multiple(tags.into_iter().map(|tag| f(groups, tag)).collect()),
+                }
+            },
 
-            let index = get_timestamp_index(groups, timestamp);
-            insert_group(groups, index, || {
-                // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
-            })
-        }),
+            SortTabs::TimeFocused => StackVec::Single({
+                let timestamp = round_to_hour(tab.timestamp_focused());
 
-        SortTabs::TimeCreated => StackVec::Single({
-            let timestamp = round_to_hour(tab.timestamp_created.get());
+                let index = get_timestamp_index(groups, timestamp);
+                insert_group(groups, index, || {
+                    // TODO pass in the current time, rather than generating it each time ?
+                    make_new_group(false, Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
+                })
+            }),
 
-            let index = get_timestamp_index(groups, timestamp);
-            insert_group(groups, index, || {
-                // TODO pass in the current time, rather than generating it each time ?
-                make_new_group(Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
-            })
-        }),
+            SortTabs::TimeCreated => StackVec::Single({
+                let timestamp = round_to_hour(tab.timestamp_created.get());
 
-        SortTabs::Url => StackVec::Single({
-            let url = tab.url.lock_ref();
-            let url = str_default(&url, "");
+                let index = get_timestamp_index(groups, timestamp);
+                insert_group(groups, index, || {
+                    // TODO pass in the current time, rather than generating it each time ?
+                    make_new_group(false, Some(Arc::new(generate_timestamp_title(timestamp, Date::now()))), timestamp, should_animate)
+                })
+            }),
 
-            // TODO make this faster/more efficient
-            let url = UrlBar::new(url)
-                .map(|url| url.minify())
-                .map(|url| format!("{}{}{}{}{}",
-                    str_default(&url.protocol, ""),
-                    str_default(&url.separator, ""),
-                    str_default(&url.authority, ""),
-                    str_default(&url.domain, ""),
-                    str_default(&url.port, "")))
-                .unwrap_or_else(|| "".to_string());
+            SortTabs::Url => StackVec::Single({
+                let url = tab.url.lock_ref();
+                let url = str_default(&url, "");
 
-            let index = get_group_index_name(groups, &url);
-            insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(url)), 0.0, should_animate)
-            })
-        }),
+                // TODO make this faster/more efficient
+                let url = UrlBar::new(url)
+                    .map(|url| url.minify())
+                    .map(|url| format!("{}{}{}{}{}",
+                        str_default(&url.protocol, ""),
+                        str_default(&url.separator, ""),
+                        str_default(&url.authority, ""),
+                        str_default(&url.domain, ""),
+                        str_default(&url.port, "")))
+                    .unwrap_or_else(|| "".to_string());
 
-        SortTabs::Name => StackVec::Single({
-            let title = tab.title.lock_ref();
-            let title = str_default(&title, "");
-            let title = title.trim(); // TODO is it too expensive to use Unicode trim ?
+                let index = get_group_index_name(groups, &url);
+                insert_group(groups, index, || {
+                    make_new_group(false, Some(Arc::new(url)), 0.0, should_animate)
+                })
+            }),
 
-            let title = title.chars().nth(0);
+            SortTabs::Name => StackVec::Single({
+                let title = tab.title.lock_ref();
+                let title = str_default(&title, "");
+                let title = title.trim(); // TODO is it too expensive to use Unicode trim ?
 
-            let title = if let Some(char) = title {
-                // TODO is it too expensive to use Unicode uppercase ?
-                char.to_ascii_uppercase().to_string()
+                let title = title.chars().nth(0);
 
-            } else {
-                "".to_string()
-            };
+                let title = if let Some(char) = title {
+                    // TODO is it too expensive to use Unicode uppercase ?
+                    char.to_ascii_uppercase().to_string()
 
-            let index = get_group_index_name(groups, &title);
-            insert_group(groups, index, || {
-                make_new_group(Some(Arc::new(title)), 0.0, should_animate)
-            })
-        }),
+                } else {
+                    "".to_string()
+                };
+
+                let index = get_group_index_name(groups, &title);
+                insert_group(groups, index, || {
+                    make_new_group(false, Some(Arc::new(title)), 0.0, should_animate)
+                })
+            }),
+        }
     }
 }
 
 fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index: usize, is_initial: bool) -> usize {
-    match sort {
-        SortTabs::Window | SortTabs::Tag => {
-            if is_initial {
-                tabs.len()
+    // TODO code duplication
+    if tab.pinned.get() {
+        if is_initial {
+            tabs.len()
 
-            } else {
+        } else {
+            get_tab_index(tabs, |tab| {
+                tab.index.get().cmp(&tab_index)
+            })
+        }
+
+    } else {
+        match sort {
+            SortTabs::Window | SortTabs::Tag => {
+                if is_initial {
+                    tabs.len()
+
+                } else {
+                    get_tab_index(tabs, |tab| {
+                        tab.index.get().cmp(&tab_index)
+                    })
+                }
+            },
+
+            SortTabs::TimeFocused => {
+                let timestamp = tab.timestamp_focused();
+
                 get_tab_index(tabs, |tab| {
-                    tab.index.get().cmp(&tab_index)
+                    tab.timestamp_focused().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
+                        tab.index.get().cmp(&tab_index)
+                    })
                 })
-            }
-        },
+            },
 
-        SortTabs::TimeFocused => {
-            let timestamp = tab.timestamp_focused.get();
+            SortTabs::TimeCreated => {
+                let timestamp = tab.timestamp_created.get();
 
-            get_tab_index(tabs, |tab| {
-                tab.timestamp_focused.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
-                    tab.index.get().cmp(&tab_index)
+                get_tab_index(tabs, |tab| {
+                    tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
+                        tab.index.get().cmp(&tab_index)
+                    })
                 })
-            })
-        },
+            },
 
-        SortTabs::TimeCreated => {
-            let timestamp = tab.timestamp_created.get();
+            SortTabs::Url => {
+                let url = tab.url.lock_ref();
+                let url = str_default(&url, "");
 
-            get_tab_index(tabs, |tab| {
-                tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
-                    tab.index.get().cmp(&tab_index)
+                get_tab_index(tabs, |tab| {
+                    let x = tab.url.lock_ref();
+                    let x = str_default(&x, "");
+
+                    x.cmp(url).then_with(|| {
+                        tab.index.get().cmp(&tab_index)
+                    })
                 })
-            })
-        },
+            },
 
-        SortTabs::Url => {
-            let url = tab.url.lock_ref();
-            let url = str_default(&url, "");
+            // TODO use upper-case sorting ?
+            SortTabs::Name => {
+                let title = tab.title.lock_ref();
+                let title = str_default(&title, "");
 
-            get_tab_index(tabs, |tab| {
-                let x = tab.url.lock_ref();
-                let x = str_default(&x, "");
+                get_tab_index(tabs, |tab| {
+                    let x = tab.title.lock_ref();
+                    let x = str_default(&x, "");
 
-                x.cmp(url).then_with(|| {
-                    tab.index.get().cmp(&tab_index)
+                    x.cmp(title).then_with(|| {
+                        tab.index.get().cmp(&tab_index)
+                    })
                 })
-            })
-        },
-
-        // TODO use upper-case sorting ?
-        SortTabs::Name => {
-            let title = tab.title.lock_ref();
-            let title = str_default(&title, "");
-
-            get_tab_index(tabs, |tab| {
-                let x = tab.title.lock_ref();
-                let x = str_default(&x, "");
-
-                x.cmp(title).then_with(|| {
-                    tab.index.get().cmp(&tab_index)
-                })
-            })
-        },
+            },
+        }
     }
 }
 
@@ -478,6 +509,7 @@ fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: Sta
 #[derive(Debug)]
 pub(crate) struct Groups {
     sort: Mutex<SortTabs>,
+    pinned: Arc<Group>,
     groups: MutableVec<Arc<Group>>,
 }
 
@@ -485,6 +517,7 @@ impl Groups {
     pub(crate) fn new(sort_tabs: SortTabs) -> Self {
         Self {
             sort: Mutex::new(sort_tabs),
+            pinned: make_new_group(true, None, 0.0, false),
             groups: MutableVec::new(),
         }
     }
