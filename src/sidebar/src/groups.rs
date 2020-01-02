@@ -683,6 +683,7 @@ impl State {
 
         let tab = &tabs[tab_index];
 
+        // TODO this can be optimized based on the specific grouping (e.g. Window)
         self.groups.tab_updated(self, tab_index, tab.clone(), || {
             for change in changes {
                 match change {

@@ -407,6 +407,8 @@ pub fn main_js() {
             .map(|x| -> Result<BackgroundMessage, JsValue> { Ok(x) })
             .try_fold(None, move |mut state, message| {
                 clone!(port => async move {
+                    log!("Received message {:#?}", message);
+
                     match message {
                         BackgroundMessage::Initial { tabs } => {
                             state = time!("Initializing", {

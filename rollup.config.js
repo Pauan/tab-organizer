@@ -5,16 +5,19 @@ import zip from "rollup-plugin-zip";
 
 export default {
     input: {
-        "js/sidebar": "src/sidebar/Cargo.toml",
-        "js/background": "src/background/Cargo.toml"
+        sidebar: "src/sidebar/Cargo.toml",
+        background: "src/background/Cargo.toml"
     },
     output: {
         dir: "dist",
         format: "esm",
-        sourcemap: false,
+        sourcemap: true,
+        // TODO source map URL is missing the js/
+        entryFileNames: "js/[name].js",
     },
     plugins: [
         rust({
+            outdir: "js",
             importHook: function (path) {
                 return "browser.runtime.getURL(" + JSON.stringify(path) + ")";
             },

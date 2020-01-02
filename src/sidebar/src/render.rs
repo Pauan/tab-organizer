@@ -46,7 +46,7 @@ fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlEle
             &*ICON_STYLE,
         ])*/
 
-        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
+        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
 
         .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
             RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
@@ -81,9 +81,9 @@ fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElemen
                                 ""
                             }
                         }
-                    }.first()),
+                    }),
 
-                    text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
+                    text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
                 ])
             })
         ])
@@ -124,7 +124,7 @@ fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
 
         .cursor!(state.is_dragging(), intern("pointer"))
 
-        .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
+        .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal())
         .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
 
         .apply(mixin)
@@ -200,7 +200,7 @@ impl State {
                             tab_template(&state, &tab, |dom| apply_methods!(dom, {
                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
+                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
                                 .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                                 //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -210,7 +210,7 @@ impl State {
                                 .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
                                 .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(tab.is_focused(), tab.selected.signal()))
 
-                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
+                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
                                 .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
@@ -411,7 +411,7 @@ impl State {
                                                 &*MENU_ITEM_HOVER_STYLE,
                                             ])*/
                                             .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal()) // TODO use .first() ?
+                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
                                             .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
 
                                         // TODO use ease-out easing
