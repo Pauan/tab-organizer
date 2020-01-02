@@ -22,7 +22,7 @@ pub(crate) const INSERT_LEFT_MARGIN: f64 = 12.0;
 
 pub(crate) const TOOLBAR_HEIGHT: f64 = 30.0;
 pub(crate) const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
-//pub(crate) const TOOLBAR_MARGIN: f64 = 2.0;
+pub(crate) const TOOLBAR_MARGIN: f64 = 4.0;
 pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_BORDER_WIDTH + TOOLBAR_HEIGHT;
 
 pub(crate) const GROUP_BORDER_WIDTH: f64 = 1.0;
@@ -31,11 +31,14 @@ pub(crate) const GROUP_HEADER_HEIGHT: f64 = 18.0;
 pub(crate) const GROUP_PADDING_BOTTOM: f64 = 3.0;
 
 pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
+pub(crate) const TAB_BORDER_CROWN_WIDTH: f64 = 4.0;
 pub(crate) const TAB_PADDING: f64 = 1.0;
 pub(crate) const TAB_HEIGHT: f64 = 22.0;
 pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
 pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
+pub(crate) const TAB_PINNED_WIDTH: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
+pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_BORDER_WIDTH + (TAB_PADDING * 2.0) + TAB_HEIGHT;
 
 
 lazy_static! {
@@ -43,6 +46,12 @@ lazy_static! {
         .style("display", "flex")
         .style("flex-direction", "row")
         .style("align-items", "center") // TODO get rid of this ?
+    };
+
+    pub(crate) static ref COLUMN_STYLE: String = class! {
+        .style("display", "flex")
+        .style("flex-direction", "column")
+        .style("align-items", "stretch") // TODO get rid of this ?
     };
 
     pub(crate) static ref STRETCH_STYLE: String = class! {
@@ -111,20 +120,23 @@ lazy_static! {
         .style("z-index", "1")
     };
 
-    pub(crate) static ref TOOLBAR_STYLE: String = class! {
-        .style("height", px(TOOLBAR_HEIGHT))
-        .style("border-bottom-width", px(TOOLBAR_BORDER_WIDTH))
-        //.style("margin-top", px(TOOLBAR_MARGIN))
-        //.style("margin-left", "2px")
-        .style("margin-right", "4px")
+    pub(crate) static ref HEADER_STYLE: String = class! {
         .style("background-color", "hsl(0, 0%, 100%)")
         .style("z-index", "3")
+        .style("border-bottom-width", px(TOOLBAR_BORDER_WIDTH))
+        .style("border-color", "rgb(202, 202, 202)") // rgb(0, 120, 215)
+        .style("margin-right", px(TOOLBAR_MARGIN))
+    };
+
+    pub(crate) static ref TOOLBAR_STYLE: String = class! {
+        .style("height", px(TOOLBAR_HEIGHT))
+        //.style("margin-top", px(TOOLBAR_MARGIN))
+        //.style("margin-left", "2px")
         //.style("border-radius", "2px")
         /*.style("border-color", "hsl(0, 0%, 50%) \
                                 hsl(0, 0%, 40%) \
                                 hsl(0, 0%, 40%) \
                                 hsl(0, 0%, 50%)")*/
-        .style("border-color", "rgb(202, 202, 202)") // rgb(0, 120, 215)
         //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
     };
 
@@ -164,7 +176,6 @@ lazy_static! {
     };
 
     pub(crate) static ref GROUP_LIST_STYLE: String = class! {
-        .style("height", format!("calc(100% - {}px)", TOOLBAR_TOTAL_HEIGHT))
         .style("overflow", "auto")
         // This moves the scrollbar to the left side
         .style("direction", "rtl")
@@ -199,6 +210,10 @@ lazy_static! {
         .style("top", "-1px")
         .style("border-color", "hsl(211, 50%, 75%)")
         //.style("background-color", "hsl(0, 0%, 100%)")
+    };
+
+    pub(crate) static ref GROUP_PINNED_STYLE: String = class! {
+        .style("white-space", "normal")
     };
 
     pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
@@ -261,18 +276,31 @@ lazy_static! {
         .style("overflow", "hidden")
         //.style("border-top-left-radius", "5px")
         //.style("border-bottom-left-radius", "5px")
-        .style("border-left-width", "4px")
-        .style("border-right", "none")
+        .style("border-left-width", px(TAB_BORDER_CROWN_WIDTH))
+        .style("border-right-width", "0px")
         //.style("margin-bottom", "-1px")
         .style("font-size", "12px")
     };
 
+    pub(crate) static ref TAB_PINNED_STYLE: String = class! {
+        .style("width", px(TAB_HEIGHT))
+        .style("display", "inline-block")
+        .style("padding", px(TAB_PADDING))
+        .style("border-width", px(TAB_BORDER_WIDTH))
+        .style("border-top-width", px(TAB_BORDER_CROWN_WIDTH))
+        .style("border-radius", "6px")
+    };
+
     pub(crate) static ref TAB_HOVER_STYLE: String = class! {
-        .style("border-color", "rgb(163, 164, 166)")
-        .style("border-top-color", "transparent")
-        .style("border-bottom-color", "transparent")
+        .style("border-color", "transparent")
+        .style("border-left-color", "rgb(163, 164, 166)")
         .style("background-color", "rgb(227, 228, 230)") // rgb(204, 205, 207)
         //.style("font-weight", "bold")
+    };
+
+    pub(crate) static ref TAB_PINNED_HOVER_STYLE: String = class! {
+        .style("border-color", "transparent")
+        .style("border-top-color", "rgb(163, 164, 166)")
     };
 
     pub(crate) static ref TAB_HOLD_STYLE: String = class! {
@@ -313,6 +341,11 @@ lazy_static! {
         .style("z-index", "1")
     };
 
+    pub(crate) static ref TAB_PINNED_FOCUSED_STYLE: String = class! {
+        .style("border-color", "rgb(202, 202, 202)")
+        .style("border-top-color", "rgb(10, 132, 255)")
+    };
+
     pub(crate) static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
         .style("background-color", "white")
         .style("border-color", "rgb(202, 202, 202)")
@@ -331,14 +364,23 @@ lazy_static! {
                                           hsl(100, 50%, 50%)")*/
     };
 
+    pub(crate) static ref TAB_PINNED_SELECTED_STYLE: String = class! {
+        .style("background-image", "linear-gradient(to bottom, hsl(100, 78%, 80%) 61.8%, white)")
+        .style("border-image", "linear-gradient(to bottom, hsl(100, 50%, 50%) 61.8%, rgb(202, 202, 202)) 1")
+    };
+
     pub(crate) static ref TAB_SELECTED_HOVER_STYLE: String = class! {
         .style("background-image", "linear-gradient(to right, hsl(100, 80%, 65%) 61.8%, white)")
+    };
+
+    pub(crate) static ref TAB_PINNED_SELECTED_HOVER_STYLE: String = class! {
+        .style("background-image", "linear-gradient(to bottom, hsl(100, 80%, 65%) 61.8%, white)")
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
         .style("width", px(TAB_FAVICON_SIZE))
         .style("height", px(TAB_FAVICON_SIZE))
-        .style("margin-left", "2px")
+        .style("margin-left", "3px")
         .style("margin-right", "2px")
     };
 

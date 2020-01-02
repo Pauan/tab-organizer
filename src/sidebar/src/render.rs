@@ -133,6 +133,123 @@ fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
 
 
 impl State {
+    // TODO code duplication
+    fn render_pinned_group(state: Arc<Self>, group: Arc<Group>) -> Dom {
+        html!("div", {
+            .class(&*GROUP_PINNED_STYLE)
+
+            .children_signal_vec(group.tabs.signal_vec_cloned()
+                .delay_remove(|tab| tab.wait_until_removed())
+                .filter_signal_cloned(|tab| tab.visible.signal())
+                .map(clone!(state => move |tab| {
+                    tab_template(&state, &tab, |dom| apply_methods!(dom, {
+                        .class(&*TAB_PINNED_STYLE)
+
+                        .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
+                        //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
+                        .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
+                        .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
+
+                        //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
+                        //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
+
+                        .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                        .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
+                        .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(tab.is_focused(), tab.selected.signal()))
+
+                        .class_signal(&*TAB_PINNED_HOVER_STYLE, state.is_tab_hovered(&tab))
+                        .class_signal(&*TAB_PINNED_FOCUSED_STYLE, tab.is_focused())
+                        .class_signal(&*TAB_PINNED_SELECTED_STYLE, tab.selected.signal())
+                        .class_signal(&*TAB_PINNED_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
+
+                        .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
+
+                        .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
+                        .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
+
+                        .style_signal("transform", tab.insert_animation.signal().map(|t| {
+                            t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
+                        }))
+
+                        .with_node!(element => {
+                            .event(clone!(state, group, tab => move |e: events::MouseDown| {
+                                // TODO a little hacky
+                                if !tab.close_hovered.get() {
+                                    //tab.holding.set_neq(true);
+
+                                    let shift = e.shift_key();
+                                    // TODO is this correct ?
+                                    // TODO test this, especially on Mac
+                                    let ctrl = e.ctrl_key();
+                                    let alt = e.alt_key();
+
+                                    if let events::MouseButton::Left = e.button() {
+                                        // TODO a little hacky
+                                        if ctrl && !shift && !alt {
+                                            group.ctrl_select_tab(&tab);
+
+                                        } else if !ctrl && shift && !alt {
+                                            group.shift_select_tab(&tab);
+
+                                        } else if !ctrl && !shift && !alt {
+                                            state.click_tab(&group, &tab);
+
+                                            let rect = element.get_bounding_client_rect();
+                                            state.drag_start(e.mouse_x(), e.mouse_y(), rect, &group, &tab);
+                                        }
+                                    }
+                                }
+                            }))
+                        })
+
+                        // TODO only attach this when holding
+                        /*.global_event(clone!(tab => move |_: events::MouseUp| {
+                            tab.holding.set_neq(false);
+                        }))*/
+
+                        .event(clone!(state, group, tab => move |_: events::MouseEnter| {
+                            // TODO should this be inside of the if ?
+                            state.hover_tab(&tab);
+                            state.drag_over(&group, &tab);
+                        }))
+
+                        .event(clone!(state, tab => move |_: events::MouseLeave| {
+                            state.unhover_tab(&tab);
+                        }))
+
+                        // TODO replace with MouseClickEvent
+                        .event(clone!(state, tab => move |e: events::MouseUp| {
+                            let shift = e.shift_key();
+                            // TODO is this correct ?
+                            // TODO test this, especially on Mac
+                            let ctrl = e.ctrl_key();
+                            let alt = e.alt_key();
+
+                            match e.button() {
+                                events::MouseButton::Left => {
+
+                                },
+                                events::MouseButton::Middle => {
+                                    if !shift && !ctrl && !alt {
+                                        state.close_tab(&tab);
+                                    }
+                                },
+                                events::MouseButton::Right => {
+                                },
+                                _ => {},
+                            }
+                        }))
+
+                        .children(&mut [
+                            tab_favicon(&tab, |dom| { dom
+                                .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                            }),
+                        ])
+                    }))
+                })))
+        })
+    }
+
     fn render_group(state: Arc<Self>, group: Arc<Group>) -> Dom {
         if state.should_be_dragging_group(group.id) {
             group.drag_top.jump_to(Percentage::new(1.0));
@@ -345,7 +462,10 @@ impl State {
         let window_height = Mutable::new(tab_organizer::window_height());
 
         html!("div", {
-            .class(&*TOP_STYLE)
+            .class([
+                &*TOP_STYLE,
+                &*COLUMN_STYLE,
+            ])
 
             // TODO only attach this when dragging
             .global_event(clone!(state => move |_: events::MouseUp| {
@@ -475,140 +595,151 @@ impl State {
                 }),
 
                 html!("div", {
-                    .class([
-                        &*ROW_STYLE,
-                        &*TOOLBAR_STYLE,
-                    ])
+                    .class(&*HEADER_STYLE)
 
                     .children(&mut [
-                        html!("input" => HtmlInputElement, {
+                        html!("div", {
                             .class([
-                                &*SEARCH_STYLE,
-                                &*STRETCH_STYLE,
+                                &*ROW_STYLE,
+                                &*TOOLBAR_STYLE,
                             ])
 
-                            .cursor!(state.is_dragging(), "auto")
+                            .children(&mut [
+                                html!("input" => HtmlInputElement, {
+                                    .class([
+                                        &*SEARCH_STYLE,
+                                        &*STRETCH_STYLE,
+                                    ])
 
-                            .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
-                                if failed.is_some() {
-                                    Some("hsl(5, 100%, 90%)")
+                                    .cursor!(state.is_dragging(), "auto")
 
-                                } else {
-                                    None
-                                }
-                            }))
+                                    .style_signal("background-color", FAILED.signal_cloned().map(|failed| {
+                                        if failed.is_some() {
+                                            Some("hsl(5, 100%, 90%)")
 
-                            .attribute("type", "text")
-                            .attribute("autofocus", "")
-                            .attribute("autocomplete", "off")
-                            .attribute("placeholder", "Search")
+                                        } else {
+                                            None
+                                        }
+                                    }))
 
-                            .attribute_signal("title", FAILED.signal_cloned().map(|x| option_str_default(x, "")))
+                                    .attribute("type", "text")
+                                    .attribute("autofocus", "")
+                                    .attribute("autocomplete", "off")
+                                    .attribute("placeholder", "Search")
 
-                            .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
+                                    .attribute_signal("title", FAILED.signal_cloned().map(|x| option_str_default(x, "")))
 
-                            .with_node!(element => {
-                                .event(clone!(state => move |_: events::Input| {
-                                    let value = Arc::new(element.value());
-                                    local_storage_set("tab-organizer.search", &value);
-                                    // TODO is it faster to not use Arc ?
-                                    state.search_parser.set(Arc::new(search::Parsed::new(&value)));
-                                    state.search_box.set(value);
-                                }))
-                            })
-                        }),
+                                    .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
-                        html!("div", {
-                            .class(&*TOOLBAR_SEPARATOR_STYLE)
-                        }),
+                                    .with_node!(element => {
+                                        .event(clone!(state => move |_: events::Input| {
+                                            let value = Arc::new(element.value());
+                                            local_storage_set("tab-organizer.search", &value);
+                                            // TODO is it faster to not use Arc ?
+                                            state.search_parser.set(Arc::new(search::Parsed::new(&value)));
+                                            state.search_box.set(value);
+                                        }))
+                                    })
+                                }),
 
-                        {
-                            let hovering = Mutable::new(false);
-                            let holding = Mutable::new(false);
+                                html!("div", {
+                                    .class(&*TOOLBAR_SEPARATOR_STYLE)
+                                }),
 
-                            html!("div", {
-                                .class(&*TOOLBAR_MENU_WRAPPER_STYLE)
-                                .children(&mut [
+                                {
+                                    let hovering = Mutable::new(false);
+                                    let holding = Mutable::new(false);
+
                                     html!("div", {
-                                        .class([
-                                            &*ROW_STYLE,
-                                            &*TOOLBAR_MENU_STYLE,
+                                        .class(&*TOOLBAR_MENU_WRAPPER_STYLE)
+                                        .children(&mut [
+                                            html!("div", {
+                                                .class([
+                                                    &*ROW_STYLE,
+                                                    &*TOOLBAR_MENU_STYLE,
+                                                ])
+
+                                                .cursor!(state.is_dragging(), "pointer")
+
+                                                .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
+
+                                                .event(clone!(hovering => move |_: events::MouseEnter| {
+                                                    hovering.set_neq(true);
+                                                }))
+
+                                                .event(move |_: events::MouseLeave| {
+                                                    hovering.set_neq(false);
+                                                })
+
+                                                .event(clone!(holding => move |_: events::MouseDown| {
+                                                    holding.set_neq(true);
+                                                }))
+
+                                                // TODO only attach this when holding
+                                                .global_event(move |_: events::MouseUp| {
+                                                    holding.set_neq(false);
+                                                })
+
+                                                .event(clone!(state => move |_: events::Click| {
+                                                    state.menu.show();
+                                                }))
+
+                                                .text("Menu")
+                                            }),
+
+                                            state.menu.render(|menu| { menu
+                                                .submenu("Sort tabs by...", |menu| { menu
+                                                    .option("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::Window);
+                                                    }))
+
+                                                    .option("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::Tag);
+                                                    }))
+
+                                                    .separator()
+
+                                                    .option("Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
+                                                    }))
+
+                                                    .option("Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
+                                                    }))
+
+                                                    .separator()
+
+                                                    .option("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::Url);
+                                                    }))
+
+                                                    .option("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                                                        state.options.sort_tabs.set_neq(SortTabs::Name);
+                                                    }))
+                                                })
+
+                                                .separator()
+
+                                                .submenu("Foo", |menu| { menu
+                                                    .option("Bar", futures_signals::signal::always(true), || {})
+                                                    .option("Qux", futures_signals::signal::always(false), || {})
+                                                })
+                                            }),
                                         ])
+                                    })
+                                },
+                            ])
+                        }),
 
-                                        .cursor!(state.is_dragging(), "pointer")
-
-                                        .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
-
-                                        .event(clone!(hovering => move |_: events::MouseEnter| {
-                                            hovering.set_neq(true);
-                                        }))
-
-                                        .event(move |_: events::MouseLeave| {
-                                            hovering.set_neq(false);
-                                        })
-
-                                        .event(clone!(holding => move |_: events::MouseDown| {
-                                            holding.set_neq(true);
-                                        }))
-
-                                        // TODO only attach this when holding
-                                        .global_event(move |_: events::MouseUp| {
-                                            holding.set_neq(false);
-                                        })
-
-                                        .event(clone!(state => move |_: events::Click| {
-                                            state.menu.show();
-                                        }))
-
-                                        .text("Menu")
-                                    }),
-
-                                    state.menu.render(|menu| { menu
-                                        .submenu("Sort tabs by...", |menu| { menu
-                                            .option("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::Window);
-                                            }))
-
-                                            .option("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::Tag);
-                                            }))
-
-                                            .separator()
-
-                                            .option("Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
-                                            }))
-
-                                            .option("Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
-                                            }))
-
-                                            .separator()
-
-                                            .option("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::Url);
-                                            }))
-
-                                            .option("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
-                                                state.options.sort_tabs.set_neq(SortTabs::Name);
-                                            }))
-                                        })
-
-                                        .separator()
-
-                                        .submenu("Foo", |menu| { menu
-                                            .option("Bar", futures_signals::signal::always(true), || {})
-                                            .option("Qux", futures_signals::signal::always(false), || {})
-                                        })
-                                    }),
-                                ])
-                            })
-                        },
+                        State::render_pinned_group(state.clone(), state.groups.pinned_group()),
                     ])
                 }),
 
                 html!("div", {
-                    .class(&*GROUP_LIST_STYLE)
+                    .class([
+                        &*GROUP_LIST_STYLE,
+                        &*STRETCH_STYLE,
+                    ])
 
                     .event_preventable(move |e: events::MouseDown| {
                         e.prevent_default();

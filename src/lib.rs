@@ -280,6 +280,15 @@ pub fn decode_uri_component(input: &str) -> String {
 }
 
 
+pub fn window_width() -> f64 {
+    window()
+        .unwrap_throw()
+        .inner_width()
+        .unwrap_throw()
+        .as_f64()
+        .unwrap_throw()
+}
+
 pub fn window_height() -> f64 {
     window()
         .unwrap_throw()

@@ -1,9 +1,9 @@
 use std::pin::Pin;
 use std::marker::Unpin;
 use std::sync::Arc;
-use tab_organizer::{time, ease};
+use tab_organizer::{time, ease, window_width};
 use tab_organizer::state::SortTabs;
-use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
+use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PINNED_WIDTH, TAB_PINNED_HEIGHT, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
@@ -204,16 +204,21 @@ struct CulledGroup<A> where A: SignalVec {
     insert_animation: MutableSink<MutableAnimationSignal>,
 }
 
-impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
-    fn new(state: Arc<Group>, tabs_signal: A) -> Self {
-        Self {
-            tabs: MutableVecSink::new(tabs_signal),
-            drag_over: MutableSink::new(state.drag_over.signal()),
-            insert_animation: MutableSink::new(state.insert_animation.signal()),
-            state,
-        }
-    }
+fn culled_group(state: Arc<Group>) -> CulledGroup<impl SignalVec<Item = CulledTab>> {
+    let tabs_signal = state.tabs.signal_vec_cloned()
+        // TODO duplication with main.rs
+        .delay_remove(|tab| tab.wait_until_removed())
+        .map(CulledTab::new);
 
+    CulledGroup {
+        tabs: MutableVecSink::new(tabs_signal),
+        drag_over: MutableSink::new(state.drag_over.signal()),
+        insert_animation: MutableSink::new(state.insert_animation.signal()),
+        state,
+    }
+}
+
+impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
     fn is_changed(&mut self, cx: &mut Context) -> bool {
         let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx));
         let drag_over = self.drag_over.is_changed(cx);
@@ -252,7 +257,7 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 }
 
 
-struct Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {
+struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: SignalVec {
     first: bool,
     state: Arc<State>,
     groups: MutableVecSink<A>,
@@ -260,13 +265,15 @@ struct Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {
     sort_tabs: MutableSink<MutableSignal<SortTabs>>,
     scroll_y: MutableSink<B>,
     window_height: MutableSink<C>,
+    pinned: CulledGroup<D>,
 }
 
-impl<A, B, C, D> Culler<A, C, D>
+impl<A, B, C, D, E> Culler<A, C, D, E>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
-          D: Signal<Item = f64> + Unpin {
+          D: Signal<Item = f64> + Unpin,
+          E: SignalVec<Item = CulledTab> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
         let sort_tabs = self.sort_tabs.is_changed(cx);
@@ -285,6 +292,7 @@ impl<A, B, C, D> Culler<A, C, D>
             }
         }
 
+        let pinned = self.pinned.is_changed(cx);
         let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
         let scroll_y = self.scroll_y.is_changed(cx);
         let window_height = self.window_height.is_changed(cx);
@@ -292,6 +300,7 @@ impl<A, B, C, D> Culler<A, C, D>
         let search_parser = self.search_parser.is_changed(cx);
 
         (
+            pinned ||
             groups ||
             scroll_y ||
             window_height,
@@ -305,10 +314,28 @@ impl<A, B, C, D> Culler<A, C, D>
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
     fn update(&mut self, should_search: bool) {
+        // TODO take into account the animations ?
+        let pinned_height = {
+            let columns = ((window_width() - TOOLBAR_MARGIN) / TAB_PINNED_WIDTH).floor();
+
+            let mut visible = 0.0;
+
+            for tab in self.pinned.tabs.values.iter() {
+                tab.state.visible.set_neq(true);
+                visible += 1.0;
+            }
+
+            self.pinned.state.visible.set_neq(true);
+
+            let rows = (visible / columns).ceil();
+
+            rows * TAB_PINNED_HEIGHT
+        };
+
         // TODO is this floor correct ?
         let top_y = self.scroll_y.unwrap().floor();
         // TODO is this ceil correct ?
-        let bottom_y = top_y + (self.window_height.unwrap().ceil() - TOOLBAR_TOTAL_HEIGHT);
+        let bottom_y = top_y + (self.window_height.unwrap().ceil() - TOOLBAR_TOTAL_HEIGHT - pinned_height);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
@@ -395,13 +422,14 @@ impl<A, B, C, D> Culler<A, C, D>
     }
 }
 
-impl<A, B, C> Unpin for Culler<A, B, C> where A: SignalVec, B: Signal, C: Signal {}
+impl<A, B, C, D> Unpin for Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: SignalVec {}
 
-impl<A, B, C, D> Future for Culler<A, C, D>
+impl<A, B, C, D, E> Future for Culler<A, C, D, E>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
-          D: Signal<Item = f64> + Unpin {
+          D: Signal<Item = f64> + Unpin,
+          E: SignalVec<Item = CulledTab> + Unpin {
 
     type Output = ();
 
@@ -421,16 +449,11 @@ impl<A, B, C, D> Future for Culler<A, C, D>
 pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future<Output = ()> where A: Signal<Item = f64> + Unpin {
     Culler {
         first: true,
+        pinned: culled_group(state.groups.pinned_group()),
         groups: MutableVecSink::new(state.groups.signal_vec_cloned()
             // TODO duplication with main.rs
             .delay_remove(|group| group.wait_until_removed())
-            .map(|group| {
-                let tabs = group.tabs.signal_vec_cloned()
-                    // TODO duplication with main.rs
-                    .delay_remove(|tab| tab.wait_until_removed())
-                    .map(CulledTab::new);
-                CulledGroup::new(group, tabs)
-            })),
+            .map(culled_group)),
         search_parser: MutableSink::new(state.search_parser.signal_cloned()),
         sort_tabs: MutableSink::new(state.options.sort_tabs.signal()),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),

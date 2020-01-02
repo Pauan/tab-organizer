@@ -569,6 +569,10 @@ impl Groups {
 
         tab_updated(state, *sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
     }
+
+    pub(crate) fn pinned_group(&self) -> Arc<Group> {
+        self.pinned.clone()
+    }
 }
 
 impl Deref for Groups {
