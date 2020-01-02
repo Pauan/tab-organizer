@@ -21,7 +21,6 @@ use tab_organizer::state::{Window, Tab, SidebarMessage, BackgroundMessage, Seria
 
 #[wasm_bindgen(start)]
 pub fn main_js() {
-    #[cfg(debug_assertions)]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
 

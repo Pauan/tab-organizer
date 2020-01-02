@@ -52,7 +52,7 @@ impl State {
         tabs.iter().position(|x| x.id == tab_id)
     }
 
-    fn unwrap_tab_index(tabs: &[Arc<Tab>], tab_id: TabId) -> usize {
+    fn unwrap_tab_index(tabs: &[Arc<Tab>], tab_id: Uuid) -> usize {
         Self::tab_index(tabs, tab_id).unwrap_or_else(|| tabs.len())
     }
 

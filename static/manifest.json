@@ -17,7 +17,7 @@
     "128": "data/icons/icon128.png"
   },
   "background": {
-    "scripts": ["background.js"]
+    "page": "background.html"
   },
   "options_ui": {
     "page": "options.html",

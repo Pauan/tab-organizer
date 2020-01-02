@@ -1,5 +1,5 @@
 [package]
-name = "tab-organizer-background"
+name = "background"
 version = "0.1.0"
 authors = ["Pauan <pauanyu+github@pm.me>"]
 edition = "2018"
@@ -8,6 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
+console_error_panic_hook = "0.1.5"
 web-extension = { path = "../../web-extension" }
 wasm-bindgen = "0.2.45"
 js-sys = "0.3.27"
@@ -28,6 +29,3 @@ version = "0.3.27"
 features = [
     "console",
 ]
-
-[target."cfg(debug_assertions)".dependencies]
-console_error_panic_hook = "0.1.5"

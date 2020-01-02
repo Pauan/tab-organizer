@@ -1,5 +1,5 @@
 [package]
-name = "tab-organizer-sidebar"
+name = "sidebar"
 version = "0.1.0"
 authors = ["Pauan <pauanyu+github@pm.me>"]
 edition = "2018"
@@ -8,6 +8,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
+console_error_panic_hook = "0.1.5"
 #web-extensions = { path = "../../web-extensions" }
 wasm-bindgen = "0.2.45"
 js-sys = "0.3.27"
@@ -41,9 +42,6 @@ features = [
     "HtmlInputElement",
     "ScrollRestoration",
 ]
-
-[target."cfg(debug_assertions)".dependencies]
-console_error_panic_hook = "0.1.5"
 
 #[patch.crates-io]
 #stdweb = { path = "../stdweb" }

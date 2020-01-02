@@ -297,7 +297,6 @@ fn initialize(state: Arc<State>) {
 
 #[wasm_bindgen(start)]
 pub fn main_js() {
-    #[cfg(debug_assertions)]
     std::panic::set_hook(Box::new(move |info| {
     	let message = Arc::new(info.to_string());
         FAILED.set(Some(message.clone()));

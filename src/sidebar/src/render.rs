@@ -4,7 +4,7 @@ use dominator::animation::{MutableAnimation, Percentage};
 use dominator::traits::*;
 use web_sys::{HtmlElement, HtmlInputElement};
 use futures_signals::map_ref;
-use futures_signals::signal::{SignalExt, Mutable, ReadOnlyMutable, and, or};
+use futures_signals::signal::{SignalExt, Mutable, and, or};
 use futures_signals::signal_vec::SignalVecExt;
 use wasm_bindgen::intern;
 
@@ -193,7 +193,7 @@ impl State {
                         .delay_remove(|tab| tab.wait_until_removed())
                         .filter_signal_cloned(|tab| tab.visible.signal())
                         .map(clone!(state => move |tab| {
-                            if state.should_be_dragging_tab(&group, tab.id) {
+                            if state.should_be_dragging_tab(group.id, tab.id) {
                                 tab.drag_over.jump_to(Percentage::new(1.0));
                             }
 
