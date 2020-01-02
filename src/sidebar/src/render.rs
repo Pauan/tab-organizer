@@ -4,135 +4,344 @@ use dominator::animation::{MutableAnimation, Percentage};
 use dominator::traits::*;
 use web_sys::{HtmlElement, HtmlInputElement};
 use futures_signals::map_ref;
-use futures_signals::signal::{SignalExt, Mutable, and, or};
+use futures_signals::signal::{SignalExt, Mutable, ReadOnlyMutable, and, or};
 use futures_signals::signal_vec::SignalVecExt;
 use wasm_bindgen::intern;
 
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
-use crate::types::{State, DragState, Tab};
+use crate::types::{State, DragState, Group, Tab};
 use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
 use tab_organizer::state::SortTabs;
 
 
-impl State {
-    pub(crate) fn render(state: Arc<Self>) -> Dom {
-        fn make_url_bar_child<A, D, F>(state: &State, name: &str, mut display: D, f: F) -> Dom
-            where A: AsStr,
-                  D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
-                  F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
-            html!("div", {
-                .class([
-                    &*URL_BAR_TEXT_STYLE,
-                    name,
+fn make_url_bar_child<A, D, F>(state: &State, name: &str, mut display: D, f: F) -> Dom
+    where A: AsStr,
+          D: FnMut(Arc<url_bar::UrlBar>) -> bool + 'static,
+          F: FnMut(Option<Arc<url_bar::UrlBar>>) -> A + 'static {
+    html!("div", {
+        .class([
+            &*URL_BAR_TEXT_STYLE,
+            name,
+        ])
+
+        .visible_signal(state.url_bar.signal_cloned().map(move |url_bar| {
+            if let Some(url_bar) = url_bar {
+                display(url_bar)
+
+            } else {
+                false
+            }
+        }))
+
+        .text_signal(state.url_bar.signal_cloned().map(f))
+    })
+}
+
+fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+    html!("img", {
+        .class(&*TAB_FAVICON_STYLE)
+        /*.class([
+            &*TAB_FAVICON_STYLE,
+            &*ICON_STYLE,
+        ])*/
+
+        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
+
+        .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
+            RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
+        }))
+
+        .apply(mixin)
+    })
+}
+
+fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+    html!("div", {
+        .class([
+            &*STRETCH_STYLE,
+            &*TAB_TEXT_STYLE,
+        ])
+
+        .children(&mut [
+            html!("span", {
+                .children(&mut [
+                    text_signal(map_ref! {
+                        let title = tab.title.signal_cloned(),
+                        let unloaded = tab.unloaded.signal() => {
+                            if *unloaded {
+                                if title.is_some() {
+                                    "➔ "
+
+                                } else {
+                                    "➔"
+                                }
+
+                            } else {
+                                ""
+                            }
+                        }
+                    }.first()),
+
+                    text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
                 ])
-
-                .visible_signal(state.url_bar.signal_cloned().map(move |url_bar| {
-                    if let Some(url_bar) = url_bar {
-                        display(url_bar)
-
-                    } else {
-                        false
-                    }
-                }))
-
-                .text_signal(state.url_bar.signal_cloned().map(f))
             })
-        }
+        ])
 
-        fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+        .apply(mixin)
+    })
+}
+
+fn tab_close<A>(mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+    html!("div", {
+        .class(&*TAB_CLOSE_STYLE)
+
+        .children(&mut [
             html!("img", {
-                .class(&*TAB_FAVICON_STYLE)
+                .class(&*TAB_CLOSE_ICON_STYLE)
                 /*.class([
-                    &*TAB_FAVICON_STYLE,
+                    &*TAB_CLOSE_STYLE,
                     &*ICON_STYLE,
                 ])*/
 
-                .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal().first())
+                .attribute("src", "data/images/button-close.png")
+            }),
+        ])
 
-                .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
-                    RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
-                }))
+        .apply(mixin)
+    })
+}
 
-                .apply(mixin)
-            })
+fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
+    where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+
+    html!("div", {
+        .class([
+            &*ROW_STYLE,
+            &*TAB_STYLE,
+            //&*MENU_ITEM_STYLE,
+        ])
+
+        .cursor!(state.is_dragging(), intern("pointer"))
+
+        .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
+        .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
+
+        .apply(mixin)
+    })
+}
+
+
+impl State {
+    fn render_group(state: Arc<Self>, group: Arc<Group>) -> Dom {
+        if state.should_be_dragging_group(group.id) {
+            group.drag_top.jump_to(Percentage::new(1.0));
         }
 
-        fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
-            html!("div", {
-                .class([
-                    &*STRETCH_STYLE,
-                    &*TAB_TEXT_STYLE,
-                ])
+        html!("div", {
+            .class(&*GROUP_STYLE)
 
-                .children(&mut [
-                    html!("span", {
+            .style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0))
+            .style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
+            .style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX))
+
+            .style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP))
+            .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
+            .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
+
+            .event(clone!(state, group => move |_: events::MouseEnter| {
+                state.drag_over_group(&group);
+            }))
+
+            .children(&mut [
+                if group.show_header {
+                    html!("div", {
+                        .class([
+                            &*ROW_STYLE,
+                            &*GROUP_HEADER_STYLE,
+                        ])
+
+                        .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
+                        .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
+
                         .children(&mut [
-                            text_signal(map_ref! {
-                                let title = tab.title.signal_cloned(),
-                                let unloaded = tab.unloaded.signal() => {
-                                    if *unloaded {
-                                        if title.is_some() {
-                                            "➔ "
-
-                                        } else {
-                                            "➔"
-                                        }
-
-                                    } else {
-                                        ""
-                                    }
-                                }
-                            }.first()),
-
-                            text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")).first()),
+                            html!("div", {
+                                .class([
+                                    &*GROUP_HEADER_TEXT_STYLE,
+                                    &*STRETCH_STYLE,
+                                ])
+                                .text_signal(group.name.signal_cloned()
+                                    // This causes it to remember the previous value if it returns `None`
+                                    // TODO dedicated method for this ?
+                                    .filter_map(|x| x)
+                                    .map(|x| option_str_default(x, "")))
+                            }),
                         ])
                     })
-                ])
 
-                .apply(mixin)
-            })
-        }
+                } else {
+                    Dom::empty()
+                },
 
-        fn tab_close<A>(mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
-            html!("div", {
-                .class(&*TAB_CLOSE_STYLE)
+                html!("div", {
+                    .class(&*GROUP_TABS_STYLE)
 
-                .children(&mut [
-                    html!("img", {
-                        .class(&*TAB_CLOSE_ICON_STYLE)
-                        /*.class([
-                            &*TAB_CLOSE_STYLE,
-                            &*ICON_STYLE,
-                        ])*/
+                    .style_signal("padding-top", group.tabs_padding.signal().map(none_if_px(0.0)))
+                    .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
 
-                        .attribute("src", "data/images/button-close.png")
-                    }),
-                ])
+                    .children_signal_vec(group.tabs.signal_vec_cloned()
+                        .delay_remove(|tab| tab.wait_until_removed())
+                        .filter_signal_cloned(|tab| tab.visible.signal())
+                        .map(clone!(state => move |tab| {
+                            if state.should_be_dragging_tab(&group, tab.id) {
+                                tab.drag_over.jump_to(Percentage::new(1.0));
+                            }
 
-                .apply(mixin)
-            })
-        }
+                            tab_template(&state, &tab, |dom| apply_methods!(dom, {
+                                .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
+                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
+                                .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
-        fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
-            where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+                                //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
+                                //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
 
-            html!("div", {
-                .class([
-                    &*ROW_STYLE,
-                    &*TAB_STYLE,
-                    //&*MENU_ITEM_STYLE,
-                ])
+                                .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                                .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
+                                .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(tab.is_focused(), tab.selected.signal()))
 
-                .cursor!(state.is_dragging(), intern("pointer"))
+                                .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
 
-                .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal().first())
-                .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
+                                .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
+                                .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
+                                .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                                .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                                .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
+                                .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
+                                .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
-                .apply(mixin)
-            })
-        }
+                                .style_signal("transform", tab.insert_animation.signal().map(|t| {
+                                    t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
+                                }))
 
+                                .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
+
+                                .with_node!(element => {
+                                    .event(clone!(state, group, tab => move |e: events::MouseDown| {
+                                        // TODO a little hacky
+                                        if !tab.close_hovered.get() {
+                                            //tab.holding.set_neq(true);
+
+                                            let shift = e.shift_key();
+                                            // TODO is this correct ?
+                                            // TODO test this, especially on Mac
+                                            let ctrl = e.ctrl_key();
+                                            let alt = e.alt_key();
+
+                                            if let events::MouseButton::Left = e.button() {
+                                                // TODO a little hacky
+                                                if ctrl && !shift && !alt {
+                                                    group.ctrl_select_tab(&tab);
+
+                                                } else if !ctrl && shift && !alt {
+                                                    group.shift_select_tab(&tab);
+
+                                                } else if !ctrl && !shift && !alt {
+                                                    state.click_tab(&group, &tab);
+
+                                                    let rect = element.get_bounding_client_rect();
+                                                    state.drag_start(e.mouse_x(), e.mouse_y(), rect, &group, &tab);
+                                                }
+                                            }
+                                        }
+                                    }))
+                                })
+
+                                // TODO only attach this when holding
+                                /*.global_event(clone!(tab => move |_: events::MouseUp| {
+                                    tab.holding.set_neq(false);
+                                }))*/
+
+                                .event(clone!(state, group, tab => move |_: events::MouseEnter| {
+                                    // TODO should this be inside of the if ?
+                                    state.hover_tab(&tab);
+                                    state.drag_over(&group, &tab);
+                                }))
+
+                                .event(clone!(state, tab => move |_: events::MouseLeave| {
+                                    state.unhover_tab(&tab);
+                                }))
+
+                                // TODO replace with MouseClickEvent
+                                .event(clone!(state, tab => move |e: events::MouseUp| {
+                                    let shift = e.shift_key();
+                                    // TODO is this correct ?
+                                    // TODO test this, especially on Mac
+                                    let ctrl = e.ctrl_key();
+                                    let alt = e.alt_key();
+
+                                    match e.button() {
+                                        events::MouseButton::Left => {
+
+                                        },
+                                        events::MouseButton::Middle => {
+                                            if !shift && !ctrl && !alt {
+                                                state.close_tab(&tab);
+                                            }
+                                        },
+                                        events::MouseButton::Right => {
+                                        },
+                                        _ => {},
+                                    }
+                                }))
+
+                                .children(&mut [
+                                    tab_favicon(&tab, |dom| { dom
+                                        .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                    }),
+
+                                    tab_text(&tab, |dom| { dom }),
+
+                                    tab_close(|dom| { dom
+                                        .class_signal(&*TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
+                                        .class_signal(&*TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
+
+                                        .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                        .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
+                                        .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
+
+                                        .visible_signal(state.is_tab_hovered(&tab))
+
+                                        .event(clone!(tab => move |_: events::MouseEnter| {
+                                            tab.close_hovered.set_neq(true);
+                                        }))
+
+                                        .event(clone!(tab => move |_: events::MouseLeave| {
+                                            tab.close_hovered.set_neq(false);
+                                        }))
+
+                                        .event(clone!(tab => move |_: events::MouseDown| {
+                                            tab.close_holding.set_neq(true);
+                                        }))
+
+                                        // TODO only attach this when hovering
+                                        .global_event(clone!(tab => move |_: events::MouseUp| {
+                                            tab.close_holding.set_neq(false);
+                                        }))
+
+                                        .event(clone!(state, tab => move |_: events::Click| {
+                                            state.close_tab(&tab);
+                                        }))
+                                    }),
+                                ])
+                            }))
+                        })))
+                }),
+            ])
+        })
+    }
+
+    pub(crate) fn render(state: Arc<Self>) -> Dom {
         let window_height = Mutable::new(tab_organizer::window_height());
 
         html!("div", {
@@ -457,237 +666,11 @@ impl State {
                             .style_signal("padding-top", state.groups_padding.signal().map(none_if_px(0.0)))
                             .style_signal("height", state.scrolling.height.signal().map(none_if_px(0.0)))
 
-                            .children_signal_vec(state.groups.signal_vec_cloned().enumerate()
-                                .delay_remove(|(_, group)| group.wait_until_removed())
-                                .filter_signal_cloned(|(_, group)| group.visible.signal())
-                                .map(clone!(state => move |(index, group)| {
-                                    if let Some(index) = index.get() {
-                                        if state.should_be_dragging_group(index) {
-                                            group.drag_top.jump_to(Percentage::new(1.0));
-                                        }
-                                    }
-
-                                    html!("div", {
-                                        .class(&*GROUP_STYLE)
-
-                                        .style_signal("top", none_if(group.drag_top.signal(), 0.0, px_range, -1.0, DRAG_GAP_PX - 1.0))
-                                        .style_signal("padding-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
-                                        .style_signal("margin-bottom", none_if(group.drag_over.signal(), 0.0, px_range, 0.0, -DRAG_GAP_PX))
-
-                                        .style_signal("padding-top", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_TOP))
-                                        .style_signal("border-top-width", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_BORDER_WIDTH))
-                                        .style_signal("opacity", none_if(group.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
-
-                                        .event(clone!(state, group, index => move |_: events::MouseEnter| {
-                                            if let Some(index) = index.get() {
-                                                state.drag_over_group(group.clone(), index);
-                                            }
-                                        }))
-
-                                        .children(&mut [
-                                            if group.show_header {
-                                                html!("div", {
-                                                    .class([
-                                                        &*ROW_STYLE,
-                                                        &*GROUP_HEADER_STYLE,
-                                                    ])
-
-                                                    .style_signal("height", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_HEADER_HEIGHT))
-                                                    .style_signal("margin-left", none_if(group.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
-
-                                                    .children(&mut [
-                                                        html!("div", {
-                                                            .class([
-                                                                &*GROUP_HEADER_TEXT_STYLE,
-                                                                &*STRETCH_STYLE,
-                                                            ])
-                                                            .text_signal(map_ref! {
-                                                                    let name = group.name.signal_cloned(),
-                                                                    let index = index.signal() => {
-                                                                        // TODO improve the efficiency of this ?
-                                                                        name.clone().or_else(|| {
-                                                                            index.map(|index| Arc::new((index + 1).to_string()))
-                                                                        })
-                                                                    }
-                                                                }
-                                                                // This causes it to remember the previous value if it returns `None`
-                                                                // TODO dedicated method for this ?
-                                                                .filter_map(|x| x)
-                                                                .map(|x| option_str_default(x, "")))
-                                                        }),
-                                                    ])
-                                                })
-
-                                            } else {
-                                                Dom::empty()
-                                            },
-
-                                            html!("div", {
-                                                .class(&*GROUP_TABS_STYLE)
-
-                                                .style_signal("padding-top", group.tabs_padding.signal().map(none_if_px(0.0)))
-                                                .style_signal("padding-bottom", none_if(group.insert_animation.signal(), 1.0, px_range, 0.0, GROUP_PADDING_BOTTOM))
-
-                                                .children_signal_vec(group.tabs.signal_vec_cloned().enumerate()
-                                                    .delay_remove(|(_, tab)| tab.wait_until_removed())
-                                                    .filter_signal_cloned(|(_, tab)| tab.visible.signal())
-                                                    .map(clone!(state => move |(index, tab)| {
-                                                        if let Some(index) = index.get() {
-                                                            if state.should_be_dragging_tab(group.id, index) {
-                                                                tab.drag_over.jump_to(Percentage::new(1.0));
-                                                            }
-                                                        }
-
-                                                        tab_template(&state, &tab, |dom| apply_methods!(dom, {
-                                                            .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                            //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal().first()))
-                                                            .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
-
-                                                            //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
-                                                            //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
-
-                                                            .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
-                                                            .class_signal(&*TAB_SELECTED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.selected.signal()))
-                                                            .class_signal(&*MENU_ITEM_SHADOW_STYLE, or(tab.is_focused(), tab.selected.signal()))
-
-                                                            .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")).first())
-
-                                                            .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, INSERT_LEFT_MARGIN, 0.0))
-                                                            .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
-                                                            .style_signal("padding-top", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
-                                                            .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
-                                                            .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
-                                                            .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
-                                                            .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
-
-                                                            .style_signal("transform", tab.insert_animation.signal().map(|t| {
-                                                                t.none_if(1.0).map(|t| format!("rotateX({}deg)", ease(t).range_inclusive(-90.0, 0.0)))
-                                                            }))
-
-                                                            .style_signal("top", none_if(tab.drag_over.signal(), 0.0, px_range, 0.0, DRAG_GAP_PX))
-
-                                                            .with_node!(element => {
-                                                                .event(clone!(state, index, group, tab => move |e: events::MouseDown| {
-                                                                    // TODO a little hacky
-                                                                    if !tab.close_hovered.get() {
-                                                                        //tab.holding.set_neq(true);
-
-                                                                        if let Some(index) = index.get() {
-                                                                            let shift = e.shift_key();
-                                                                            // TODO is this correct ?
-                                                                            // TODO test this, especially on Mac
-                                                                            let ctrl = e.ctrl_key();
-                                                                            let alt = e.alt_key();
-
-                                                                            if let events::MouseButton::Left = e.button() {
-                                                                                // TODO a little hacky
-                                                                                if ctrl && !shift && !alt {
-                                                                                    group.ctrl_select_tab(&tab);
-
-                                                                                } else if !ctrl && shift && !alt {
-                                                                                    group.shift_select_tab(&tab);
-
-                                                                                } else if !ctrl && !shift && !alt {
-                                                                                    state.click_tab(&group, &tab);
-
-                                                                                    let rect = element.get_bounding_client_rect();
-                                                                                    state.drag_start(e.mouse_x(), e.mouse_y(), rect, group.clone(), tab.clone(), index);
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }))
-                                                            })
-
-                                                            // TODO only attach this when holding
-                                                            /*.global_event(clone!(tab => move |_: events::MouseUp| {
-                                                                tab.holding.set_neq(false);
-                                                            }))*/
-
-                                                            .event(clone!(state, index, group, tab => move |_: events::MouseEnter| {
-                                                                // TODO should this be inside of the if ?
-                                                                state.hover_tab(&tab);
-
-                                                                if let Some(index) = index.get() {
-                                                                    state.drag_over(group.clone(), index);
-                                                                }
-                                                            }))
-
-                                                            .event(clone!(state, tab => move |_: events::MouseLeave| {
-                                                                // TODO should this check the index, like MouseEnterEvent ?
-                                                                state.unhover_tab(&tab);
-                                                            }))
-
-                                                            // TODO replace with MouseClickEvent
-                                                            .event(clone!(state, index, tab => move |e: events::MouseUp| {
-                                                                if index.get().is_some() {
-                                                                    let shift = e.shift_key();
-                                                                    // TODO is this correct ?
-                                                                    // TODO test this, especially on Mac
-                                                                    let ctrl = e.ctrl_key();
-                                                                    let alt = e.alt_key();
-
-                                                                    match e.button() {
-                                                                        events::MouseButton::Left => {
-
-                                                                        },
-                                                                        events::MouseButton::Middle => {
-                                                                            if !shift && !ctrl && !alt {
-                                                                                state.close_tab(&tab);
-                                                                            }
-                                                                        },
-                                                                        events::MouseButton::Right => {
-                                                                        },
-                                                                        _ => {},
-                                                                    }
-                                                                }
-                                                            }))
-
-                                                            .children(&mut [
-                                                                tab_favicon(&tab, |dom| { dom
-                                                                    .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
-                                                                }),
-
-                                                                tab_text(&tab, |dom| { dom }),
-
-                                                                tab_close(|dom| { dom
-                                                                    .class_signal(&*TAB_CLOSE_HOVER_STYLE, tab.close_hovered.signal())
-                                                                    .class_signal(&*TAB_CLOSE_HOLD_STYLE, and(tab.close_hovered.signal(), tab.close_holding.signal()))
-
-                                                                    .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
-                                                                    .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
-                                                                    .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_CLOSE_BORDER_WIDTH))
-
-                                                                    .visible_signal(state.is_tab_hovered(&tab))
-
-                                                                    .event(clone!(tab => move |_: events::MouseEnter| {
-                                                                        tab.close_hovered.set_neq(true);
-                                                                    }))
-
-                                                                    .event(clone!(tab => move |_: events::MouseLeave| {
-                                                                        tab.close_hovered.set_neq(false);
-                                                                    }))
-
-                                                                    .event(clone!(tab => move |_: events::MouseDown| {
-                                                                        tab.close_holding.set_neq(true);
-                                                                    }))
-
-                                                                    // TODO only attach this when hovering
-                                                                    .global_event(clone!(tab => move |_: events::MouseUp| {
-                                                                        tab.close_holding.set_neq(false);
-                                                                    }))
-
-                                                                    .event(clone!(state, tab => move |_: events::Click| {
-                                                                        state.close_tab(&tab);
-                                                                    }))
-                                                                }),
-                                                            ])
-                                                        }))
-                                                    })))
-                                            }),
-                                        ])
-                                    })
+                            .children_signal_vec(state.groups.signal_vec_cloned()
+                                .delay_remove(|group| group.wait_until_removed())
+                                .filter_signal_cloned(|group| group.visible.signal())
+                                .map(clone!(state => move |group| {
+                                    State::render_group(state.clone(), group)
                                 })))
                         }),
 

@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Promise};
-use crate::Listener;
+use crate::Event;
 
 
 #[wasm_bindgen]
@@ -55,7 +55,7 @@ extern "C" {
     pub fn managed(this: &Storage) -> Managed;
 
     #[wasm_bindgen(method, getter, js_name = onChanged)]
-    pub fn on_changed(this: &Storage) -> Listener;
+    pub fn on_changed(this: &Storage) -> Event;
 }
 
 #[wasm_bindgen]

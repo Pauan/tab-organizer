@@ -291,12 +291,12 @@ pub fn window_height() -> f64 {
 
 
 pub struct Listener<A> where A: ?Sized {
-    target: web_extension::Listener,
+    target: web_extension::Event,
     closure: Option<Closure<A>>,
 }
 
 impl<A> Listener<A> where A: ?Sized {
-    pub fn new(target: web_extension::Listener, closure: Closure<A>) -> Self {
+    pub fn new(target: web_extension::Event, closure: Closure<A>) -> Self {
         target.add_listener(closure.as_ref().unchecked_ref());
         Self { target, closure: Some(closure) }
     }

@@ -58,19 +58,19 @@ extern "C" {
 // TODO getRules, removeRules, and addRules
 #[wasm_bindgen]
 extern "C" {
-    pub type Listener;
+    pub type Event;
 
     #[wasm_bindgen(method, js_name = addListener)]
-    pub fn add_listener(this: &Listener, callback: &Function);
+    pub fn add_listener(this: &Event, callback: &Function);
 
     #[wasm_bindgen(method, js_name = removeListener)]
-    pub fn remove_listener(this: &Listener, callback: &Function);
+    pub fn remove_listener(this: &Event, callback: &Function);
 
     #[wasm_bindgen(method, js_name = hasListener)]
-    pub fn has_listener(this: &Listener, callback: &Function) -> bool;
+    pub fn has_listener(this: &Event, callback: &Function) -> bool;
 
     #[wasm_bindgen(method, js_name = hasListeners)]
-    pub fn has_listeners(this: &Listener) -> bool;
+    pub fn has_listeners(this: &Event) -> bool;
 }
 
 

@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Promise};
-use crate::Listener;
+use crate::Event;
 use crate::tabs::Tab;
 use crate::windows::Window;
 
@@ -60,5 +60,5 @@ extern "C" {
     pub fn remove_window_value(this: &Sessions, window_id: i32, key: &str) -> Promise;
 
     #[wasm_bindgen(method, getter, js_name = onChanged)]
-    pub fn on_changed(this: &Sessions) -> Listener;
+    pub fn on_changed(this: &Sessions) -> Event;
 }

@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Promise};
-use crate::Listener;
+use crate::Event;
 
 
 #[wasm_bindgen]
@@ -278,32 +278,32 @@ extern "C" {
     pub fn detect_language(this: &Tabs, tab_id: Option<i32>) -> Promise;
 
     #[wasm_bindgen(method, getter, js_name = onActivated)]
-    pub fn on_activated(this: &Tabs) -> Listener;
+    pub fn on_activated(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onAttached)]
-    pub fn on_attached(this: &Tabs) -> Listener;
+    pub fn on_attached(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onCreated)]
-    pub fn on_created(this: &Tabs) -> Listener;
+    pub fn on_created(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onDetached)]
-    pub fn on_detached(this: &Tabs) -> Listener;
+    pub fn on_detached(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onHighlighted)]
-    pub fn on_highlighted(this: &Tabs) -> Listener;
+    pub fn on_highlighted(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onMoved)]
-    pub fn on_moved(this: &Tabs) -> Listener;
+    pub fn on_moved(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onRemoved)]
-    pub fn on_removed(this: &Tabs) -> Listener;
+    pub fn on_removed(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onReplaced)]
-    pub fn on_replaced(this: &Tabs) -> Listener;
+    pub fn on_replaced(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onUpdated)]
-    pub fn on_updated(this: &Tabs) -> Listener;
+    pub fn on_updated(this: &Tabs) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onZoomChanged)]
-    pub fn on_zoom_changed(this: &Tabs) -> Listener;
+    pub fn on_zoom_changed(this: &Tabs) -> Event;
 }

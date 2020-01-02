@@ -75,25 +75,15 @@ fn get_group_index_name_empty(groups: &[Arc<Group>], name: &str) -> Result<usize
 
 fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> where F: FnMut(&str) -> Ordering {
     groups.binary_search_by(|group: &Arc<Group>| {
-        if group.pinned {
-            Ordering::Less
-
-        } else {
-            let name = group.name.lock_ref();
-            let name = str_default(&name, "");
-            f(name)
-        }
+        let name = group.name.lock_ref();
+        let name = str_default(&name, "");
+        f(name)
     })
 }
 
 fn get_timestamp_index(groups: &[Arc<Group>], timestamp: f64) -> Result<usize, usize> {
     groups.binary_search_by(|group: &Arc<Group>| {
-        if group.pinned {
-            Ordering::Less
-
-        } else {
-            group.timestamp.partial_cmp(&timestamp).unwrap().reverse()
-        }
+        group.timestamp.partial_cmp(&timestamp).unwrap().reverse()
     })
 }
 
@@ -101,31 +91,12 @@ fn get_tab_index<F>(tabs: &[Arc<Tab>], f: F) -> usize where F: FnMut(&Arc<Tab>) 
     tabs.binary_search_by(f).unwrap_err()
 }
 
-fn get_pinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
-    if groups.get(0).map(|x| x.pinned).unwrap_or(false) {
-        Ok(0)
+fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
+    if groups.is_empty() {
+        Err(0)
 
     } else {
-        Err(0)
-    }
-}
-
-fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
-    match groups.get(0) {
-        Some(group) => {
-            if group.pinned {
-                if groups.len() > 1 {
-                    Ok(1)
-
-                } else {
-                    Err(1)
-                }
-
-            } else {
-                Ok(0)
-            }
-        },
-        None => Err(0),
+        Ok(0)
     }
 }
 
@@ -168,14 +139,9 @@ fn insert_group<A, F>(groups: &mut A, index: Result<usize, usize>, create: F) ->
 }
 
 
-fn sorted_groups<A>(sort: SortTabs, groups: &mut A, tab: &TabState, should_animate: bool) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
+fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &TabState, should_animate: bool) -> StackVec<Arc<Group>> where A: Insertable<Arc<Group>> {
     if tab.pinned.get() {
-        StackVec::Single({
-            let index = get_pinned_index(groups);
-            insert_group(groups, index, || {
-                make_new_group(true, None, 0.0, should_animate)
-            })
-        })
+        StackVec::Single(pinned.clone())
 
     } else {
         match sort {
@@ -354,11 +320,11 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 }
 
 
-fn initialize(state: &State, sort: SortTabs, tabs: &[Arc<TabState>], should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], should_animate: bool) -> Vec<Arc<Group>> {
     let mut groups = vec![];
 
     for (tab_index, tab) in tabs.iter().cloned().enumerate() {
-        tab_inserted(state, sort, &mut groups, tab, tab_index, should_animate, true);
+        tab_inserted(state, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
     }
 
     groups
@@ -392,8 +358,8 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<
     tabs.insert_cloned(index, tab);
 }
 
-fn tab_inserted<A>(state: &State, sort: SortTabs, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
-    sorted_groups(sort, groups, &tab, should_animate).each(|group| {
+fn tab_inserted<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
+    sorted_groups(sort, pinned, groups, &tab, should_animate).each(|group| {
         // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
         insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
@@ -451,15 +417,15 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
     }
 }
 
-fn tab_removed(sort: SortTabs, groups: &mut MutableVecLockMut<Arc<Group>>, tab: &TabState, _tab_index: usize) {
+fn tab_removed(sort: SortTabs, pinned: &Arc<Group>, groups: &mut MutableVecLockMut<Arc<Group>>, tab: &TabState, _tab_index: usize) {
     // TODO make this more efficient
-    sorted_groups(sort, groups, tab, true).each(|group| {
+    sorted_groups(sort, pinned, groups, tab, true).each(|group| {
         remove_tab_from_group(groups, &group, tab, true);
     });
 }
 
-fn tab_updated<A>(state: &State, sort: SortTabs, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
-    let new_groups = sorted_groups(sort, groups, &tab, true);
+fn tab_updated<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
+    let new_groups = sorted_groups(sort, pinned, groups, &tab, true);
 
     // TODO make this more efficient
     old_groups.each(|group| {
@@ -530,7 +496,7 @@ impl Groups {
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &tabs, false) });
+        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &self.pinned, &tabs, false) });
         groups.replace_cloned(new_groups);
     }
 
@@ -575,7 +541,7 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        let new_groups = time!("Creating new groups", { initialize(state, *sort, tabs, false) });
+        let new_groups = time!("Creating new groups", { initialize(state, *sort, &self.pinned, tabs, false) });
 
         groups.replace_cloned(new_groups);
     }
@@ -583,13 +549,13 @@ impl Groups {
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_inserted(state, *sort, &mut groups, tab, tab_index, true, false);
+        tab_inserted(state, *sort, &self.pinned, &mut groups, tab, tab_index, true, false);
     }
 
     fn tab_removed(&self, tab_index: usize, tab: &TabState) {
         let sort = self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_removed(*sort, &mut groups, tab, tab_index);
+        tab_removed(*sort, &self.pinned, &mut groups, tab, tab_index);
     }
 
     fn tab_updated<F>(&self, state: &State, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
@@ -597,11 +563,11 @@ impl Groups {
         let mut groups = self.groups.lock_mut();
 
         // TODO should this be animated ?
-        let group_indexes = sorted_groups(*sort, &mut groups, &tab, true);
+        let group_indexes = sorted_groups(*sort, &self.pinned, &mut groups, &tab, true);
 
         change();
 
-        tab_updated(state, *sort, &mut groups, group_indexes, tab, tab_index);
+        tab_updated(state, *sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
     }
 }
 

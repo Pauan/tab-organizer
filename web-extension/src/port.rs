@@ -1,5 +1,5 @@
 use wasm_bindgen::prelude::*;
-use crate::{Listener, Tab};
+use crate::{Event, Tab};
 
 
 #[wasm_bindgen]
@@ -41,10 +41,10 @@ extern "C" {
     pub fn disconnect(this: &Port);
 
     #[wasm_bindgen(method, getter, js_name = onDisconnect)]
-    pub fn on_disconnect(this: &Port) -> Listener;
+    pub fn on_disconnect(this: &Port) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onMessage)]
-    pub fn on_message(this: &Port) -> Listener;
+    pub fn on_message(this: &Port) -> Event;
 
     #[wasm_bindgen(method, js_name = postMessage)]
     pub fn post_message(this: &Port, value: &JsValue);

@@ -1,7 +1,7 @@
 use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get};
 use tab_organizer::state as shared;
 use tab_organizer::state::{Options, SidebarMessage};
@@ -14,7 +14,6 @@ use web_sys::DomRect;
 use futures_signals::signal::{Signal, Mutable};
 use futures_signals::signal_vec::MutableVec;
 use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
-use lazy_static::lazy_static;
 
 
 #[derive(Debug)]
@@ -25,6 +24,7 @@ pub(crate) enum DragState {
         rect: DomRect,
         group: Arc<Group>,
         tab: Arc<Tab>,
+        // TODO this shouldn't be based on index, but instead on id
         tab_index: usize,
     },
 
@@ -34,6 +34,7 @@ pub(crate) enum DragState {
         mouse_y: i32,
         rect: DomRect,
         group: Arc<Group>,
+        // TODO should this be based on the id instead ?
         tab_index: Option<usize>,
     },
 }
@@ -266,9 +267,15 @@ impl Deref for Tab {
 }
 
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GroupId {
+    value: u32,
+}
+
+
 #[derive(Debug)]
 pub(crate) struct Group {
-    pub(crate) id: usize,
+    pub(crate) id: GroupId,
     pub(crate) show_header: bool,
     pub(crate) pinned: bool,
     pub(crate) timestamp: f64,
@@ -288,13 +295,11 @@ pub(crate) struct Group {
 
 impl Group {
     pub(crate) fn new(timestamp: f64, pinned: bool, show_header: bool, name: Mutable<Option<Arc<String>>>, tabs: Vec<Arc<Tab>>) -> Self {
-        lazy_static! {
-            static ref ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
-        }
+        static ID_COUNTER: AtomicU32 = AtomicU32::new(0);
 
         Self {
             // TODO investigate whether it's possible to use a faster Ordering
-            id: ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            id: GroupId { value: ID_COUNTER.fetch_add(1, Ordering::SeqCst) },
             pinned,
             show_header,
             timestamp,

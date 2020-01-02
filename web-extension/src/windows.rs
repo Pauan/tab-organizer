@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use js_sys::{Array, Object, Promise};
-use crate::Listener;
+use crate::Event;
 
 
 #[wasm_bindgen]
@@ -86,11 +86,11 @@ extern "C" {
     pub fn remove(this: &Windows, window_id: i32) -> Promise;
 
     #[wasm_bindgen(method, getter, js_name = onCreated)]
-    pub fn on_created(this: &Windows) -> Listener;
+    pub fn on_created(this: &Windows) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onRemoved)]
-    pub fn on_removed(this: &Windows) -> Listener;
+    pub fn on_removed(this: &Windows) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onFocusChanged)]
-    pub fn on_focus_changed(this: &Windows) -> Listener;
+    pub fn on_focus_changed(this: &Windows) -> Event;
 }

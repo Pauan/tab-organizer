@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Promise};
-use crate::{Listener, Port};
+use crate::{Event, Port};
 
 
 // TODO
@@ -15,8 +15,8 @@ extern "C" {
     pub fn connect(this: &Runtime, extension_id: Option<&str>, connect_info: &Object) -> Port;
 
     #[wasm_bindgen(method, getter, js_name = onMessage)]
-    pub fn on_message(this: &Runtime) -> Listener;
+    pub fn on_message(this: &Runtime) -> Event;
 
     #[wasm_bindgen(method, getter, js_name = onConnect)]
-    pub fn on_connect(this: &Runtime) -> Listener;
+    pub fn on_connect(this: &Runtime) -> Event;
 }

@@ -1,10 +1,11 @@
 use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
-use crate::types::{State, DragState, Group, Tab};
+use crate::types::{State, DragState, GroupId, Group, Tab};
 use tab_organizer::state::SortTabs;
 use web_sys::DomRect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
+use uuid::Uuid;
 
 
 impl Group {
@@ -47,15 +48,27 @@ impl Group {
 
 
 impl State {
-	fn find_group_index(groups: &[Arc<Group>], group_id: usize) -> usize {
-        groups.iter().position(|x| x.id == group_id).unwrap_or_else(|| groups.len())
+    fn tab_index(tabs: &[Arc<Tab>], tab_id: Uuid) -> Option<usize> {
+        tabs.iter().position(|x| x.id == tab_id)
     }
 
-    fn change_groups(&self, old_group: &Group, new_group: &Group) {
+    fn unwrap_tab_index(tabs: &[Arc<Tab>], tab_id: TabId) -> usize {
+        Self::tab_index(tabs, tab_id).unwrap_or_else(|| tabs.len())
+    }
+
+    fn group_index(groups: &[Arc<Group>], group_id: GroupId) -> Option<usize> {
+        groups.iter().position(|x| x.id == group_id)
+    }
+
+	fn unwrap_group_index(groups: &[Arc<Group>], group_id: GroupId) -> usize {
+        Self::group_index(groups, group_id).unwrap_or_else(|| groups.len())
+    }
+
+    fn change_groups(groups: &[Arc<Group>], old_group: &Group, new_group: &Group) {
         old_group.drag_over.animate_to(Percentage::new(0.0));
         new_group.drag_over.animate_to(Percentage::new(1.0));
 
-        self.update_dragging_groups(new_group.id, |group, percentage| {
+        Self::update_dragging_groups(groups, new_group.id, |group, percentage| {
             group.drag_top.animate_to(percentage);
         });
 
@@ -64,9 +77,7 @@ impl State {
         });
     }
 
-    fn update_dragging_groups<F>(&self, group_id: usize, mut f: F) where F: FnMut(&Group, Percentage) {
-        let groups = self.groups.lock_ref();
-
+    fn update_dragging_groups<F>(groups: &[Arc<Group>], group_id: GroupId, mut f: F) where F: FnMut(&Group, Percentage) {
         let mut seen = false;
 
         for x in groups.iter() {
@@ -85,12 +96,12 @@ impl State {
         }
     }
 
-    fn get_dragging_index(&self, group_id: usize) -> Option<usize> {
+    fn with_dragging_group<A, F>(&self, group_id: GroupId, f: F) -> Option<A> where F: FnOnce(&Group, Option<usize>) -> A {
         let dragging = self.dragging.state.lock_ref();
 
         if let Some(DragState::Dragging { ref group, tab_index, .. }) = *dragging {
             if group.id == group_id {
-                Some(tab_index.unwrap_or_else(|| group.tabs.lock_ref().len()))
+                Some(f(&group, tab_index))
 
             } else {
                 None
@@ -101,17 +112,24 @@ impl State {
         }
     }
 
+    fn get_dragging_index(&self, group_id: GroupId) -> Option<usize> {
+        self.with_dragging_group(group_id, |group, tab_index| {
+            tab_index.unwrap_or_else(|| group.tabs.lock_ref().len())
+        })
+    }
+
     fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
         let _tabs = tabs.into_iter().filter(|x| !x.removed.get());
     }
 
-	pub(crate) fn should_be_dragging_group(&self, new_index: usize) -> bool {
+	pub(crate) fn should_be_dragging_group(&self, new_group_id: GroupId) -> bool {
         let dragging = self.dragging.state.lock_ref();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {
             let groups = self.groups.lock_ref();
 
-            let old_index = Self::find_group_index(&groups, group.id);
+            let old_index = Self::unwrap_group_index(&groups, group.id);
+            let new_index = Self::unwrap_group_index(&groups, new_group_id);
 
             new_index > old_index
 
@@ -120,20 +138,20 @@ impl State {
         }
     }
 
-    pub(crate) fn drag_over(&self, new_group: Arc<Group>, new_index: usize) {
+    pub(crate) fn drag_over(&self, new_group: &Arc<Group>, new_tab: &Arc<Tab>) {
         let groups = self.groups.lock_ref();
 
-        // TODO is this correct ?
-        // TODO pass in the new_group_index as a function argument
-        if let Some(new_group_index) = groups.iter().position(|x| x.id == new_group.id) {
+        if let Some(new_group_index) = Self::group_index(&groups, new_group.id) {
             let mut dragging = self.dragging.state.lock_mut();
 
             // TODO verify that this doesn't notify if it isn't dragging
             if let Some(DragState::Dragging { ref mut group, ref mut tab_index, .. }) = *dragging {
-                let len = new_group.tabs.lock_ref().len();
+                let tabs = new_group.tabs.lock_ref();
+                let len = tabs.len();
+
+                let new_index = Self::tab_index(&tabs, new_tab.id).unwrap_or(len);
 
                 let new_tab_index = if new_group.id == group.id {
-                    // TODO code duplication with get_dragging_index
                     let old_index = tab_index.unwrap_or(len);
 
                     if old_index <= new_index {
@@ -151,9 +169,9 @@ impl State {
                     }
 
                 } else {
-                    self.change_groups(&group, &new_group);
+                    Self::change_groups(&groups, &group, &new_group);
 
-                    let old_group_index = Self::find_group_index(&groups, group.id);
+                    let old_group_index = Self::unwrap_group_index(&groups, group.id);
 
                     if new_index == (len - 1) {
                         None
@@ -177,13 +195,13 @@ impl State {
                     tab.drag_over.animate_to(percentage);
                 });
 
-                *group = new_group;
+                *group = new_group.clone();
                 *tab_index = new_tab_index;
             }
         }
     }
 
-    pub(crate) fn drag_over_group(&self, new_group: Arc<Group>, new_group_index: usize) {
+    pub(crate) fn drag_over_group(&self, new_group: &Arc<Group>) {
         let mut dragging = self.dragging.state.lock_mut();
 
         // TODO verify that this doesn't notify if it isn't dragging
@@ -193,17 +211,23 @@ impl State {
                 return;
 
             } else {
-                self.change_groups(&group, &new_group);
-
                 let groups = self.groups.lock_ref();
 
-                let old_group_index = Self::find_group_index(&groups, group.id);
+                if let Some(new_group_index) = Self::group_index(&groups, new_group.id) {
+                    Self::change_groups(&groups, &group, &new_group);
 
-                if old_group_index < new_group_index {
-                    Some(0)
+                    let old_group_index = Self::unwrap_group_index(&groups, group.id);
+
+                    if old_group_index < new_group_index {
+                        Some(0)
+
+                    } else {
+                        None
+                    }
 
                 } else {
-                    None
+                    // If the new group doesn't exist, then do nohting
+                    return;
                 }
             };
 
@@ -211,20 +235,26 @@ impl State {
                 tab.drag_over.animate_to(percentage);
             });
 
-            *group = new_group;
+            *group = new_group.clone();
             *tab_index = new_tab_index;
         }
     }
 
-    pub(crate) fn should_be_dragging_tab(&self, group_id: usize, new_index: usize) -> bool {
-        self.get_dragging_index(group_id).map(|old_index| new_index > old_index).unwrap_or(false)
+    pub(crate) fn should_be_dragging_tab(&self, group_id: GroupId, tab_id: Uuid) -> bool {
+        self.with_dragging_group(group_id, |group, old_index| {
+            let tabs = group.tabs.lock_ref();
+            let old_index = old_index.unwrap_or_else(|| tabs.len());
+            let new_index = Self::unwrap_tab_index(&tabs, tab_id);
+            new_index > old_index
+        }).unwrap_or(false)
     }
 
-    pub(crate) fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: DomRect, group: Arc<Group>, tab: Arc<Tab>, tab_index: usize) {
+    pub(crate) fn drag_start(&self, mouse_x: i32, mouse_y: i32, rect: DomRect, group: &Arc<Group>, tab: &Arc<Tab>) {
         let mut dragging = self.dragging.state.lock_mut();
 
         if dragging.is_none() && self.can_start_drag() {
-            *dragging = Some(DragState::DragStart { mouse_x, mouse_y, rect, group, tab, tab_index });
+            let tab_index = Self::unwrap_tab_index(&group.tabs.lock_ref(), tab.id);
+            *dragging = Some(DragState::DragStart { mouse_x, mouse_y, rect, group: group.clone(), tab: tab.clone(), tab_index });
         }
     }
 
@@ -252,9 +282,13 @@ impl State {
                     if selected_tabs.len() != 0 {
                         group.drag_over.jump_to(Percentage::new(1.0));
 
-                        self.update_dragging_groups(group.id, |group, percentage| {
-                            group.drag_top.jump_to(percentage);
-                        });
+                        {
+                            let groups = self.groups.lock_ref();
+
+                            Self::update_dragging_groups(&groups, group.id, |group, percentage| {
+                                group.drag_top.jump_to(percentage);
+                            });
+                        }
 
                         group.update_dragging_tabs(tab_index, |tab, percentage| {
                             tab.drag_over.jump_to(percentage);
