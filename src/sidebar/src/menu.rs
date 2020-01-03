@@ -1,4 +1,5 @@
-use crate::constants::{ROW_STYLE, MODAL_STYLE, STRETCH_STYLE, MENU_ITEM_HOVER_STYLE};
+use crate::constants::*;
+use tab_organizer::styles::*;
 use std::sync::{RwLock, Arc};
 use futures_signals::signal::{Signal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX, html, clone, events, class};
@@ -12,6 +13,10 @@ lazy_static! {
         .style("top", "100%")
         .style("right", "0px")
         .style("z-index", HIGHEST_ZINDEX)
+    };
+
+    static ref MENU_MODAL_STYLE: String = class! {
+        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
     };
 
     static ref MENU_STYLE: String = class! {
@@ -322,7 +327,10 @@ impl Menu {
 
             .children(&mut [
                 html!("div", {
-                    .class(&*MODAL_STYLE)
+                    .class([
+                        &*MODAL_STYLE,
+                        &*MENU_MODAL_STYLE,
+                    ])
 
                     .event(move |_: events::Click| {
                         state.hide();

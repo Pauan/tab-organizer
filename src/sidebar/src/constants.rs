@@ -42,56 +42,6 @@ pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_PADDING +
 
 
 lazy_static! {
-    pub(crate) static ref ROW_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center") // TODO get rid of this ?
-    };
-
-    pub(crate) static ref COLUMN_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "column")
-        .style("align-items", "stretch") // TODO get rid of this ?
-    };
-
-    pub(crate) static ref STRETCH_STYLE: String = class! {
-        .style("flex-shrink", "1")
-        .style("flex-grow", "1")
-        .style("flex-basis", "0%")
-    };
-
-    pub(crate) static ref TOP_STYLE: String = class! {
-        .style("white-space", "pre")
-        .style("width", "100%")
-        .style("height", "100%")
-        .style("overflow", "hidden")
-    };
-
-    pub(crate) static ref MODAL_STYLE: String = class! {
-        .style("position", "fixed")
-        .style("left", "0px")
-        .style("top", "0px")
-        .style("width", "100%")
-        .style("height", "100%")
-        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
-    };
-
-    pub(crate) static ref LOADING_STYLE: String = class! {
-        .style("z-index", HIGHEST_ZINDEX)
-        .style("color", "white")
-        .style("font-weight", "bold")
-        .style("font-size", "20px")
-        .style("letter-spacing", "5px")
-        .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
-    };
-
-    pub(crate) static ref CENTER_STYLE: String = class! {
-        .style("display", "flex")
-        .style("flex-direction", "row")
-        .style("align-items", "center")
-        .style("justify-content", "center")
-    };
-
     pub(crate) static ref REPEATING_GRADIENT: &'static str = "repeating-linear-gradient(-45deg, \
                                                                   transparent             0px, \
                                                                   transparent             4px, \
@@ -191,6 +141,7 @@ lazy_static! {
         .style("margin-right", "4px")
         .style("border-left", "1px solid rgb(202, 202, 202)")
         .style("min-height", "calc(100% - 1px)")
+        .style("background-image", "linear-gradient(to right, rgba(0, 0, 0, 0.03), transparent 5%, transparent 75%, rgba(0, 0, 0, 0.03))")
     };
 
     pub(crate) static ref GROUP_LIST_RIGHT_BORDER: String = class! {
@@ -335,6 +286,7 @@ lazy_static! {
                                           hsl(30, 70%, 52%) \
                                           hsl(30, 70%, 57%)")*/
         .style("background-color", "white")
+        .style("background-image", "linear-gradient(to right, rgba(0, 0, 0, 0.01) 61.8%, transparent)")
         //.style("background-image", "linear-gradient(to right, rgb(217, 237, 255), white)") // #bfe1ff rgb(254, 254, 255)
         //.style("border-image", "linear-gradient(to right, rgb(10, 132, 255), rgb(202, 202, 202)) 1") // rgb(104, 150, 185) rgb(132, 161, 189) rgb(158, 159, 160)
         .style("border-color", "rgb(202, 202, 202)")
@@ -407,7 +359,7 @@ lazy_static! {
         .style("border-width", px(TAB_CLOSE_BORDER_WIDTH))
         .style("padding-left", "1px")
         .style("padding-right", "1px")
-        .style("margin-right", "2px")
+        .style("margin-right", "1px")
     };
 
     pub(crate) static ref TAB_CLOSE_ICON_STYLE: String = class! {

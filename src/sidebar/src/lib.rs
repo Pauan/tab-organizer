@@ -13,6 +13,7 @@ use web_sys::{window, ScrollRestoration};
 
 use crate::types::State;
 use crate::constants::*;
+use tab_organizer::styles::*;
 
 mod constants;
 mod types;
@@ -351,7 +352,6 @@ pub fn main_js() {
                                         transparent                0px, \
                                         hsla(200, 30%, 30%, 0.017) 2px, \
                                         hsla(200, 30%, 30%, 0.017) 3px)")*/
-        .style("background-color", "rgb(247, 248, 249)") // rgb(244, 244, 244) #fdfeff rgb(227, 228, 230)
     });
 
     // Disables the browser scroll restoration
@@ -364,7 +364,6 @@ pub fn main_js() {
 
     dominator::append_dom(&dominator::body(), html!("div", {
         .class([
-            &*TOP_STYLE,
             &*MODAL_STYLE,
             &*CENTER_STYLE,
             &*LOADING_STYLE,

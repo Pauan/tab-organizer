@@ -8,6 +8,7 @@ use futures_signals::signal::{SignalExt, Mutable, and, or};
 use futures_signals::signal_vec::SignalVecExt;
 use wasm_bindgen::intern;
 
+use tab_organizer::styles::*;
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
 use crate::types::{State, DragState, Group, Tab};

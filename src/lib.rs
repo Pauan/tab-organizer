@@ -22,6 +22,64 @@ use serde::de::DeserializeOwned;
 use web_extension::{browser, Window, Tab, TabActiveInfo, TabDetachInfo, TabAttachInfo, TabMoveInfo, TabRemoveInfo};
 
 
+pub mod styles {
+    use lazy_static::lazy_static;
+    use dominator::{class, HIGHEST_ZINDEX};
+
+    lazy_static! {
+        pub static ref ROW_STYLE: String = class! {
+            .style("display", "flex")
+            .style("flex-direction", "row")
+            .style("align-items", "center") // TODO get rid of this ?
+        };
+
+        pub static ref COLUMN_STYLE: String = class! {
+            .style("display", "flex")
+            .style("flex-direction", "column")
+            .style("align-items", "stretch") // TODO get rid of this ?
+        };
+
+        pub static ref STRETCH_STYLE: String = class! {
+            .style("flex-shrink", "1")
+            .style("flex-grow", "1")
+            .style("flex-basis", "0%")
+        };
+
+        pub static ref TOP_STYLE: String = class! {
+            .style("white-space", "pre")
+            .style("width", "100%")
+            .style("height", "100%")
+            .style("overflow", "hidden")
+            .style("background-color", "rgb(247, 248, 249)") // rgb(244, 244, 244) #fdfeff rgb(227, 228, 230)
+        };
+
+        pub static ref MODAL_STYLE: String = class! {
+            .style("position", "fixed")
+            .style("left", "0px")
+            .style("top", "0px")
+            .style("width", "100%")
+            .style("height", "100%")
+        };
+
+        pub static ref LOADING_STYLE: String = class! {
+            .style("z-index", HIGHEST_ZINDEX)
+            .style("color", "white")
+            .style("font-weight", "bold")
+            .style("font-size", "20px")
+            .style("letter-spacing", "5px")
+            .style("text-shadow", "1px 1px 1px black, 0px 0px 1px black")
+        };
+
+        pub static ref CENTER_STYLE: String = class! {
+            .style("display", "flex")
+            .style("flex-direction", "row")
+            .style("align-items", "center")
+            .style("justify-content", "center")
+        };
+    }
+}
+
+
 pub mod state;
 
 
@@ -165,10 +223,58 @@ macro_rules! profile {
 }*/
 
 
+thread_local! {
+    static LOGS: RefCell<Vec<String>> = RefCell::new(vec![]);
+}
+
+#[inline]
+pub fn log(s: String) {
+    LOGS.with(|logs| {
+        logs.borrow_mut().push(s);
+    })
+}
+
+pub fn with_logs<A, F>(f: F) -> A where F: FnOnce(&[String]) -> A {
+    LOGS.with(|logs| f(&logs.borrow()))
+}
+
+pub fn print_logs(amount: usize) {
+    with_logs(|logs| {
+        for log in &logs[(logs.len() - amount)..] {
+            web_sys::console::log_1(&wasm_bindgen::JsValue::from(log));
+        }
+    })
+}
+
+
+pub fn export_function<A>(name: &str, f: Closure<A>) where A: wasm_bindgen::closure::WasmClosure + ?Sized {
+    let window = window().unwrap_throw();
+    js_sys::Reflect::set(&window, &JsValue::from(name), f.as_ref()).unwrap_throw();
+    f.forget();
+}
+
+
+#[macro_export]
+macro_rules! closure {
+    (move || -> $ret:ty $body:block) => {
+        wasm_bindgen::closure::Closure::wrap(std::boxed::Box::new(move || -> $ret { $body }) as std::boxed::Box<dyn FnMut() -> $ret>)
+    };
+    (move |$($arg:ident: $type:ty),*| -> $ret:ty $body:block) => {
+        wasm_bindgen::closure::Closure::wrap(std::boxed::Box::new(move |$($arg: $type),*| -> $ret { $body }) as std::boxed::Box<dyn FnMut($($type),*) -> $ret>)
+    };
+    (move || $body:block) => {
+        $crate::closure!(move || -> () $body)
+    };
+    (move |$($arg:ident: $type:ty),*| $body:block) => {
+        $crate::closure!(move |$($arg: $type),*| -> () $body);
+    };
+}
+
+
 #[macro_export]
 macro_rules! log {
     ($($args:tt)*) => {
-        web_sys::console::log_1(&wasm_bindgen::JsValue::from(format!($($args)*)));
+        $crate::log(format!($($args)*));
     };
 }
 

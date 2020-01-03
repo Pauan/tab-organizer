@@ -15,7 +15,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::{Array, Date};
 use dominator::clone;
 use serde::Serialize;
-use tab_organizer::{spawn, log, object, array, serialize, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange};
+use tab_organizer::{spawn, log, object, array, serialize, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange, export_function, closure, print_logs};
 use tab_organizer::state::{Window, Tab, SidebarMessage, BackgroundMessage, SerializedWindow, SerializedTab};
 
 mod migrate;
@@ -350,6 +350,11 @@ pub async fn main_js() -> Result<(), JsValue> {
             Ok(())
         });
     }) as Box<dyn FnMut(JsValue)>)).forget();
+
+
+    export_function("print_logs", closure!(move |amount: usize| {
+        print_logs(amount);
+    }));
 
 
     let (windows, database) = try_join!(
