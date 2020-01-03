@@ -31,14 +31,14 @@ pub(crate) const GROUP_HEADER_HEIGHT: f64 = 18.0;
 pub(crate) const GROUP_PADDING_BOTTOM: f64 = 3.0;
 
 pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
-pub(crate) const TAB_BORDER_CROWN_WIDTH: f64 = 4.0;
+pub(crate) const TAB_BORDER_CROWN_WIDTH: f64 = 3.0;
 pub(crate) const TAB_PADDING: f64 = 1.0;
 pub(crate) const TAB_HEIGHT: f64 = 22.0;
 pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
 pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
 pub(crate) const TAB_PINNED_WIDTH: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_BORDER_WIDTH + (TAB_PADDING * 2.0) + TAB_HEIGHT;
+pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_PADDING + TAB_HEIGHT + TAB_BORDER_WIDTH;
 
 
 lazy_static! {
@@ -276,7 +276,7 @@ lazy_static! {
         .style("overflow", "hidden")
         //.style("border-top-left-radius", "5px")
         //.style("border-bottom-left-radius", "5px")
-        .style("border-left-width", px(TAB_BORDER_CROWN_WIDTH))
+        .style("border-left-width", "4px")
         .style("border-right-width", "0px")
         //.style("margin-bottom", "-1px")
         .style("font-size", "12px")
@@ -286,6 +286,7 @@ lazy_static! {
         .style("width", px(TAB_HEIGHT))
         .style("display", "inline-block")
         .style("padding", px(TAB_PADDING))
+        .style("padding-bottom", "0px")
         .style("border-width", px(TAB_BORDER_WIDTH))
         .style("border-top-width", px(TAB_BORDER_CROWN_WIDTH))
         .style("border-radius", "6px")

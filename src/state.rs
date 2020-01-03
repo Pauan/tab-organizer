@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::intern;
-use wasm_bindgen_futures::futures_0_3::JsFuture;
+use wasm_bindgen_futures::JsFuture;
 use serde_derive::{Serialize, Deserialize};
 use uuid::Uuid;
 use futures_signals::signal::Mutable;

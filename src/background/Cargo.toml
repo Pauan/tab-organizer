@@ -19,10 +19,7 @@ serde_json = "1.0.40"
 dominator = "0.5.0"
 uuid = "0.7.1"
 serde = "1.0.36"
-
-[dependencies.wasm-bindgen-futures]
-version = "0.3.22"
-features = ["futures_0_3"]
+wasm-bindgen-futures = "0.4.0"
 
 [dependencies.web-sys]
 version = "0.3.27"

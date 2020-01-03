@@ -23,7 +23,7 @@ members = [
 
 [dependencies]
 wasm-bindgen = { version = "0.2.45", features = ["nightly"] }
-wasm-bindgen-futures = { version = "0.3.27", features = ["futures_0_3"] }
+wasm-bindgen-futures = "0.4.0"
 js-sys = "0.3.27"
 futures-preview = { version = "0.3.0-alpha.19", features = ["async-await"] }
 futures-signals = "0.3.0"

@@ -14,7 +14,7 @@ use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 use js_sys::{Date, Object, Reflect, Array, Set};
 use web_sys::{window, Performance, Storage};
-use wasm_bindgen_futures::futures_0_3::{JsFuture, spawn_local};
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
