@@ -232,7 +232,7 @@ impl State {
                                 },
                                 events::MouseButton::Middle => {
                                     if !shift && !ctrl && !alt {
-                                        state.close_tab(&tab);
+                                        state.close_tabs(&[&tab]);
                                     }
                                 },
                                 events::MouseButton::Right => {
@@ -404,7 +404,7 @@ impl State {
                                         },
                                         events::MouseButton::Middle => {
                                             if !shift && !ctrl && !alt {
-                                                state.close_tab(&tab);
+                                                state.close_tabs(&[&tab]);
                                             }
                                         },
                                         events::MouseButton::Right => {
@@ -448,7 +448,7 @@ impl State {
                                         }))
 
                                         .event(clone!(state, tab => move |_: events::Click| {
-                                            state.close_tab(&tab);
+                                            state.close_tabs(&[&tab]);
                                         }))
                                     }),
                                 ])

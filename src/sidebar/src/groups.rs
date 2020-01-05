@@ -491,21 +491,21 @@ impl Groups {
     pub(crate) fn initialize(&self, state: &State) {
         let tabs = state.tabs.read().unwrap();
 
-        let sort = self.sort.lock().unwrap();
+        let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(state, *sort, &self.pinned, &tabs, false) });
+        let new_groups = time!("Creating initial groups", { initialize(state, sort, &self.pinned, &tabs, false) });
         groups.replace_cloned(new_groups);
     }
 
     fn update_group_titles(&self) {
         let should_update = {
-            let sort = self.sort.lock().unwrap();
+            let sort = *self.sort.lock().unwrap();
 
             // TODO replace with `if let`
-            match *sort {
+            match sort {
                 SortTabs::TimeCreated | SortTabs::TimeFocused => true,
                 _ => false,
             }
@@ -547,27 +547,27 @@ impl Groups {
     }
 
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
-        let sort = self.sort.lock().unwrap();
+        let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_inserted(state, *sort, &self.pinned, &mut groups, tab, tab_index, true, false);
+        tab_inserted(state, sort, &self.pinned, &mut groups, tab, tab_index, true, false);
     }
 
     fn tab_removed(&self, tab_index: usize, tab: &TabState) {
-        let sort = self.sort.lock().unwrap();
+        let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_removed(*sort, &self.pinned, &mut groups, tab, tab_index);
+        tab_removed(sort, &self.pinned, &mut groups, tab, tab_index);
     }
 
     fn tab_updated<F>(&self, state: &State, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
-        let sort = self.sort.lock().unwrap();
+        let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
         // TODO should this be animated ?
-        let group_indexes = sorted_groups(*sort, &self.pinned, &mut groups, &tab, true);
+        let group_indexes = sorted_groups(sort, &self.pinned, &mut groups, &tab, true);
 
         change();
 
-        tab_updated(state, *sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
+        tab_updated(state, sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
     }
 
     pub(crate) fn pinned_group(&self) -> Arc<Group> {
@@ -713,6 +713,18 @@ impl State {
                         // TODO use remove_item
                         let index = tags.iter().position(|x| x.name == tag_name).unwrap();
                         tags.remove(index);
+                    },
+                    TabChange::Unloaded { unloaded } => {
+                        // TODO should this affect the sort ?
+                        tab.unloaded.set_neq(unloaded);
+                    },
+                    TabChange::Muted { muted } => {
+                        // TODO should this affect the sort ?
+                        tab.muted.set_neq(muted);
+                    },
+                    TabChange::PlayingAudio { playing } => {
+                        // TODO should this affect the sort ?
+                        tab.playing_audio.set_neq(playing);
                     },
                 }
             }

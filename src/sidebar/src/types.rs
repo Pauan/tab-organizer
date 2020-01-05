@@ -152,12 +152,13 @@ impl State {
         });
     }
 
-    pub(crate) fn close_tab(&self, tab: &TabState) {
-        tab.manually_closed.set_neq(true);
+    pub(crate) fn close_tabs(&self, tabs: &[&TabState]) {
+        let ids = tabs.into_iter().map(|tab| {
+            tab.manually_closed.set_neq(true);
+            tab.id
+        }).collect();
 
-        self.port.send_message(&SidebarMessage::CloseTab {
-            id: tab.id,
-        });
+        self.port.send_message(&SidebarMessage::CloseTabs { ids });
     }
 }
 
@@ -172,6 +173,8 @@ pub(crate) struct TabState {
     pub(crate) focused: Mutable<bool>,
     pub(crate) unloaded: Mutable<bool>,
     pub(crate) pinned: Mutable<bool>,
+    pub(crate) playing_audio: Mutable<bool>,
+    pub(crate) muted: Mutable<bool>,
     pub(crate) removed: Mutable<bool>,
     pub(crate) manually_closed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
@@ -190,6 +193,8 @@ impl TabState {
             focused: Mutable::new(state.focused),
             unloaded: Mutable::new(state.serialized.unloaded),
             pinned: Mutable::new(state.serialized.pinned),
+            playing_audio: Mutable::new(state.playing_audio),
+            muted: Mutable::new(state.serialized.muted),
             removed: Mutable::new(false),
             manually_closed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),

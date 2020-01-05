@@ -1,13 +1,9 @@
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::intern;
-use wasm_bindgen_futures::JsFuture;
 use serde_derive::{Serialize, Deserialize};
 use uuid::Uuid;
 use futures_signals::signal::Mutable;
-use crate::{serialize, deserialize, generate_uuid};
-use web_extension::browser;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,8 +14,11 @@ pub enum SidebarMessage {
     ClickTab {
         id: Uuid,
     },
-    CloseTab {
-        id: Uuid,
+    CloseTabs {
+        ids: Vec<Uuid>,
+    },
+    UnloadTabs {
+        ids: Vec<Uuid>,
     },
 }
 
@@ -74,6 +73,15 @@ pub enum TabChange {
     RemovedFromTag {
         tag_name: String,
     },
+    Unloaded {
+        unloaded: bool,
+    },
+    Muted {
+        muted: bool,
+    },
+    PlayingAudio {
+        playing: bool,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -115,6 +123,7 @@ pub struct SerializedTab {
     pub favicon_url: Option<String>,
     pub url: Option<String>,
     pub title: Option<String>,
+    pub muted: bool,
 }
 
 impl SerializedTab {
@@ -129,6 +138,7 @@ impl SerializedTab {
             favicon_url: None,
             url: None,
             title: None,
+            muted: false,
         }
     }
 
@@ -192,6 +202,18 @@ impl SerializedTab {
             changes.push(TabChange::Pinned { pinned });
         }
 
+        if self.unloaded {
+            self.unloaded = false;
+            changes.push(TabChange::Unloaded { unloaded: false });
+        }
+
+        let muted = tab.muted_info().muted();
+
+        if self.muted != muted {
+            self.muted = muted;
+            changes.push(TabChange::Muted { muted });
+        }
+
         changes
     }
 
@@ -208,13 +230,29 @@ impl SerializedTab {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedWindow {
     pub id: Uuid,
     pub name: Option<String>,
     pub timestamp_created: f64,
     pub tabs: Vec<Uuid>,
 }
+
+impl SerializedWindow {
+    pub fn new(id: Uuid, timestamp_created: f64) -> Self {
+        Self {
+            id,
+            name: None,
+            timestamp_created,
+            tabs: vec![],
+        }
+    }
+
+    pub fn tab_index(&self, uuid: Uuid) -> usize {
+        self.tabs.iter().position(|x| *x == uuid).unwrap_throw()
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
@@ -226,62 +264,23 @@ pub struct Tag {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tab {
     pub serialized: SerializedTab,
-    pub id: i32,
-    // TODO this should be Option<i32>
-    pub window_id: i32,
     pub focused: bool,
+    pub playing_audio: bool,
 }
 
 impl Tab {
-    pub fn new(serialized: SerializedTab, id: i32, window_id: i32, tab: &web_extension::Tab) -> Self {
-        Tab {
+    pub fn unloaded(serialized: SerializedTab) -> Self {
+        Self {
             serialized,
-            id,
-            window_id,
-            focused: tab.active(),
-        }
-    }
-
-    pub async fn get_id(tab_id: i32) -> Result<Uuid, JsValue> {
-        //JsFuture::from(browser.sessions().remove_tab_value(tab_id, intern("id"))).await?;
-
-        let id = JsFuture::from(browser.sessions().get_tab_value(tab_id, intern("id"))).await?;
-
-        // TODO better implementation of this
-        if id == JsValue::undefined() {
-            let id = generate_uuid();
-            let _ = JsFuture::from(browser.sessions().set_tab_value(tab_id, intern("id"), &serialize(&id))).await?;
-            Ok(id)
-
-        } else {
-            Ok(deserialize(&id))
+            focused: false,
+            playing_audio: false,
         }
     }
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Window {
     pub serialized: SerializedWindow,
-    pub id: i32,
     pub focused: bool,
-}
-
-impl Window {
-    // TODO code duplication
-    pub async fn get_id(window_id: i32) -> Result<Uuid, JsValue> {
-        //JsFuture::from(browser.sessions().remove_window_value(window_id, intern("id"))).await?;
-
-        let id = JsFuture::from(browser.sessions().get_window_value(window_id, intern("id"))).await?;
-
-        // TODO better implementation of this
-        if id == JsValue::undefined() {
-            let id = generate_uuid();
-            let _ = JsFuture::from(browser.sessions().set_window_value(window_id, intern("id"), &serialize(&id))).await?;
-            Ok(id)
-
-        } else {
-            Ok(deserialize(&id))
-        }
-    }
 }

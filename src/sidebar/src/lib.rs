@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use std::sync::Arc;
-use tab_organizer::{Timer, connect, log, time, cursor, every_hour};
+use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, export_function, closure, print_logs};
 use tab_organizer::state::{SidebarMessage, BackgroundMessage, Options};
 use dominator::{html, stylesheet, clone};
 use futures::stream::{StreamExt, TryStreamExt};
@@ -305,6 +305,11 @@ pub fn main_js() {
     }));
 
 
+    export_function("print_logs", closure!(move |amount: usize| {
+        print_logs(amount);
+    }));
+
+
     log!("Starting");
 
     stylesheet!("*", {
@@ -406,10 +411,12 @@ pub fn main_js() {
             .map(|x| -> Result<BackgroundMessage, JsValue> { Ok(x) })
             .try_fold(None, move |mut state, message| {
                 clone!(port => async move {
-                    log!("Received message {:#?}", message);
+                    info!("Received message {:#?}", message);
 
                     match message {
                         BackgroundMessage::Initial { tabs } => {
+                            assert!(state.is_none());
+
                             state = time!("Initializing", {
                                 let state = Arc::new(State::new(port, Options::new(), tabs));
                                 initialize(state.clone());

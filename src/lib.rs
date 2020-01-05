@@ -200,7 +200,7 @@ macro_rules! time {
         let old = $crate::performance_now();
         let value = $value;
         let new = $crate::performance_now();
-        $crate::log!("{} took {}ms", $name, new - old);
+        $crate::info!("{} took {}ms", $name, new - old);
         value
     }}
 }
@@ -223,27 +223,49 @@ macro_rules! profile {
 }*/
 
 
-thread_local! {
-    static LOGS: RefCell<Vec<String>> = RefCell::new(vec![]);
+#[macro_export]
+macro_rules! log {
+    ($($args:tt)*) => {
+        $crate::log(std::format!("[{}:{}]  {}", std::file!(), std::line!(), std::format!($($args)*)));
+    };
 }
+
+#[macro_export]
+macro_rules! info {
+    ($($args:tt)*) => {
+        $crate::info(std::format!("[{}:{}]  {}", std::file!(), std::line!(), std::format!($($args)*)));
+    };
+}
+
+
+/*thread_local! {
+    static LOGS: RefCell<Vec<String>> = RefCell::new(vec![]);
+}*/
 
 #[inline]
 pub fn log(s: String) {
-    LOGS.with(|logs| {
+    web_sys::console::log_1(&wasm_bindgen::JsValue::from(s));
+}
+
+#[inline]
+pub fn info(s: String) {
+    web_sys::console::info_1(&wasm_bindgen::JsValue::from(s));
+
+    /*LOGS.with(|logs| {
         logs.borrow_mut().push(s);
-    })
+    })*/
 }
 
-pub fn with_logs<A, F>(f: F) -> A where F: FnOnce(&[String]) -> A {
+/*pub fn with_logs<A, F>(f: F) -> A where F: FnOnce(&[String]) -> A {
     LOGS.with(|logs| f(&logs.borrow()))
-}
+}*/
 
-pub fn print_logs(amount: usize) {
-    with_logs(|logs| {
+pub fn print_logs(_amount: usize) {
+    /*with_logs(|logs| {
         for log in &logs[(logs.len() - amount)..] {
-            web_sys::console::log_1(&wasm_bindgen::JsValue::from(log));
+            web_sys::console::info_1(&wasm_bindgen::JsValue::from(log));
         }
-    })
+    })*/
 }
 
 
@@ -267,14 +289,6 @@ macro_rules! closure {
     };
     (move |$($arg:ident: $type:ty),*| $body:block) => {
         $crate::closure!(move |$($arg: $type),*| -> () $body);
-    };
-}
-
-
-#[macro_export]
-macro_rules! log {
-    ($($args:tt)*) => {
-        $crate::log(format!($($args)*));
     };
 }
 
@@ -516,7 +530,7 @@ impl TransactionState {
                 spawn(async move {
                     let _ = JsFuture::from(browser.storage().local().set(&updated)).await?;
                     let end = performance_now();
-                    log!("Updating keys took {} ms", end - start);
+                    info!("Updating keys took {} ms", end - start);
                     Ok(())
                 });
             }
@@ -525,7 +539,7 @@ impl TransactionState {
                 spawn(async move {
                     let _ = JsFuture::from(browser.storage().local().remove(&removed)).await?;
                     let end = performance_now();
-                    log!("Removing keys took {} ms", end - start);
+                    info!("Removing keys took {} ms", end - start);
                     Ok(())
                 });
             }
@@ -1241,16 +1255,17 @@ pub fn set_interval<F>(f: F, ms: u32) where F: FnMut() + 'static {
 // TODO make this more efficient ?
 pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
     // TODO is this okay ?
-    const EXTRA_TIME_MARGIN: f64 = 10.0;
+    const EXTRA_TIME_MARGIN: f64 = 100.0;
 
     let now = Date::now();
-    let next = round_to_hour(now) + TimeDifference::HOUR + EXTRA_TIME_MARGIN;
+    let next = round_to_hour(now) + TimeDifference::HOUR;
     assert!(next > now);
 
-    // TODO is this correct ?
-    let diff = (next - now).ceil();
+    let diff = ((next - now) + EXTRA_TIME_MARGIN).ceil() as u32;
 
-    Timer::new(diff as u32, move || {
+    assert!(diff > 0);
+
+    Timer::new(diff, move || {
         assert!(Date::now() >= next);
         f();
         every_hour(f);
