@@ -87,7 +87,7 @@ lazy_static! {
     static ref SUBMENU_STYLE: String = class! {
         .style("font-size", "12px")
         // TODO is this a good width ?
-        .style("min-width", "150px")
+        .style("min-width", "200px")
         .style("background-color", "white")
         .style("white-space", "pre")
         .style("padding-top", "6px")
