@@ -1,5 +1,4 @@
 //use nom::types::CompleteStr;
-use wasm_bindgen::prelude::*;
 use regex::{Regex, RegexBuilder, escape};
 use crate::types::{State, Group, Tab};
 
@@ -88,7 +87,7 @@ impl Parsed {
                     .case_insensitive(true)
                     .unicode(false)
                     .build()
-                    .unwrap_throw())
+                    .unwrap())
             })
             .fold(Parsed::True, |old, new| {
                 if let Parsed::True = old {

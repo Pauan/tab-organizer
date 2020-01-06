@@ -83,7 +83,7 @@ impl<A> Mapping<A> {
     fn get_id(&mut self, id: i32) -> Option<&mut A> {
         let ids = &self.ids;
         let values = &mut self.values;
-        ids.get(&id).map(move |uuid| values.get_mut(uuid).unwrap_throw())
+        ids.get(&id).map(move |uuid| values.get_mut(uuid).unwrap())
     }
 
     fn get_or_insert<F>(&mut self, id: i32, uuid: Uuid, set: F) -> &mut A where F: FnOnce() -> A {
@@ -94,7 +94,7 @@ impl<A> Mapping<A> {
                 self.ids.insert(id, uuid).unwrap_none();
             },
             Entry::Occupied(_) => {
-                assert_eq!(*self.ids.get(&id).unwrap_throw(), uuid);
+                assert_eq!(*self.ids.get(&id).unwrap(), uuid);
             },
         }
 
@@ -103,7 +103,7 @@ impl<A> Mapping<A> {
 
     fn remove(&mut self, id: i32) -> Option<A> {
         let uuid = self.ids.remove(&id)?;
-        let value = self.values.remove(&uuid).unwrap_throw();
+        let value = self.values.remove(&uuid).unwrap();
         Some(value)
     }
 
@@ -264,7 +264,7 @@ impl State {
     }
 
     async fn new_tab(state: &Rc<RefCell<Self>>, timestamp_created: f64, tab: web_extension::Tab) -> Result<(Uuid, bool), JsValue> {
-        let id = tab.id().unwrap_throw();
+        let id = tab.id().unwrap();
 
         let uuid = BrowserTab::get_id(id).await?;
 
@@ -313,7 +313,7 @@ impl State {
     }
 
     async fn new_window(state: &Rc<RefCell<Self>>, timestamp_created: f64, window: &web_extension::Window) -> Result<Uuid, JsValue> {
-        let id = window.id().unwrap_throw();
+        let id = window.id().unwrap();
 
         let (uuid, tabs) = try_join!(
             BrowserWindow::get_id(id),
@@ -405,7 +405,7 @@ impl State {
 
         // Verify that it's a normal window
         if let Some(window_uuid) = window_uuid {
-            let id = tab.id().unwrap_throw();
+            let id = tab.id().unwrap();
 
             let uuid = BrowserTab::get_id(id).await?;
 
@@ -415,7 +415,7 @@ impl State {
             let focused = tab.active();
             let playing_audio = tab.audible().unwrap_or(false);
 
-            let browser_window = state.window_ids.get_uuid(window_uuid).unwrap_throw();
+            let browser_window = state.window_ids.get_uuid(window_uuid).unwrap();
 
             let mut is_new = false;
 
@@ -499,7 +499,7 @@ impl State {
     }
 
     fn send_message<A>(&self, uuid: Uuid, message: &A) where A: Serialize {
-        let ports = self.ports.get(&uuid).unwrap_throw();
+        let ports = self.ports.get(&uuid).unwrap();
 
         if !ports.is_empty() {
             let message = serialize(&message);
@@ -571,13 +571,13 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         let state: &mut State = &mut state.borrow_mut();
 
                                         {
-                                            let ports = state.ports.get_mut(&uuid).unwrap_throw();
+                                            let ports = state.ports.get_mut(&uuid).unwrap();
                                             ports.push(port.clone());
                                         }
 
                                         port_uuid.set(Some(uuid));
 
-                                        let window = state.window_ids.get_uuid(uuid).unwrap_throw();
+                                        let window = state.window_ids.get_uuid(uuid).unwrap();
 
                                         let tab_ids = &mut state.tab_ids;
 
@@ -591,7 +591,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                                         // Tab is unloaded
                                                         None => {
                                                             let key = State::tab_key(uuid);
-                                                            let serialized: SerializedTab = tx.get(&key).unwrap_throw();
+                                                            let serialized: SerializedTab = tx.get(&key).unwrap();
                                                             Tab::unloaded(serialized)
                                                         },
                                                     }
@@ -653,8 +653,8 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         });
 
                                         if !close_unloaded.is_empty() {
-                                            let window_id = port_uuid.get().unwrap_throw();
-                                            let window = state.window_ids.get_uuid(window_id).unwrap_throw();
+                                            let window_id = port_uuid.get().unwrap();
+                                            let window = state.window_ids.get_uuid(window_id).unwrap();
 
                                             let tab_indexes = state.database.transaction(|tx| {
                                                 let indexes = close_unloaded.into_iter().map(|id| {
@@ -712,7 +712,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         let mut state = state.borrow_mut();
 
                         if let Some(ports) = state.ports.get_mut(&uuid) {
-                            ports.remove_item(&port).unwrap_throw();
+                            ports.remove_item(&port).unwrap();
                         }
                     }
 
@@ -757,7 +757,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                                 let uuid = browser_window.uuid;
 
-                                state.ports.remove(&uuid).unwrap_throw();
+                                state.ports.remove(&uuid).unwrap();
 
                                 if !browser_window.is_unloading {
                                     state.database.transaction(|tx| {
@@ -771,7 +771,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                                         let mut window_ids: Vec<Uuid> = tx.get_or_insert(intern("windows"), || vec![]);
 
-                                        window_ids.remove_item(&uuid).unwrap_throw();
+                                        window_ids.remove_item(&uuid).unwrap();
 
                                         tx.set(intern("windows"), &window_ids);
                                     });
@@ -813,12 +813,12 @@ pub async fn main_js() -> Result<(), JsValue> {
                             let state: &mut State = &mut state.borrow_mut();
 
                             if let Some(browser_window) = state.window_ids.get_id(window_id) {
-                                let browser_tab = state.tab_ids.get_id(new_tab_id).unwrap_throw();
+                                let browser_tab = state.tab_ids.get_id(new_tab_id).unwrap();
 
                                 let uuid = browser_tab.uuid;
                                 let browser_uuid = browser_window.uuid;
 
-                                let old_tab_uuid = browser_window.set_focused(uuid).unwrap_throw();
+                                let old_tab_uuid = browser_window.set_focused(uuid).unwrap();
 
                                 state.database.transaction(|tx| {
                                     browser_tab.serialized.timestamp_focused = Some(timestamp_focused);
@@ -841,7 +841,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             let state: &mut State = &mut state.borrow_mut();
 
                             if let Some(browser_window) = state.window_ids.get_id(old_window_id) {
-                                let browser_tab = state.tab_ids.get_id(tab_id).unwrap_throw();
+                                let browser_tab = state.tab_ids.get_id(tab_id).unwrap();
 
                                 browser_tab.old_window = Some(browser_window.uuid);
 
@@ -854,7 +854,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             let state: &mut State = &mut state.borrow_mut();
 
                             if let Some(browser_tab) = state.tab_ids.get_id(tab_id) {
-                                let old_window_id = browser_tab.old_window.take().unwrap_throw();
+                                let old_window_id = browser_tab.old_window.take().unwrap();
 
                                 // TODO is this correct if the old window no longer exists ?
                                 if let Some(old_window) = state.window_ids.get_uuid(old_window_id) {
@@ -871,7 +871,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             }
 
                             if let Some(browser_window) = state.window_ids.get_id(new_window_id) {
-                                let browser_tab = state.tab_ids.get_id(tab_id).unwrap_throw();
+                                let browser_tab = state.tab_ids.get_id(tab_id).unwrap();
 
                                 let browser_uuid = browser_window.uuid;
 
@@ -899,7 +899,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                     let browser_uuid = browser_window.uuid;
 
                                     let tab_uuid = browser_window.tabs.remove(old_index as usize);
-                                    let browser_tab = state.tab_ids.get_uuid(tab_uuid).unwrap_throw();
+                                    let browser_tab = state.tab_ids.get_uuid(tab_uuid).unwrap();
 
                                     assert_eq!(browser_tab.id, tab_id);
 
@@ -929,12 +929,12 @@ pub async fn main_js() -> Result<(), JsValue> {
                                     state.database.delay_transactions();
                                 }
 
-                                let mut browser_tab = state.tab_ids.remove(tab_id).unwrap_throw();
+                                let mut browser_tab = state.tab_ids.remove(tab_id).unwrap();
 
                                 let window_uuid = browser_window.uuid;
                                 let tab_uuid = browser_tab.uuid;
 
-                                browser_window.tabs.remove_item(&tab_uuid).unwrap_throw();
+                                browser_window.tabs.remove_item(&tab_uuid).unwrap();
                                 browser_window.unfocus_tab(tab_uuid);
 
                                 let tab_index = browser_window.serialized.tab_index(tab_uuid);

@@ -1,4 +1,3 @@
-use wasm_bindgen::prelude::*;
 use regex::{Regex, Match};
 use tab_organizer::decode_uri_component;
 use lazy_static::lazy_static;
@@ -9,33 +8,33 @@ lazy_static! {
     // TODO test this
     static ref URL_REGEXP: Regex = Regex::new(
         r"^([a-zA-Z][a-zA-Z0-9\+\.\-]*:)?(?:(//)([^@]+@)?([^/\?#:]*)(:[0-9]+)?)?([^\?#]*?)([^/\?#]*)(\?[^#]*)?(#.*)?$"
-    ).unwrap_throw();
+    ).unwrap();
 
     // http://en.wikipedia.org/wiki/List_of_Internet_top-level_domains
     // TODO test this
     static ref DOMAIN_REGEXP: Regex = Regex::new(
         r"(?i-u)(?:^www?\.)|(?:(?:\.[a-z][a-z])?\.[a-z]+$)"
-    ).unwrap_throw();
+    ).unwrap();
 
     static ref SPACIFY_REGEXP: Regex = Regex::new(
         r"(?-u)[_\-\n\r]"
-    ).unwrap_throw();
+    ).unwrap();
 
     static ref FILE_REGEXP: Regex = Regex::new(
         r"(?-u)\.(?:html?|php|asp)$"
-    ).unwrap_throw();
+    ).unwrap();
 
     static ref QUERY_REMOVE_REGEXP: Regex = Regex::new(
         r"(?-u)^\??[\+&;]?"
-    ).unwrap_throw();
+    ).unwrap();
 
     static ref QUERY_SEPARATOR_REGEXP: Regex = Regex::new(
         r"(?-u)[\+&;]"
-    ).unwrap_throw();
+    ).unwrap();
 
     static ref QUERY_KEY_VALUE_REGEXP: Regex = Regex::new(
         r"(?-u)="
-    ).unwrap_throw();
+    ).unwrap();
 }
 
 

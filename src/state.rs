@@ -3,7 +3,6 @@ use uuid::Uuid;
 use futures_signals::signal::Mutable;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use wasm_bindgen::prelude::*;
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -249,7 +248,7 @@ impl SerializedWindow {
     }
 
     pub fn tab_index(&self, uuid: Uuid) -> usize {
-        self.tabs.iter().position(|x| *x == uuid).unwrap_throw()
+        self.tabs.iter().position(|x| *x == uuid).unwrap()
     }
 }
 

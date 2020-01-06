@@ -63,13 +63,13 @@ fn initialize(state: Arc<State>) {
 
     // TODO a little hacky, needed to ensure that scrolling happens after everything is created
     window()
-        .unwrap_throw()
+        .unwrap()
         .request_animation_frame(Closure::once_into_js(move |_: f64| {
             IS_LOADED.set_neq(true);
             SHOW_MODAL.set_neq(false);
             log!("Loaded");
         }).unchecked_ref())
-        .unwrap_throw();
+        .unwrap();
 
     log!("Finished");
 
@@ -361,11 +361,11 @@ pub fn main_js() {
 
     // Disables the browser scroll restoration
     window()
-        .unwrap_throw()
+        .unwrap()
         .history()
-        .unwrap_throw()
+        .unwrap()
         .set_scroll_restoration(ScrollRestoration::Manual)
-        .unwrap_throw();
+        .unwrap();
 
     dominator::append_dom(&dominator::body(), html!("div", {
         .class([
@@ -389,13 +389,13 @@ pub fn main_js() {
 
     fn search_to_id() -> String {
         let search = window()
-                .unwrap_throw()
+                .unwrap()
                 .location()
                 .search()
-                .unwrap_throw();
+                .unwrap();
 
         js_sys::decode_uri_component(&search[1..])
-            .unwrap_throw()
+            .unwrap()
             .into()
     }
 
@@ -425,23 +425,23 @@ pub fn main_js() {
                         },
 
                         BackgroundMessage::TabInserted { tab_index, tab } => {
-                            state.as_ref().unwrap_throw().insert_tab(tab_index, tab);
+                            state.as_ref().unwrap().insert_tab(tab_index, tab);
                         },
 
                         BackgroundMessage::TabRemoved { tab_index } => {
-                            state.as_ref().unwrap_throw().remove_tab(tab_index);
+                            state.as_ref().unwrap().remove_tab(tab_index);
                         },
 
                         BackgroundMessage::TabChanged { tab_index, changes } => {
-                            state.as_ref().unwrap_throw().change_tab(tab_index, changes);
+                            state.as_ref().unwrap().change_tab(tab_index, changes);
                         },
 
                         BackgroundMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused } => {
-                            state.as_ref().unwrap_throw().focus_tab(old_tab_index, new_tab_index, new_timestamp_focused);
+                            state.as_ref().unwrap().focus_tab(old_tab_index, new_tab_index, new_timestamp_focused);
                         },
 
                         BackgroundMessage::TabMoved { old_tab_index, new_tab_index } => {
-                            state.as_ref().unwrap_throw().move_tab(old_tab_index, new_tab_index);
+                            state.as_ref().unwrap().move_tab(old_tab_index, new_tab_index);
                         },
                     }
 

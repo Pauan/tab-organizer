@@ -188,7 +188,7 @@ pub fn normalize(value: f64, min: f64, max: f64) -> f64 {
 #[inline]
 pub fn performance_now() -> f64 {
     thread_local! {
-        static PERFORMANCE: Performance = window().unwrap_throw().performance().unwrap_throw();
+        static PERFORMANCE: Performance = window().unwrap().performance().unwrap();
     }
 
     PERFORMANCE.with(|a| a.now())
@@ -270,8 +270,8 @@ pub fn print_logs(_amount: usize) {
 
 
 pub fn export_function<A>(name: &str, f: Closure<A>) where A: wasm_bindgen::closure::WasmClosure + ?Sized {
-    let window = window().unwrap_throw();
-    js_sys::Reflect::set(&window, &JsValue::from(name), f.as_ref()).unwrap_throw();
+    let window = window().unwrap();
+    js_sys::Reflect::set(&window, &JsValue::from(name), f.as_ref()).unwrap();
     f.forget();
 }
 
@@ -324,12 +324,12 @@ fn generate_random_bytes() -> [u8; 16] {
     thread_local! {
         static UUID_ARRAY: Uint8Array = Uint8Array::new_with_length(16);
 
-        static CRYPTO: web_sys::Crypto = window().unwrap_throw().crypto().unwrap_throw();
+        static CRYPTO: web_sys::Crypto = window().unwrap().crypto().unwrap();
     }
 
     CRYPTO.with(|crypto| {
         UUID_ARRAY.with(|array| {
-            crypto.get_random_values_with_array_buffer_view(&array).unwrap_throw();
+            crypto.get_random_values_with_array_buffer_view(&array).unwrap();
 
             let mut out = [0; 16];
             array.copy_to(&mut out);
@@ -345,18 +345,18 @@ pub fn generate_uuid() -> Uuid {
 
 thread_local! {
     static STORAGE: Storage = window()
-        .unwrap_throw()
+        .unwrap()
         .local_storage()
-        .unwrap_throw()
-        .unwrap_throw();
+        .unwrap()
+        .unwrap();
 }
 
 pub fn local_storage_get(key: &str) -> Option<String> {
-    STORAGE.with(|x| x.get_item(key).unwrap_throw())
+    STORAGE.with(|x| x.get_item(key).unwrap())
 }
 
 pub fn local_storage_set(key: &str, value: &str) {
-    STORAGE.with(|x| x.set_item(key, value).unwrap_throw())
+    STORAGE.with(|x| x.set_item(key, value).unwrap())
 }
 
 
@@ -396,26 +396,26 @@ impl<A> StackVec<A> {
 
 
 pub fn decode_uri_component(input: &str) -> String {
-    js_sys::decode_uri_component(input).unwrap_throw().into()
+    js_sys::decode_uri_component(input).unwrap().into()
 }
 
 
 pub fn window_width() -> f64 {
     window()
-        .unwrap_throw()
+        .unwrap()
         .inner_width()
-        .unwrap_throw()
+        .unwrap()
         .as_f64()
-        .unwrap_throw()
+        .unwrap()
 }
 
 pub fn window_height() -> f64 {
     window()
-        .unwrap_throw()
+        .unwrap()
         .inner_height()
-        .unwrap_throw()
+        .unwrap()
         .as_f64()
-        .unwrap_throw()
+        .unwrap()
 }
 
 
@@ -433,7 +433,7 @@ impl<A> Listener<A> where A: ?Sized {
 
 impl<A> Listener<A> where A: ?Sized + wasm_bindgen::closure::WasmClosure {
     pub fn forget(mut self) {
-        self.closure.take().unwrap_throw().forget();
+        self.closure.take().unwrap().forget();
     }
 }
 
@@ -447,7 +447,7 @@ impl<A> Drop for Listener<A> where A: ?Sized {
 
 
 pub fn serialize_str<A>(value: &A) -> String where A: Serialize {
-    serde_json::to_string(value).unwrap_throw()
+    serde_json::to_string(value).unwrap()
 }
 
 pub fn serialize<A>(value: &A) -> JsValue where A: Serialize {
@@ -456,11 +456,11 @@ pub fn serialize<A>(value: &A) -> JsValue where A: Serialize {
 
 
 pub fn deserialize_str<A>(value: &str) -> A where A: DeserializeOwned {
-    serde_json::from_str(&value).unwrap_throw()
+    serde_json::from_str(&value).unwrap()
 }
 
 pub fn deserialize<A>(value: &JsValue) -> A where A: DeserializeOwned {
-    let value = value.as_string().unwrap_throw();
+    let value = value.as_string().unwrap();
     deserialize_str(&value)
 }
 
@@ -521,7 +521,7 @@ impl TransactionState {
                         if !seen.has(&key) {
                             seen.add(&key);
                             should_update = true;
-                            Reflect::set(&updated, &key, &value).unwrap_throw();
+                            Reflect::set(&updated, &key, &value).unwrap();
                         }
                     },
                 }
@@ -589,8 +589,8 @@ impl<'a> Transaction<'a> {
         // TODO make this more efficient
         let key = JsValue::from(key);
 
-        if Reflect::has(&self.db, &key).unwrap_throw() {
-            Some(Reflect::get(&self.db, &key).unwrap_throw())
+        if Reflect::has(&self.db, &key).unwrap() {
+            Some(Reflect::get(&self.db, &key).unwrap())
 
         } else {
             None
@@ -601,7 +601,7 @@ impl<'a> Transaction<'a> {
         // TODO make this more efficient
         let key = JsValue::from(key);
 
-        Reflect::set(&self.db, &key, &value).unwrap_throw();
+        Reflect::set(&self.db, &key, &value).unwrap();
 
         let mut state = self.state.borrow_mut();
 
@@ -633,7 +633,7 @@ impl<'a> Transaction<'a> {
     }
 
     fn remove_raw(&self, key: JsValue) {
-        Reflect::delete_property(&self.db, &key).unwrap_throw();
+        Reflect::delete_property(&self.db, &key).unwrap();
 
         let mut state = self.state.borrow_mut();
 
@@ -651,7 +651,7 @@ impl<'a> Transaction<'a> {
     pub fn clear(&self) {
         // TODO make this more efficient
         for key in Object::keys(&self.db).values() {
-            self.remove_raw(key.unwrap_throw());
+            self.remove_raw(key.unwrap());
         }
     }
 }
@@ -743,7 +743,7 @@ impl Port {
         let (sender, receiver) = mpsc::unbounded();
 
         let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message| {
-            sender.unbounded_send(deserialize(&message)).unwrap_throw();
+            sender.unbounded_send(deserialize(&message)).unwrap();
         })));
 
         // TODO check port error ?
@@ -774,7 +774,7 @@ pub fn on_connect() -> impl Stream<Item = Port> {
     let (sender, receiver) = mpsc::unbounded();
 
     let _listener = Listener::new(browser.runtime().on_connect(), Closure::new(move |port| {
-        sender.unbounded_send(Port { port }).unwrap_throw();
+        sender.unbounded_send(Port { port }).unwrap();
     }));
 
     OnConnect { _listener, receiver }
@@ -797,11 +797,11 @@ pub fn connect(name: &str) -> Port {
           F: FnMut(D) -> P + 'static {
 
     Listener::new(browser.runtime().on_message(), Closure::new(move |message: String, _: JsValue, _: JsValue| {
-        let message: D = serde_json::from_str(&message).unwrap_throw();
+        let message: D = serde_json::from_str(&message).unwrap();
         let future = f(message);
         future_to_promise(async move {
             let reply = future.await?;
-            let reply = serde_json::to_string(&reply).unwrap_throw();
+            let reply = serde_json::to_string(&reply).unwrap();
             Ok(JsValue::from(reply))
         })
     }))
@@ -909,7 +909,7 @@ impl Windows {
                 .unchecked_into::<Array>()
                 .values()
                 .into_iter()
-                .map(|x| x.unwrap_throw().unchecked_into())
+                .map(|x| x.unwrap().unchecked_into())
                 .collect();
 
             Ok(windows)
@@ -923,13 +923,13 @@ impl Windows {
             _window_created: Listener::new(browser.windows().on_created(), Closure::new(clone!(sender => move |window| {
                 sender.unbounded_send(
                     WindowChange::WindowCreated { window }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _window_removed: Listener::new(browser.windows().on_removed(), Closure::new(clone!(sender => move |window_id| {
                 sender.unbounded_send(
                     WindowChange::WindowRemoved { window_id }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _window_focused: Listener::new(browser.windows().on_focus_changed(), Closure::new(clone!(sender => move |window_id| {
@@ -942,13 +942,13 @@ impl Windows {
                             Some(window_id)
                         }
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_created: Listener::new(browser.tabs().on_created(), Closure::new(clone!(sender => move |tab| {
                 sender.unbounded_send(
                     WindowChange::TabCreated { tab }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_focused: Listener::new(browser.tabs().on_activated(), Closure::new(clone!(sender => move |active_info: TabActiveInfo| {
@@ -958,7 +958,7 @@ impl Windows {
                         new_tab_id: active_info.tab_id(),
                         window_id: active_info.window_id(),
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_detached: Listener::new(browser.tabs().on_detached(), Closure::new(clone!(sender => move |tab_id, detach_info: TabDetachInfo| {
@@ -968,13 +968,13 @@ impl Windows {
                         old_window_id: detach_info.old_window_id(),
                         old_index: detach_info.old_position(),
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_replaced: Listener::new(browser.tabs().on_replaced(), Closure::new(clone!(sender => move |new_tab_id, old_tab_id| {
                 sender.unbounded_send(
                     WindowChange::TabReplaced { old_tab_id, new_tab_id }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_attached: Listener::new(browser.tabs().on_attached(), Closure::new(clone!(sender => move |tab_id, attach_info: TabAttachInfo| {
@@ -984,7 +984,7 @@ impl Windows {
                         new_window_id: attach_info.new_window_id(),
                         new_index: attach_info.new_position(),
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_moved: Listener::new(browser.tabs().on_moved(), Closure::new(clone!(sender => move |tab_id, move_info: TabMoveInfo| {
@@ -995,13 +995,13 @@ impl Windows {
                         old_index: move_info.from_index(),
                         new_index: move_info.to_index(),
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_updated: Listener::new(browser.tabs().on_updated(), Closure::new(clone!(sender => move |_tab_id, _change_info, tab| {
                 sender.unbounded_send(
                     WindowChange::TabUpdated { tab }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             _tab_removed: Listener::new(browser.tabs().on_removed(), Closure::new(clone!(sender => move |tab_id, remove_info: TabRemoveInfo| {
@@ -1011,7 +1011,7 @@ impl Windows {
                         window_id: remove_info.window_id(),
                         is_window_closing: remove_info.is_window_closing(),
                     }
-                ).unwrap_throw();
+                ).unwrap();
             }))),
 
             receiver,
@@ -1215,19 +1215,19 @@ impl Timer {
         let closure = Closure::once(f);
 
         let id = window()
-            .unwrap_throw()
+            .unwrap()
             .set_timeout_with_callback_and_timeout_and_arguments_0(
                 closure.as_ref().unchecked_ref(),
                 // TODO is this conversion correct ?
                 ms as i32,
             )
-            .unwrap_throw();
+            .unwrap();
 
         Self { closure: Some(closure), id }
     }
 
     pub fn forget(mut self) {
-        self.closure.take().unwrap_throw().forget();
+        self.closure.take().unwrap().forget();
     }
 }
 
@@ -1235,7 +1235,7 @@ impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(_) = self.closure {
             window()
-                .unwrap_throw()
+                .unwrap()
                 .clear_timeout_with_handle(self.id);
         }
     }
@@ -1246,13 +1246,13 @@ pub fn set_interval<F>(f: F, ms: u32) where F: FnMut() + 'static {
     let f = Closure::wrap(Box::new(f) as Box<dyn FnMut()>);
 
     window()
-        .unwrap_throw()
+        .unwrap()
         .set_interval_with_callback_and_timeout_and_arguments_0(
             f.as_ref().unchecked_ref(),
             // TODO is this conversion correct ?
             ms as i32,
         )
-        .unwrap_throw();
+        .unwrap();
 
     f.forget();
 }
