@@ -271,6 +271,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "options"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dominator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-signals 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tab-organizer 5.0.0",
+ "wasm-bindgen 0.2.56 (registry+https://github.com/rust-lang/crates.io-index)",
+ "web-extension 0.1.0",
+]
+
+[[package]]
 name = "pin-utils"
 version = "0.1.0-alpha.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

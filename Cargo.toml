@@ -18,6 +18,7 @@ lto = true
 members = [
     "src/sidebar",
     "src/background",
+    "src/options",
     "web-extension",
 ]
 

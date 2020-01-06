@@ -623,7 +623,7 @@ impl State {
                                         }
                                     }))
 
-                                    .attribute("type", "text")
+                                    .attribute("type", "search")
                                     .attribute("autofocus", "")
                                     .attribute("autocomplete", "off")
                                     .attribute("placeholder", "Search")
@@ -633,6 +633,7 @@ impl State {
                                     .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
                                     .with_node!(element => {
+                                        // TODO debounce
                                         .event(clone!(state => move |_: events::Input| {
                                             let value = Arc::new(element.value());
                                             local_storage_set("tab-organizer.search", &value);
@@ -643,26 +644,21 @@ impl State {
                                     })
                                 }),
 
-                                html!("div", {
-                                    .class(&*TOOLBAR_SEPARATOR_STYLE)
-                                }),
-
                                 {
                                     let hovering = Mutable::new(false);
-                                    let holding = Mutable::new(false);
 
                                     html!("div", {
                                         .class(&*TOOLBAR_MENU_WRAPPER_STYLE)
                                         .children(&mut [
                                             html!("div", {
                                                 .class([
-                                                    &*ROW_STYLE,
                                                     &*TOOLBAR_MENU_STYLE,
                                                 ])
 
-                                                .cursor!(state.is_dragging(), "pointer")
+                                                .class_signal(&*TOOLBAR_MENU_HOVER_STYLE, hovering.signal())
+                                                .class_signal(&*TOOLBAR_MENU_OPEN_STYLE, state.menu.is_showing())
 
-                                                .class_signal(&*TOOLBAR_MENU_HOLD_STYLE, and(hovering.signal(), holding.signal()))
+                                                .cursor!(state.is_dragging(), "pointer")
 
                                                 .event(clone!(hovering => move |_: events::MouseEnter| {
                                                     hovering.set_neq(true);
@@ -672,20 +668,21 @@ impl State {
                                                     hovering.set_neq(false);
                                                 })
 
-                                                .event(clone!(holding => move |_: events::MouseDown| {
-                                                    holding.set_neq(true);
-                                                }))
-
-                                                // TODO only attach this when holding
-                                                .global_event(move |_: events::MouseUp| {
-                                                    holding.set_neq(false);
-                                                })
-
-                                                .event(clone!(state => move |_: events::Click| {
+                                                .event(clone!(state => move |_: events::MouseDown| {
                                                     state.menu.show();
                                                 }))
 
-                                                .text("Menu")
+                                                .children(&mut [
+                                                    html!("div", {
+                                                        .class(&*HAMBURGER_STYLE)
+                                                    }),
+                                                    html!("div", {
+                                                        .class(&*HAMBURGER_STYLE)
+                                                    }),
+                                                    html!("div", {
+                                                        .class(&*HAMBURGER_STYLE)
+                                                    }),
+                                                ])
                                             }),
 
                                             state.menu.render(|menu| { menu

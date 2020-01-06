@@ -311,6 +311,10 @@ impl Menu {
         self.state.show();
     }
 
+    pub(crate) fn is_showing(&self) -> impl Signal<Item = bool> {
+        self.state.visible.signal()
+    }
+
     pub(crate) fn render<F>(&self, f: F) -> Dom where F: FnOnce(MenuBuilder) -> MenuBuilder {
         let MenuBuilder { mut children, hovered, .. } = f(MenuBuilder::new(self.state.clone()));
 

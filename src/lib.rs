@@ -495,6 +495,8 @@ impl TransactionState {
         self.timer = None;
 
         if !self.changes.is_empty() {
+            let start_merge = performance_now();
+
             let updated = Object::new();
             let removed = Array::new();
             let seen = Set::new(&JsValue::null());
@@ -524,6 +526,10 @@ impl TransactionState {
                     },
                 }
             }
+
+            let end_merge = performance_now();
+
+            info!("Merging commit took {} ms", end_merge - start_merge);
 
             // TODO maybe use join ?
             if should_update {

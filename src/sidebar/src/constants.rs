@@ -79,7 +79,10 @@ lazy_static! {
     };
 
     pub(crate) static ref TOOLBAR_STYLE: String = class! {
-        .style("height", px(TOOLBAR_HEIGHT))
+        .style("height", px(TOOLBAR_HEIGHT - 8.0))
+        .style("margin-left", "4px")
+        .style("margin-top", "4px")
+        .style("margin-bottom", "4px")
         //.style("margin-top", px(TOOLBAR_MARGIN))
         //.style("margin-left", "2px")
         //.style("border-radius", "2px")
@@ -90,35 +93,43 @@ lazy_static! {
         //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%)")
     };
 
-    pub(crate) static ref TOOLBAR_SEPARATOR_STYLE: String = class! {
-        //.style("background-color", "hsl(211, 95%, 40%)")
-        .style("border-color", "rgb(0, 120, 215)")
-        .style("width", "1px")
-        .style("height", "100%")
-    };
-
     pub(crate) static ref TOOLBAR_MENU_WRAPPER_STYLE: String = class! {
         .style("height", "100%")
     };
 
     pub(crate) static ref TOOLBAR_MENU_STYLE: String = class! {
+        .style("box-sizing", "border-box")
         .style("height", "100%")
-        .style("padding-left", "11px")
-        .style("padding-right", "11px")
-        .style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
+        .style("padding-top", "2px")
+        .style("padding-left", "6px")
+        .style("padding-right", "6px")
+        .style("margin-left", "3px")
+        .style("border-radius", "3px")
+        //.style("box-shadow", "inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
     };
 
-    pub(crate) static ref TOOLBAR_MENU_HOLD_STYLE: String = class! {
-        .style("top", "1px")
+    pub(crate) static ref TOOLBAR_MENU_HOVER_STYLE: String = class! {
+        .style("background-color", "rgb(221, 222, 222)")
+    };
+
+    pub(crate) static ref TOOLBAR_MENU_OPEN_STYLE: String = class! {
+        .style("background-color", "rgb(210, 211, 212)")
+    };
+
+    pub(crate) static ref HAMBURGER_STYLE: String = class! {
+        .style("width", "12px")
+        .style("height", "2px")
+        .style("background-color", "rgb(83, 84, 84)")
+        .style("margin-top", "3px")
     };
 
     pub(crate) static ref SEARCH_STYLE: String = class! {
         .style("box-sizing", "border-box")
+        .style("height", "22px")
         .style("padding-top", "2px")
         .style("padding-bottom", "2px")
         .style("padding-left", "5px")
         .style("padding-right", "5px")
-        .style("margin-left", "4px")
         //.style("height", "100%")
         //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%), inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
         .style("border-radius", "3px")

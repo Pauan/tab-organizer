@@ -991,6 +991,6 @@ pub async fn main_js() -> Result<(), JsValue> {
     }*/
 
 
-    log!("Backrgound page started");
+    log!("Background page started");
     Ok(())
 }
