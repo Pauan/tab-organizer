@@ -5,20 +5,101 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum SidebarMessage {
-    Initialize {
-        id: String,
-    },
-    ClickTab {
-        id: Uuid,
-    },
-    CloseTabs {
-        ids: Vec<Uuid>,
-    },
-    UnloadTabs {
-        ids: Vec<Uuid>,
-    },
+pub mod sidebar {
+    use super::{Tag, Tab};
+    use serde_derive::{Serialize, Deserialize};
+    use uuid::Uuid;
+
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum ClientMessage {
+        Initialize {
+            id: String,
+        },
+        ClickTab {
+            id: Uuid,
+        },
+        CloseTabs {
+            ids: Vec<Uuid>,
+        },
+        UnloadTabs {
+            ids: Vec<Uuid>,
+        },
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum TabChange {
+        FaviconUrl {
+            new_favicon_url: Option<String>,
+        },
+        Title {
+            new_title: Option<String>,
+        },
+        Url {
+            new_url: Option<String>,
+        },
+        Pinned {
+            pinned: bool,
+        },
+        AddedToTag {
+            tag: Tag,
+        },
+        RemovedFromTag {
+            tag_name: String,
+        },
+        Unloaded {
+            unloaded: bool,
+        },
+        Muted {
+            muted: bool,
+        },
+        PlayingAudio {
+            playing: bool,
+        },
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum ServerMessage {
+        Initial {
+            tabs: Vec<Tab>,
+        },
+        TabInserted {
+            tab_index: usize,
+            tab: Tab,
+        },
+        TabRemoved {
+            tab_index: usize,
+        },
+        TabChanged {
+            tab_index: usize,
+            changes: Vec<TabChange>,
+        },
+        TabFocused {
+            old_tab_index: Option<usize>,
+            new_tab_index: usize,
+            new_timestamp_focused: f64,
+        },
+        TabMoved {
+            old_tab_index: usize,
+            new_tab_index: usize,
+        },
+    }
+}
+
+
+pub mod options {
+    use serde_derive::{Serialize, Deserialize};
+
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum ClientMessage {
+        Initialize,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub enum ServerMessage {
+        Initial,
+    }
 }
 
 
@@ -52,62 +133,10 @@ impl Options {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum TabChange {
-    FaviconUrl {
-        new_favicon_url: Option<String>,
-    },
-    Title {
-        new_title: Option<String>,
-    },
-    Url {
-        new_url: Option<String>,
-    },
-    Pinned {
-        pinned: bool,
-    },
-    AddedToTag {
-        tag: Tag,
-    },
-    RemovedFromTag {
-        tag_name: String,
-    },
-    Unloaded {
-        unloaded: bool,
-    },
-    Muted {
-        muted: bool,
-    },
-    PlayingAudio {
-        playing: bool,
-    },
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum BackgroundMessage {
-    Initial {
-        tabs: Vec<Tab>,
-    },
-    TabInserted {
-        tab_index: usize,
-        tab: Tab,
-    },
-    TabRemoved {
-        tab_index: usize,
-    },
-    TabChanged {
-        tab_index: usize,
-        changes: Vec<TabChange>,
-    },
-    TabFocused {
-        old_tab_index: Option<usize>,
-        new_tab_index: usize,
-        new_timestamp_focused: f64,
-    },
-    TabMoved {
-        old_tab_index: usize,
-        new_tab_index: usize,
-    },
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tag {
+    pub name: String,
+    pub timestamp_added: f64,
 }
 
 
@@ -171,7 +200,7 @@ impl SerializedTab {
         })
     }
 
-    pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<TabChange> {
+    pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<sidebar::TabChange> {
         let mut changes = vec![];
 
         let url = tab.url();
@@ -179,38 +208,38 @@ impl SerializedTab {
 
         if self.favicon_url != favicon_url {
             self.favicon_url = favicon_url.clone();
-            changes.push(TabChange::FaviconUrl { new_favicon_url: favicon_url });
+            changes.push(sidebar::TabChange::FaviconUrl { new_favicon_url: favicon_url });
         }
 
         if self.url != url {
             self.url = url.clone();
-            changes.push(TabChange::Url { new_url: url });
+            changes.push(sidebar::TabChange::Url { new_url: url });
         }
 
         let title = tab.title();
 
         if self.title != title {
             self.title = title.clone();
-            changes.push(TabChange::Title { new_title: title });
+            changes.push(sidebar::TabChange::Title { new_title: title });
         }
 
         let pinned = tab.pinned();
 
         if self.pinned != pinned {
             self.pinned = pinned;
-            changes.push(TabChange::Pinned { pinned });
+            changes.push(sidebar::TabChange::Pinned { pinned });
         }
 
         if self.unloaded {
             self.unloaded = false;
-            changes.push(TabChange::Unloaded { unloaded: false });
+            changes.push(sidebar::TabChange::Unloaded { unloaded: false });
         }
 
         let muted = tab.muted_info().muted();
 
         if self.muted != muted {
             self.muted = muted;
-            changes.push(TabChange::Muted { muted });
+            changes.push(sidebar::TabChange::Muted { muted });
         }
 
         changes
@@ -250,13 +279,6 @@ impl SerializedWindow {
     pub fn tab_index(&self, uuid: Uuid) -> usize {
         self.tabs.iter().position(|x| *x == uuid).unwrap()
     }
-}
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Tag {
-    pub name: String,
-    pub timestamp_added: f64,
 }
 
 

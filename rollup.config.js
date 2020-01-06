@@ -23,7 +23,7 @@ export default {
                 return "browser.runtime.getURL(" + JSON.stringify(path) + ")";
             },
         }),
-        terser(),
+        //terser(),
         copy({
             assets: ["static"],
         }),

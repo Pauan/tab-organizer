@@ -709,41 +709,76 @@ impl Database {
 }
 
 
+#[derive(Debug)]
+pub struct Port<In, Out> {
+    port: web_extension::Port,
+    _input: std::marker::PhantomData<In>,
+    _output: std::marker::PhantomData<Out>,
+}
+
+impl<In, Out> Clone for Port<In, Out> {
+    #[inline]
+    fn clone(&self) -> Self {
+        Self {
+            port: self.port.clone(),
+            _input: std::marker::PhantomData,
+            _output: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<In, Out> PartialEq for Port<In, Out> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.port == other.port
+    }
+}
+
+impl<In, Out> Port<In, Out> {
+    pub fn name(&self) -> String {
+        self.port.name()
+    }
+
+    pub fn unchecked_send_message(&self, message: &JsValue) {
+        self.port.post_message(message);
+    }
+}
+
+impl<In, Out> Port<In, Out> where In: Serialize {
+    pub fn send_message(&self, message: &In) {
+        self.unchecked_send_message(&serialize(message));
+    }
+}
+
+
 struct OnMessage<A> {
     _on_message: Listener<dyn FnMut(JsValue)>,
     _on_disconnect: Listener<dyn FnMut(web_extension::Port)>,
-    receiver: mpsc::UnboundedReceiver<A>,
+    receiver: mpsc::UnboundedReceiver<JsValue>,
+    _output: std::marker::PhantomData<A>,
 }
 
-impl<A> Stream for OnMessage<A> {
+impl<A> Unpin for OnMessage<A> {}
+
+impl<A> Stream for OnMessage<A> where A: DeserializeOwned {
     type Item = A;
 
     #[inline]
     fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
-        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx).map(|option| {
+            option.map(|message| {
+                deserialize(&message)
+            })
+        })
     }
 }
 
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Port {
-    port: web_extension::Port,
-}
-
-impl Port {
-    pub fn send_message_raw(&self, message: &JsValue) {
-        self.port.post_message(message);
-    }
-
-    pub fn send_message<A>(&self, message: &A) where A: Serialize {
-        self.send_message_raw(&serialize(message));
-    }
-
-    pub fn on_message<A>(&self) -> impl Stream<Item = A> where A: DeserializeOwned + 'static {
+impl<In, Out> Port<In, Out> where Out: DeserializeOwned {
+    pub fn on_message(&self) -> impl Stream<Item = Out> {
         let (sender, receiver) = mpsc::unbounded();
 
         let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message| {
-            sender.unbounded_send(deserialize(&message)).unwrap();
+            sender.unbounded_send(message).unwrap();
         })));
 
         // TODO check port error ?
@@ -751,41 +786,69 @@ impl Port {
             sender.close_channel();
         }));
 
-        OnMessage { _on_message, _on_disconnect, receiver }
+        OnMessage {
+            _on_message,
+            _on_disconnect,
+            receiver,
+            _output: std::marker::PhantomData,
+        }
     }
 }
 
 
-struct OnConnect {
+struct OnConnect<In, Out> {
     _listener: Listener<dyn FnMut(web_extension::Port)>,
-    receiver: mpsc::UnboundedReceiver<Port>,
+    receiver: mpsc::UnboundedReceiver<web_extension::Port>,
+    _input: std::marker::PhantomData<In>,
+    _output: std::marker::PhantomData<Out>,
 }
 
-impl Stream for OnConnect {
-    type Item = Port;
+impl<In, Out> Unpin for OnConnect<In, Out> {}
+
+impl<In, Out> Stream for OnConnect<In, Out> {
+    type Item = Port<In, Out>;
 
     #[inline]
     fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
-        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx).map(|option| {
+            option.map(|port| {
+                Port {
+                    port,
+                    _input: std::marker::PhantomData,
+                    _output: std::marker::PhantomData,
+                }
+            })
+        })
     }
 }
 
-pub fn on_connect() -> impl Stream<Item = Port> {
+pub fn on_connect<In, Out>(name: &str) -> impl Stream<Item = Port<In, Out>> {
+    let name = name.to_owned();
+
     let (sender, receiver) = mpsc::unbounded();
 
-    let _listener = Listener::new(browser.runtime().on_connect(), Closure::new(move |port| {
-        sender.unbounded_send(Port { port }).unwrap();
+    let _listener = Listener::new(browser.runtime().on_connect(), Closure::new(move |port: web_extension::Port| {
+        if port.name() == name {
+            sender.unbounded_send(port).unwrap();
+        }
     }));
 
-    OnConnect { _listener, receiver }
+    OnConnect {
+        _listener,
+        receiver,
+        _input: std::marker::PhantomData,
+        _output: std::marker::PhantomData,
+    }
 }
 
 
-pub fn connect(name: &str) -> Port {
+pub fn connect<In, Out>(name: &str) -> Port<In, Out> {
     Port {
         port: browser.runtime().connect(None, &object! {
             "name": name,
         }),
+        _input: std::marker::PhantomData,
+        _output: std::marker::PhantomData,
     }
 }
 

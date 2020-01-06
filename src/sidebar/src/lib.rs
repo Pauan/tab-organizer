@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use std::sync::Arc;
 use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, export_function, closure, print_logs};
-use tab_organizer::state::{SidebarMessage, BackgroundMessage, Options};
+use tab_organizer::state::{sidebar, Options};
 use dominator::{html, stylesheet, clone};
 use futures::stream::{StreamExt, TryStreamExt};
 use futures_signals::signal::{Mutable, SignalExt};
@@ -401,20 +401,20 @@ pub fn main_js() {
 
 
     tab_organizer::spawn(async move {
-        let port = connect("sidebar");
+        let port = connect::<sidebar::ClientMessage, sidebar::ServerMessage>("sidebar");
 
-        port.send_message(&SidebarMessage::Initialize {
+        port.send_message(&sidebar::ClientMessage::Initialize {
             id: search_to_id(),
         });
 
         let _ = port.on_message()
-            .map(|x| -> Result<BackgroundMessage, JsValue> { Ok(x) })
+            .map(|x| -> Result<_, JsValue> { Ok(x) })
             .try_fold(None, move |mut state, message| {
                 clone!(port => async move {
                     info!("Received message {:#?}", message);
 
                     match message {
-                        BackgroundMessage::Initial { tabs } => {
+                        sidebar::ServerMessage::Initial { tabs } => {
                             assert!(state.is_none());
 
                             state = time!("Initializing", {
@@ -424,23 +424,23 @@ pub fn main_js() {
                             });
                         },
 
-                        BackgroundMessage::TabInserted { tab_index, tab } => {
+                        sidebar::ServerMessage::TabInserted { tab_index, tab } => {
                             state.as_ref().unwrap().insert_tab(tab_index, tab);
                         },
 
-                        BackgroundMessage::TabRemoved { tab_index } => {
+                        sidebar::ServerMessage::TabRemoved { tab_index } => {
                             state.as_ref().unwrap().remove_tab(tab_index);
                         },
 
-                        BackgroundMessage::TabChanged { tab_index, changes } => {
+                        sidebar::ServerMessage::TabChanged { tab_index, changes } => {
                             state.as_ref().unwrap().change_tab(tab_index, changes);
                         },
 
-                        BackgroundMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused } => {
+                        sidebar::ServerMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused } => {
                             state.as_ref().unwrap().focus_tab(old_tab_index, new_tab_index, new_timestamp_focused);
                         },
 
-                        BackgroundMessage::TabMoved { old_tab_index, new_tab_index } => {
+                        sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index } => {
                             state.as_ref().unwrap().move_tab(old_tab_index, new_tab_index);
                         },
                     }

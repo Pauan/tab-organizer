@@ -15,9 +15,8 @@ use wasm_bindgen::{intern, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use js_sys::{Array, Date};
 use dominator::clone;
-use serde::Serialize;
 use tab_organizer::{spawn, log, info, object, serialize, deserialize, generate_uuid, deserialize_str, serialize_str, Listener, Windows, Database, on_connect, Port, WindowChange, export_function, closure, print_logs};
-use tab_organizer::state::{Tab, SidebarMessage, BackgroundMessage, SerializedWindow, SerializedTab, TabChange};
+use tab_organizer::state::{Tab, SerializedWindow, SerializedTab, sidebar, options};
 
 mod migrate;
 
@@ -237,7 +236,9 @@ struct State {
     unloading_tabs: HashSet<Uuid>,
 
     database: Database,
-    ports: HashMap<Uuid, Vec<Port>>,
+
+    sidebar_ports: HashMap<Uuid, Vec<Port<sidebar::ServerMessage, sidebar::ClientMessage>>>,
+    options_ports: Vec<Port<options::ServerMessage, options::ClientMessage>>,
 }
 
 impl State {
@@ -251,7 +252,9 @@ impl State {
             unloading_tabs: HashSet::new(),
 
             database,
-            ports: HashMap::new(),
+
+            sidebar_ports: HashMap::new(),
+            options_ports: vec![],
         }))
     }
 
@@ -361,7 +364,7 @@ impl State {
                 state.focused_window = Some(uuid);
             }
 
-            state.ports.insert(uuid, vec![]).unwrap_none();
+            state.sidebar_ports.insert(uuid, vec![]).unwrap_none();
         }
 
         let _ = JsFuture::from(browser.sidebar_action().set_panel(&object! {
@@ -451,7 +454,7 @@ impl State {
             if browser_tab.playing_audio != playing_audio {
                 browser_tab.playing_audio = playing_audio;
 
-                changes.push(TabChange::PlayingAudio { playing: playing_audio });
+                changes.push(sidebar::TabChange::PlayingAudio { playing: playing_audio });
             }
 
             if is_new {
@@ -459,7 +462,7 @@ impl State {
 
                 let tab = browser_tab.to_tab(&browser_window);
 
-                state.send_message(window_uuid, &BackgroundMessage::TabInserted {
+                state.send_message(window_uuid, &sidebar::ServerMessage::TabInserted {
                     tab_index,
                     tab,
                 });
@@ -468,7 +471,7 @@ impl State {
             } else if !changes.is_empty() {
                 let tab_index = browser_window.serialized.tab_index(uuid);
 
-                state.send_message(window_uuid, &BackgroundMessage::TabChanged { tab_index, changes });
+                state.send_message(window_uuid, &sidebar::ServerMessage::TabChanged { tab_index, changes });
             }
         }
 
@@ -498,14 +501,14 @@ impl State {
         tab_index
     }
 
-    fn send_message<A>(&self, uuid: Uuid, message: &A) where A: Serialize {
-        let ports = self.ports.get(&uuid).unwrap();
+    fn send_message(&self, uuid: Uuid, message: &sidebar::ServerMessage) {
+        let ports = self.sidebar_ports.get(&uuid).unwrap();
 
         if !ports.is_empty() {
             let message = serialize(&message);
 
             for port in ports {
-                port.send_message_raw(&message);
+                port.unchecked_send_message(&message);
             }
         }
     }
@@ -514,7 +517,7 @@ impl State {
 
 #[wasm_bindgen(start)]
 pub async fn main_js() -> Result<(), JsValue> {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    console_error_panic_hook::set_once();
 
 
     log!("Starting");
@@ -554,24 +557,24 @@ pub async fn main_js() -> Result<(), JsValue> {
 
 
     spawn(clone!(state => async move {
-        on_connect()
-            .map(|x| -> Result<Port, JsValue> { Ok(x) })
+        on_connect::<sidebar::ServerMessage, sidebar::ClientMessage>("sidebar")
+            .map(|x| -> Result<_, JsValue> { Ok(x) })
             .try_for_each_concurrent(None, move |port| {
                 clone!(state => async move {
                     let port_uuid = Rc::new(Cell::new(None));
 
                     port.on_message()
-                        .map(|x| -> Result<SidebarMessage, JsValue> { Ok(x) })
+                        .map(|x| -> Result<_, JsValue> { Ok(x) })
                         .try_for_each(clone!(port_uuid, state, port => move |message| {
                             clone!(port_uuid, state, port => async move {
                                 match message {
-                                    SidebarMessage::Initialize { id } => {
+                                    sidebar::ClientMessage::Initialize { id } => {
                                         let uuid: Uuid = deserialize_str(&id);
 
                                         let state: &mut State = &mut state.borrow_mut();
 
                                         {
-                                            let ports = state.ports.get_mut(&uuid).unwrap();
+                                            let ports = state.sidebar_ports.get_mut(&uuid).unwrap();
                                             ports.push(port.clone());
                                         }
 
@@ -599,10 +602,10 @@ pub async fn main_js() -> Result<(), JsValue> {
                                                 .collect()
                                         });
 
-                                        port.send_message(&BackgroundMessage::Initial { tabs });
+                                        port.send_message(&sidebar::ServerMessage::Initial { tabs });
                                     },
 
-                                    SidebarMessage::ClickTab { id } => {
+                                    sidebar::ClientMessage::ClickTab { id } => {
                                         // TODO can this use unwrap_throw ?
                                         if let Some(tab) = state.borrow_mut().tab_ids.get_uuid(id) {
                                             let fut1 = JsFuture::from(browser.tabs().update(Some(tab.id), &object! {
@@ -624,7 +627,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         }
                                     },
 
-                                    SidebarMessage::CloseTabs { ids } => {
+                                    sidebar::ClientMessage::CloseTabs { ids } => {
                                         let state: &mut State = &mut state.borrow_mut();
 
                                         let mut close_unloaded = vec![];
@@ -674,12 +677,12 @@ pub async fn main_js() -> Result<(), JsValue> {
                                             });
 
                                             for tab_index in tab_indexes {
-                                                state.send_message(window_id, &BackgroundMessage::TabRemoved { tab_index });
+                                                state.send_message(window_id, &sidebar::ServerMessage::TabRemoved { tab_index });
                                             }
                                         }
                                     },
 
-                                    SidebarMessage::UnloadTabs { ids } => {
+                                    sidebar::ClientMessage::UnloadTabs { ids } => {
                                         let state: &mut State = &mut state.borrow_mut();
 
                                         let ids = ids.into_iter().filter_map(|id| {
@@ -711,10 +714,39 @@ pub async fn main_js() -> Result<(), JsValue> {
                     if let Some(uuid) = port_uuid.get() {
                         let mut state = state.borrow_mut();
 
-                        if let Some(ports) = state.ports.get_mut(&uuid) {
+                        if let Some(ports) = state.sidebar_ports.get_mut(&uuid) {
                             ports.remove_item(&port).unwrap();
                         }
                     }
+
+                    Ok(())
+                })
+            }).await
+    }));
+
+
+    spawn(clone!(state => async move {
+        on_connect::<options::ServerMessage, options::ClientMessage>("options")
+            .map(|x| -> Result<_, JsValue> { Ok(x) })
+            .try_for_each_concurrent(None, move |port| {
+                clone!(state => async move {
+                    state.borrow_mut().options_ports.push(port.clone());
+
+                    port.on_message()
+                        .map(|x| -> Result<_, JsValue> { Ok(x) })
+                        .try_for_each(clone!(state, port => move |message| {
+                            clone!(state, port => async move {
+                                match message {
+                                    options::ClientMessage::Initialize => {
+                                        port.send_message(&options::ServerMessage::Initial);
+                                    },
+                                }
+
+                                Ok(()) as Result<(), JsValue>
+                            })
+                        })).await?;
+
+                    state.borrow_mut().options_ports.remove_item(&port).unwrap();
 
                     Ok(())
                 })
@@ -757,7 +789,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                                 let uuid = browser_window.uuid;
 
-                                state.ports.remove(&uuid).unwrap();
+                                state.sidebar_ports.remove(&uuid).unwrap();
 
                                 if !browser_window.is_unloading {
                                     state.database.transaction(|tx| {
@@ -829,7 +861,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                 let old_tab_index = old_tab_uuid.map(|x| browser_window.serialized.tab_index(x));
                                 let new_tab_index = browser_window.serialized.tab_index(uuid);
 
-                                state.send_message(browser_uuid, &BackgroundMessage::TabFocused {
+                                state.send_message(browser_uuid, &sidebar::ServerMessage::TabFocused {
                                     old_tab_index,
                                     new_tab_index,
                                     new_timestamp_focused: timestamp_focused,
@@ -866,7 +898,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         tx.set(&State::window_key(old_window.uuid), &old_window.serialized);
                                     });
 
-                                    state.send_message(old_window_id, &BackgroundMessage::TabRemoved { tab_index });
+                                    state.send_message(old_window_id, &sidebar::ServerMessage::TabRemoved { tab_index });
                                 }
                             }
 
@@ -881,7 +913,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                                 let tab = browser_tab.to_tab(&browser_window);
 
-                                state.send_message(browser_uuid, &BackgroundMessage::TabInserted {
+                                state.send_message(browser_uuid, &sidebar::ServerMessage::TabInserted {
                                     tab_index,
                                     tab,
                                 });
@@ -910,7 +942,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                     // TODO maybe the movement should take into account whether it's moving left or right ?
                                     let new_tab_index = State::insert_tab(&state.database, browser_window, browser_tab, new_index);
 
-                                    state.send_message(browser_uuid, &BackgroundMessage::TabMoved { old_tab_index, new_tab_index });
+                                    state.send_message(browser_uuid, &sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index });
                                 }
                             }
                         },
@@ -952,10 +984,10 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         tx.set(&State::tab_key(tab_uuid), &browser_tab.serialized);
                                     });
 
-                                    state.send_message(window_uuid, &BackgroundMessage::TabChanged {
+                                    state.send_message(window_uuid, &sidebar::ServerMessage::TabChanged {
                                         tab_index,
                                         changes: vec![
-                                            TabChange::Unloaded { unloaded: true },
+                                            sidebar::TabChange::Unloaded { unloaded: true },
                                         ],
                                     });
 
@@ -969,7 +1001,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         tx.set(&State::window_key(window_uuid), &browser_window.serialized);
                                     });
 
-                                    state.send_message(window_uuid, &BackgroundMessage::TabRemoved { tab_index });
+                                    state.send_message(window_uuid, &sidebar::ServerMessage::TabRemoved { tab_index });
                                 }
                             }
                         },

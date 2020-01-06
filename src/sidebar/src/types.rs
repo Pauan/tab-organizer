@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get};
 use tab_organizer::state as shared;
-use tab_organizer::state::{Options, SidebarMessage};
+use tab_organizer::state::{Options, sidebar};
 use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
@@ -90,11 +90,11 @@ pub(crate) struct State {
     pub(crate) scrolling: Scrolling,
 
     pub(crate) menu: Menu,
-    pub(crate) port: tab_organizer::Port,
+    pub(crate) port: tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>,
 }
 
 impl State {
-    pub(crate) fn new(port: tab_organizer::Port, options: Options, tabs: Vec<shared::Tab>) -> Self {
+    pub(crate) fn new(port: tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>, options: Options, tabs: Vec<shared::Tab>) -> Self {
         let tabs = tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect();
 
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
@@ -147,7 +147,7 @@ impl State {
             group.last_selected_tab.set_neq(None);
         }
 
-        self.port.send_message(&SidebarMessage::ClickTab {
+        self.port.send_message(&sidebar::ClientMessage::ClickTab {
             id: tab.id,
         });
     }
@@ -158,7 +158,7 @@ impl State {
             tab.id
         }).collect();
 
-        self.port.send_message(&SidebarMessage::CloseTabs { ids });
+        self.port.send_message(&sidebar::ClientMessage::CloseTabs { ids });
     }
 }
 
