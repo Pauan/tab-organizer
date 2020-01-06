@@ -540,7 +540,7 @@ pub async fn main_js() -> Result<(), JsValue> {
         Database::new(),
     )?;
 
-    //database.transaction(|tx| tx.clear());
+    database.transaction(|tx| tx.clear());
 
     migrate::migrate(&database);
 

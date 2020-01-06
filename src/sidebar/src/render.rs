@@ -721,6 +721,11 @@ impl State {
                                                 .submenu("Foo", |menu| { menu
                                                     .option("Bar", futures_signals::signal::always(true), || {})
                                                     .option("Qux", futures_signals::signal::always(false), || {})
+
+                                                    .submenu("Corge", |menu| { menu
+                                                        .option("Yes", futures_signals::signal::always(true), || {})
+                                                        .option("No", futures_signals::signal::always(false), || {})
+                                                    })
                                                 })
                                             }),
                                         ])

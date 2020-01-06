@@ -6,7 +6,8 @@ import zip from "rollup-plugin-zip";
 export default {
     input: {
         sidebar: "src/sidebar/Cargo.toml",
-        background: "src/background/Cargo.toml"
+        background: "src/background/Cargo.toml",
+        options: "src/options/Cargo.toml",
     },
     output: {
         dir: "dist",
