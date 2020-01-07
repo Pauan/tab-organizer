@@ -610,7 +610,7 @@ impl TransactionState {
         }))
     }
 
-    // TODO use some sort of global lock to prevent overlapping commits ?
+    // TODO use some sort of global lock to prevent out of order commits ?
     fn commit(&mut self) {
         self.is_delayed = false;
         self.timer = None;
@@ -647,12 +647,54 @@ impl TransactionState {
 
 
 #[derive(Debug)]
-pub struct Transaction<'a> {
-    db: &'a Object,
-    state: &'a Rc<RefCell<TransactionState>>,
+pub struct Database {
+    db: Object,
+    // TODO verify that this doesn't leak
+    flusher: Rc<RefCell<DatabaseFlusher>>,
+    // TODO verify that this doesn't leak
+    state: Rc<RefCell<TransactionState>>,
 }
 
-impl<'a> Transaction<'a> {
+impl Database {
+    pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
+        // TODO move this inside the async ?
+        let fut = JsFuture::from(browser.storage().local().get(&JsValue::null()));
+
+        async move {
+            let db = fut.await?;
+            let db: Object = db.unchecked_into();
+
+            let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
+
+            Ok(Self {
+                db,
+                state: TransactionState::new(flusher.clone(), false),
+                flusher,
+            })
+        }
+    }
+
+    pub fn delay_commit(&mut self) {
+        {
+            let mut state = self.state.borrow_mut();
+
+            if state.is_delayed {
+                assert!(state.timer.is_some());
+                state.reset_timer();
+
+            } else if let None = state.timer {
+                assert_eq!(state.changes.len(), 0);
+                state.is_delayed = true;
+
+            } else {
+                drop(state);
+                self.state = TransactionState::new(self.flusher.clone(), true);
+            }
+        }
+
+        self.state.borrow_mut().start_commit(&self.state);
+    }
+
     pub fn get_raw(&self, key: &str) -> Option<JsValue> {
         // TODO make this more efficient
         let key = JsValue::from(key);
@@ -717,68 +759,9 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn clear(&self) {
-        // TODO make this more efficient
-        for key in Object::keys(&self.db).values() {
-            self.remove_raw(key.unwrap());
+        for key in Object::keys(&self.db).iter() {
+            self.remove_raw(key);
         }
-    }
-}
-
-
-#[derive(Debug)]
-pub struct Database {
-    db: Object,
-    // TODO verify that this doesn't leak
-    flusher: Rc<RefCell<DatabaseFlusher>>,
-    // TODO verify that this doesn't leak
-    state: Rc<RefCell<TransactionState>>,
-}
-
-impl Database {
-    pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
-        // TODO move this inside the async ?
-        let fut = JsFuture::from(browser.storage().local().get(&JsValue::null()));
-
-        async move {
-            let db = fut.await?;
-            let db: Object = db.unchecked_into();
-
-            let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
-
-            Ok(Self {
-                db,
-                state: TransactionState::new(flusher.clone(), false),
-                flusher,
-            })
-        }
-    }
-
-    pub fn transaction<A, F>(&self, f: F) -> A where F: FnOnce(&Transaction) -> A {
-        f(&Transaction {
-            db: &self.db,
-            state: &self.state,
-        })
-    }
-
-    pub fn delay_transactions(&mut self) {
-        {
-            let mut state = self.state.borrow_mut();
-
-            if state.is_delayed {
-                assert!(state.timer.is_some());
-                state.reset_timer();
-
-            } else if let None = state.timer {
-                assert_eq!(state.changes.len(), 0);
-                state.is_delayed = true;
-
-            } else {
-                drop(state);
-                self.state = TransactionState::new(self.flusher.clone(), true);
-            }
-        }
-
-        self.state.borrow_mut().start_commit(&self.state);
     }
 
     pub fn debug(&self) {
