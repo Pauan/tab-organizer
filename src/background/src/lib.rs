@@ -524,10 +524,10 @@ pub async fn main_js() -> Result<(), JsValue> {
 
 
     Listener::new(browser.browser_action().on_clicked(), Closure::wrap(Box::new(move |_: JsValue| {
-        let promise = browser.sidebar_action().open();
+        let fut = JsFuture::from(browser.sidebar_action().open());
 
         spawn(async move {
-            let _ = JsFuture::from(promise).await?;
+            let _ = fut.await?;
             Ok(())
         });
     }) as Box<dyn FnMut(JsValue)>)).forget();
@@ -1011,16 +1011,6 @@ pub async fn main_js() -> Result<(), JsValue> {
                 })
             }).await
     });
-
-
-    /*{
-        let promise = browser.sidebar_action().open();
-
-        spawn(async move {
-            let _ = JsFuture::from(promise).await?;
-            Ok(())
-        });
-    }*/
 
 
     log!("Background page started");

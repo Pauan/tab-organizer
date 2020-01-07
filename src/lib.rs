@@ -527,14 +527,13 @@ impl TransactionState {
                 }
             }
 
-            let end_merge = performance_now();
-
-            info!("Merging commit took {} ms", end_merge - start_merge);
-
+            // TODO guarantee that we are only running one operation at a time ?
             // TODO maybe use join ?
             if should_update {
+                let fut = JsFuture::from(browser.storage().local().set(&updated));
+
                 spawn(async move {
-                    let _ = JsFuture::from(browser.storage().local().set(&updated)).await?;
+                    let _ = fut.await?;
                     let end = performance_now();
                     info!("Updating keys took {} ms", end - start);
                     Ok(())
@@ -542,13 +541,19 @@ impl TransactionState {
             }
 
             if should_remove {
+                let fut = JsFuture::from(browser.storage().local().remove(&removed));
+
                 spawn(async move {
-                    let _ = JsFuture::from(browser.storage().local().remove(&removed)).await?;
+                    let _ = fut.await?;
                     let end = performance_now();
                     info!("Removing keys took {} ms", end - start);
                     Ok(())
                 });
             }
+
+            let end_merge = performance_now();
+
+            info!("Merging commit took {} ms", end_merge - start_merge);
         }
     }
 
@@ -665,8 +670,11 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> impl Future<Output = Result<Self, JsValue>> {
+        // TODO move this inside the async ?
+        let fut = JsFuture::from(browser.storage().local().get(&JsValue::null()));
+
         async move {
-            let db = JsFuture::from(browser.storage().local().get(&JsValue::null())).await?;
+            let db = fut.await?;
             let db: Object = db.unchecked_into();
             Ok(Self {
                 db,
@@ -876,8 +884,11 @@ pub fn send_message<A, B>(message: &A) -> impl Future<Output = Result<B, JsValue
           B: DeserializeOwned {
     let message = serialize(message);
 
+    // TODO should this be inside the async ?
+    let fut = JsFuture::from(browser.runtime().send_message(None, &message, None));
+
     async move {
-        let reply = JsFuture::from(browser.runtime().send_message(None, &message, None)).await?;
+        let reply = fut.await?;
         Ok(deserialize(&reply))
     }
 }*/
@@ -961,11 +972,14 @@ pub struct Windows;
 
 impl Windows {
     pub fn current() -> impl Future<Output = Result<Vec<Window>, JsValue>> {
+        // TODO should this be inside the async ?
+        let fut = JsFuture::from(browser.windows().get_all(&object! {
+            "populate": true,
+            "windowTypes": array![ intern("normal") ],
+        }));
+
         async move {
-            let windows = JsFuture::from(browser.windows().get_all(&object! {
-                "populate": true,
-                "windowTypes": array![ intern("normal") ],
-            })).await?;
+            let windows = fut.await?;
 
             // TODO make this more efficient
             let windows: Vec<Window> = windows
