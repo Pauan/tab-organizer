@@ -8,6 +8,7 @@ use std::sync::Arc;
 use futures_signals::signal::{Signal, SignalExt};
 use futures::channel::mpsc;
 use futures::stream::Stream;
+use futures::try_join;
 use std::future::Future;
 use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
@@ -465,6 +466,124 @@ pub fn deserialize<A>(value: &JsValue) -> A where A: DeserializeOwned {
 }
 
 
+// This guarantees that we will only be writing to the database one at a time.
+// It also batches changes so it doesn't need to write to the database as often.
+#[derive(Debug)]
+struct DatabaseFlusher {
+    // TODO realloc the changes occasionally ?
+    changes: Vec<Change>,
+    waiting: bool,
+}
+
+impl DatabaseFlusher {
+    fn new() -> Self {
+        Self {
+            changes: vec![],
+            waiting: false,
+        }
+    }
+
+    fn flush(this: Rc<RefCell<Self>>) {
+        let start_merge = performance_now();
+
+        let mut updated = None;
+        let mut removed = None;
+
+        let len = {
+            let mut lock = this.borrow_mut();
+
+            let len = lock.changes.len();
+
+            {
+                let seen = Set::new(&JsValue::null());
+
+                let mut iter = lock.changes.drain(..);
+
+                while let Some(change) = iter.next_back() {
+                    match change {
+                        Change::Remove(key) => {
+                            // If we have not seen the key yet...
+                            if !seen.has(&key) {
+                                seen.add(&key);
+                                removed.get_or_insert_with(|| Array::new()).push(&key);
+                            }
+                        },
+                        Change::Set(key, value) => {
+                            // If we have not seen the key yet...
+                            if !seen.has(&key) {
+                                seen.add(&key);
+                                Reflect::set(updated.get_or_insert_with(|| Object::new()), &key, &value).unwrap();
+                            }
+                        },
+                    }
+                }
+            }
+
+            assert_eq!(lock.changes.len(), 0);
+            assert!(updated.is_some() || removed.is_some());
+
+            len
+        };
+
+        let start_flush = performance_now();
+
+        spawn(async move {
+            try_join!(
+                async move {
+                    if let Some(updated) = updated {
+                        let _ = JsFuture::from(browser.storage().local().set(&updated)).await?;
+                    }
+
+                    Ok(()) as Result<(), JsValue>
+                },
+
+                async move {
+                    if let Some(removed) = removed {
+                        let _ = JsFuture::from(browser.storage().local().remove(&removed)).await?;
+                    }
+
+                    Ok(()) as Result<(), JsValue>
+                }
+            )?;
+
+            let end_flush = performance_now();
+
+            info!("Flushing {} changes took {} ms", len, end_flush - start_flush);
+
+            let mut lock = this.borrow_mut();
+
+            if lock.changes.is_empty() {
+                lock.waiting = false;
+
+            // More changes were queued while we were waiting
+            } else {
+                drop(lock);
+                Self::flush(this);
+            }
+
+            Ok(())
+        });
+
+
+        let end_merge = performance_now();
+
+        info!("Merging {} changes took {} ms", len, end_merge - start_merge);
+    }
+
+    fn push_changes(this: &Rc<RefCell<Self>>, changes: &mut Vec<Change>) {
+        let mut lock = this.borrow_mut();
+
+        lock.changes.append(changes);
+
+        if !lock.waiting {
+            lock.waiting = true;
+            drop(lock);
+            Self::flush(this.clone());
+        }
+    }
+}
+
+
 #[derive(Debug)]
 enum Change {
     Remove(JsValue),
@@ -473,14 +592,18 @@ enum Change {
 
 #[derive(Debug)]
 struct TransactionState {
+    // TODO verify that this doesn't leak
+    flusher: Rc<RefCell<DatabaseFlusher>>,
+    // TODO realloc the changes occasionally ?
     changes: Vec<Change>,
     is_delayed: bool,
     timer: Option<Timer>,
 }
 
 impl TransactionState {
-    fn new(is_delayed: bool) -> Rc<RefCell<Self>> {
+    fn new(flusher: Rc<RefCell<DatabaseFlusher>>, is_delayed: bool) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
+            flusher,
             changes: vec![],
             is_delayed,
             timer: None,
@@ -489,71 +612,11 @@ impl TransactionState {
 
     // TODO use some sort of global lock to prevent overlapping commits ?
     fn commit(&mut self) {
-        let start = performance_now();
-
         self.is_delayed = false;
         self.timer = None;
 
         if !self.changes.is_empty() {
-            let start_merge = performance_now();
-
-            let updated = Object::new();
-            let removed = Array::new();
-            let seen = Set::new(&JsValue::null());
-
-            let mut should_update = false;
-            let mut should_remove = false;
-
-            let mut iter = self.changes.drain(..);
-
-            while let Some(change) = iter.next_back() {
-                match change {
-                    Change::Remove(key) => {
-                        // If we have not seen the key yet...
-                        if !seen.has(&key) {
-                            seen.add(&key);
-                            should_remove = true;
-                            removed.push(&key);
-                        }
-                    },
-                    Change::Set(key, value) => {
-                        // If we have not seen the key yet...
-                        if !seen.has(&key) {
-                            seen.add(&key);
-                            should_update = true;
-                            Reflect::set(&updated, &key, &value).unwrap();
-                        }
-                    },
-                }
-            }
-
-            // TODO guarantee that we are only running one operation at a time ?
-            // TODO maybe use join ?
-            if should_update {
-                let fut = JsFuture::from(browser.storage().local().set(&updated));
-
-                spawn(async move {
-                    let _ = fut.await?;
-                    let end = performance_now();
-                    info!("Updating keys took {} ms", end - start);
-                    Ok(())
-                });
-            }
-
-            if should_remove {
-                let fut = JsFuture::from(browser.storage().local().remove(&removed));
-
-                spawn(async move {
-                    let _ = fut.await?;
-                    let end = performance_now();
-                    info!("Removing keys took {} ms", end - start);
-                    Ok(())
-                });
-            }
-
-            let end_merge = performance_now();
-
-            info!("Merging commit took {} ms", end_merge - start_merge);
+            DatabaseFlusher::push_changes(&self.flusher, &mut self.changes);
         }
     }
 
@@ -665,6 +728,9 @@ impl<'a> Transaction<'a> {
 #[derive(Debug)]
 pub struct Database {
     db: Object,
+    // TODO verify that this doesn't leak
+    flusher: Rc<RefCell<DatabaseFlusher>>,
+    // TODO verify that this doesn't leak
     state: Rc<RefCell<TransactionState>>,
 }
 
@@ -676,9 +742,13 @@ impl Database {
         async move {
             let db = fut.await?;
             let db: Object = db.unchecked_into();
+
+            let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
+
             Ok(Self {
                 db,
-                state: TransactionState::new(false),
+                state: TransactionState::new(flusher.clone(), false),
+                flusher,
             })
         }
     }
@@ -704,7 +774,7 @@ impl Database {
 
             } else {
                 drop(state);
-                self.state = TransactionState::new(true);
+                self.state = TransactionState::new(self.flusher.clone(), true);
             }
         }
 
