@@ -692,7 +692,7 @@ impl State {
                                             }),
 
                                             state.menu.render(|menu| { menu
-                                                .submenu(None, "Sort tabs by...", |menu| { menu
+                                                .submenu(Some("/icons/iconic/sort-ascending.svg"), "Sort tabs by...", |menu| { menu
                                                     .option(None, "Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Window);
                                                     }))

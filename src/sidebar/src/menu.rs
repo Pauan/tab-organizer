@@ -247,6 +247,25 @@ impl MenuBuilder {
     }
 
 
+    fn icon(url: Option<&str>) -> Dom {
+        match url {
+            Some(url) => {
+                html!("img", {
+                    .class(&*MENU_ICON_STYLE)
+                    .attribute("src", url)
+                    .attribute("alt", "")
+                })
+            },
+
+            None => {
+                html!("div", {
+                    .class(&*MENU_ICON_STYLE)
+                })
+            },
+        }
+    }
+
+
     fn push_submenu<F>(&mut self, icon: Option<&str>, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
         let visible = Mutable::new(false);
 
@@ -268,9 +287,7 @@ impl MenuBuilder {
             }))
 
             .children(&mut [
-                html!("div", {
-                    .class(&*MENU_ICON_STYLE)
-                }),
+                Self::icon(icon),
 
                 // TODO figure out a way to avoid this wrapper div ?
                 html!("div", {
@@ -389,9 +406,7 @@ impl MenuBuilder {
             })
 
             .children(&mut [
-                html!("div", {
-                    .class(&*MENU_ICON_STYLE)
-                }),
+                Self::icon(icon),
 
                 text(name),
             ])
