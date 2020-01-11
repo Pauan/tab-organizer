@@ -20,10 +20,10 @@ pub(crate) const TAB_DRAGGING_TOP: i32 = 11;
 pub(crate) const DRAG_GAP_PX: f64 = 32.0; // TODO adjust this based on how many tabs are being dragged
 pub(crate) const INSERT_LEFT_MARGIN: f64 = 12.0;
 
-pub(crate) const TOOLBAR_HEIGHT: f64 = 30.0;
+pub(crate) const TOOLBAR_HEIGHT: f64 = 22.0;
 pub(crate) const TOOLBAR_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TOOLBAR_MARGIN: f64 = 4.0;
-pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_BORDER_WIDTH + TOOLBAR_HEIGHT;
+pub(crate) const TOOLBAR_TOTAL_HEIGHT: f64 = TOOLBAR_BORDER_WIDTH + (TOOLBAR_MARGIN * 2.0) + TOOLBAR_HEIGHT;
 
 pub(crate) const GROUP_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const GROUP_PADDING_TOP: f64 = 3.0;
@@ -75,14 +75,14 @@ lazy_static! {
         .style("z-index", "3")
         .style("border-bottom-width", px(TOOLBAR_BORDER_WIDTH))
         .style("border-color", "rgb(202, 202, 202)") // rgb(0, 120, 215)
+        .style("padding-top", px(TOOLBAR_MARGIN))
+        .style("padding-left", px(TOOLBAR_MARGIN))
+        .style("padding-bottom", px(TOOLBAR_MARGIN))
         .style("margin-right", px(TOOLBAR_MARGIN))
     };
 
     pub(crate) static ref TOOLBAR_STYLE: String = class! {
-        .style("height", px(TOOLBAR_HEIGHT - 8.0))
-        .style("margin-left", "4px")
-        .style("margin-top", "4px")
-        .style("margin-bottom", "4px")
+        .style("height", px(TOOLBAR_HEIGHT))
         //.style("margin-top", px(TOOLBAR_MARGIN))
         //.style("margin-left", "2px")
         //.style("border-radius", "2px")
@@ -176,6 +176,7 @@ lazy_static! {
 
     pub(crate) static ref GROUP_PINNED_STYLE: String = class! {
         .style("white-space", "normal")
+        .style("margin-bottom", px(TOOLBAR_MARGIN))
     };
 
     pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
@@ -246,9 +247,8 @@ lazy_static! {
 
     pub(crate) static ref TAB_PINNED_STYLE: String = class! {
         .style("width", px(TAB_HEIGHT))
-        .style("display", "inline-block")
         .style("padding", px(TAB_PADDING))
-        .style("padding-bottom", "0px")
+        .style("padding-top", "0px")
         .style("border-width", px(TAB_BORDER_WIDTH))
         .style("border-top-width", px(TAB_BORDER_CROWN_WIDTH))
         .style("border-radius", "6px")
@@ -355,8 +355,8 @@ lazy_static! {
     pub(crate) static ref TAB_TEXT_STYLE: String = class! {
         .style("overflow", "hidden")
         .style("padding-left", "3px")
-        .style("height", "100%")
         .style("padding-right", "2px")
+        .style("height", "100%")
     };
 
     pub(crate) static ref TAB_CLOSE_STYLE: String = class! {

@@ -316,7 +316,7 @@ pub fn main_js() {
         .style("text-overflow", "ellipsis")
         .style("box-sizing", "content-box")
 
-        .style("vertical-align", "middle") /* TODO I can probably get rid of this */
+        .style("vertical-align", "middle")
 
         /* TODO is this correct ?*/
         .style("background-repeat", "no-repeat")
@@ -351,6 +351,7 @@ pub fn main_js() {
 
         //.style("font-family", "message-box")
         .style("font-size", "13px")
+        .style("font-family", "system-ui")
 
         //.style("background-color", "hsl(0, 0%, 100%)")
         /*.style("background-image", "repeating-linear-gradient(0deg, \

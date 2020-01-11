@@ -137,7 +137,13 @@ impl State {
     // TODO code duplication
     fn render_pinned_group(state: Arc<Self>, group: Arc<Group>) -> Dom {
         html!("div", {
-            .class(&*GROUP_PINNED_STYLE)
+            .class([
+                &*ROW_STYLE,
+                &*WRAP_STYLE,
+                &*GROUP_PINNED_STYLE,
+            ])
+
+            .visible_signal(group.visible.signal())
 
             .children_signal_vec(group.tabs.signal_vec_cloned()
                 .delay_remove(|tab| tab.wait_until_removed())

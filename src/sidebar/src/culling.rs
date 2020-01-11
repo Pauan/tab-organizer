@@ -316,7 +316,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     fn update(&mut self, should_search: bool) {
         // TODO take into account the animations ?
         let pinned_height = {
-            let columns = ((window_width() - TOOLBAR_MARGIN) / TAB_PINNED_WIDTH).floor();
+            let columns = ((window_width() - (TOOLBAR_MARGIN * 2.0)) / TAB_PINNED_WIDTH).floor();
 
             let mut visible = 0.0;
 
@@ -325,11 +325,19 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
                 visible += 1.0;
             }
 
-            self.pinned.state.visible.set_neq(true);
+            if visible != 0.0 {
+                self.pinned.state.visible.set_neq(true);
 
-            let rows = (visible / columns).ceil();
+                // TODO what about divide by 0 ?
+                let rows = (visible / columns).ceil();
+                let height = rows * TAB_PINNED_HEIGHT;
+                height + TOOLBAR_MARGIN
 
-            rows * TAB_PINNED_HEIGHT
+            } else {
+                self.pinned.state.visible.set_neq(false);
+
+                0.0
+            }
         };
 
         // TODO is this floor correct ?
