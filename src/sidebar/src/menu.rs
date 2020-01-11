@@ -48,7 +48,8 @@ lazy_static! {
     };
 
     static ref MENU_CHEVRON_STYLE: String = class! {
-        .style("margin-left", "6px")
+        .style("margin-left", "3px")
+        .style("margin-right", "3px")
 
         .style("border-top", "2px solid rgb(117, 117, 118)")
         .style("border-right", "2px solid rgb(117, 117, 118)")
@@ -100,8 +101,8 @@ lazy_static! {
         .style("height", "24px")
         //.style("padding-top", "1px")
         //.style("padding-bottom", "1px")
-        .style("padding-left", "11px")
-        .style("padding-right", "11px")
+        .style("padding-left", "12px")
+        .style("padding-right", "12px")
         .style("color", "black")
         .style("text-shadow", "none")
     };
@@ -124,6 +125,12 @@ lazy_static! {
         .style("box-shadow", "      0px 1px  1px hsla(0, 0%,   0%, 0.25), \
                               inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \
                               inset 0px 0px 10px hsla(0, 0%, 100%, 0.25)")
+    };
+
+    static ref MENU_ICON_STYLE: String = class! {
+        .style("width", "16px")
+        .style("height", "16px")
+        .style("margin-right", "9px")
     };
 
     static ref SEPARATOR_STYLE: String = class! {
@@ -240,7 +247,7 @@ impl MenuBuilder {
     }
 
 
-    fn push_submenu<F>(&mut self, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
+    fn push_submenu<F>(&mut self, icon: Option<&str>, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
         let visible = Mutable::new(false);
 
         let MenuBuilder { mut children, mut submenus, .. } = f(MenuBuilder::new(self.state.clone(), Arc::new(Parent {
@@ -261,6 +268,10 @@ impl MenuBuilder {
             }))
 
             .children(&mut [
+                html!("div", {
+                    .class(&*MENU_ICON_STYLE)
+                }),
+
                 // TODO figure out a way to avoid this wrapper div ?
                 html!("div", {
                     .class(&*STRETCH_STYLE)
@@ -340,8 +351,8 @@ impl MenuBuilder {
     }
 
     #[inline]
-    pub(crate) fn submenu<F>(mut self, name: &str, f: F) -> Self where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        self.push_submenu(name, f);
+    pub(crate) fn submenu<F>(mut self, icon: Option<&str>, name: &str, f: F) -> Self where F: FnOnce(MenuBuilder) -> MenuBuilder {
+        self.push_submenu(icon, name, f);
         self
     }
 
@@ -359,7 +370,7 @@ impl MenuBuilder {
     }
 
 
-    fn push_option<A, F>(&mut self, name: &str, signal: A, mut on_click: F)
+    fn push_option<A, F>(&mut self, icon: Option<&str>, name: &str, signal: A, mut on_click: F)
         where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
 
@@ -377,15 +388,21 @@ impl MenuBuilder {
                 on_click();
             })
 
-            .text(name)
+            .children(&mut [
+                html!("div", {
+                    .class(&*MENU_ICON_STYLE)
+                }),
+
+                text(name),
+            ])
         }));
     }
 
     #[inline]
-    pub(crate) fn option<A, F>(mut self, name: &str, signal: A, on_click: F) -> Self
+    pub(crate) fn option<A, F>(mut self, icon: Option<&str>, name: &str, signal: A, on_click: F) -> Self
         where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
-        self.push_option(name, signal, on_click);
+        self.push_option(icon, name, signal, on_click);
         self
     }
 }

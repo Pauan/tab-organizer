@@ -692,45 +692,45 @@ impl State {
                                             }),
 
                                             state.menu.render(|menu| { menu
-                                                .submenu("Sort tabs by...", |menu| { menu
-                                                    .option("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                                                .submenu(None, "Sort tabs by...", |menu| { menu
+                                                    .option(None, "Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Window);
                                                     }))
 
-                                                    .option("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                                                    .option(None, "Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Tag);
                                                     }))
 
                                                     .separator()
 
-                                                    .option("Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                    .option(None, "Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
                                                     }))
 
-                                                    .option("Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                    .option(None, "Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
                                                     }))
 
                                                     .separator()
 
-                                                    .option("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                                                    .option(None, "URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Url);
                                                     }))
 
-                                                    .option("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                                                    .option(None, "Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Name);
                                                     }))
                                                 })
 
                                                 .separator()
 
-                                                .submenu("Foo", |menu| { menu
-                                                    .option("Bar", futures_signals::signal::always(true), || {})
-                                                    .option("Qux", futures_signals::signal::always(false), || {})
+                                                .submenu(None, "Foo", |menu| { menu
+                                                    .option(None, "Bar", futures_signals::signal::always(true), || {})
+                                                    .option(None, "Qux", futures_signals::signal::always(false), || {})
 
-                                                    .submenu("Corge", |menu| { menu
-                                                        .option("Yes", futures_signals::signal::always(true), || {})
-                                                        .option("No", futures_signals::signal::always(false), || {})
+                                                    .submenu(None, "Corge", |menu| { menu
+                                                        .option(None, "Yes", futures_signals::signal::always(true), || {})
+                                                        .option(None, "No", futures_signals::signal::always(false), || {})
                                                     })
                                                 })
                                             }),
