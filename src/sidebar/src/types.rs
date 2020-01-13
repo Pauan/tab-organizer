@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get};
 use tab_organizer::state as shared;
-use tab_organizer::state::{Options, sidebar};
+use tab_organizer::state::{Options, sidebar, TabStatus};
 use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
@@ -90,11 +90,11 @@ pub(crate) struct State {
     pub(crate) scrolling: Scrolling,
 
     pub(crate) menu: Menu,
-    pub(crate) port: tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>,
+    pub(crate) port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
 }
 
 impl State {
-    pub(crate) fn new(port: tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>, options: Options, tabs: Vec<shared::Tab>) -> Self {
+    pub(crate) fn new(port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>, options: Options, tabs: Vec<shared::Tab>) -> Self {
         let tabs = tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect();
 
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
@@ -148,17 +148,17 @@ impl State {
         }
 
         self.port.send_message(&sidebar::ClientMessage::ClickTab {
-            id: tab.id,
+            uuid: tab.id,
         });
     }
 
     pub(crate) fn close_tabs(&self, tabs: &[&TabState]) {
-        let ids = tabs.into_iter().map(|tab| {
+        let uuids = tabs.into_iter().map(|tab| {
             tab.manually_closed.set_neq(true);
             tab.id
         }).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::CloseTabs { ids });
+        self.port.send_message(&sidebar::ClientMessage::CloseTabs { uuids });
     }
 }
 
@@ -171,10 +171,11 @@ pub(crate) struct TabState {
     pub(crate) url: Mutable<Option<Arc<String>>>,
     pub(crate) index: Mutable<usize>,
     pub(crate) focused: Mutable<bool>,
-    pub(crate) unloaded: Mutable<bool>,
+    pub(crate) status: Mutable<TabStatus>,
     pub(crate) pinned: Mutable<bool>,
     pub(crate) playing_audio: Mutable<bool>,
     pub(crate) muted: Mutable<bool>,
+    pub(crate) has_attention: Mutable<bool>,
     pub(crate) removed: Mutable<bool>,
     pub(crate) manually_closed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
@@ -185,15 +186,16 @@ pub(crate) struct TabState {
 impl TabState {
     pub(crate) fn new(state: shared::Tab, index: usize) -> Self {
         Self {
-            id: state.serialized.id,
+            id: state.serialized.uuid,
             favicon_url: Mutable::new(state.serialized.favicon_url.map(Arc::new)),
             title: Mutable::new(state.serialized.title.map(Arc::new)),
             url: Mutable::new(state.serialized.url.map(Arc::new)),
             index: Mutable::new(index),
             focused: Mutable::new(state.focused),
-            unloaded: Mutable::new(state.serialized.unloaded),
+            status: Mutable::new(state.status),
             pinned: Mutable::new(state.serialized.pinned),
             playing_audio: Mutable::new(state.playing_audio),
+            has_attention: Mutable::new(state.has_attention),
             muted: Mutable::new(state.serialized.muted),
             removed: Mutable::new(false),
             manually_closed: Mutable::new(false),
@@ -259,6 +261,10 @@ impl Tab {
 
     pub(crate) fn is_focused(&self) -> impl Signal<Item = bool> {
         self.focused.signal()
+    }
+
+    pub(crate) fn is_unloaded(&self) -> impl Signal<Item = bool> {
+        self.status.signal_ref(|status| status.is_unloaded())
     }
 }
 

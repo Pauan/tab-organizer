@@ -402,7 +402,7 @@ pub fn main_js() {
 
 
     tab_organizer::spawn(async move {
-        let port = connect::<sidebar::ClientMessage, sidebar::ServerMessage>("sidebar");
+        let port = Arc::new(connect::<sidebar::ClientMessage, sidebar::ServerMessage>("sidebar"));
 
         port.send_message(&sidebar::ClientMessage::Initialize {
             id: search_to_id(),
@@ -435,10 +435,6 @@ pub fn main_js() {
 
                         sidebar::ServerMessage::TabChanged { tab_index, changes } => {
                             state.as_ref().unwrap().change_tab(tab_index, changes);
-                        },
-
-                        sidebar::ServerMessage::TabFocused { old_tab_index, new_tab_index, new_timestamp_focused } => {
-                            state.as_ref().unwrap().focus_tab(old_tab_index, new_tab_index, new_timestamp_focused);
                         },
 
                         sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index } => {

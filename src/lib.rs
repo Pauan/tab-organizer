@@ -1,3 +1,4 @@
+#![feature(option_unwrap_none)]
 #![warn(unreachable_pub)]
 
 use lazy_static::lazy_static;
@@ -16,12 +17,15 @@ use uuid::Uuid;
 use js_sys::{Date, Object, Reflect, Array, Set};
 use web_sys::{window, Performance, Storage};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
-use wasm_bindgen::{JsCast, intern};
+use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use web_extension::{browser, Window, Tab, TabActiveInfo, TabDetachInfo, TabAttachInfo, TabMoveInfo, TabRemoveInfo};
+use web_extension::browser;
 
+
+pub mod state;
+pub mod browser;
 
 pub mod styles {
     use lazy_static::lazy_static;
@@ -38,6 +42,10 @@ pub mod styles {
             .style("display", "flex")
             .style("flex-direction", "column")
             .style("align-items", "stretch") // TODO get rid of this ?
+        };
+
+        pub static ref WRAP_STYLE: String = class! {
+            .style("flex-wrap", "wrap")
         };
 
         pub static ref STRETCH_STYLE: String = class! {
@@ -79,9 +87,6 @@ pub mod styles {
         };
     }
 }
-
-
-pub mod state;
 
 
 pub fn str_default<'a, A: Borrow<String>>(x: &'a Option<A>, default: &'a str) -> &'a str {
@@ -773,41 +778,31 @@ impl Database {
 #[derive(Debug)]
 pub struct Port<In, Out> {
     port: web_extension::Port,
-    _input: std::marker::PhantomData<In>,
-    _output: std::marker::PhantomData<Out>,
-}
-
-impl<In, Out> Clone for Port<In, Out> {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self {
-            port: self.port.clone(),
-            _input: std::marker::PhantomData,
-            _output: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<In, Out> PartialEq for Port<In, Out> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.port == other.port
-    }
+    _input: std::marker::PhantomData<fn(In) -> JsValue>,
+    _output: std::marker::PhantomData<fn(JsValue) -> Out>,
 }
 
 impl<In, Out> Port<In, Out> {
+    #[inline]
     pub fn name(&self) -> String {
         self.port.name()
     }
 
+    #[inline]
     pub fn unchecked_send_message(&self, message: &JsValue) {
         self.port.post_message(message);
     }
 }
 
 impl<In, Out> Port<In, Out> where In: Serialize {
+    #[inline]
     pub fn send_message(&self, message: &In) {
         self.unchecked_send_message(&serialize(message));
+    }
+
+    #[inline]
+    pub fn disconnect(self) {
+        self.port.disconnect();
     }
 }
 
@@ -816,7 +811,7 @@ struct OnMessage<A> {
     _on_message: Listener<dyn FnMut(JsValue)>,
     _on_disconnect: Listener<dyn FnMut(web_extension::Port)>,
     receiver: mpsc::UnboundedReceiver<JsValue>,
-    _output: std::marker::PhantomData<A>,
+    _output: std::marker::PhantomData<fn(JsValue) -> A>,
 }
 
 impl<A> Unpin for OnMessage<A> {}
@@ -860,8 +855,7 @@ impl<In, Out> Port<In, Out> where Out: DeserializeOwned {
 struct OnConnect<In, Out> {
     _listener: Listener<dyn FnMut(web_extension::Port)>,
     receiver: mpsc::UnboundedReceiver<web_extension::Port>,
-    _input: std::marker::PhantomData<In>,
-    _output: std::marker::PhantomData<Out>,
+    _port: std::marker::PhantomData<fn(web_extension::Port) -> Port<In, Out>>,
 }
 
 impl<In, Out> Unpin for OnConnect<In, Out> {}
@@ -897,8 +891,7 @@ pub fn on_connect<In, Out>(name: &str) -> impl Stream<Item = Port<In, Out>> {
     OnConnect {
         _listener,
         receiver,
-        _input: std::marker::PhantomData,
-        _output: std::marker::PhantomData,
+        _port: std::marker::PhantomData,
     }
 }
 
@@ -968,209 +961,6 @@ macro_rules! object {
         ));)*
         obj
     }};
-}
-
-
-#[derive(Debug)]
-pub enum WindowChange {
-    WindowCreated {
-        window: Window,
-    },
-    WindowRemoved {
-        window_id: i32,
-    },
-    WindowFocused {
-        window_id: Option<i32>,
-    },
-    TabCreated {
-        tab: Tab,
-    },
-    TabFocused {
-        old_tab_id: Option<i32>,
-        new_tab_id: i32,
-        window_id: i32,
-    },
-    TabDetached {
-        tab_id: i32,
-        old_window_id: i32,
-        old_index: u32,
-    },
-    TabAttached {
-        tab_id: i32,
-        new_window_id: i32,
-        new_index: u32,
-    },
-    TabMoved {
-        tab_id: i32,
-        window_id: i32,
-        old_index: u32,
-        new_index: u32,
-    },
-    TabUpdated {
-        tab: Tab,
-    },
-    TabReplaced {
-        old_tab_id: i32,
-        new_tab_id: i32,
-    },
-    TabRemoved {
-        tab_id: i32,
-        window_id: i32,
-        is_window_closing: bool,
-    },
-}
-
-#[derive(Debug)]
-pub struct Windows;
-
-impl Windows {
-    pub fn current() -> impl Future<Output = Result<Vec<Window>, JsValue>> {
-        // TODO should this be inside the async ?
-        let fut = JsFuture::from(browser.windows().get_all(&object! {
-            "populate": true,
-            "windowTypes": array![ intern("normal") ],
-        }));
-
-        async move {
-            let windows = fut.await?;
-
-            // TODO make this more efficient
-            let windows: Vec<Window> = windows
-                .unchecked_into::<Array>()
-                .values()
-                .into_iter()
-                .map(|x| x.unwrap().unchecked_into())
-                .collect();
-
-            Ok(windows)
-        }
-    }
-
-    pub fn changes() -> impl Stream<Item = WindowChange> {
-        let (sender, receiver) = mpsc::unbounded();
-
-        WindowsChanges {
-            _window_created: Listener::new(browser.windows().on_created(), Closure::new(clone!(sender => move |window| {
-                sender.unbounded_send(
-                    WindowChange::WindowCreated { window }
-                ).unwrap();
-            }))),
-
-            _window_removed: Listener::new(browser.windows().on_removed(), Closure::new(clone!(sender => move |window_id| {
-                sender.unbounded_send(
-                    WindowChange::WindowRemoved { window_id }
-                ).unwrap();
-            }))),
-
-            _window_focused: Listener::new(browser.windows().on_focus_changed(), Closure::new(clone!(sender => move |window_id| {
-                sender.unbounded_send(
-                    WindowChange::WindowFocused {
-                        window_id: if window_id == browser.windows().window_id_none() {
-                            None
-
-                        } else {
-                            Some(window_id)
-                        }
-                    }
-                ).unwrap();
-            }))),
-
-            _tab_created: Listener::new(browser.tabs().on_created(), Closure::new(clone!(sender => move |tab| {
-                sender.unbounded_send(
-                    WindowChange::TabCreated { tab }
-                ).unwrap();
-            }))),
-
-            _tab_focused: Listener::new(browser.tabs().on_activated(), Closure::new(clone!(sender => move |active_info: TabActiveInfo| {
-                sender.unbounded_send(
-                    WindowChange::TabFocused {
-                        old_tab_id: active_info.previous_tab_id(),
-                        new_tab_id: active_info.tab_id(),
-                        window_id: active_info.window_id(),
-                    }
-                ).unwrap();
-            }))),
-
-            _tab_detached: Listener::new(browser.tabs().on_detached(), Closure::new(clone!(sender => move |tab_id, detach_info: TabDetachInfo| {
-                sender.unbounded_send(
-                    WindowChange::TabDetached {
-                        tab_id,
-                        old_window_id: detach_info.old_window_id(),
-                        old_index: detach_info.old_position(),
-                    }
-                ).unwrap();
-            }))),
-
-            _tab_replaced: Listener::new(browser.tabs().on_replaced(), Closure::new(clone!(sender => move |new_tab_id, old_tab_id| {
-                sender.unbounded_send(
-                    WindowChange::TabReplaced { old_tab_id, new_tab_id }
-                ).unwrap();
-            }))),
-
-            _tab_attached: Listener::new(browser.tabs().on_attached(), Closure::new(clone!(sender => move |tab_id, attach_info: TabAttachInfo| {
-                sender.unbounded_send(
-                    WindowChange::TabAttached {
-                        tab_id,
-                        new_window_id: attach_info.new_window_id(),
-                        new_index: attach_info.new_position(),
-                    }
-                ).unwrap();
-            }))),
-
-            _tab_moved: Listener::new(browser.tabs().on_moved(), Closure::new(clone!(sender => move |tab_id, move_info: TabMoveInfo| {
-                sender.unbounded_send(
-                    WindowChange::TabMoved {
-                        tab_id,
-                        window_id: move_info.window_id(),
-                        old_index: move_info.from_index(),
-                        new_index: move_info.to_index(),
-                    }
-                ).unwrap();
-            }))),
-
-            _tab_updated: Listener::new(browser.tabs().on_updated(), Closure::new(clone!(sender => move |_tab_id, _change_info, tab| {
-                sender.unbounded_send(
-                    WindowChange::TabUpdated { tab }
-                ).unwrap();
-            }))),
-
-            _tab_removed: Listener::new(browser.tabs().on_removed(), Closure::new(clone!(sender => move |tab_id, remove_info: TabRemoveInfo| {
-                sender.unbounded_send(
-                    WindowChange::TabRemoved {
-                        tab_id,
-                        window_id: remove_info.window_id(),
-                        is_window_closing: remove_info.is_window_closing(),
-                    }
-                ).unwrap();
-            }))),
-
-            receiver,
-        }
-    }
-}
-
-struct WindowsChanges {
-    _window_created: Listener<dyn FnMut(Window)>,
-    _window_removed: Listener<dyn FnMut(i32)>,
-    _window_focused: Listener<dyn FnMut(i32)>,
-    _tab_created: Listener<dyn FnMut(Tab)>,
-    _tab_focused: Listener<dyn FnMut(TabActiveInfo)>,
-    _tab_detached: Listener<dyn FnMut(i32, TabDetachInfo)>,
-    _tab_replaced: Listener<dyn FnMut(i32, i32)>,
-    _tab_attached: Listener<dyn FnMut(i32, TabAttachInfo)>,
-    _tab_moved: Listener<dyn FnMut(i32, TabMoveInfo)>,
-    _tab_updated: Listener<dyn FnMut(i32, JsValue, Tab)>,
-    _tab_removed: Listener<dyn FnMut(i32, TabRemoveInfo)>,
-    receiver: mpsc::UnboundedReceiver<WindowChange>,
-}
-
-impl Stream for WindowsChanges {
-    type Item = WindowChange;
-
-    #[inline]
-    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
-        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
-    }
 }
 
 

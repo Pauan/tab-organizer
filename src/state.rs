@@ -3,31 +3,34 @@ use uuid::Uuid;
 use futures_signals::signal::Mutable;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use crate::browser;
 
 
 pub mod sidebar {
-    use super::{Tag, Tab};
+    use super::{Tag, Tab, TabStatus};
     use serde_derive::{Serialize, Deserialize};
     use uuid::Uuid;
 
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
     pub enum ClientMessage {
         Initialize {
             id: String,
         },
         ClickTab {
-            id: Uuid,
+            uuid: Uuid,
         },
         CloseTabs {
-            ids: Vec<Uuid>,
+            uuids: Vec<Uuid>,
         },
         UnloadTabs {
-            ids: Vec<Uuid>,
+            uuids: Vec<Uuid>,
         },
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
     pub enum TabChange {
         FaviconUrl {
             new_favicon_url: Option<String>,
@@ -47,18 +50,26 @@ pub mod sidebar {
         RemovedFromTag {
             tag_name: String,
         },
-        Unloaded {
-            unloaded: bool,
-        },
         Muted {
             muted: bool,
         },
         PlayingAudio {
             playing: bool,
         },
+        HasAttention {
+            has: bool,
+        },
+        Status {
+            status: TabStatus,
+        },
+        Unfocused,
+        Focused {
+            new_timestamp_focused: f64,
+        },
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
     pub enum ServerMessage {
         Initial {
             tabs: Vec<Tab>,
@@ -74,11 +85,6 @@ pub mod sidebar {
             tab_index: usize,
             changes: Vec<TabChange>,
         },
-        TabFocused {
-            old_tab_index: Option<usize>,
-            new_tab_index: usize,
-            new_timestamp_focused: f64,
-        },
         TabMoved {
             old_tab_index: usize,
             new_tab_index: usize,
@@ -92,11 +98,13 @@ pub mod options {
 
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
     pub enum ClientMessage {
         Initialize,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
+    #[serde(tag = "type")]
     pub enum ServerMessage {
         Initial,
     }
@@ -142,12 +150,11 @@ pub struct Tag {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedTab {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub tags: Vec<Tag>,
     pub timestamp_created: f64,
     pub timestamp_focused: Option<f64>,
     pub pinned: bool,
-    pub unloaded: bool,
     pub favicon_url: Option<String>,
     pub url: Option<String>,
     pub title: Option<String>,
@@ -155,14 +162,13 @@ pub struct SerializedTab {
 }
 
 impl SerializedTab {
-    pub fn new(id: Uuid, timestamp_created: f64) -> Self {
+    pub fn new(uuid: Uuid, timestamp_created: f64) -> Self {
         Self {
-            id,
+            uuid,
             tags: vec![],
             timestamp_created,
             timestamp_focused: None,
             pinned: false,
-            unloaded: false,
             favicon_url: None,
             url: None,
             title: None,
@@ -170,8 +176,12 @@ impl SerializedTab {
         }
     }
 
+    pub fn key(uuid: Uuid) -> String {
+        format!("tab-ids.{}", uuid)
+    }
+
     // TODO hack needed because Firefox doesn't provide favicon URLs for built-in pages
-    fn get_favicon(favicon: Option<String>, url: &Option<String>) -> Option<String> {
+    fn get_favicon(favicon: Option<&str>, url: Option<&str>) -> Option<String> {
         lazy_static! {
             static ref FAVICONS: HashMap<&'static str, &'static str> = vec![
                 // "chrome://branding/content/icon32.png"
@@ -185,70 +195,59 @@ impl SerializedTab {
             ].into_iter().collect();
         }
 
-        favicon.map(|favicon| {
+        let favicon = favicon.map(|favicon| {
             // https://bugzilla.mozilla.org/show_bug.cgi?id=1462948
             if favicon == "chrome://mozapps/skin/extensions/extensionGeneric-16.svg" {
-                "favicons/extensionGeneric-16.svg".to_string()
+                "favicons/extensionGeneric-16.svg"
 
             } else {
                 favicon
             }
         }).or_else(|| {
-            url.as_ref()
-                .and_then(|url| FAVICONS.get(url.as_str()))
-                .map(|x| x.to_string())
-        })
+            let favicon = FAVICONS.get(url?)?;
+            Some(favicon)
+        })?;
+
+        Some(favicon.to_owned())
     }
 
-    pub fn update(&mut self, tab: &web_extension::Tab) -> Vec<sidebar::TabChange> {
+    pub fn update(&mut self, tab: &browser::TabState) -> Vec<sidebar::TabChange> {
         let mut changes = vec![];
 
-        let url = tab.url();
-        let favicon_url = Self::get_favicon(tab.fav_icon_url(), &url);
+        let favicon_url = Self::get_favicon(tab.favicon_url.as_deref(), tab.url.as_deref());
 
         if self.favicon_url != favicon_url {
-            self.favicon_url = favicon_url.clone();
-            changes.push(sidebar::TabChange::FaviconUrl { new_favicon_url: favicon_url });
+            self.favicon_url = favicon_url;
+            changes.push(sidebar::TabChange::FaviconUrl { new_favicon_url: self.favicon_url.clone() });
         }
 
-        if self.url != url {
-            self.url = url.clone();
-            changes.push(sidebar::TabChange::Url { new_url: url });
+        if self.url != tab.url {
+            self.url = tab.url.clone();
+            changes.push(sidebar::TabChange::Url { new_url: self.url.clone() });
         }
 
-        let title = tab.title();
-
-        if self.title != title {
-            self.title = title.clone();
-            changes.push(sidebar::TabChange::Title { new_title: title });
+        if self.title != tab.title {
+            self.title = tab.title.clone();
+            changes.push(sidebar::TabChange::Title { new_title: self.title.clone() });
         }
 
-        let pinned = tab.pinned();
-
-        if self.pinned != pinned {
-            self.pinned = pinned;
-            changes.push(sidebar::TabChange::Pinned { pinned });
+        if self.pinned != tab.pinned {
+            self.pinned = tab.pinned;
+            changes.push(sidebar::TabChange::Pinned { pinned: self.pinned });
         }
 
-        if self.unloaded {
-            self.unloaded = false;
-            changes.push(sidebar::TabChange::Unloaded { unloaded: false });
-        }
-
-        let muted = tab.muted_info().muted();
-
-        if self.muted != muted {
-            self.muted = muted;
-            changes.push(sidebar::TabChange::Muted { muted });
+        if self.muted != tab.audio.muted {
+            self.muted = tab.audio.muted;
+            changes.push(sidebar::TabChange::Muted { muted: self.muted });
         }
 
         changes
     }
 
-    pub fn initialize(&mut self, tab: &web_extension::Tab, timestamp_focused: f64) -> bool {
+    pub fn initialize(&mut self, tab: &browser::TabState, timestamp_focused: f64) -> bool {
         let mut changed = false;
 
-        if tab.active() && self.timestamp_focused.is_none() {
+        if tab.focused && self.timestamp_focused.is_none() {
             self.timestamp_focused = Some(timestamp_focused);
             changed = true;
         }
@@ -260,24 +259,47 @@ impl SerializedTab {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedWindow {
-    pub id: Uuid,
+    pub uuid: Uuid,
     pub name: Option<String>,
     pub timestamp_created: f64,
     pub tabs: Vec<Uuid>,
 }
 
 impl SerializedWindow {
-    pub fn new(id: Uuid, timestamp_created: f64) -> Self {
+    pub fn new(uuid: Uuid, timestamp_created: f64) -> Self {
         Self {
-            id,
+            uuid,
             name: None,
             timestamp_created,
             tabs: vec![],
         }
     }
 
-    pub fn tab_index(&self, uuid: Uuid) -> usize {
-        self.tabs.iter().position(|x| *x == uuid).unwrap()
+    pub fn key(uuid: Uuid) -> String {
+        format!("window-ids.{}", uuid)
+    }
+
+    pub fn tab_index(&self, tab_uuid: Uuid) -> usize {
+        self.tabs.iter().position(|x| *x == tab_uuid).unwrap()
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum TabStatus {
+    Unloaded, // TODO is this a good idea ?
+    New,
+    Loading,
+    Complete,
+}
+
+impl TabStatus {
+    #[inline]
+    pub fn is_unloaded(&self) -> bool {
+        match self {
+            Self::Unloaded => true,
+            _ => false,
+        }
     }
 }
 
@@ -287,6 +309,8 @@ pub struct Tab {
     pub serialized: SerializedTab,
     pub focused: bool,
     pub playing_audio: bool,
+    pub has_attention: bool,
+    pub status: TabStatus,
 }
 
 impl Tab {
@@ -295,6 +319,8 @@ impl Tab {
             serialized,
             focused: false,
             playing_audio: false,
+            has_attention: false,
+            status: TabStatus::Unloaded,
         }
     }
 }

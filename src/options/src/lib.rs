@@ -1,5 +1,6 @@
 #![warn(unreachable_pub)]
 
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use dominator::clone;
 use tab_organizer::{log, info, connect};
@@ -16,7 +17,7 @@ pub fn main_js() -> Result<(), JsValue> {
 
 
     tab_organizer::spawn(async move {
-        let port = connect::<options::ClientMessage, options::ServerMessage>("options");
+        let port = Rc::new(connect::<options::ClientMessage, options::ServerMessage>("options"));
 
         port.send_message(&options::ClientMessage::Initialize);
 

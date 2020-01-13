@@ -2,18 +2,20 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::collections::HashMap;
-use std::collections::hash_map::Entry;
+use serde_derive::{Serialize, Deserialize};
 use futures::channel::mpsc;
 use futures::stream::Stream;
+use futures::try_join;
 use std::future::Future;
 use dominator::clone;
 use uuid::Uuid;
-use js_sys::{Array, Promise};
+use js_sys::{Array, Promise, Date};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
-use tab_organizer::{Listener, deserialize, serialize, object, array};
 use web_extension::browser;
+use super::{Listener, deserialize, serialize, object, array, generate_uuid};
+use super::state::TabStatus;
 
 
 #[derive(Debug)]
@@ -30,12 +32,12 @@ impl<A> Mapping<A> {
         }
     }
 
-    fn has_key(&self, key: i32) -> bool {
-        self.keys.contains_key(&key)
-    }
-
     fn get_key(&self, key: i32) -> Option<Id> {
         self.keys.get(&key).map(|x| *x)
+    }
+
+    fn get_value(&self, id: Id) -> Option<&A> {
+        self.values.get(&id)
     }
 
     fn get_mut(&mut self, key: i32) -> Option<(Id, &mut A)> {
@@ -43,7 +45,7 @@ impl<A> Mapping<A> {
         Some((id, self.values.get_mut(&id).unwrap()))
     }
 
-    fn get_or_insert<F>(&mut self, key: i32, id: Id, set: F) -> &mut A where F: FnOnce() -> A {
+    /*fn get_or_insert<F>(&mut self, key: i32, id: Id, set: F) -> &mut A where F: FnOnce() -> A {
         let entry = self.values.entry(id);
 
         match entry {
@@ -56,7 +58,7 @@ impl<A> Mapping<A> {
         }
 
         entry.or_insert_with(set)
-    }
+    }*/
 
     fn remove(&mut self, key: i32) -> Option<(Id, A)> {
         let id = self.keys.remove(&key)?;
@@ -108,7 +110,9 @@ fn set_uuid(fut: Promise) -> impl Future<Output = Result<(), JsValue>> {
 }
 
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
 pub struct Id(u32);
 
 impl Id {
@@ -136,23 +140,6 @@ impl TabAudio {
     }
 }
 
-#[derive(Debug)]
-pub enum TabStatus {
-    New,
-    Loading,
-    Complete,
-}
-
-impl TabStatus {
-    fn new(browser_tab: &web_extension::Tab) -> Self {
-        match browser_tab.status().as_deref() {
-            None => Self::New,
-            Some("loading") => Self::Loading,
-            Some("complete") => Self::Complete,
-            Some(status) => panic!("Unknown tab status: {}", status),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct TabState {
@@ -168,6 +155,15 @@ pub struct TabState {
 }
 
 impl TabState {
+    fn status(browser_tab: &web_extension::Tab) -> TabStatus {
+        match browser_tab.status().as_deref() {
+            None => TabStatus::New,
+            Some("loading") => TabStatus::Loading,
+            Some("complete") => TabStatus::Complete,
+            Some(status) => panic!("Unknown tab status: {}", status),
+        }
+    }
+
     fn new(id: Id, browser_tab: &web_extension::Tab) -> Self {
         Self {
             id,
@@ -175,7 +171,7 @@ impl TabState {
             pinned: browser_tab.pinned(),
             has_attention: browser_tab.attention().unwrap_or(false),
             audio: TabAudio::new(browser_tab),
-            status: TabStatus::new(browser_tab),
+            status: Self::status(browser_tab),
             favicon_url: browser_tab.fav_icon_url(),
             title: browser_tab.title(),
             url: browser_tab.url(),
@@ -216,22 +212,33 @@ pub struct Tab {
 }
 
 impl Tab {
-    pub fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         get_uuid(browser.sessions().get_tab_value(self.tab_id, intern("id")))
     }
 
-    pub fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
+    fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
         set_uuid(browser.sessions().set_tab_value(self.tab_id, intern("id"), &serialize(&uuid)))
     }
 
-    /*fn to_tab(&self, window: &Window) -> Tab {
-        Tab {
-            // TODO figure out a way to avoid this clone
-            serialized: self.serialized.clone(),
-            focused: window.is_tab_focused(self.uuid),
-            playing_audio: self.playing_audio,
+    #[inline]
+    pub fn real_id(&self) -> i32 {
+        self.tab_id
+    }
+
+    pub fn focus(&self) -> impl Future<Output = Result<(), JsValue>> {
+        let fut1 = browser.tabs().update(Some(self.tab_id), &object! {
+            "active": true,
+        });
+
+        let fut2 = browser.windows().update(self.window_id, &object! {
+            "focused": true,
+        });
+
+        async move {
+            let _ = try_join!(JsFuture::from(fut1), JsFuture::from(fut2))?;
+            Ok(())
         }
-    }*/
+    }
 }
 
 
@@ -241,12 +248,29 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         get_uuid(browser.sessions().get_window_value(self.window_id, intern("id")))
     }
 
-    pub fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
+    fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
         set_uuid(browser.sessions().set_window_value(self.window_id, intern("id"), &serialize(&uuid)))
+    }
+
+    fn set_sidebar(&self, url: &str) -> impl Future<Output = Result<(), JsValue>> {
+        let fut = browser.sidebar_action().set_panel(&object! {
+            "panel": url,
+            "windowId": self.window_id,
+        });
+
+        async move {
+            let _ = JsFuture::from(fut).await?;
+            Ok(())
+        }
+    }
+
+    #[inline]
+    pub fn real_id(&self) -> i32 {
+        self.window_id
     }
 
     /*pub fn is_tab_focused(&self, tab_id: i32) -> bool {
@@ -286,26 +310,6 @@ impl Window {
 }
 
 
-/*let fut = get_window_id(window_id);
-
-                    spawn(clone!(state => async move {
-                        if let Some(id) = fut.await? {
-                            Some(id)
-
-                        } else {
-                            if state.borrow().windows.contains(window_id) {
-                                let id = generate_uuid();
-                                set_window_id(window_id, id).await?;
-                                Some(id)
-
-                            // Window was removed
-                            } else {
-                                None
-                            }
-                        }
-                    }));*/
-
-
 #[derive(Debug)]
 struct BrowserState {
     tabs: Mapping<Tab>,
@@ -315,10 +319,14 @@ struct BrowserState {
 impl BrowserState {
     fn new_tab(&mut self, browser_tab: &web_extension::Tab) -> TabState {
         let id = Id::new();
-        let tab_id = browser_tab.id().unwrap();
-        let window_id = browser_tab.window_id();
 
-        self.tabs.insert(tab_id, id, Tab { tab_id, window_id, detached: None });
+        let tab_id = browser_tab.id().unwrap();
+
+        self.tabs.insert(tab_id, id, Tab {
+            tab_id,
+            window_id: browser_tab.window_id(),
+            detached: None
+        });
 
         TabState::new(id, browser_tab)
     }
@@ -339,18 +347,24 @@ impl BrowserState {
         WindowState::new(id, tabs, browser_window)
     }
 
-    fn create_or_update_tab(&mut self, browser_tab: &web_extension::Tab) -> Option<BrowserChange> {
-        let window_id = browser_tab.window_id();
-
+    fn create_or_update_tab(&mut self, timestamp: f64, browser_tab: &web_extension::Tab) -> Option<BrowserChange> {
         // If the tab is in a normal window
-        if self.windows.has_key(window_id) {
+        if let Some(window_id) = self.windows.get_key(browser_tab.window_id()) {
             let tab_id = browser_tab.id().unwrap();
 
             if let Some(id) = self.tabs.get_key(tab_id) {
-                Some(BrowserChange::TabUpdated { tab: TabState::new(id, &browser_tab) })
+                Some(BrowserChange::TabUpdated {
+                    tab: TabState::new(id, &browser_tab),
+                    window_id,
+                })
 
             } else {
-                Some(BrowserChange::TabCreated { tab: self.new_tab(&browser_tab) })
+                Some(BrowserChange::TabCreated {
+                    timestamp,
+                    tab: self.new_tab(&browser_tab),
+                    window_id,
+                    index: browser_tab.index(),
+                })
             }
 
         } else {
@@ -372,6 +386,85 @@ impl Browser {
                 tabs: Mapping::new(),
                 windows: Mapping::new(),
             })),
+        }
+    }
+
+    pub fn get_tab<A, F>(&self, id: Id, f: F) -> A where F: FnOnce(Option<&Tab>) -> A {
+        f(self.state.borrow().tabs.get_value(id))
+    }
+
+    pub fn get_window<A, F>(&self, id: Id, f: F) -> A where F: FnOnce(Option<&Window>) -> A {
+        f(self.state.borrow().windows.get_value(id))
+    }
+
+    fn get_uuid<A, L, GF, G, SF, S>(&self, mut lookup: L, get: G, set: S) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>>
+        where L: FnMut(&BrowserState) -> Option<&A>,
+              GF: Future<Output = Result<Option<Uuid>, JsValue>>,
+              G: FnOnce(&A) -> GF,
+              SF: Future<Output = Result<(), JsValue>>,
+              S: FnOnce(&A, Uuid) -> SF {
+
+        let state = self.state.clone();
+
+        lookup(&self.state.borrow()).map(move |value| {
+            let fut = get(value);
+
+            async move {
+                if let Some(uuid) = fut.await? {
+                    Ok(Some(uuid))
+
+                } else {
+                    let fut = lookup(&state.borrow()).map(|value| {
+                        let uuid = generate_uuid();
+
+                        let fut = set(value, uuid);
+
+                        async move {
+                            fut.await?;
+                            Ok(Some(uuid))
+                        }
+                    });
+
+                    if let Some(fut) = fut {
+                        fut.await
+
+                    } else {
+                        Ok(None)
+                    }
+                }
+            }
+        })
+    }
+
+    pub fn get_window_uuid(&self, id: Id) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>> {
+        self.get_uuid(
+            move |state| state.windows.get_value(id),
+            |window| window.get_uuid(),
+            |window, uuid| window.set_uuid(uuid),
+        )
+    }
+
+    pub fn get_tab_uuid(&self, id: Id) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>> {
+        self.get_uuid(
+            move |state| state.tabs.get_value(id),
+            |tab| tab.get_uuid(),
+            |tab, uuid| tab.set_uuid(uuid),
+        )
+    }
+
+    pub fn get_tab_real_id(&self, id: Id) -> Option<i32> {
+        self.state.borrow().tabs.get_value(id).map(|tab| tab.tab_id)
+    }
+
+    pub fn set_sidebar(&self, id: Id, url: &str) -> impl Future<Output = Result<(), JsValue>> {
+        let fut = self.state.borrow().windows.get_value(id).map(|window| window.set_sidebar(url));
+
+        async move {
+            if let Some(fut) = fut {
+                fut.await?;
+            }
+
+            Ok(())
         }
     }
 
@@ -407,11 +500,13 @@ impl Browser {
 
         BrowserChanges {
             _window_created: Listener::new(browser.windows().on_created(), Closure::new(clone!(sender, state => move |window: web_extension::Window| {
+                let timestamp = Date::now();
+
                 if window.type_().map(|x| x == "normal").unwrap_or(false) {
                     let window = state.borrow_mut().new_window(&window);
 
                     sender.unbounded_send(
-                        BrowserChange::WindowCreated { window }
+                        BrowserChange::WindowCreated { timestamp, window }
                     ).unwrap();
                 }
             }))),
@@ -440,7 +535,8 @@ impl Browser {
             }))),
 
             _tab_created: Listener::new(browser.tabs().on_created(), Closure::new(clone!(sender, state => move |tab: web_extension::Tab| {
-                let message = state.borrow_mut().create_or_update_tab(&tab);
+                let timestamp = Date::now();
+                let message = state.borrow_mut().create_or_update_tab(timestamp, &tab);
 
                 if let Some(message) = message {
                     sender.unbounded_send(message).unwrap();
@@ -448,7 +544,8 @@ impl Browser {
             }))),
 
             _tab_updated: Listener::new(browser.tabs().on_updated(), Closure::new(clone!(sender, state => move |_tab_id: i32, _change_info: JsValue, tab: web_extension::Tab| {
-                let message = state.borrow_mut().create_or_update_tab(&tab);
+                let timestamp = Date::now();
+                let message = state.borrow_mut().create_or_update_tab(timestamp, &tab);
 
                 if let Some(message) = message {
                     sender.unbounded_send(message).unwrap();
@@ -462,13 +559,21 @@ impl Browser {
             }))),
 
             _tab_focused: Listener::new(browser.tabs().on_activated(), Closure::new(clone!(sender, state => move |active_info: web_extension::TabActiveInfo| {
+                let timestamp = Date::now();
+
                 let message = {
                     let state = state.borrow();
 
                     if let Some(window_id) = state.windows.get_key(active_info.window_id()) {
                         let old_tab_id = active_info.previous_tab_id().map(|tab_id| state.tabs.get_key(tab_id).unwrap());
                         let new_tab_id = state.tabs.get_key(active_info.tab_id()).unwrap();
-                        Some(BrowserChange::TabFocused { old_tab_id, new_tab_id, window_id })
+
+                        if old_tab_id == Some(new_tab_id) {
+                            None
+
+                        } else {
+                            Some(BrowserChange::TabFocused { timestamp, old_tab_id, new_tab_id, window_id })
+                        }
 
                     } else {
                         None
@@ -483,6 +588,7 @@ impl Browser {
             _tab_detached: Listener::new(browser.tabs().on_detached(), Closure::new(clone!(state => move |tab_id: i32, detach_info: web_extension::TabDetachInfo| {
                 let state: &mut BrowserState = &mut state.borrow_mut();
 
+                // TODO should this set tab.window_id to None ?
                 if let Some((_, tab)) = state.tabs.get_mut(tab_id) {
                     let window_id = state.windows.get_key(detach_info.old_window_id()).unwrap();
 
@@ -500,7 +606,9 @@ impl Browser {
                     if let Some((tab_id, tab)) = state.tabs.get_mut(tab_id) {
                         let detached = tab.detached.take().unwrap();
 
-                        let new_window_id = state.windows.get_key(attach_info.new_window_id()).unwrap();
+                        let window_id = attach_info.new_window_id();
+
+                        tab.window_id = window_id;
 
                         Some(BrowserChange::TabAttached {
                             tab_id,
@@ -508,7 +616,7 @@ impl Browser {
                             old_window_id: detached.window_id,
                             old_index: detached.index,
 
-                            new_window_id,
+                            new_window_id: state.windows.get_key(window_id).unwrap(),
                             new_index: attach_info.new_position(),
                         })
 
@@ -527,14 +635,17 @@ impl Browser {
                     let state = state.borrow();
 
                     if let Some(tab_id) = state.tabs.get_key(tab_id) {
-                        let window_id = state.windows.get_key(move_info.window_id()).unwrap();
+                        let old_index = move_info.from_index();
+                        let new_index = move_info.to_index();
 
-                        Some(BrowserChange::TabMoved {
-                            tab_id,
-                            window_id,
-                            old_index: move_info.from_index(),
-                            new_index: move_info.to_index(),
-                        })
+                        if old_index == new_index {
+                            None
+
+                        } else {
+                            let window_id = state.windows.get_key(move_info.window_id()).unwrap();
+
+                            Some(BrowserChange::TabMoved { tab_id, window_id, old_index, new_index })
+                        }
 
                     } else {
                         None
@@ -579,6 +690,7 @@ impl Browser {
 #[derive(Debug)]
 pub enum BrowserChange {
     WindowCreated {
+        timestamp: f64,
         window: WindowState,
     },
     WindowRemoved {
@@ -588,9 +700,17 @@ pub enum BrowserChange {
         window_id: Option<Id>,
     },
     TabCreated {
+        timestamp: f64,
         tab: TabState,
+        window_id: Id,
+        index: u32,
+    },
+    TabUpdated {
+        tab: TabState,
+        window_id: Id,
     },
     TabFocused {
+        timestamp: f64,
         old_tab_id: Option<Id>,
         new_tab_id: Id,
         window_id: Id,
@@ -609,9 +729,6 @@ pub enum BrowserChange {
         window_id: Id,
         old_index: u32,
         new_index: u32,
-    },
-    TabUpdated {
-        tab: TabState,
     },
     TabRemoved {
         tab_id: Id,

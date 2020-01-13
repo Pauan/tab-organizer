@@ -47,7 +47,7 @@ fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlEle
             &*ICON_STYLE,
         ])*/
 
-        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.unloaded.signal())
+        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.is_unloaded())
 
         .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
             RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
@@ -69,7 +69,7 @@ fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElemen
                 .children(&mut [
                     text_signal(map_ref! {
                         let title = tab.title.signal_cloned(),
-                        let unloaded = tab.unloaded.signal() => {
+                        let unloaded = tab.is_unloaded() => {
                             if *unloaded {
                                 if title.is_some() {
                                     "➔ "
@@ -125,7 +125,7 @@ fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
 
         .cursor!(state.is_dragging(), intern("pointer"))
 
-        .class_signal(&*TAB_UNLOADED_STYLE, tab.unloaded.signal())
+        .class_signal(&*TAB_UNLOADED_STYLE, tab.is_unloaded())
         .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
 
         .apply(mixin)
@@ -154,7 +154,7 @@ impl State {
 
                         .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                         //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                        .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
+                        .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
                         .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                         //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -324,7 +324,7 @@ impl State {
                             tab_template(&state, &tab, |dom| apply_methods!(dom, {
                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.unloaded.signal()))
+                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
                                 .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                                 //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -538,7 +538,7 @@ impl State {
                                                 &*MENU_ITEM_HOVER_STYLE,
                                             ])*/
                                             .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.unloaded.signal())
+                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.is_unloaded())
                                             .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
 
                                         // TODO use ease-out easing
@@ -693,31 +693,31 @@ impl State {
 
                                             state.menu.render(|menu| { menu
                                                 .submenu(Some("/icons/iconic/sort-ascending.svg"), "Sort tabs by...", |menu| { menu
-                                                    .option(None, "Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/browser.svg"), "Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Window);
                                                     }))
 
-                                                    .option(None, "Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/tag.svg"), "Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Tag);
                                                     }))
 
                                                     .separator()
 
-                                                    .option(None, "Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/eye.svg"), "Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
                                                     }))
 
-                                                    .option(None, "Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/clock.svg"), "Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
                                                     }))
 
                                                     .separator()
 
-                                                    .option(None, "URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/link-intact.svg"), "URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Url);
                                                     }))
 
-                                                    .option(None, "Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/double-quote-serif-left.svg"), "Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Name);
                                                     }))
                                                 })

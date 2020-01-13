@@ -640,27 +640,6 @@ impl State {
     }
 
     // TODO test this
-    pub(crate) fn focus_tab(&self, old_tab_index: Option<usize>, new_tab_index: usize, new_timestamp_focused: f64) {
-        let tabs = self.tabs.read().unwrap();
-
-        let new_tab = &tabs[new_tab_index];
-
-        if let Some(old_tab_index) = old_tab_index {
-            let old_tab = &tabs[old_tab_index];
-
-            // TODO does this need to use tab_updated ?
-            self.groups.tab_updated(self, old_tab_index, old_tab.clone(), || {
-                old_tab.focused.set_neq(false);
-            });
-        }
-
-        self.groups.tab_updated(self, new_tab_index, new_tab.clone(), || {
-            new_tab.timestamp_focused.set_neq(Some(new_timestamp_focused));
-            new_tab.focused.set_neq(true);
-        });
-    }
-
-    // TODO test this
     pub(crate) fn move_tab(&self, old_tab_index: usize, new_tab_index: usize) {
         assert!(old_tab_index != new_tab_index);
 
@@ -715,10 +694,6 @@ impl State {
                         let index = tags.iter().position(|x| x.name == tag_name).unwrap();
                         tags.remove(index);
                     },
-                    TabChange::Unloaded { unloaded } => {
-                        // TODO should this affect the sort ?
-                        tab.unloaded.set_neq(unloaded);
-                    },
                     TabChange::Muted { muted } => {
                         // TODO should this affect the sort ?
                         tab.muted.set_neq(muted);
@@ -726,6 +701,22 @@ impl State {
                     TabChange::PlayingAudio { playing } => {
                         // TODO should this affect the sort ?
                         tab.playing_audio.set_neq(playing);
+                    },
+                    TabChange::HasAttention { has } => {
+                        // TODO should this affect the sort ?
+                        tab.has_attention.set_neq(has);
+                    },
+                    TabChange::Status { status } => {
+                        // TODO should this affect the sort ?
+                        tab.status.set_neq(status);
+                    },
+                    // TODO maybe this shouldn't affect the sort ?
+                    TabChange::Unfocused => {
+                        tab.focused.set_neq(false);
+                    },
+                    TabChange::Focused { new_timestamp_focused } => {
+                        tab.timestamp_focused.set_neq(Some(new_timestamp_focused));
+                        tab.focused.set_neq(true);
                     },
                 }
             }
