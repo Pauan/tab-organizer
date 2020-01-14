@@ -65,28 +65,24 @@ fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElemen
         ])
 
         .children(&mut [
-            html!("span", {
-                .children(&mut [
-                    text_signal(map_ref! {
-                        let title = tab.title.signal_cloned(),
-                        let unloaded = tab.is_unloaded() => {
-                            if *unloaded {
-                                if title.is_some() {
-                                    "➔ "
+            text_signal(map_ref! {
+                let title = tab.title.signal_cloned(),
+                let unloaded = tab.is_unloaded() => {
+                    if *unloaded {
+                        if title.is_some() {
+                            "➔ "
 
-                                } else {
-                                    "➔"
-                                }
-
-                            } else {
-                                ""
-                            }
+                        } else {
+                            "➔"
                         }
-                    }),
 
-                    text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-                ])
-            })
+                    } else {
+                        ""
+                    }
+                }
+            }),
+
+            text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
         ])
 
         .apply(mixin)
@@ -172,6 +168,10 @@ impl State {
                         .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
                         .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
+                        .style_signal("padding-left", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                        .style_signal("padding-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                        .style_signal("border-left-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
+                        .style_signal("border-right-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                         .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
                         .style_signal("transform", tab.insert_animation.signal().map(|t| {
@@ -250,6 +250,8 @@ impl State {
                         .children(&mut [
                             tab_favicon(&tab, |dom| { dom
                                 .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_LEFT_MARGIN))
+                                .style_signal("margin-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_RIGHT_MARGIN))
                             }),
                         ])
                     }))
@@ -703,11 +705,11 @@ impl State {
 
                                                     .separator()
 
-                                                    .option(Some("/icons/iconic/eye.svg"), "Time (focused)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/eye.svg"), "Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
                                                     }))
 
-                                                    .option(Some("/icons/iconic/clock.svg"), "Time (created)", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                    .option(Some("/icons/iconic/clock.svg"), "Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
                                                     }))
 

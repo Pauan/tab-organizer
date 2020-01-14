@@ -45,21 +45,6 @@ impl<A> Mapping<A> {
         Some((id, self.values.get_mut(&id).unwrap()))
     }
 
-    /*fn get_or_insert<F>(&mut self, key: i32, id: Id, set: F) -> &mut A where F: FnOnce() -> A {
-        let entry = self.values.entry(id);
-
-        match entry {
-            Entry::Vacant(_) => {
-                self.keys.insert(key, id).unwrap_none();
-            },
-            Entry::Occupied(_) => {
-                assert_eq!(*self.keys.get(&key).unwrap(), id);
-            },
-        }
-
-        entry.or_insert_with(set)
-    }*/
-
     fn remove(&mut self, key: i32) -> Option<(Id, A)> {
         let id = self.keys.remove(&key)?;
         let value = self.values.remove(&id).unwrap();
@@ -272,41 +257,6 @@ impl Window {
     pub fn real_id(&self) -> i32 {
         self.window_id
     }
-
-    /*pub fn is_tab_focused(&self, tab_id: i32) -> bool {
-        match self.focused_tab {
-            Some(id) => id == tab_id,
-            None => false,
-        }
-    }
-
-    pub fn set_focused(&mut self, new_id: i32) -> Option<Option<i32>> {
-        let old_id = self.focused_tab;
-
-        if let Some(old_id) = old_id {
-            if old_id == new_id {
-                return None;
-            }
-        }
-
-        self.focused_tab = Some(new_id);
-
-        return Some(old_id);
-    }
-
-    pub fn unfocus_tab(&mut self, tab_id: i32) {
-        if let Some(old_id) = self.focused_tab {
-            if old_id == tab_id {
-                self.focused_tab = None;
-            }
-        }
-    }
-
-    pub fn detach_tab(&mut self, tab_id: i32, index: usize) {
-        assert_eq!(self.tabs.remove(index), tab_id);
-
-        self.unfocus_tab(tab_id);
-    }*/
 }
 
 

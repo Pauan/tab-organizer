@@ -120,7 +120,7 @@ lazy_static! {
         .style("font-weight", "bold")
     };
 
-    // TODO code duplication with main.rs
+    // TODO code duplication with render.rs
     static ref MENU_ITEM_SHADOW_STYLE: String = class! {
         .style("box-shadow", "      0px 1px  1px hsla(0, 0%,   0%, 0.25), \
                               inset 0px 0px  3px hsla(0, 0%, 100%, 1   ), \

@@ -321,10 +321,15 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 }
 
 
-fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], changing_sort: bool, should_animate: bool) -> Vec<Arc<Group>> {
     let mut groups = vec![];
 
     for (tab_index, tab) in tabs.iter().cloned().enumerate() {
+        // TODO make this check more robust ?
+        if changing_sort && tab.pinned.get() {
+            continue;
+        }
+
         tab_inserted(state, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
     }
 
@@ -497,7 +502,7 @@ impl Groups {
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(state, sort, &self.pinned, &tabs, false) });
+        let new_groups = time!("Creating initial groups", { initialize(state, sort, &self.pinned, &tabs, false, false) });
         groups.replace_cloned(new_groups);
     }
 
@@ -542,7 +547,7 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        let new_groups = time!("Creating new groups", { initialize(state, *sort, &self.pinned, tabs, false) });
+        let new_groups = time!("Creating new groups", { initialize(state, *sort, &self.pinned, tabs, true, false) });
 
         groups.replace_cloned(new_groups);
     }

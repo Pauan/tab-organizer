@@ -733,10 +733,9 @@ pub async fn main_js() -> Result<(), JsValue> {
                             }
                         },
 
+                        // TODO verify this works correctly if the tab is already focused
                         BrowserChange::TabCreated { timestamp, tab, window_id, index } => {
                             if let Some(info) = State::new_tab(&state, timestamp, &tab).await? {
-                                assert_eq!(info.focused, false);
-
                                 let state: &mut State = &mut state.borrow_mut();
 
                                 // TODO what if this is None ?
@@ -807,33 +806,34 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                                 let uuid = browser_tab.serialized.uuid;
 
-                                let old_tab_uuid = browser_window.set_focused(uuid).unwrap();
+                                // TODO maybe it should still focus it even if this is None ?
+                                if let Some(old_tab_uuid) = browser_window.set_focused(uuid) {
+                                    browser_tab.serialized.timestamp_focused = Some(timestamp);
 
-                                browser_tab.serialized.timestamp_focused = Some(timestamp);
+                                    state.db.set(&SerializedTab::key(uuid), &browser_tab.serialized);
 
-                                state.db.set(&SerializedTab::key(uuid), &browser_tab.serialized);
+                                    if let Some(old_tab_uuid) = old_tab_uuid {
+                                        let old_tab_index = browser_window.serialized.tab_index(old_tab_uuid);
 
-                                if let Some(old_tab_uuid) = old_tab_uuid {
-                                    let old_tab_index = browser_window.serialized.tab_index(old_tab_uuid);
+                                        browser_window.send_message(&sidebar::ServerMessage::TabChanged {
+                                            tab_index: old_tab_index,
+                                            changes: vec![
+                                                sidebar::TabChange::Unfocused,
+                                            ],
+                                        });
+                                    }
+
+                                    let new_tab_index = browser_window.serialized.tab_index(uuid);
 
                                     browser_window.send_message(&sidebar::ServerMessage::TabChanged {
-                                        tab_index: old_tab_index,
+                                        tab_index: new_tab_index,
                                         changes: vec![
-                                            sidebar::TabChange::Unfocused,
+                                            sidebar::TabChange::Focused {
+                                                new_timestamp_focused: timestamp,
+                                            },
                                         ],
                                     });
                                 }
-
-                                let new_tab_index = browser_window.serialized.tab_index(uuid);
-
-                                browser_window.send_message(&sidebar::ServerMessage::TabChanged {
-                                    tab_index: new_tab_index,
-                                    changes: vec![
-                                        sidebar::TabChange::Focused {
-                                            new_timestamp_focused: timestamp,
-                                        },
-                                    ],
-                                });
                             }
                         },
 
@@ -844,10 +844,11 @@ pub async fn main_js() -> Result<(), JsValue> {
                                 let tab_uuid = browser_tab.serialized.uuid;
 
                                 // TODO what if this is None ?
-                                let is_tab_focused = if let Some(old_window) = state.window_ids.get_mut(&old_window_id) {
+                                // TODO verify this works correctly if the tab is focused
+                                if let Some(old_window) = state.window_ids.get_mut(&old_window_id) {
                                     assert_eq!(old_window.tabs.remove(old_index as usize), tab_uuid);
 
-                                    let is_tab_focused = old_window.unfocus_tab(tab_uuid);
+                                    old_window.unfocus_tab(tab_uuid);
 
                                     let tab_index = old_window.serialized.tab_index(tab_uuid);
 
@@ -856,15 +857,10 @@ pub async fn main_js() -> Result<(), JsValue> {
                                     old_window.serialize(&state.db);
 
                                     old_window.send_message(&sidebar::ServerMessage::TabRemoved { tab_index });
-
-                                    is_tab_focused
-
-                                } else {
-                                    false
-                                };
+                                }
 
                                 // TODO what if this is None ?
-                                // TODO handle tab focus
+                                // TODO verify this works correctly if the tab is focused
                                 if let Some(new_window) = state.window_ids.get_mut(&new_window_id) {
                                     let tab_index = State::insert_tab(new_window, tab_uuid, new_index);
 
@@ -906,6 +902,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             }
                         },
 
+                        // TODO verify this works correctly if the tab is focused
                         BrowserChange::TabRemoved { tab_id, window_id, is_window_closing } => {
                             let state: &mut State = &mut state.borrow_mut();
 

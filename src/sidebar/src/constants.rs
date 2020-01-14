@@ -34,11 +34,14 @@ pub(crate) const TAB_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_BORDER_CROWN_WIDTH: f64 = 3.0;
 pub(crate) const TAB_PADDING: f64 = 1.0;
 pub(crate) const TAB_HEIGHT: f64 = 22.0;
-pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
-pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-pub(crate) const TAB_PINNED_WIDTH: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_PADDING + TAB_HEIGHT + TAB_BORDER_WIDTH;
+pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_HEIGHT + TAB_PADDING + TAB_BORDER_WIDTH;
+
+pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
+pub(crate) const TAB_FAVICON_LEFT_MARGIN: f64 = 3.0;
+pub(crate) const TAB_FAVICON_RIGHT_MARGIN: f64 = 2.0;
+
+pub(crate) const TAB_CLOSE_BORDER_WIDTH: f64 = 1.0;
 
 
 lazy_static! {
@@ -176,7 +179,7 @@ lazy_static! {
 
     pub(crate) static ref GROUP_PINNED_STYLE: String = class! {
         .style("white-space", "normal")
-        .style("margin-bottom", px(TOOLBAR_MARGIN))
+        .style("margin-top", px(TOOLBAR_MARGIN))
     };
 
     pub(crate) static ref GROUP_HEADER_STYLE: String = class! {
@@ -344,8 +347,8 @@ lazy_static! {
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
         .style("width", px(TAB_FAVICON_SIZE))
         .style("height", px(TAB_FAVICON_SIZE))
-        .style("margin-left", "3px")
-        .style("margin-right", "2px")
+        .style("margin-left", px(TAB_FAVICON_LEFT_MARGIN))
+        .style("margin-right", px(TAB_FAVICON_RIGHT_MARGIN))
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
@@ -356,7 +359,6 @@ lazy_static! {
         .style("overflow", "hidden")
         .style("padding-left", "3px")
         .style("padding-right", "2px")
-        .style("height", "100%")
     };
 
     pub(crate) static ref TAB_CLOSE_STYLE: String = class! {

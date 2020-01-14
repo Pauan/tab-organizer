@@ -3,7 +3,7 @@ use std::marker::Unpin;
 use std::sync::Arc;
 use tab_organizer::{time, ease, window_width};
 use tab_organizer::state::SortTabs;
-use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PINNED_WIDTH, TAB_PINNED_HEIGHT, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
+use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PINNED_HEIGHT, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
@@ -172,7 +172,26 @@ impl CulledTab {
         insert_animation
     }
 
-    // TODO this must be kept in sync with main.rs
+    // TODO this must be kept in sync with render.rs
+    // TODO handle dragging
+    fn pinned_width(&self) -> Option<f64> {
+        if !self.dragging.unwrap() && !self.manually_closed.unwrap() {
+            let percentage = ease(self.insert_animation.unwrap());
+
+            let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
+            let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
+            let width = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
+
+            Some(
+                (border * 2.0) + (padding * 2.0) + width
+            )
+
+        } else {
+            None
+        }
+    }
+
+    // TODO this must be kept in sync with render.rs
     fn height(&self) -> Option<(f64, f64)> {
         // TODO make matches_search a MutableSink ?
         if self.state.matches_search.get() && !self.dragging.unwrap() && !self.manually_closed.unwrap() {
@@ -183,10 +202,10 @@ impl CulledTab {
             let height = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
 
             Some((
-                // offset top
+                // Offset top
                 ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round(),
 
-                // height
+                // Height
                 (border * 2.0) + (padding * 2.0) + height
             ))
 
@@ -206,7 +225,7 @@ struct CulledGroup<A> where A: SignalVec {
 
 fn culled_group(state: Arc<Group>) -> CulledGroup<impl SignalVec<Item = CulledTab>> {
     let tabs_signal = state.tabs.signal_vec_cloned()
-        // TODO duplication with main.rs
+        // TODO duplication with render.rs
         .delay_remove(|tab| tab.wait_until_removed())
         .map(CulledTab::new);
 
@@ -229,14 +248,15 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
         insert_animation
     }
 
-    // TODO this must be kept in sync with main.rs
+    // TODO this must be kept in sync with render.rs
     // There is no offset, because the group list has `top: 1px` and the groups have `top: -1px` so it cancels out
     fn height(&self) -> Option<(f64, f64)> {
         if self.state.matches_search.get() {
             let percentage = ease(self.insert_animation.unwrap());
+            let drag_over = ease(self.drag_over.unwrap());
 
             Some((
-                // height top
+                // Height top
                 percentage.range_inclusive(0.0, GROUP_BORDER_WIDTH).round() +
                 percentage.range_inclusive(0.0, GROUP_PADDING_TOP).round() +
                 (if self.state.show_header {
@@ -245,9 +265,9 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
                     0.0
                 }),
 
-                // height bottom
+                // Height bottom
                 percentage.range_inclusive(0.0, GROUP_PADDING_BOTTOM).round() +
-                ease(self.drag_over.unwrap()).range_inclusive(0.0, DRAG_GAP_PX).round()
+                drag_over.range_inclusive(0.0, DRAG_GAP_PX).round()
             ))
 
         } else {
@@ -316,22 +336,39 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     fn update(&mut self, should_search: bool) {
         // TODO take into account the animations ?
         let pinned_height = {
-            let columns = ((window_width() - (TOOLBAR_MARGIN * 2.0)) / TAB_PINNED_WIDTH).floor();
+            let window_width = window_width() - (TOOLBAR_MARGIN * 2.0);
 
+            let mut rows = 1.0;
+            let mut right = 0.0;
             let mut visible = 0.0;
 
             for tab in self.pinned.tabs.values.iter() {
-                tab.state.visible.set_neq(true);
-                visible += 1.0;
+                if let Some(width) = tab.pinned_width() {
+                    if width > 0.0 {
+                        right += width;
+
+                        if right > window_width {
+                            right = width;
+                            rows += 1.0;
+                        }
+
+                        visible += 1.0;
+                        tab.state.visible.set_neq(true);
+
+                    } else {
+                        self.state.hide_tab(&tab.state);
+                    }
+
+                } else {
+                    self.state.hide_tab(&tab.state);
+                }
             }
 
             if visible != 0.0 {
                 self.pinned.state.visible.set_neq(true);
 
-                // TODO what about divide by 0 ?
-                let rows = (visible / columns).ceil();
                 let height = rows * TAB_PINNED_HEIGHT;
-                height + TOOLBAR_MARGIN
+                TOOLBAR_MARGIN + height
 
             } else {
                 self.pinned.state.visible.set_neq(false);
@@ -404,6 +441,8 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
                     }
                 }
 
+                let tabs_height = current_height - tabs_height;
+
                 current_height += bottom_height;
 
                 // TODO what if the group has height but the tabs don't ?
@@ -413,7 +452,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
                         padding = Some(old_height);
                     }
 
-                    group.state.tabs_padding.set_neq(tabs_padding.unwrap_or(0.0));
+                    group.state.tabs_padding.set_neq(tabs_padding.unwrap_or(tabs_height));
                     group.state.visible.set_neq(true);
 
                 } else {
@@ -459,7 +498,7 @@ pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future
         first: true,
         pinned: culled_group(state.groups.pinned_group()),
         groups: MutableVecSink::new(state.groups.signal_vec_cloned()
-            // TODO duplication with main.rs
+            // TODO duplication with render.rs
             .delay_remove(|group| group.wait_until_removed())
             .map(culled_group)),
         search_parser: MutableSink::new(state.search_parser.signal_cloned()),
