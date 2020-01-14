@@ -3,7 +3,7 @@ use std::marker::Unpin;
 use std::sync::Arc;
 use tab_organizer::{time, ease, window_width};
 use tab_organizer::state::SortTabs;
-use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_PINNED_HEIGHT, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
+use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_BORDER_CROWN_WIDTH, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
@@ -174,17 +174,22 @@ impl CulledTab {
 
     // TODO this must be kept in sync with render.rs
     // TODO handle dragging
-    fn pinned_width(&self) -> Option<f64> {
+    fn pinned_size(&self) -> Option<(f64, f64)> {
         if !self.dragging.unwrap() && !self.manually_closed.unwrap() {
             let percentage = ease(self.insert_animation.unwrap());
 
+            let border_crown = percentage.range_inclusive(0.0, TAB_BORDER_CROWN_WIDTH).round();
             let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
             let padding = percentage.range_inclusive(0.0, TAB_PADDING).round();
-            let width = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
+            let size = percentage.range_inclusive(0.0, TAB_HEIGHT).round();
 
-            Some(
-                (border * 2.0) + (padding * 2.0) + width
-            )
+            Some((
+                // Width
+                (border * 2.0) + (padding * 2.0) + size,
+
+                // Height
+                border_crown + border + padding + size,
+            ))
 
         } else {
             None
@@ -338,21 +343,33 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
         let pinned_height = {
             let window_width = window_width() - (TOOLBAR_MARGIN * 2.0);
 
-            let mut rows = 1.0;
+            let mut total_height = TOOLBAR_MARGIN;
+            let mut max_height = None;
             let mut right = 0.0;
-            let mut visible = 0.0;
+            let mut has_tabs = false;
 
             for tab in self.pinned.tabs.values.iter() {
-                if let Some(width) = tab.pinned_width() {
-                    if width > 0.0 {
+                if let Some((width, height)) = tab.pinned_size() {
+                    if width > 0.0 || height > 0.0 {
                         right += width;
 
+                        // Overflows to next row
                         if right > window_width {
+                            if let Some(max_height) = max_height {
+                                total_height += max_height;
+                            }
+
                             right = width;
-                            rows += 1.0;
+                            max_height = Some(height);
+
+                        } else {
+                            max_height = Some(match max_height {
+                                Some(max_height) => max_height.max(height),
+                                None => height,
+                            });
                         }
 
-                        visible += 1.0;
+                        has_tabs = true;
                         tab.state.visible.set_neq(true);
 
                     } else {
@@ -364,11 +381,10 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
                 }
             }
 
-            if visible != 0.0 {
+            if has_tabs {
                 self.pinned.state.visible.set_neq(true);
 
-                let height = rows * TAB_PINNED_HEIGHT;
-                TOOLBAR_MARGIN + height
+                total_height + max_height.unwrap()
 
             } else {
                 self.pinned.state.visible.set_neq(false);

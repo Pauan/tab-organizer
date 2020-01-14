@@ -168,10 +168,14 @@ impl State {
                         .attribute_signal("title", tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
                         .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
+                        .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_HEIGHT))
                         .style_signal("padding-left", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
                         .style_signal("padding-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                        .style_signal("padding-bottom", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_PADDING))
+                        .style_signal("border-top-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_CROWN_WIDTH))
                         .style_signal("border-left-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                         .style_signal("border-right-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
+                        .style_signal("border-bottom-width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_BORDER_WIDTH))
                         .style_signal("opacity", none_if(tab.insert_animation.signal(), 1.0, float_range, 0.0, 1.0))
 
                         .style_signal("transform", tab.insert_animation.signal().map(|t| {
@@ -250,6 +254,7 @@ impl State {
                         .children(&mut [
                             tab_favicon(&tab, |dom| { dom
                                 .style_signal("width", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
+                                .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_LEFT_MARGIN))
                                 .style_signal("margin-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_RIGHT_MARGIN))
                             }),

@@ -35,7 +35,6 @@ pub(crate) const TAB_BORDER_CROWN_WIDTH: f64 = 3.0;
 pub(crate) const TAB_PADDING: f64 = 1.0;
 pub(crate) const TAB_HEIGHT: f64 = 22.0;
 pub(crate) const TAB_TOTAL_HEIGHT: f64 = (TAB_BORDER_WIDTH * 2.0) + (TAB_PADDING * 2.0) + TAB_HEIGHT;
-pub(crate) const TAB_PINNED_HEIGHT: f64 = TAB_BORDER_CROWN_WIDTH + TAB_HEIGHT + TAB_PADDING + TAB_BORDER_WIDTH;
 
 pub(crate) const TAB_FAVICON_SIZE: f64 = 16.0;
 pub(crate) const TAB_FAVICON_LEFT_MARGIN: f64 = 3.0;
@@ -153,9 +152,11 @@ lazy_static! {
         // This resets the direction so it works properly
         .style("direction", "ltr")
         .style("margin-right", "4px")
-        .style("border-left", "1px solid rgb(202, 202, 202)")
         .style("min-height", "calc(100% - 1px)")
-        .style("background-image", "linear-gradient(to right, rgba(0, 0, 0, 0.03), transparent 5%, transparent 75%, rgba(0, 0, 0, 0.03))")
+        .style("background-image", "
+            linear-gradient(to right, rgba(0, 0, 0, 0.03), transparent 5%, transparent 75%, rgba(0, 0, 0, 0.03)),
+            linear-gradient(to right, rgb(202, 202, 202) 0px, transparent 2px)
+        ")
     };
 
     pub(crate) static ref GROUP_LIST_RIGHT_BORDER: String = class! {
