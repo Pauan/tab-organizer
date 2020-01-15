@@ -4,9 +4,10 @@ use dominator::animation::{MutableAnimation, Percentage};
 use dominator::traits::*;
 use web_sys::{HtmlElement, HtmlInputElement};
 use futures_signals::map_ref;
-use futures_signals::signal::{SignalExt, Mutable, and, or};
+use futures_signals::signal::{Signal, SignalExt, Mutable, and, or, always};
 use futures_signals::signal_vec::SignalVecExt;
 use wasm_bindgen::intern;
+use lazy_static::lazy_static;
 
 use tab_organizer::styles::*;
 use crate::constants::*;
@@ -40,6 +41,12 @@ fn make_url_bar_child<A, D, F>(state: &State, name: &str, mut display: D, f: F) 
 }
 
 fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+    let favicon_url = tab.favicon_url.clone();
+
+    lazy_static! {
+        static ref LOADING_URL: Arc<String> = Arc::new(intern("icons/firefox/tab-loading.png").to_string());
+    }
+
     html!("img", {
         .class(&*TAB_FAVICON_STYLE)
         /*.class([
@@ -49,11 +56,84 @@ fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlEle
 
         .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.is_unloaded())
 
-        .attribute_signal("src", tab.favicon_url.signal_cloned().map(|x| {
-            RefFn::new(x, move |x| x.as_ref().map(|x| x.as_str()).unwrap_or(DEFAULT_FAVICON))
-        }))
+        .attribute_signal("src", tab.is_loading()
+            // TODO make this more efficient somehow ?
+            .switch(move |is_loading| -> Box<dyn Signal<Item = Option<Arc<String>>> + Unpin> {
+                if is_loading {
+                    Box::new(always(Some(LOADING_URL.clone())))
+
+                } else {
+                    Box::new(favicon_url.signal_cloned())
+                }
+            })
+            .map(|x| {
+                RefFn::new(x, move |x| {
+                    x.as_ref().map(|x| x.as_str()).unwrap_or(intern(DEFAULT_FAVICON))
+                })
+            }))
 
         .apply(mixin)
+    })
+}
+
+fn tab_audio(state: &Arc<State>, tab: &Arc<Tab>, pinned: bool) -> Dom {
+    html!("img", {
+        .class(&*TAB_AUDIO_STYLE)
+
+        .class_signal(&*TAB_AUDIO_HOVER_STYLE, tab.audio_hovered.signal())
+
+        .apply_if(pinned, |dom| dom.class(&*TAB_AUDIO_PINNED_STYLE))
+
+        .visible_signal(map_ref! {
+            let playing = tab.playing_audio.signal(),
+            let muted = tab.muted.signal() => {
+                *playing || *muted
+            }
+        })
+
+        .attribute_signal("title", tab.muted.signal().map(|muted| {
+            if muted {
+                "Unmute tab"
+
+            } else {
+                "Mute tab"
+            }
+        }))
+
+        .attribute_signal("src", map_ref! {
+            let playing = tab.playing_audio.signal(),
+            let muted = tab.muted.signal() => move {
+                if *muted {
+                    if pinned {
+                        Some(intern("icons/firefox/tab-audio-muted-small.svg"))
+                    } else {
+                        Some(intern("icons/firefox/tab-audio-muted.svg"))
+                    }
+
+                } else if *playing {
+                    if pinned {
+                        Some(intern("icons/firefox/tab-audio-playing-small.svg"))
+                    } else {
+                        Some(intern("icons/firefox/tab-audio-playing.svg"))
+                    }
+
+                } else {
+                    None
+                }
+            }
+        })
+
+        .event(clone!(tab => move |_: events::MouseEnter| {
+            tab.audio_hovered.set_neq(true);
+        }))
+
+        .event(clone!(tab => move |_: events::MouseLeave| {
+            tab.audio_hovered.set_neq(false);
+        }))
+
+        .event(clone!(state, tab => move |_: events::Click| {
+            state.set_muted(&[&tab], !tab.muted.get());
+        }))
     })
 }
 
@@ -185,7 +265,7 @@ impl State {
                         .with_node!(element => {
                             .event(clone!(state, group, tab => move |e: events::MouseDown| {
                                 // TODO a little hacky
-                                if !tab.close_hovered.get() {
+                                if !tab.close_hovered.get() && !tab.audio_hovered.get() {
                                     //tab.holding.set_neq(true);
 
                                     let shift = e.shift_key();
@@ -258,6 +338,8 @@ impl State {
                                 .style_signal("margin-left", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_LEFT_MARGIN))
                                 .style_signal("margin-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_RIGHT_MARGIN))
                             }),
+
+                            tab_audio(&state, &tab, true),
                         ])
                     }))
                 })))
@@ -360,7 +442,7 @@ impl State {
                                 .with_node!(element => {
                                     .event(clone!(state, group, tab => move |e: events::MouseDown| {
                                         // TODO a little hacky
-                                        if !tab.close_hovered.get() {
+                                        if !tab.close_hovered.get() && !tab.audio_hovered.get() {
                                             //tab.holding.set_neq(true);
 
                                             let shift = e.shift_key();
@@ -430,6 +512,8 @@ impl State {
                                     tab_favicon(&tab, |dom| { dom
                                         .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                     }),
+
+                                    tab_audio(&state, &tab, false),
 
                                     tab_text(&tab, |dom| { dom }),
 
@@ -559,6 +643,8 @@ impl State {
 
                                         .children(&mut [
                                             tab_favicon(&tab, |dom| dom),
+
+                                            tab_audio(&state, &tab, false),
 
                                             tab_text(&tab, |dom| dom),
 

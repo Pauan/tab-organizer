@@ -15,7 +15,7 @@ use wasm_bindgen::intern;
 use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
-use tab_organizer::{spawn, log, info, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, export_function, closure, print_logs};
+use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, export_function, closure, print_logs};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -600,6 +600,35 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         }).collect::<js_sys::Array>();
 
                                         remove_tabs(ids);
+                                    },
+
+                                    sidebar::ClientMessage::MuteTabs { uuids, muted } => {
+                                        let state: &mut State = &mut state.borrow_mut();
+
+                                        let fut = try_join_all(uuids.into_iter().filter_map(|uuid| {
+                                            match state.ids.get(&uuid) {
+                                                Some(id) => {
+                                                    state.browser.get_tab_real_id(*id).map(|id| {
+                                                        let fut = web_extension::browser.tabs().update(Some(id), &object! {
+                                                            "muted": muted,
+                                                        });
+
+                                                        async move {
+                                                            let _ = JsFuture::from(fut).await?;
+                                                            Ok(()) as Result<(), JsValue>
+                                                        }
+                                                    })
+                                                },
+
+                                                // Tab is unloaded
+                                                None => None,
+                                            }
+                                        }));
+
+                                        spawn(async move {
+                                            let _ = fut.await?;
+                                            Ok(())
+                                        });
                                     },
                                 }
 

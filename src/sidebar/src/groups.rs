@@ -523,8 +523,13 @@ impl Groups {
             let current_time = Date::now();
 
             for group in groups.iter() {
-                // TODO only update if the new title is different from the old title
-                group.name.set(Some(Arc::new(generate_timestamp_title(group.timestamp, current_time))));
+                let new_title = generate_timestamp_title(group.timestamp, current_time);
+
+                let mut name = group.name.lock_mut();
+
+                if name.as_deref() != Some(&new_title) {
+                    *name = Some(Arc::new(new_title));
+                }
             }
         }
     }
@@ -677,13 +682,25 @@ impl State {
             for change in changes {
                 match change {
                     TabChange::FaviconUrl { new_favicon_url } => {
-                        tab.favicon_url.set(new_favicon_url.map(Arc::new));
+                        let mut favicon_url = tab.favicon_url.lock_mut();
+
+                        if favicon_url.as_deref() != new_favicon_url.as_ref() {
+                            *favicon_url = new_favicon_url.map(Arc::new);
+                        }
                     },
                     TabChange::Title { new_title } => {
-                        tab.title.set(new_title.map(Arc::new));
+                        let mut title = tab.title.lock_mut();
+
+                        if title.as_deref() != new_title.as_ref() {
+                            *title = new_title.map(Arc::new);
+                        }
                     },
                     TabChange::Url { new_url } => {
-                        tab.url.set(new_url.map(Arc::new));
+                        let mut url = tab.url.lock_mut();
+
+                        if url.as_deref() != new_url.as_ref() {
+                            *url = new_url.map(Arc::new);
+                        }
                     },
                     TabChange::Pinned { pinned } => {
                         tab.pinned.set_neq(pinned);

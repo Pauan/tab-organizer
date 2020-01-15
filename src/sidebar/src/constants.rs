@@ -345,6 +345,26 @@ lazy_static! {
         .style("background-image", "linear-gradient(to bottom, hsl(100, 80%, 65%) 61.8%, white)")
     };
 
+    pub(crate) static ref TAB_AUDIO_STYLE: String = class! {
+        .style("width", "16px")
+        .style("height", "16px")
+        .style("opacity", "0.75")
+    };
+
+    pub(crate) static ref TAB_AUDIO_PINNED_STYLE: String = class! {
+        .style("position", "absolute")
+        .style("margin-top", "-9px")
+        .style("margin-left", "8px")
+        .style("z-index", "1")
+        .style("opacity", "1")
+    };
+
+    pub(crate) static ref TAB_AUDIO_HOVER_STYLE: String = class! {
+        .style("background-color", "white")
+        .style("border-radius", "100%")
+        .style("opacity", "1")
+    };
+
     pub(crate) static ref TAB_FAVICON_STYLE: String = class! {
         .style("width", px(TAB_FAVICON_SIZE))
         .style("height", px(TAB_FAVICON_SIZE))

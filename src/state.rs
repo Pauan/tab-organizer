@@ -27,6 +27,10 @@ pub mod sidebar {
         UnloadTabs {
             uuids: Vec<Uuid>,
         },
+        MuteTabs {
+            uuids: Vec<Uuid>,
+            muted: bool,
+        },
     }
 
     #[derive(Debug, Serialize, Deserialize)]

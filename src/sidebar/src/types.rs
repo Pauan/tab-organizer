@@ -160,6 +160,13 @@ impl State {
 
         self.port.send_message(&sidebar::ClientMessage::CloseTabs { uuids });
     }
+
+    // TODO maybe mutate muted ?
+    pub(crate) fn set_muted(&self, tabs: &[&TabState], muted: bool) {
+        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+
+        self.port.send_message(&sidebar::ClientMessage::MuteTabs { uuids, muted });
+    }
 }
 
 
@@ -221,6 +228,8 @@ pub(crate) struct Tab {
     pub(crate) hovered: Mutable<bool>,
     //pub(crate) holding: Mutable<bool>,
 
+    pub(crate) audio_hovered: Mutable<bool>,
+
     pub(crate) close_hovered: Mutable<bool>,
     pub(crate) close_holding: Mutable<bool>,
 
@@ -247,6 +256,8 @@ impl Tab {
             hovered: Mutable::new(false),
             //holding: Mutable::new(false),
 
+            audio_hovered: Mutable::new(false),
+
             close_hovered: Mutable::new(false),
             close_holding: Mutable::new(false),
 
@@ -265,6 +276,15 @@ impl Tab {
 
     pub(crate) fn is_unloaded(&self) -> impl Signal<Item = bool> {
         self.status.signal_ref(|status| status.is_unloaded())
+    }
+
+    pub(crate) fn is_loading(&self) -> impl Signal<Item = bool> {
+        self.status.signal_ref(|status| {
+            match status {
+                TabStatus::New | TabStatus::Loading => true,
+                TabStatus::Unloaded | TabStatus::Complete => false,
+            }
+        })
     }
 }
 

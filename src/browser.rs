@@ -357,6 +357,16 @@ impl Browser {
         let state = self.state.clone();
 
         lookup(&self.state.borrow()).map(move |value| {
+            /*let uuid = generate_uuid();
+
+            let fut = set(value, uuid);
+
+            async move {
+                fut.await?;
+                Ok(Some(uuid))
+            }*/
+
+
             let fut = get(value);
 
             async move {

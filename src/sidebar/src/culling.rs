@@ -134,6 +134,7 @@ impl State {
     fn hide_tab(&self, tab: &Tab) {
         tab.visible.set_neq(false);
         //tab.holding.set_neq(false);
+        tab.audio_hovered.set_neq(false);
         tab.close_hovered.set_neq(false);
         tab.close_holding.set_neq(false);
         self.unhover_tab(tab);
