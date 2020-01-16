@@ -236,42 +236,77 @@ macro_rules! log {
     };
 }
 
-#[macro_export]
-macro_rules! info {
-    ($($args:tt)*) => {
-        $crate::info(std::format!("[{}:{}]  {}", std::file!(), std::line!(), std::format!($($args)*)));
-    };
-}
-
-
-/*thread_local! {
-    static LOGS: RefCell<Vec<String>> = RefCell::new(vec![]);
-}*/
-
 #[inline]
 pub fn log(s: String) {
     web_sys::console::log_1(&wasm_bindgen::JsValue::from(s));
 }
 
-#[inline]
-pub fn info(s: String) {
-    web_sys::console::info_1(&wasm_bindgen::JsValue::from(s));
 
-    /*LOGS.with(|logs| {
-        logs.borrow_mut().push(s);
-    })*/
+struct Info {
+    time: String,
+    file: &'static str,
+    line: u32,
+    message: String,
 }
 
-/*pub fn with_logs<A, F>(f: F) -> A where F: FnOnce(&[String]) -> A {
-    LOGS.with(|logs| f(&logs.borrow()))
-}*/
+impl Info {
+    fn to_string(&self) -> String {
+        const MESSAGE_CUTOFF: usize = 1_000;
 
-pub fn print_logs(_amount: usize) {
-    /*with_logs(|logs| {
-        for log in &logs[(logs.len() - amount)..] {
-            web_sys::console::info_1(&wasm_bindgen::JsValue::from(log));
+        let mut message = self.message.replace("\n", "\n    ");
+
+        if message.len() > MESSAGE_CUTOFF {
+            message = format!("{}\n    ...\n    {}", &message[0..(MESSAGE_CUTOFF / 2)], &message[message.len() - (MESSAGE_CUTOFF / 2)..]);
         }
-    })*/
+
+        format!("{} [{}:{}]\n    {}", self.time, self.file, self.line, message)
+    }
+}
+
+#[macro_export]
+macro_rules! info {
+    ($($args:tt)*) => {
+        $crate::info($crate::pretty_time(), std::file!(), std::line!(), std::format!($($args)*));
+    };
+}
+
+thread_local! {
+    static LOGS: RefCell<Vec<Info>> = RefCell::new(vec![]);
+}
+
+#[inline]
+pub fn info(time: String, file: &'static str, line: u32, message: String) {
+    //web_sys::console::info_1(&wasm_bindgen::JsValue::from(s));
+
+    LOGS.with(|logs| {
+        logs.borrow_mut().push(Info { time, file, line, message });
+    })
+}
+
+fn with_logs<A, F>(f: F) -> A where F: FnOnce(&mut Vec<Info>) -> A {
+    LOGS.with(|logs| f(&mut logs.borrow_mut()))
+}
+
+pub fn print_logs(amount: usize) {
+    with_logs(|logs| {
+        let len = logs.len();
+
+        let first = if amount >= len {
+            0
+
+        } else {
+            len - amount
+        };
+
+        let mut messages: Vec<String> = logs.drain(first..).map(|x| x.to_string()).collect();
+
+        if !messages.is_empty() {
+            messages.reverse();
+
+            let message = messages.join("\n\n");
+            web_sys::console::info_1(&wasm_bindgen::JsValue::from(message));
+        }
+    })
 }
 
 
@@ -1022,6 +1057,12 @@ impl fmt::Debug for RegExp {
             .finish()
     }
 }*/
+
+
+pub fn pretty_time() -> String {
+    let x = Date::new_0();
+    format!("{:0>2}:{:0>2}:{:0>2}.{:0>3}", x.get_hours(), x.get_minutes(), x.get_seconds(), x.get_milliseconds())
+}
 
 
 pub fn round_to_hour(time: f64) -> f64 {

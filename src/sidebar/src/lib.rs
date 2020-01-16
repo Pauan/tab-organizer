@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, export_function, closure, print_logs};
 use tab_organizer::state::{sidebar, Options};
 use dominator::{html, stylesheet, clone};
+use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
 use futures_signals::signal::{Mutable, SignalExt};
 use lazy_static::lazy_static;
@@ -297,7 +298,7 @@ fn initialize(state: Arc<State>) {
 
 
 #[wasm_bindgen(start)]
-pub fn main_js() {
+pub async fn main_js() -> Result<(), JsValue> {
     std::panic::set_hook(Box::new(move |info| {
     	let message = Arc::new(info.to_string());
         FAILED.set(Some(message.clone()));
@@ -401,53 +402,52 @@ pub fn main_js() {
     }
 
 
-    tab_organizer::spawn(async move {
-        let port = Arc::new(connect::<sidebar::ClientMessage, sidebar::ServerMessage>("sidebar"));
+    let port = Arc::new(connect::<sidebar::ClientMessage, sidebar::ServerMessage>("sidebar"));
 
-        port.send_message(&sidebar::ClientMessage::Initialize {
-            id: search_to_id(),
-        });
-
-        let _ = port.on_message()
-            .map(|x| -> Result<_, JsValue> { Ok(x) })
-            .try_fold(None, move |mut state, message| {
-                clone!(port => async move {
-                    info!("Received message {:#?}", message);
-
-                    match message {
-                        sidebar::ServerMessage::Initial { tabs } => {
-                            assert!(state.is_none());
-
-                            state = time!("Initializing", {
-                                let state = Arc::new(State::new(port, Options::new(), tabs));
-                                initialize(state.clone());
-                                Some(state)
-                            });
-                        },
-
-                        sidebar::ServerMessage::TabInserted { tab_index, tab } => {
-                            state.as_ref().unwrap().insert_tab(tab_index, tab);
-                        },
-
-                        sidebar::ServerMessage::TabRemoved { tab_index } => {
-                            state.as_ref().unwrap().remove_tab(tab_index);
-                        },
-
-                        sidebar::ServerMessage::TabChanged { tab_index, changes } => {
-                            state.as_ref().unwrap().change_tab(tab_index, changes);
-                        },
-
-                        sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index } => {
-                            state.as_ref().unwrap().move_tab(old_tab_index, new_tab_index);
-                        },
-                    }
-
-                    Ok(state)
-                })
-            }).await?;
-
-        Ok(())
+    port.send_message(&sidebar::ClientMessage::Initialize {
+        id: search_to_id(),
     });
+
+    let _ = port.on_message()
+        .map(|x| -> Result<_, JsValue> { Ok(x) })
+        .try_fold(None, move |mut state, message| {
+            // TODO remove this boxed
+            clone!(port => async move {
+                info!("Received message {:#?}", message);
+
+                match message {
+                    sidebar::ServerMessage::Initial { tabs } => {
+                        assert!(state.is_none());
+
+                        state = time!("Initializing", {
+                            let state = Arc::new(State::new(port, Options::new(), tabs));
+                            initialize(state.clone());
+                            Some(state)
+                        });
+                    },
+
+                    sidebar::ServerMessage::TabInserted { tab_index, tab } => {
+                        state.as_ref().unwrap().insert_tab(tab_index, tab);
+                    },
+
+                    sidebar::ServerMessage::TabRemoved { tab_index } => {
+                        state.as_ref().unwrap().remove_tab(tab_index);
+                    },
+
+                    sidebar::ServerMessage::TabChanged { tab_index, changes } => {
+                        state.as_ref().unwrap().change_tab(tab_index, changes);
+                    },
+
+                    sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index } => {
+                        state.as_ref().unwrap().move_tab(old_tab_index, new_tab_index);
+                    },
+                }
+
+                Ok(state)
+            }.boxed_local())
+        }).await?;
+
+    Ok(())
 
     /*Timer::new(1500, move || {
         let window: shared::Window = shared::Window {

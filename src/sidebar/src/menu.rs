@@ -38,13 +38,13 @@ lazy_static! {
     };*/
 
     static ref MENU_MODAL_STYLE: String = class! {
-        .style("background-color", "hsla(0, 0%, 0%, 0.15)")
+        .style("background-color", "rgba(255, 255, 255, 0.4)")
     };
 
     static ref MENU_STYLE: String = class! {
         //.style("overflow", "hidden")
         .style("border", "1px solid rgb(204, 204, 204)")
-        .style("box-shadow", "rgba(0, 0, 0, 0.15) -1px 1px 5px")
+        .style("box-shadow", "rgb(204, 204, 204) 0px 0px 5px")
     };
 
     static ref MENU_CHEVRON_STYLE: String = class! {
@@ -116,10 +116,6 @@ lazy_static! {
         .style("cursor", "default")
     };*/
 
-    static ref MENU_ITEM_SELECTED_STYLE: String = class! {
-        .style("font-weight", "bold")
-    };
-
     // TODO code duplication with render.rs
     static ref MENU_ITEM_SHADOW_STYLE: String = class! {
         .style("box-shadow", "      0px 1px  1px hsla(0, 0%,   0%, 0.25), \
@@ -131,6 +127,11 @@ lazy_static! {
         .style("width", "16px")
         .style("height", "16px")
         .style("margin-right", "9px")
+    };
+
+    static ref MENU_ICON_IMAGE_STYLE: String = class! {
+        .style("width", "100%")
+        .style("height", "100%")
     };
 
     static ref SEPARATOR_STYLE: String = class! {
@@ -248,25 +249,28 @@ impl MenuBuilder {
 
 
     fn icon(url: Option<&str>) -> Dom {
-        match url {
-            Some(url) => {
-                html!("img", {
-                    .class(&*MENU_ICON_STYLE)
-                    .attribute("src", url)
-                    .attribute("alt", "")
-                })
-            },
+        html!("div", {
+            .class(&*MENU_ICON_STYLE)
 
-            None => {
-                html!("div", {
-                    .class(&*MENU_ICON_STYLE)
-                })
-            },
-        }
+            .apply(|dom| {
+                if let Some(url) = url {
+                    dom.children(&mut [
+                        html!("img", {
+                            .class(&*MENU_ICON_IMAGE_STYLE)
+                            .attribute("src", url)
+                            .attribute("alt", "")
+                        }),
+                    ])
+
+                } else {
+                    dom
+                }
+            })
+        })
     }
 
 
-    fn push_submenu<F>(&mut self, icon: Option<&str>, name: &str, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
+    fn push_submenu<F>(&mut self, name: &str, icon: Option<&str>, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
         let visible = Mutable::new(false);
 
         let MenuBuilder { mut children, mut submenus, .. } = f(MenuBuilder::new(self.state.clone(), Arc::new(Parent {
@@ -368,8 +372,8 @@ impl MenuBuilder {
     }
 
     #[inline]
-    pub(crate) fn submenu<F>(mut self, icon: Option<&str>, name: &str, f: F) -> Self where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        self.push_submenu(icon, name, f);
+    pub(crate) fn submenu<F>(mut self, name: &str, icon: Option<&str>, f: F) -> Self where F: FnOnce(MenuBuilder) -> MenuBuilder {
+        self.push_submenu(name, icon, f);
         self
     }
 
@@ -387,7 +391,7 @@ impl MenuBuilder {
     }
 
 
-    fn push_option<A, F>(&mut self, icon: Option<&str>, name: &str, signal: A, mut on_click: F)
+    fn push_toggle<A, F>(&mut self, name: &str, signal: A, mut on_click: F)
         where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
 
@@ -398,7 +402,48 @@ impl MenuBuilder {
         self.children.push(html!("div", {
             .apply(mixin)
 
-            .class_signal(&*MENU_ITEM_SELECTED_STYLE, signal)
+            .event(move |_: events::Click| {
+                state.hide();
+                on_click();
+            })
+
+            .children(&mut [
+                html!("div", {
+                    .class(&*MENU_ICON_STYLE)
+
+                    .children(&mut [
+                        html!("img", {
+                            .class(&*MENU_ICON_IMAGE_STYLE)
+                            .visible_signal(signal)
+                            .attribute("src", "/icons/iconic/check.svg")
+                            .attribute("alt", "")
+                        }),
+                    ])
+                }),
+
+                text(name),
+            ])
+        }));
+    }
+
+    #[inline]
+    pub(crate) fn toggle<A, F>(mut self, name: &str, signal: A, on_click: F) -> Self
+        where A: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
+        self.push_toggle(name, signal, on_click);
+        self
+    }
+
+
+    fn push_action<F>(&mut self, name: &str, icon: Option<&str>, mut on_click: F)
+        where F: FnMut() + 'static {
+
+        let mixin = self.menu_item();
+
+        let state = self.state.clone();
+
+        self.children.push(html!("div", {
+            .apply(mixin)
 
             .event(move |_: events::Click| {
                 state.hide();
@@ -407,17 +452,15 @@ impl MenuBuilder {
 
             .children(&mut [
                 Self::icon(icon),
-
                 text(name),
             ])
         }));
     }
 
     #[inline]
-    pub(crate) fn option<A, F>(mut self, icon: Option<&str>, name: &str, signal: A, on_click: F) -> Self
-        where A: Signal<Item = bool> + 'static,
-              F: FnMut() + 'static {
-        self.push_option(icon, name, signal, on_click);
+    pub(crate) fn action<F>(mut self, name: &str, icon: Option<&str>, on_click: F) -> Self
+        where F: FnMut() + 'static {
+        self.push_action(name, icon, on_click);
         self
     }
 }

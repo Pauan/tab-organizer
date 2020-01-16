@@ -76,6 +76,16 @@ fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlEle
     })
 }
 
+fn tab_attention(tab: &Tab) -> Dom {
+    html!("img", {
+        .class(&*TAB_ATTENTION_STYLE)
+
+        .visible_signal(tab.has_attention.signal())
+
+        .attribute("src", "icons/firefox/indicator-tab-attention.svg")
+    })
+}
+
 fn tab_audio(state: &Arc<State>, tab: &Arc<Tab>, pinned: bool) -> Dom {
     html!("img", {
         .class(&*TAB_AUDIO_STYLE)
@@ -339,6 +349,8 @@ impl State {
                                 .style_signal("margin-right", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_RIGHT_MARGIN))
                             }),
 
+                            tab_attention(&tab),
+
                             tab_audio(&state, &tab, true),
                         ])
                     }))
@@ -513,6 +525,8 @@ impl State {
                                         .style_signal("height", none_if(tab.insert_animation.signal(), 1.0, px_range, 0.0, TAB_FAVICON_SIZE))
                                     }),
 
+                                    tab_attention(&tab),
+
                                     tab_audio(&state, &tab, false),
 
                                     tab_text(&tab, |dom| { dom }),
@@ -643,6 +657,8 @@ impl State {
 
                                         .children(&mut [
                                             tab_favicon(&tab, |dom| dom),
+
+                                            tab_attention(&tab),
 
                                             tab_audio(&state, &tab, false),
 
@@ -785,45 +801,45 @@ impl State {
                                             }),
 
                                             state.menu.render(|menu| { menu
-                                                .submenu(Some("/icons/iconic/sort-ascending.svg"), "Sort tabs by...", |menu| { menu
-                                                    .option(Some("/icons/iconic/browser.svg"), "Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                                                .submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |menu| { menu
+                                                    .toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Window);
                                                     }))
 
-                                                    .option(Some("/icons/iconic/tag.svg"), "Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                                                    .toggle("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Tag);
                                                     }))
 
                                                     .separator()
 
-                                                    .option(Some("/icons/iconic/eye.svg"), "Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                                                    .toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
                                                     }))
 
-                                                    .option(Some("/icons/iconic/clock.svg"), "Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                                                    .toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
                                                     }))
 
                                                     .separator()
 
-                                                    .option(Some("/icons/iconic/link-intact.svg"), "URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                                                    .toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Url);
                                                     }))
 
-                                                    .option(Some("/icons/iconic/double-quote-serif-left.svg"), "Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                                                    .toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Name);
                                                     }))
                                                 })
 
                                                 .separator()
 
-                                                .submenu(None, "Foo", |menu| { menu
-                                                    .option(None, "Bar", futures_signals::signal::always(true), || {})
-                                                    .option(None, "Qux", futures_signals::signal::always(false), || {})
+                                                .submenu("Foo", None, |menu| { menu
+                                                    .action("Bar", None, || {})
+                                                    .action("Qux", None, || {})
 
-                                                    .submenu(None, "Corge", |menu| { menu
-                                                        .option(None, "Yes", futures_signals::signal::always(true), || {})
-                                                        .option(None, "No", futures_signals::signal::always(false), || {})
+                                                    .submenu("Corge", None, |menu| { menu
+                                                        .toggle("Yes", futures_signals::signal::always(true), || {})
+                                                        .toggle("No", futures_signals::signal::always(false), || {})
                                                     })
                                                 })
                                             }),

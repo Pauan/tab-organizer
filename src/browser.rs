@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde_derive::{Serialize, Deserialize};
 use futures::channel::mpsc;
 use futures::stream::Stream;
-use futures::try_join;
+use futures::{try_join, FutureExt};
 use std::future::Future;
 use dominator::clone;
 use uuid::Uuid;
@@ -347,23 +347,23 @@ impl Browser {
         f(self.state.borrow().windows.get_value(id))
     }
 
-    fn get_uuid<A, L, GF, G, SF, S>(&self, mut lookup: L, get: G, set: S) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>>
-        where L: FnMut(&BrowserState) -> Option<&A>,
-              GF: Future<Output = Result<Option<Uuid>, JsValue>>,
+    fn get_uuid<A, L, GF, G, SF, S>(&self, mut lookup: L, get: G, set: S) -> impl Future<Output = Result<Option<Uuid>, JsValue>>
+        where L: FnMut(&BrowserState) -> Option<&A> + 'static,
+              GF: Future<Output = Result<Option<Uuid>, JsValue>> + 'static,
               G: FnOnce(&A) -> GF,
               SF: Future<Output = Result<(), JsValue>>,
-              S: FnOnce(&A, Uuid) -> SF {
+              S: FnOnce(&A, Uuid) -> SF + 'static {
 
         let state = self.state.clone();
 
-        lookup(&self.state.borrow()).map(move |value| {
+        let fut = lookup(&self.state.borrow()).map(move |value| {
             /*let uuid = generate_uuid();
 
             let fut = set(value, uuid);
 
             async move {
                 fut.await?;
-                Ok(Some(uuid))
+                Ok(Some(uuid)) as Result<Option<Uuid>, JsValue>
             }*/
 
 
@@ -393,10 +393,20 @@ impl Browser {
                     }
                 }
             }
-        })
+        });
+
+        // TODO remove this boxed
+        async move {
+            if let Some(fut) = fut {
+                fut.await
+
+            } else {
+                Ok(None)
+            }
+        }.boxed_local()
     }
 
-    pub fn get_window_uuid(&self, id: Id) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>> {
+    pub fn get_window_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         self.get_uuid(
             move |state| state.windows.get_value(id),
             |window| window.get_uuid(),
@@ -404,7 +414,7 @@ impl Browser {
         )
     }
 
-    pub fn get_tab_uuid(&self, id: Id) -> Option<impl Future<Output = Result<Option<Uuid>, JsValue>>> {
+    pub fn get_tab_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         self.get_uuid(
             move |state| state.tabs.get_value(id),
             |tab| tab.get_uuid(),

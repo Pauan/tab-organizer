@@ -15,3 +15,4 @@ futures-signals = "0.3.0"
 tab-organizer = { path = "../.." }
 dominator = "0.5.0"
 futures-preview = "0.3.0-alpha.16"
+wasm-bindgen-futures = "0.4.0"
