@@ -242,27 +242,6 @@ pub fn log(s: String) {
 }
 
 
-struct Info {
-    time: String,
-    file: &'static str,
-    line: u32,
-    message: String,
-}
-
-impl Info {
-    fn to_string(&self) -> String {
-        const MESSAGE_CUTOFF: usize = 1_000;
-
-        let mut message = self.message.replace("\n", "\n    ");
-
-        if message.len() > MESSAGE_CUTOFF {
-            message = format!("{}\n    ...\n    {}", &message[0..(MESSAGE_CUTOFF / 2)], &message[message.len() - (MESSAGE_CUTOFF / 2)..]);
-        }
-
-        format!("{} [{}:{}]\n    {}", self.time, self.file, self.line, message)
-    }
-}
-
 #[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
@@ -271,19 +250,57 @@ macro_rules! info {
 }
 
 thread_local! {
-    static LOGS: RefCell<Vec<Info>> = RefCell::new(vec![]);
+    static LOGS: RefCell<Vec<String>> = RefCell::new(vec![]);
 }
 
-#[inline]
+// TODO make this more efficient
 pub fn info(time: String, file: &'static str, line: u32, message: String) {
-    //web_sys::console::info_1(&wasm_bindgen::JsValue::from(s));
+    const MAX_LINES: usize = 100;
+
+    // The 7 is the length of " [...] "
+    // The 4 is the length of "    "
+    const MAX_LINE_LENGTH: usize = 172 - 7 - 4;
+
+    fn process_line(line: &str) -> String {
+        // TODO make this more efficient
+        let indexes: Vec<usize> = line.char_indices().map(|(index, _)| index).collect();
+        let len = indexes.len();
+
+        if len > MAX_LINE_LENGTH {
+            let l = indexes[MAX_LINE_LENGTH / 2];
+            let r = indexes[len - (MAX_LINE_LENGTH / 2)];
+            format!("\n    {} [...] {}", &line[0..l], &line[r..])
+
+        } else {
+            format!("\n    {}", line)
+        }
+    }
+
+    let mut output = format!("{} [{}:{}]", time, file, line);
+
+    let lines: Vec<String> = message.lines().map(process_line).collect();
+
+    if lines.len() > MAX_LINES {
+        for line in &lines[0..(MAX_LINES / 2)] {
+            output.push_str(line);
+        }
+
+        output.push_str("\n[...]");
+
+        for line in &lines[lines.len() - (MAX_LINES / 2)..] {
+            output.push_str(line);
+        }
+
+    } else {
+        output.extend(lines);
+    }
 
     LOGS.with(|logs| {
-        logs.borrow_mut().push(Info { time, file, line, message });
+        logs.borrow_mut().push(output);
     })
 }
 
-fn with_logs<A, F>(f: F) -> A where F: FnOnce(&mut Vec<Info>) -> A {
+fn with_logs<A, F>(f: F) -> A where F: FnOnce(&mut Vec<String>) -> A {
     LOGS.with(|logs| f(&mut logs.borrow_mut()))
 }
 
@@ -298,7 +315,7 @@ pub fn print_logs(amount: usize) {
             len - amount
         };
 
-        let mut messages: Vec<String> = logs.drain(first..).map(|x| x.to_string()).collect();
+        let mut messages: Vec<String> = logs.drain(first..).collect();
 
         if !messages.is_empty() {
             messages.reverse();
