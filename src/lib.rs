@@ -243,6 +243,80 @@ pub fn log(s: String) {
 
 
 #[macro_export]
+macro_rules! warn {
+    ($($args:tt)*) => {
+        $crate::warn(std::format!("[{}:{}]  {}", std::file!(), std::line!(), std::format!($($args)*)));
+    };
+}
+
+#[inline]
+pub fn warn(s: String) {
+    web_sys::console::warn_1(&wasm_bindgen::JsValue::from(s));
+}
+
+
+// This is written in JS so it will keep working even if Rust/Wasm fails
+#[wasm_bindgen(inline_js = "
+    var logs = [];
+
+    export function push_log(message) {
+        logs.push(message);
+    }
+
+    export function set_print_logs() {
+        window.print_logs = function (amount) {
+            var len = amount.length;
+
+            var first = (amount >= len ? 0 : len - amount);
+
+            var messages = logs.slice(first).reverse();
+
+            logs.length = first;
+
+            if (messages.length > 0) {
+                console.info(messages.join(\"\\n\\n\"));
+            }
+        };
+    }
+")]
+extern "C" {
+    fn push_log(message: &str);
+    pub fn set_print_logs();
+}
+
+
+pub fn panic_hook(info: &std::panic::PanicInfo) {
+    error!("{}", info.to_string());
+    console_error_panic_hook::hook(info);
+}
+
+
+#[macro_export]
+macro_rules! error {
+    ($($args:tt)*) => {{
+        let error = js_sys::Error::new("");
+        $crate::error($crate::pretty_time(), std::file!(), std::line!(), std::format!($($args)*), error);
+    }};
+}
+
+pub fn error(time: String, file: &'static str, line: u32, message: String, error: js_sys::Error) {
+    #[wasm_bindgen]
+    extern "C" {
+        type MyError;
+
+        #[wasm_bindgen(method, getter)]
+        fn stack(this: &MyError) -> String;
+    }
+
+    let error = error.unchecked_into::<MyError>();
+
+    let output = format!("ERROR {} [{}:{}]\n    {}\n    {}", time, file, line, message.replace("\n", "\n    "), error.stack().replace("\n", "\n    "));
+
+    push_log(&output);
+}
+
+
+#[macro_export]
 macro_rules! info {
     ($($args:tt)*) => {
         $crate::info($crate::pretty_time(), std::file!(), std::line!(), std::format!($($args)*));
@@ -276,7 +350,7 @@ pub fn info(time: String, file: &'static str, line: u32, message: String) {
         }
     }
 
-    let mut output = format!("{} [{}:{}]", time, file, line);
+    let mut output = format!("INFO  {} [{}:{}]", time, file, line);
 
     let lines: Vec<String> = message.lines().map(process_line).collect();
 
@@ -295,35 +369,7 @@ pub fn info(time: String, file: &'static str, line: u32, message: String) {
         output.extend(lines);
     }
 
-    LOGS.with(|logs| {
-        logs.borrow_mut().push(output);
-    })
-}
-
-fn with_logs<A, F>(f: F) -> A where F: FnOnce(&mut Vec<String>) -> A {
-    LOGS.with(|logs| f(&mut logs.borrow_mut()))
-}
-
-pub fn print_logs(amount: usize) {
-    with_logs(|logs| {
-        let len = logs.len();
-
-        let first = if amount >= len {
-            0
-
-        } else {
-            len - amount
-        };
-
-        let mut messages: Vec<String> = logs.drain(first..).collect();
-
-        if !messages.is_empty() {
-            messages.reverse();
-
-            let message = messages.join("\n\n");
-            web_sys::console::info_1(&wasm_bindgen::JsValue::from(message));
-        }
-    })
+    push_log(&output);
 }
 
 

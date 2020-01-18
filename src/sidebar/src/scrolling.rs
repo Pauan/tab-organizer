@@ -5,7 +5,7 @@ use dominator::animation::{easing, Percentage, OnTimestampDiff};
 
 
 impl State {
-	pub(crate) fn start_scrolling(&self, mouse_y: i32) {
+    pub(crate) fn start_scrolling(&self, mouse_y: i32) {
         // TODO is there a better way of calculating this ?
         let top = TOOLBAR_TOTAL_HEIGHT;
         let bottom = window_height();

@@ -4,31 +4,31 @@
     <meta charset="utf-8" />
     <link href="empty.css" rel="stylesheet">
     <!--<style>
-    	#foo, #bar, #qux {
-    		transition: all 0.3s;
-    		position: relative;
-    		width: 500px;
-    		height: 100px;
-    		background-color: red;
-    		left: 0px;
-    		top: 0px;
-    	}
+        #foo, #bar, #qux {
+            transition: all 0.3s;
+            position: relative;
+            width: 500px;
+            height: 100px;
+            background-color: red;
+            left: 0px;
+            top: 0px;
+        }
 
-    	#bar {
-    		background-color: green;
-    	}
+        #bar {
+            background-color: green;
+        }
 
-    	#qux {
-    		background-color: blue;
-    	}
+        #qux {
+            background-color: blue;
+        }
 
-    	html, body {
-    		padding: 0px;
-    		margin: 0px;
+        html, body {
+            padding: 0px;
+            margin: 0px;
             width: 100%;
             height: 100%;
-    	}
-	</style>-->
+        }
+    </style>-->
   </head>
   <body>
     <script defer type="module" src="js/sidebar.js"></script>
@@ -61,104 +61,104 @@
         //});
     </script>-->
     <!--<script>
-    	var foo = document.getElementById("foo");
-    	var bar = document.getElementById("bar");
-    	var qux = document.getElementById("qux");
+        var foo = document.getElementById("foo");
+        var bar = document.getElementById("bar");
+        var qux = document.getElementById("qux");
 
-    	var elements = [foo, bar, qux];
-    	var hovered = null;
+        var elements = [foo, bar, qux];
+        var hovered = null;
 
-    	function move(element) {
-    		if (hovered !== null) {
-    			var i1 = elements.indexOf(hovered);
-    			var i2 = elements.indexOf(element);
+        function move(element) {
+            if (hovered !== null) {
+                var i1 = elements.indexOf(hovered);
+                var i2 = elements.indexOf(element);
 
-    			if (i1 >= i2) {
-    				element = element.previousElementSibling;
-    			}
-    		}
+                if (i1 >= i2) {
+                    element = element.previousElementSibling;
+                }
+            }
 
-    		hovered = element;
-    	}
+            hovered = element;
+        }
 
-    	function update() {
-    		var found = hovered == null;
+        function update() {
+            var found = hovered == null;
 
-    		elements.forEach(function (element) {
-    			if (element === hovered) {
-    				found = true;
-    				element.style.top = "0px";
+            elements.forEach(function (element) {
+                if (element === hovered) {
+                    found = true;
+                    element.style.top = "0px";
 
-    			} else if (found) {
-    				element.style.top = "100px";
+                } else if (found) {
+                    element.style.top = "100px";
 
-    			} else {
-    				element.style.top = "0px";
-    			}
-    		});
-    	}
+                } else {
+                    element.style.top = "0px";
+                }
+            });
+        }
 
-    	/*function move(element) {
-    		if (hovered !== null) {
-    			hovered.style.marginTop = "0px";
+        /*function move(element) {
+            if (hovered !== null) {
+                hovered.style.marginTop = "0px";
 
-    			if (hovered === element) {
-    				element = hovered.nextElementSibling;
-    			}
-    		}
+                if (hovered === element) {
+                    element = hovered.nextElementSibling;
+                }
+            }
 
-    		hovered = element;
+            hovered = element;
 
-    		hovered.style.marginTop = "100px";
-    	}
+            hovered.style.marginTop = "100px";
+        }
 
-    	function update() {
+        function update() {
 
-    	}*/
+        }*/
 
-    	/*var elements = [null, foo, bar, qux];
+        /*var elements = [null, foo, bar, qux];
 
-    	function move(element) {
-    		var i2 = elements.indexOf(element);
-    		var i1 = elements.indexOf(null);
-    		elements.splice(i1, 1);
-    		elements.splice(i2, 0, null);
-    	}
+        function move(element) {
+            var i2 = elements.indexOf(element);
+            var i1 = elements.indexOf(null);
+            elements.splice(i1, 1);
+            elements.splice(i2, 0, null);
+        }
 
-    	function update() {
-    		var found = false;
+        function update() {
+            var found = false;
 
-    		elements.forEach(function (element, i) {
-    			//console.log(element, i, index, found);
+            elements.forEach(function (element, i) {
+                //console.log(element, i, index, found);
 
-    			if (element === null) {
-    				found = true;
+                if (element === null) {
+                    found = true;
 
-    			} else if (found) {
-    				element.style.top = "100px";
+                } else if (found) {
+                    element.style.top = "100px";
 
-    			} else {
-    				element.style.top = "0px";
-    			}
-    		});
-    	}*/
+                } else {
+                    element.style.top = "0px";
+                }
+            });
+        }*/
 
-    	//update();
+        //update();
 
-    	foo.onmouseenter = function () {
-    		move(foo);
-    		update();
-    	};
+        foo.onmouseenter = function () {
+            move(foo);
+            update();
+        };
 
-    	bar.onmouseenter = function () {
-    		move(bar);
-    		update();
-    	};
+        bar.onmouseenter = function () {
+            move(bar);
+            update();
+        };
 
-    	qux.onmouseenter = function () {
-    		move(qux);
-    		update();
-    	};
+        qux.onmouseenter = function () {
+            move(qux);
+            update();
+        };
     </script>-->
   </body>
 </html>

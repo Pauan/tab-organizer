@@ -60,7 +60,7 @@ impl State {
         groups.iter().position(|x| x.id == group_id)
     }
 
-	fn unwrap_group_index(groups: &[Arc<Group>], group_id: GroupId) -> usize {
+    fn unwrap_group_index(groups: &[Arc<Group>], group_id: GroupId) -> usize {
         Self::group_index(groups, group_id).unwrap_or_else(|| groups.len())
     }
 
@@ -122,7 +122,7 @@ impl State {
         let _tabs = tabs.into_iter().filter(|x| !x.removed.get());
     }
 
-	pub(crate) fn should_be_dragging_group(&self, new_group_id: GroupId) -> bool {
+    pub(crate) fn should_be_dragging_group(&self, new_group_id: GroupId) -> bool {
         let dragging = self.dragging.state.lock_ref();
 
         if let Some(DragState::Dragging { ref group, .. }) = *dragging {

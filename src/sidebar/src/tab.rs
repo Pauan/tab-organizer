@@ -3,7 +3,7 @@ use futures_signals::signal::{Signal, and, not};
 
 
 impl State {
-	pub(crate) fn is_tab_hovered(&self, tab: &Tab) -> impl Signal<Item = bool> {
+    pub(crate) fn is_tab_hovered(&self, tab: &Tab) -> impl Signal<Item = bool> {
         and(tab.hovered.signal(), not(self.is_dragging()))
     }
 

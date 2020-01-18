@@ -8,7 +8,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-console_error_panic_hook = "0.1.5"
 web-extension = { path = "../../web-extension" }
 wasm-bindgen = "0.2.45"
 js-sys = "0.3.27"

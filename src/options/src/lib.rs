@@ -3,7 +3,7 @@
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use dominator::clone;
-use tab_organizer::{log, info, connect};
+use tab_organizer::{log, info, connect, panic_hook, set_print_logs};
 use tab_organizer::state::options;
 use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
@@ -11,7 +11,8 @@ use futures::stream::{StreamExt, TryStreamExt};
 
 #[wasm_bindgen(start)]
 pub async fn main_js() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
+    std::panic::set_hook(Box::new(panic_hook));
+    set_print_logs();
 
     log!("Starting");
 

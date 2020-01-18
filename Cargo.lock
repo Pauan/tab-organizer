@@ -22,7 +22,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "background"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "dominator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-signals 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -274,7 +273,6 @@ dependencies = [
 name = "options"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "dominator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-signals 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -475,7 +473,6 @@ dependencies = [
 name = "sidebar"
 version = "0.1.0"
 dependencies = [
- "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "dominator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-signals 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -513,6 +510,7 @@ dependencies = [
 name = "tab-organizer"
 version = "5.0.0"
 dependencies = [
+ "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "dominator 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-signals 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",

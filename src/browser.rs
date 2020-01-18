@@ -14,7 +14,7 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use web_extension::browser;
-use super::{Listener, deserialize, serialize, object, array, generate_uuid};
+use super::{Listener, deserialize, serialize, object, array, generate_uuid, warn};
 use super::state::TabStatus;
 
 
@@ -304,6 +304,7 @@ impl BrowserState {
 
             if let Some(id) = self.tabs.get_key(tab_id) {
                 Some(BrowserChange::TabUpdated {
+                    timestamp,
                     tab: TabState::new(id, &browser_tab),
                     window_id,
                 })
@@ -482,16 +483,20 @@ impl Browser {
             }))),
 
             _window_removed: Listener::new(browser.windows().on_removed(), Closure::new(clone!(sender, state => move |window_id: i32| {
+                let timestamp = Date::now();
+
                 let id = state.borrow_mut().windows.remove(window_id);
 
                 if let Some((window_id, _)) = id {
                     sender.unbounded_send(
-                        BrowserChange::WindowRemoved { window_id }
+                        BrowserChange::WindowRemoved { timestamp, window_id }
                     ).unwrap();
                 }
             }))),
 
             _window_focused: Listener::new(browser.windows().on_focus_changed(), Closure::new(clone!(sender, state => move |window_id: i32| {
+                let timestamp = Date::now();
+
                 let window_id = if window_id == browser.windows().window_id_none() {
                     None
 
@@ -500,7 +505,7 @@ impl Browser {
                 };
 
                 sender.unbounded_send(
-                    BrowserChange::WindowFocused { window_id }
+                    BrowserChange::WindowFocused { timestamp, window_id }
                 ).unwrap();
             }))),
 
@@ -536,14 +541,13 @@ impl Browser {
 
                     if let Some(window_id) = state.windows.get_key(active_info.window_id()) {
                         let old_tab_id = active_info.previous_tab_id().map(|tab_id| state.tabs.get_key(tab_id).unwrap());
-                        let new_tab_id = state.tabs.get_key(active_info.tab_id()).unwrap();
+                        let tab_id = state.tabs.get_key(active_info.tab_id()).unwrap();
 
-                        if old_tab_id == Some(new_tab_id) {
-                            None
-
-                        } else {
-                            Some(BrowserChange::TabFocused { timestamp, old_tab_id, new_tab_id, window_id })
+                        if old_tab_id == Some(tab_id) {
+                            warn!("New focused tab is the same as the old focused tab: {:?}", tab_id);
                         }
+
+                        Some(BrowserChange::TabFocused { timestamp, tab_id, window_id })
 
                     } else {
                         None
@@ -570,6 +574,8 @@ impl Browser {
             }))),
 
             _tab_attached: Listener::new(browser.tabs().on_attached(), Closure::new(clone!(sender, state => move |tab_id: i32, attach_info: web_extension::TabAttachInfo| {
+                let timestamp = Date::now();
+
                 let message = {
                     let mut state = state.borrow_mut();
 
@@ -581,6 +587,7 @@ impl Browser {
                         tab.window_id = window_id;
 
                         Some(BrowserChange::TabAttached {
+                            timestamp,
                             tab_id,
 
                             old_window_id: detached.window_id,
@@ -601,6 +608,8 @@ impl Browser {
             }))),
 
             _tab_moved: Listener::new(browser.tabs().on_moved(), Closure::new(clone!(sender, state => move |tab_id: i32, move_info: web_extension::TabMoveInfo| {
+                let timestamp = Date::now();
+
                 let message = {
                     let state = state.borrow();
 
@@ -614,7 +623,7 @@ impl Browser {
                         } else {
                             let window_id = state.windows.get_key(move_info.window_id()).unwrap();
 
-                            Some(BrowserChange::TabMoved { tab_id, window_id, old_index, new_index })
+                            Some(BrowserChange::TabMoved { timestamp, tab_id, window_id, old_index, new_index })
                         }
 
                     } else {
@@ -628,6 +637,8 @@ impl Browser {
             }))),
 
             _tab_removed: Listener::new(browser.tabs().on_removed(), Closure::new(move |tab_id: i32, remove_info: web_extension::TabRemoveInfo| {
+                let timestamp = Date::now();
+
                 let message = {
                     let mut state = state.borrow_mut();
 
@@ -635,6 +646,7 @@ impl Browser {
                         let window_id = state.windows.get_key(remove_info.window_id()).unwrap();
 
                         Some(BrowserChange::TabRemoved {
+                            timestamp,
                             tab_id,
                             window_id,
                             is_window_closing: remove_info.is_window_closing(),
@@ -664,28 +676,31 @@ pub enum BrowserChange {
         window: WindowState,
     },
     WindowRemoved {
+        timestamp: f64,
         window_id: Id,
     },
     WindowFocused {
+        timestamp: f64,
         window_id: Option<Id>,
     },
     TabCreated {
         timestamp: f64,
-        tab: TabState,
         window_id: Id,
+        tab: TabState,
         index: u32,
     },
     TabUpdated {
-        tab: TabState,
+        timestamp: f64,
         window_id: Id,
+        tab: TabState,
     },
     TabFocused {
         timestamp: f64,
-        old_tab_id: Option<Id>,
-        new_tab_id: Id,
         window_id: Id,
+        tab_id: Id,
     },
     TabAttached {
+        timestamp: f64,
         tab_id: Id,
 
         old_window_id: Id,
@@ -695,14 +710,16 @@ pub enum BrowserChange {
         new_index: u32,
     },
     TabMoved {
-        tab_id: Id,
+        timestamp: f64,
         window_id: Id,
+        tab_id: Id,
         old_index: u32,
         new_index: u32,
     },
     TabRemoved {
-        tab_id: Id,
+        timestamp: f64,
         window_id: Id,
+        tab_id: Id,
         is_window_closing: bool,
     },
 }

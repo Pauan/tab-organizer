@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use std::sync::Arc;
-use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, export_function, closure, print_logs};
+use tab_organizer::{Timer, connect, log, info, error, time, cursor, every_hour, set_print_logs, panic_hook};
 use tab_organizer::state::{sidebar, Options};
 use dominator::{html, stylesheet, clone};
 use futures::FutureExt;
@@ -300,15 +300,14 @@ fn initialize(state: Arc<State>) {
 #[wasm_bindgen(start)]
 pub async fn main_js() -> Result<(), JsValue> {
     std::panic::set_hook(Box::new(move |info| {
-    	let message = Arc::new(info.to_string());
+        panic_hook(info);
+        let message = Arc::new(info.to_string());
         FAILED.set(Some(message.clone()));
-        console_error_panic_hook::hook(info);
     }));
 
+    set_print_logs();
 
-    export_function("print_logs", closure!(move |amount: usize| {
-        print_logs(amount);
-    }));
+    error!("TESTING");
 
 
     log!("Starting");

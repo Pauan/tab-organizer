@@ -14,7 +14,7 @@ use wasm_bindgen::intern;
 use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
-use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, export_function, closure, print_logs};
+use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -444,7 +444,8 @@ impl State {
 
 #[wasm_bindgen(start)]
 pub async fn main_js() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
+    std::panic::set_hook(Box::new(panic_hook));
+    set_print_logs();
 
 
     log!("Starting");
@@ -462,11 +463,6 @@ pub async fn main_js() -> Result<(), JsValue> {
 
     let sidebar_messages = on_connect::<sidebar::ServerMessage, sidebar::ClientMessage>("sidebar");
     let options_messages = on_connect::<options::ServerMessage, options::ClientMessage>("options");
-
-
-    export_function("print_logs", closure!(move |amount: usize| {
-        print_logs(amount);
-    }));
 
 
     log!("Starting database");
@@ -767,7 +763,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 // TODO call browser.sidebar_action().set_panel ?
-                BrowserChange::WindowRemoved { window_id } => {
+                BrowserChange::WindowRemoved { timestamp: _, window_id } => {
                     let mut state = state.borrow_mut();
 
                     if let Some(browser_window) = state.window_ids.remove(&window_id) {
@@ -803,7 +799,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     }
                 },
 
-                BrowserChange::WindowFocused { window_id } => {
+                BrowserChange::WindowFocused { timestamp: _, window_id } => {
                     let state: &mut State = &mut state.borrow_mut();
 
                     if let Some(window_id) = window_id {
@@ -865,7 +861,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     }
                 },
 
-                BrowserChange::TabUpdated { window_id, tab } => {
+                BrowserChange::TabUpdated { timestamp: _, window_id, tab } => {
                     let state: &mut State = &mut state.borrow_mut();
 
                     if let Some(browser_tab) = state.tab_ids.get_mut(&tab.id) {
@@ -890,10 +886,10 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 // TODO put in asserts that the old_tab_id matches ?
-                BrowserChange::TabFocused { timestamp, old_tab_id: _, new_tab_id, window_id } => {
+                BrowserChange::TabFocused { timestamp, tab_id, window_id } => {
                     let state: &mut State = &mut state.borrow_mut();
 
-                    if let Some(browser_tab) = state.tab_ids.get_mut(&new_tab_id) {
+                    if let Some(browser_tab) = state.tab_ids.get_mut(&tab_id) {
                         let browser_window = state.window_ids.get_mut(&window_id).unwrap();
 
                         let uuid = browser_tab.serialized.uuid;
@@ -929,7 +925,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     }
                 },
 
-                BrowserChange::TabAttached { tab_id, old_window_id, old_index, new_window_id, new_index } => {
+                BrowserChange::TabAttached { timestamp: _, tab_id, old_window_id, old_index, new_window_id, new_index } => {
                     let state: &mut State = &mut state.borrow_mut();
 
                     if let Some(browser_tab) = state.tab_ids.get(&tab_id) {
@@ -967,7 +963,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     }
                 },
 
-                BrowserChange::TabMoved { tab_id, window_id, old_index, new_index } => {
+                BrowserChange::TabMoved { timestamp: _, tab_id, window_id, old_index, new_index } => {
                     let state: &mut State = &mut state.borrow_mut();
 
                     if let Some(browser_tab) = state.tab_ids.get(&tab_id) {
@@ -995,7 +991,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 // TODO verify this works correctly if the tab is focused
-                BrowserChange::TabRemoved { tab_id, window_id, is_window_closing } => {
+                BrowserChange::TabRemoved { timestamp: _, tab_id, window_id, is_window_closing } => {
                     let state: &mut State = &mut state.borrow_mut();
 
                     if let Some(mut browser_tab) = state.tab_ids.remove(&tab_id) {
