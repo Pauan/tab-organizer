@@ -265,7 +265,7 @@ pub fn warn(s: String) {
 
     export function set_print_logs() {
         window.print_logs = function (amount) {
-            var len = amount.length;
+            var len = logs.length;
 
             var first = (amount >= len ? 0 : len - amount);
 
@@ -310,7 +310,7 @@ pub fn error(time: String, file: &'static str, line: u32, message: String, error
 
     let error = error.unchecked_into::<MyError>();
 
-    let output = format!("ERROR {} [{}:{}]\n    {}\n    {}", time, file, line, message.replace("\n", "\n    "), error.stack().replace("\n", "\n    "));
+    let output = format!("{} [{}:{}] Error\n    {}\n>>> {}", time, file, line, message.replace("\n", "\n    "), error.stack().replace("\n", "\n    "));
 
     push_log(&output);
 }
@@ -350,7 +350,7 @@ pub fn info(time: String, file: &'static str, line: u32, message: String) {
         }
     }
 
-    let mut output = format!("INFO  {} [{}:{}]", time, file, line);
+    let mut output = format!("{} [{}:{}] Info", time, file, line);
 
     let lines: Vec<String> = message.lines().map(process_line).collect();
 

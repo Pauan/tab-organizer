@@ -307,8 +307,6 @@ pub async fn main_js() -> Result<(), JsValue> {
 
     set_print_logs();
 
-    error!("TESTING");
-
 
     log!("Starting");
 
