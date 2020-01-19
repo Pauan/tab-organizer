@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use std::sync::Arc;
-use tab_organizer::{Timer, connect, log, info, error, time, cursor, every_hour, set_print_logs, panic_hook};
+use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, set_print_logs, panic_hook};
 use tab_organizer::state::{sidebar, Options};
 use dominator::{html, stylesheet, clone};
 use futures::FutureExt;
