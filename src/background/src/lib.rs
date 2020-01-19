@@ -4,7 +4,7 @@
 use wasm_bindgen::prelude::*;
 use std::rc::Rc;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use uuid::Uuid;
 use futures::{try_join, FutureExt};
@@ -14,6 +14,7 @@ use wasm_bindgen::intern;
 use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
+use futures_signals::signal::{Mutable, SignalExt};
 use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
@@ -151,7 +152,7 @@ impl BrowserWindow {
     /// This finds the nearest browser tab to the right of the new tab
     fn new_tab_index(&self, new_index: usize) -> usize {
         if let Some(new_uuid) = self.tabs.get(new_index) {
-            self.serialized.tab_index(*new_uuid)
+            self.serialized.tab_index(*new_uuid).unwrap()
 
         } else {
             // TODO is this correct ?
@@ -238,12 +239,18 @@ struct State {
 
     focused_window: Option<Uuid>,
 
+    reloading_tabs: HashSet<Uuid>,
+
+    // TODO maybe use usize ?
+    // TODO replace this with a dedicated Counter struct ?
+    pending: Mutable<u32>,
+
     options_ports: Vec<Rc<Port<options::ServerMessage, options::ClientMessage>>>,
 }
 
 impl State {
-    fn new(db: Database, browser: Browser) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
+    fn new(db: Database, browser: Browser, timestamp_created: f64, windows: Vec<browser::WindowState>) -> impl Future<Output = Result<Rc<RefCell<Self>>, JsValue>> {
+        let state = Rc::new(RefCell::new(Self {
             db,
             browser,
 
@@ -253,20 +260,46 @@ impl State {
 
             focused_window: None,
 
+            reloading_tabs: HashSet::new(),
+            pending: Mutable::new(0),
+
             options_ports: vec![],
-        }))
+        }));
+
+        async move {
+            let windows = Self::windows(&state, windows).await?;
+            state.borrow_mut().initialize(timestamp_created, windows);
+            Ok(state)
+        }
     }
 
     fn tab_uuid(browser: &Browser, tab_id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         browser.get_tab_uuid(tab_id)
     }
 
-    fn tabs(browser: &Browser, tabs: Vec<browser::TabState>) -> impl Future<Output = Result<Vec<AsyncTab>, JsValue>> {
+    // This checks if the uuid already exists
+    fn fix_duplicate_uuid(&self, uuid: Uuid, tab_id: Id) -> Option<Option<impl Future<Output = Result<Uuid, JsValue>>>> {
+        self.browser.get_tab(tab_id, |tab| {
+            tab.map(|tab| {
+                self.ids.get(&uuid).map(|_| {
+                    tab.set_new_uuid()
+                })
+            })
+        })
+    }
+
+    fn insert_tab_uuid(&mut self, uuid: Uuid, tab_id: Id) {
+        self.ids.insert(uuid, tab_id).unwrap_none();
+    }
+
+    fn tabs(state: &Rc<RefCell<Self>>, tabs: Vec<browser::TabState>) -> impl Future<Output = Result<Vec<AsyncTab>, JsValue>> {
         let tabs = {
+            let state = state.borrow();
+
             try_join_all(tabs
                 .into_iter()
                 .map(|tab| {
-                    let uuid = Self::tab_uuid(browser, tab.id);
+                    let uuid = Self::tab_uuid(&state.browser, tab.id);
 
                     async fn map<A>(uuid: A, tab: browser::TabState) -> Result<Option<AsyncTab>, JsValue>
                         where A: Future<Output = Result<Option<Uuid>, JsValue>> {
@@ -283,15 +316,56 @@ impl State {
                 }))
         };
 
+        let state = state.clone();
+
         async move {
-            // Filters out None
-            Ok(tabs.await?.into_iter().filter_map(|x| x).collect())
+            let tabs = tabs.await?;
+
+            // We need to do this in two stages because we need to process the tab uuids in sequential left-to-right order
+            try_join_all(tabs.into_iter()
+                .filter_map(|x| {
+                    if let Some((uuid, tab)) = x {
+                        let fut = {
+                            let mut state = state.borrow_mut();
+
+                            let fut = state.fix_duplicate_uuid(uuid, tab.id);
+
+                            // Uuid is correct
+                            if let Some(None) = fut {
+                                state.insert_tab_uuid(uuid, tab.id);
+                            }
+
+                            fut
+                        };
+
+                        fut.map(|fut| {
+                            let state = state.clone();
+
+                            async move {
+                                let uuid = match fut {
+                                    // Uuid is duplicated, so fix it
+                                    Some(fut) => {
+                                        let uuid = fut.await?;
+                                        state.borrow_mut().insert_tab_uuid(uuid, tab.id);
+                                        uuid
+                                    },
+                                    None => uuid,
+                                };
+
+                                Ok((uuid, tab)) as Result<AsyncTab, JsValue>
+                            }
+                        })
+
+                    } else {
+                        None
+                    }
+                })).await
         }
     }
 
-    fn window_uuid(browser: &Browser, window_id: Id, tabs: Vec<browser::TabState>) -> impl Future<Output = Result<Option<(Uuid, Vec<AsyncTab>)>, JsValue>> {
-        let uuid = browser.get_window_uuid(window_id);
-        let tabs = Self::tabs(browser, tabs);
+    fn window_uuid(state: &Rc<RefCell<Self>>, window_id: Id, tabs: Vec<browser::TabState>) -> impl Future<Output = Result<Option<(Uuid, Vec<AsyncTab>)>, JsValue>> {
+        let uuid = state.borrow().browser.get_window_uuid(window_id);
+        let tabs = Self::tabs(state, tabs);
 
         // TODO remove this boxed
         async move {
@@ -306,11 +380,11 @@ impl State {
         }.boxed_local()
     }
 
-    fn windows(browser: &Browser, windows: Vec<browser::WindowState>) -> impl Future<Output = Result<Vec<AsyncWindow>, JsValue>> {
+    fn windows(state: &Rc<RefCell<Self>>, windows: Vec<browser::WindowState>) -> impl Future<Output = Result<Vec<AsyncWindow>, JsValue>> {
         try_join_all(windows
             .into_iter()
             .map(|window| {
-                let uuid = Self::window_uuid(browser, window.id, window.tabs);
+                let uuid = Self::window_uuid(state, window.id, window.tabs);
 
                 async fn map<A>(uuid: A, id: Id, focused: bool) -> Result<AsyncWindow, JsValue>
                     where A: Future<Output = Result<Option<(Uuid, Vec<AsyncTab>)>, JsValue>> {
@@ -349,11 +423,7 @@ impl State {
 
         changes.append(&mut browser_tab.update(&tab));
 
-        if self.ids.contains_key(&uuid) {
-            log!("Uuid already exists {}", uuid);
-        }
-
-        self.ids.insert(uuid, tab.id).unwrap_none();
+        // self.ids is set by other methods
         self.tab_ids.insert(tab.id, browser_tab).unwrap_none();
 
         TabCreated {
@@ -470,7 +540,7 @@ pub async fn main_js() -> Result<(), JsValue> {
     }
 
 
-    async fn get_browser() -> Result<(Browser, f64, Vec<AsyncWindow>, impl Stream<Item = BrowserChange>), JsValue> {
+    async fn get_browser() -> Result<(Browser, f64, Vec<browser::WindowState>, impl Stream<Item = BrowserChange>), JsValue> {
         let browser = Browser::new();
 
         let browser_windows = browser.current().await?;
@@ -479,19 +549,14 @@ pub async fn main_js() -> Result<(), JsValue> {
 
         let browser_changes = browser.changes();
 
-        let window_uuids = State::windows(&browser, browser_windows).await?;
-
-        Ok((browser, timestamp_created, window_uuids, browser_changes))
+        Ok((browser, timestamp_created, browser_windows, browser_changes))
     }
 
-
-    let (db, (browser, timestamp_created, window_uuids, browser_changes)) = try_join!(get_db(), get_browser())?;
-
-    let state = State::new(db, browser);
+    let (db, (browser, timestamp_created, browser_windows, browser_changes)) = try_join!(get_db(), get_browser())?;
 
     log!("Initializing state");
 
-    state.borrow_mut().initialize(timestamp_created, window_uuids);
+    let state = State::new(db, browser, timestamp_created, browser_windows).await?;
 
 
     fn listen_to_sidebar(state: Rc<RefCell<State>>, sidebar_messages: impl Stream<Item = Port<sidebar::ServerMessage, sidebar::ClientMessage>> + 'static) {
@@ -552,7 +617,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 sidebar::ClientMessage::ClickTab { uuid } => {
-                    let state = state.borrow();
+                    let state: &mut State = &mut state.borrow_mut();
 
                     match state.ids.get(&uuid) {
                         Some(id) => {
@@ -565,7 +630,65 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                         // Tab is unloaded
                         None => {
+                            let State {
+                                ref mut window_ids,
+                                ref mut reloading_tabs,
+                                ref ids,
+                                ref db,
+                                ref browser,
+                                ref pending,
+                                ..
+                            } = state;
 
+                            // TODO what if the window is unloaded ?
+                            if let Some(browser_window) = port_id.get().and_then(|window_id| window_ids.get_mut(&window_id)) {
+                                browser.get_window(browser_window.window_id, move |window| {
+                                    if let Some(window) = window {
+                                        if let Some(index) = browser_window.serialized.tab_index(uuid) {
+                                            if reloading_tabs.insert(uuid) {
+                                                pending.replace_with(|pending| *pending + 1);
+
+                                                let index = browser_window.serialized.tabs[(index + 1)..]
+                                                    .into_iter()
+                                                    // Look for the first tab which exists in the browser
+                                                    .find(|uuid| ids.contains_key(uuid));
+
+                                                let index = match index {
+                                                    Some(uuid) => {
+                                                        // TODO look this up in the real browser window ?
+                                                        // TODO this conversion is a bit hacky
+                                                        JsValue::from(browser_window.tabs.iter().position(|x| x == uuid).unwrap() as u32)
+                                                    },
+                                                    None => {
+                                                        JsValue::UNDEFINED
+                                                    },
+                                                };
+
+                                                let serialized = db.get::<SerializedTab>(&SerializedTab::key(uuid)).unwrap();
+
+                                                // TODO set active ?
+                                                let fut = browser.create_tab(&object! {
+                                                    "windowId": window.real_id(),
+                                                    "pinned": serialized.pinned,
+                                                    "title": serialized.title,
+                                                    // TODO handle privileged URLs (e.g. chrome: and about:)
+                                                    "url": serialized.url,
+                                                    "index": index,
+                                                }, move |tab| tab.set_uuid(uuid));
+
+                                                spawn(clone!(pending => async move {
+                                                    fut.await?.await?;
+
+                                                    // TODO custom Drop impl so that this is panic-safe
+                                                    pending.replace_with(|pending| *pending - 1);
+
+                                                    Ok(())
+                                                }));
+                                            }
+                                        }
+                                    }
+                                });
+                            }
                         },
                     }
                 },
@@ -600,7 +723,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             let db = &state.db;
 
                             let tab_indexes = close_unloaded.into_iter().map(|uuid| {
-                                let tab_index = window.serialized.tab_index(uuid);
+                                let tab_index = window.serialized.tab_index(uuid).unwrap();
 
                                 window.serialized.tabs.remove(tab_index);
 
@@ -693,7 +816,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         // TODO what if the window is unloaded ?
                         if let Some(window) = port_id.get().and_then(|window_id| state.window_ids.get_mut(&window_id)) {
                             for uuid in unloaded {
-                                let tab_index = window.serialized.tab_index(uuid);
+                                let tab_index = window.serialized.tab_index(uuid).unwrap();
 
                                 window.send_message(&sidebar::ServerMessage::TabChanged {
                                     tab_index,
@@ -782,11 +905,16 @@ pub async fn main_js() -> Result<(), JsValue> {
 
     fn listen_to_changes(state: Rc<RefCell<State>>, browser_changes: impl Stream<Item = BrowserChange> + 'static) {
         async fn on_change(state: Rc<RefCell<State>>, change: BrowserChange) -> Result<(), JsValue> {
+            {
+                let wait = state.borrow().pending.signal().wait_for(0);
+                wait.await;
+            }
+
             info!("{:#?}", change);
 
             match change {
                 BrowserChange::WindowCreated { timestamp, window } => {
-                    let uuid = State::window_uuid(&state.borrow().browser, window.id, window.tabs);
+                    let uuid = State::window_uuid(&state, window.id, window.tabs);
 
                     if let Some((uuid, tabs)) = uuid.await? {
                         let mut state = state.borrow_mut();
@@ -860,41 +988,58 @@ pub async fn main_js() -> Result<(), JsValue> {
                     let uuid = State::tab_uuid(&state.borrow().browser, tab.id);
 
                     if let Some(uuid) = uuid.await? {
-                        let state: &mut State = &mut state.borrow_mut();
+                        let fut = state.borrow().fix_duplicate_uuid(uuid, tab.id);
 
-                        // TODO is this correct ?
-                        if state.window_ids.contains_key(&window_id) {
-                            let info = state.new_tab(timestamp, uuid, &tab);
+                        if let Some(fut) = fut {
+                            let uuid = match fut {
+                                // Uuid is duplicated, so fix it
+                                Some(fut) => fut.await?,
+                                None => uuid,
+                            };
 
-                            let browser_window = state.window_ids.get_mut(&window_id).unwrap();
-                            let browser_tab = state.tab_ids.get(&tab.id).unwrap();
+                            let state: &mut State = &mut state.borrow_mut();
 
-                            if info.is_new {
-                                let tab_index = browser_window.insert_tab(info.uuid, index);
+                            // TODO is this correct ?
+                            if state.window_ids.contains_key(&window_id) {
+                                state.insert_tab_uuid(uuid, tab.id);
 
-                                browser_window.serialized.tabs.insert(tab_index, info.uuid);
-                                browser_window.serialize(&state.db);
+                                let info = state.new_tab(timestamp, uuid, &tab);
 
-                                browser_window.send_message(&sidebar::ServerMessage::TabInserted {
-                                    tab_index,
-                                    tab: browser_tab.to_tab(&browser_window),
-                                });
+                                let browser_window = state.window_ids.get_mut(&window_id).unwrap();
+                                let browser_tab = state.tab_ids.get(&tab.id).unwrap();
 
-                            // Tab was unloaded
-                            } else {
-                                let old_tab_index = browser_window.serialized.tab_index(info.uuid);
+                                if info.is_new {
+                                    assert!(!state.reloading_tabs.contains(&info.uuid));
 
-                                browser_window.send_message(&sidebar::ServerMessage::TabChanged { tab_index: old_tab_index, changes: info.changes });
+                                    let tab_index = browser_window.insert_tab(info.uuid, index);
 
-                                browser_window.serialized.tabs.remove(old_tab_index);
-
-                                let new_tab_index = browser_window.insert_tab(info.uuid, index);
-
-                                browser_window.serialized.tabs.insert(new_tab_index, info.uuid);
-
-                                if old_tab_index != new_tab_index {
+                                    browser_window.serialized.tabs.insert(tab_index, info.uuid);
                                     browser_window.serialize(&state.db);
-                                    browser_window.send_message(&sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index });
+
+                                    browser_window.send_message(&sidebar::ServerMessage::TabInserted {
+                                        tab_index,
+                                        tab: browser_tab.to_tab(&browser_window),
+                                    });
+
+                                // Tab was unloaded
+                                } else {
+                                    assert!(state.reloading_tabs.remove(&info.uuid));
+
+                                    let old_tab_index = browser_window.serialized.tab_index(info.uuid).unwrap();
+
+                                    browser_window.send_message(&sidebar::ServerMessage::TabChanged { tab_index: old_tab_index, changes: info.changes });
+
+                                    browser_window.serialized.tabs.remove(old_tab_index);
+
+                                    let new_tab_index = browser_window.insert_tab(info.uuid, index);
+
+                                    browser_window.serialized.tabs.insert(new_tab_index, info.uuid);
+
+                                    // TODO only do this if the index relative to the real tabs changed
+                                    if old_tab_index != new_tab_index {
+                                        browser_window.serialize(&state.db);
+                                        browser_window.send_message(&sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index });
+                                    }
                                 }
                             }
                         }
@@ -918,7 +1063,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         serialized_changes.append(&mut browser_tab.update(&tab));
 
                         if !serialized_changes.is_empty() {
-                            let tab_index = browser_window.serialized.tab_index(tab_uuid);
+                            let tab_index = browser_window.serialized.tab_index(tab_uuid).unwrap();
 
                             browser_window.send_message(&sidebar::ServerMessage::TabChanged { tab_index, changes: serialized_changes });
                         }
@@ -941,7 +1086,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             state.db.set(&SerializedTab::key(uuid), &browser_tab.serialized);
 
                             if let Some(old_tab_uuid) = old_tab_uuid {
-                                let old_tab_index = browser_window.serialized.tab_index(old_tab_uuid);
+                                let old_tab_index = browser_window.serialized.tab_index(old_tab_uuid).unwrap();
 
                                 browser_window.send_message(&sidebar::ServerMessage::TabChanged {
                                     tab_index: old_tab_index,
@@ -951,7 +1096,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                                 });
                             }
 
-                            let new_tab_index = browser_window.serialized.tab_index(uuid);
+                            let new_tab_index = browser_window.serialized.tab_index(uuid).unwrap();
 
                             browser_window.send_message(&sidebar::ServerMessage::TabChanged {
                                 tab_index: new_tab_index,
@@ -978,7 +1123,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                             old_window.unfocus_tab(tab_uuid);
 
-                            let tab_index = old_window.serialized.tab_index(tab_uuid);
+                            let tab_index = old_window.serialized.tab_index(tab_uuid).unwrap();
 
                             assert_eq!(old_window.serialized.tabs.remove(tab_index), tab_uuid);
 
@@ -1014,7 +1159,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         assert_eq!(browser_window.tabs.remove(old_index as usize), tab_uuid);
 
 
-                        let old_tab_index = browser_window.serialized.tab_index(tab_uuid);
+                        let old_tab_index = browser_window.serialized.tab_index(tab_uuid).unwrap();
 
                         assert_eq!(browser_window.serialized.tabs.remove(old_tab_index), tab_uuid);
 
@@ -1049,7 +1194,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                         let is_tab_focused = browser_window.unfocus_tab(tab_uuid);
 
-                        let tab_index = browser_window.serialized.tab_index(tab_uuid);
+                        let tab_index = browser_window.serialized.tab_index(tab_uuid).unwrap();
 
                         if browser_tab.is_unloading {
                             // TODO change is_unloading to false when a new tab is created in the window ?

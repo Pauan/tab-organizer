@@ -154,26 +154,7 @@ fn tab_text<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElemen
             &*TAB_TEXT_STYLE,
         ])
 
-        .children(&mut [
-            text_signal(map_ref! {
-                let title = tab.title.signal_cloned(),
-                let unloaded = tab.is_unloaded() => {
-                    if *unloaded {
-                        if title.is_some() {
-                            "➔ "
-
-                        } else {
-                            "➔"
-                        }
-
-                    } else {
-                        ""
-                    }
-                }
-            }),
-
-            text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, ""))),
-        ])
+        .text_signal(tab.title.signal_cloned().map(|x| option_str_default(x, "")))
 
         .apply(mixin)
     })

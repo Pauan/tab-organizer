@@ -283,8 +283,8 @@ impl SerializedWindow {
         format!("window-ids.{}", uuid)
     }
 
-    pub fn tab_index(&self, tab_uuid: Uuid) -> usize {
-        self.tabs.iter().position(|x| *x == tab_uuid).unwrap()
+    pub fn tab_index(&self, tab_uuid: Uuid) -> Option<usize> {
+        self.tabs.iter().position(|x| *x == tab_uuid)
     }
 }
 

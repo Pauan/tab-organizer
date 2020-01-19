@@ -201,8 +201,19 @@ impl Tab {
         get_uuid(browser.sessions().get_tab_value(self.tab_id, intern("id")))
     }
 
-    fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
+    pub fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
         set_uuid(browser.sessions().set_tab_value(self.tab_id, intern("id"), &serialize(&uuid)))
+    }
+
+    pub fn set_new_uuid(&self) -> impl Future<Output = Result<Uuid, JsValue>> {
+        let uuid = generate_uuid();
+
+        let fut = self.set_uuid(uuid);
+
+        async move {
+            fut.await?;
+            Ok(uuid)
+        }
     }
 
     #[inline]
@@ -241,6 +252,17 @@ impl Window {
         set_uuid(browser.sessions().set_window_value(self.window_id, intern("id"), &serialize(&uuid)))
     }
 
+    fn set_new_uuid(&self) -> impl Future<Output = Result<Uuid, JsValue>> {
+        let uuid = generate_uuid();
+
+        let fut = self.set_uuid(uuid);
+
+        async move {
+            fut.await?;
+            Ok(uuid)
+        }
+    }
+
     fn set_sidebar(&self, url: &str) -> impl Future<Output = Result<(), JsValue>> {
         let fut = browser.sidebar_action().set_panel(&object! {
             "panel": url,
@@ -269,6 +291,8 @@ struct BrowserState {
 impl BrowserState {
     fn new_tab(&mut self, browser_tab: &web_extension::Tab) -> TabState {
         let id = Id::new();
+
+        super::log!("EVENT TAB CREATED {:?}", id);
 
         let tab_id = browser_tab.id().unwrap();
 
@@ -303,6 +327,8 @@ impl BrowserState {
             let tab_id = browser_tab.id().unwrap();
 
             if let Some(id) = self.tabs.get_key(tab_id) {
+                super::log!("EVENT TAB UPDATED {:?}", id);
+
                 Some(BrowserChange::TabUpdated {
                     timestamp,
                     tab: TabState::new(id, &browser_tab),
@@ -348,16 +374,17 @@ impl Browser {
         f(self.state.borrow().windows.get_value(id))
     }
 
-    fn get_uuid<A, L, GF, G, SF, S>(&self, mut lookup: L, get: G, set: S) -> impl Future<Output = Result<Option<Uuid>, JsValue>>
-        where L: FnMut(&BrowserState) -> Option<&A> + 'static,
-              GF: Future<Output = Result<Option<Uuid>, JsValue>> + 'static,
-              G: FnOnce(&A) -> GF,
-              SF: Future<Output = Result<(), JsValue>>,
-              S: FnOnce(&A, Uuid) -> SF + 'static {
+    fn get_uuid<GF, G, SF, S>(&self, get: G, set: S) -> impl Future<Output = Result<Option<Uuid>, JsValue>>
+        where GF: Future<Output = Result<Option<Uuid>, JsValue>> + 'static,
+              G: FnOnce(&BrowserState) -> Option<GF>,
+              SF: Future<Output = Result<Uuid, JsValue>>,
+              S: FnOnce(&BrowserState) -> Option<SF> + 'static {
 
         let state = self.state.clone();
 
-        let fut = lookup(&self.state.borrow()).map(move |value| {
+        let fut = get(&state.borrow());
+
+        let fut = fut.map(move |fut| {
             /*let uuid = generate_uuid();
 
             let fut = set(value, uuid);
@@ -367,27 +394,15 @@ impl Browser {
                 Ok(Some(uuid)) as Result<Option<Uuid>, JsValue>
             }*/
 
-
-            let fut = get(value);
-
             async move {
                 if let Some(uuid) = fut.await? {
                     Ok(Some(uuid))
 
                 } else {
-                    let fut = lookup(&state.borrow()).map(|value| {
-                        let uuid = generate_uuid();
-
-                        let fut = set(value, uuid);
-
-                        async move {
-                            fut.await?;
-                            Ok(Some(uuid))
-                        }
-                    });
+                    let fut = set(&state.borrow());
 
                     if let Some(fut) = fut {
-                        fut.await
+                        Ok(Some(fut.await?))
 
                     } else {
                         Ok(None)
@@ -409,17 +424,15 @@ impl Browser {
 
     pub fn get_window_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         self.get_uuid(
-            move |state| state.windows.get_value(id),
-            |window| window.get_uuid(),
-            |window, uuid| window.set_uuid(uuid),
+            move |state| state.windows.get_value(id).map(Window::get_uuid),
+            move |state| state.windows.get_value(id).map(Window::set_new_uuid),
         )
     }
 
     pub fn get_tab_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
         self.get_uuid(
-            move |state| state.tabs.get_value(id),
-            |tab| tab.get_uuid(),
-            |tab, uuid| tab.set_uuid(uuid),
+            move |state| state.tabs.get_value(id).map(Tab::get_uuid),
+            move |state| state.tabs.get_value(id).map(Tab::set_new_uuid),
         )
     }
 
@@ -436,6 +449,32 @@ impl Browser {
             }
 
             Ok(())
+        }
+    }
+
+    pub fn create_tab<A, F>(&self, obj: &js_sys::Object, f: F) -> impl Future<Output = Result<A, JsValue>>
+        where F: FnOnce(&Tab) -> A {
+
+        super::log!("STARTING TAB CREATE");
+
+        let fut = browser.tabs().create(&obj);
+
+        let state = self.state.clone();
+
+        async move {
+            super::log!("STARTING AWAIT");
+
+            let tab = JsFuture::from(fut).await?.unchecked_into::<web_extension::Tab>();
+
+            let mut state = state.borrow_mut();
+
+            let tab_id = tab.id().unwrap();
+
+            super::log!("TAB CREATED {:?}", tab_id);
+
+            let (_, tab) = state.tabs.get_mut(tab_id).unwrap();
+
+            Ok(f(&tab))
         }
     }
 
