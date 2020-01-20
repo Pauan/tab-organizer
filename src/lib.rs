@@ -15,13 +15,80 @@ use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 use js_sys::{Date, Object, Reflect, Array, Set};
-use web_sys::{window, Performance, Storage};
+use web_sys::{window, Performance, Storage, Blob, Url, BlobPropertyBag};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use web_extension::browser;
+
+
+// The logging is written in JS so it will keep working even if Rust/Wasm fails
+#[wasm_bindgen(inline_js = "
+    var logs = [];
+
+    export function push_log(message) {
+        logs.push(message);
+    }
+
+    export function set_print_logs() {
+        window.print_logs = function (amount) {
+            var len = logs.length;
+
+            var first = (amount >= len ? 0 : len - amount);
+
+            var messages = logs.slice(first).reverse();
+
+            logs.length = first;
+
+            if (messages.length > 0) {
+                console.info(messages.join(\"\\n\\n\"));
+            }
+        };
+    }
+
+    export function error_message(e) { return e.message + \"\\n--------------------\\n\" + e.stack; }
+")]
+extern "C" {
+    fn push_log(message: &str);
+
+    pub fn set_print_logs();
+
+    fn error_message(v: &JsValue) -> String;
+}
+
+
+// TODO use a better way of downloading which doesn't need the "downloads" permission
+pub fn download(filename: &str, value: &str) -> impl Future<Output = Result<(), JsValue>> {
+    let blob = Blob::new_with_str_sequence_and_options(
+        array![ value ].as_ref(),
+        BlobPropertyBag::new()
+            .type_("application/json"),
+    ).unwrap();
+
+    let url = Url::create_object_url_with_blob(&blob).unwrap();
+
+    let fut = browser.downloads().download(&object! {
+        "url": JsValue::from(&url),
+        "filename": filename,
+        "saveAs": true,
+        // TODO re-enable this after it's implemented by Firefox
+        //"conflictAction": "prompt",
+    });
+
+    // The Promise returned by download only lets us know when the download has started
+    // (not ended), so we have to set a far-future timeout to cleanup the Url.
+    Timer::new(1_000 * 60 * 5, move || {
+        Url::revoke_object_url(&url).unwrap();
+    }).forget();
+
+    async move {
+        let id = JsFuture::from(fut).await?;
+        log!("{:?}", id);
+        Ok(())
+    }
+}
 
 
 pub mod state;
@@ -255,36 +322,6 @@ pub fn warn(s: String) {
 }
 
 
-// This is written in JS so it will keep working even if Rust/Wasm fails
-#[wasm_bindgen(inline_js = "
-    var logs = [];
-
-    export function push_log(message) {
-        logs.push(message);
-    }
-
-    export function set_print_logs() {
-        window.print_logs = function (amount) {
-            var len = logs.length;
-
-            var first = (amount >= len ? 0 : len - amount);
-
-            var messages = logs.slice(first).reverse();
-
-            logs.length = first;
-
-            if (messages.length > 0) {
-                console.info(messages.join(\"\\n\\n\"));
-            }
-        };
-    }
-")]
-extern "C" {
-    fn push_log(message: &str);
-    pub fn set_print_logs();
-}
-
-
 pub fn panic_hook(info: &std::panic::PanicInfo) {
     error!("{}", info.to_string());
     console_error_panic_hook::hook(info);
@@ -300,17 +337,7 @@ macro_rules! error {
 }
 
 pub fn error(time: String, file: &'static str, line: u32, message: String, error: js_sys::Error) {
-    #[wasm_bindgen]
-    extern "C" {
-        type MyError;
-
-        #[wasm_bindgen(method, getter)]
-        fn stack(this: &MyError) -> String;
-    }
-
-    let error = error.unchecked_into::<MyError>();
-
-    let output = format!("{} [{}:{}] Error\n    {}\n>>> {}", time, file, line, message.replace("\n", "\n    "), error.stack().replace("\n", "\n    "));
+    let output = format!("{} [{}:{}] Error\n    {}\n>>> {}", time, file, line, message.replace("\n", "\n    "), error_message(&error).replace("\n", "\n    "));
 
     push_log(&output);
 }
@@ -397,20 +424,13 @@ macro_rules! closure {
 }
 
 
-#[wasm_bindgen(inline_js = "
-    export function stack(e) { return e.stack || e.message; }
-")]
-extern "C" {
-    fn stack(v: &JsValue) -> JsValue;
-}
-
 pub fn unwrap_future<F>(future: F) -> impl Future<Output = ()>
     where F: Future<Output = Result<(), JsValue>> {
     async {
         if let Err(e) = future.await {
             // TODO better logging of the error
             //wasm_bindgen::throw_val(e);
-            web_sys::console::error_1(&stack(&e));
+            web_sys::console::error_1(&JsValue::from(error_message(&e)));
         }
     }
 }
@@ -867,6 +887,10 @@ impl Database {
         }
     }
 
+    pub fn to_json(&self) -> String {
+        js_sys::JSON::stringify_with_replacer_and_space(&self.db, &JsValue::UNDEFINED, &JsValue::from(2)).unwrap().into()
+    }
+
     pub fn debug(&self) {
         web_sys::console::log_1(&self.db);
     }
@@ -1122,9 +1146,18 @@ impl fmt::Debug for RegExp {
 }*/
 
 
+fn pretty_time_raw(x: &Date) -> String {
+    format!("{:0>2}:{:0>2}:{:0>2}.{:0>3}", x.get_hours(), x.get_minutes(), x.get_seconds(), x.get_milliseconds())
+}
+
+pub fn pretty_date() -> String {
+    let x = Date::new_0();
+    format!("{}-{:0>2}-{:0>2} {}", x.get_full_year(), x.get_month() + 1, x.get_date(), pretty_time_raw(&x).replace(":", "."))
+}
+
 pub fn pretty_time() -> String {
     let x = Date::new_0();
-    format!("{:0>2}:{:0>2}:{:0>2}.{:0>3}", x.get_hours(), x.get_minutes(), x.get_seconds(), x.get_milliseconds())
+    pretty_time_raw(&x)
 }
 
 

@@ -1,6 +1,9 @@
 use wasm_bindgen::prelude::*;
 use js_sys::Function;
 
+mod downloads;
+pub use downloads::*;
+
 mod storage;
 pub use storage::*;
 
@@ -31,6 +34,9 @@ extern "C" {
     pub type Browser;
 
     pub static browser: Browser;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn downloads(this: &Browser) -> Downloads;
 
     #[wasm_bindgen(method, getter, js_name = sidebarAction)]
     pub fn sidebar_action(this: &Browser) -> SidebarAction;

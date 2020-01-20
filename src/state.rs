@@ -105,12 +105,14 @@ pub mod options {
     #[serde(tag = "type")]
     pub enum ClientMessage {
         Initialize,
+        Export,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(tag = "type")]
     pub enum ServerMessage {
         Initial,
+        ExportFinished,
     }
 }
 

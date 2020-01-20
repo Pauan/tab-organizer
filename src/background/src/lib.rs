@@ -15,7 +15,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs};
+use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -179,6 +179,7 @@ impl BrowserWindow {
     }
 
     // TODO maybe the movement should take into account whether it's moving left or right ?
+    // TODO take into account opened_by
     fn insert_tab(&mut self, tab_uuid: Uuid, new_index: u32) -> usize {
         let new_index = new_index as usize;
 
@@ -909,6 +910,21 @@ pub async fn main_js() -> Result<(), JsValue> {
             match message {
                 options::ClientMessage::Initialize => {
                     port.send_message(&options::ServerMessage::Initial);
+                },
+
+                // TODO don't allow multiple exports at the same time
+                options::ClientMessage::Export => {
+                    let json = state.borrow().db.to_json();
+
+                    let fut = download(&format!("Tab Organizer ({}).json", pretty_date()), &json);
+
+                    spawn(async move {
+                        fut.await?;
+
+                        port.send_message(&options::ServerMessage::ExportFinished);
+
+                        Ok(())
+                    });
                 },
             }
 
