@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use dominator::{Dom, html, clone, events, with_node, apply_methods, RefFn, DomBuilder, text_signal};
+use dominator::{Dom, html, clone, events, with_node, apply_methods, RefFn, DomBuilder};
 use dominator::animation::{MutableAnimation, Percentage};
 use dominator::traits::*;
 use web_sys::{HtmlElement, HtmlInputElement};

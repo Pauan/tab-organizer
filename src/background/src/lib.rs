@@ -24,26 +24,44 @@ mod migrate;
 
 
 fn merge_ids(ids: &mut Vec<Uuid>, new_ids: &[Uuid]) -> bool {
-    let mut old_position = None;
-
     let mut touched = false;
 
+    let mut indices = Vec::with_capacity(new_ids.len());
+
     for new_id in new_ids {
-        let index = ids.iter().position(|old_id| *old_id == *new_id);
+        match ids.iter().position(|old_id| *old_id == *new_id) {
+            // Tab exists
+            Some(index) => {
+                match indices.iter().position(|old_index| *old_index > index) {
+                    // Out of order
+                    Some(swap_start) => {
+                        let _ = indices[swap_start..].into_iter().fold(index, |old, &new| {
+                            ids.swap(old, new);
+                            new
+                        });
 
-        let new_position = index.unwrap_or_else(|| ids.len());
+                        indices.insert(swap_start, index);
+                        touched = true;
+                    },
+                    None => {
+                        indices.push(index);
+                    },
+                }
+            },
 
-        // If the id doesn't currently exist
-        if let None = index {
-            ids.push(*new_id);
-            touched = true;
+            // Tab doesn't exist
+            None => {
+                let index = match indices.last() {
+                    Some(index) => index + 1,
+                    None => 0,
+                };
+
+                indices.push(index);
+                ids.insert(index, *new_id);
+
+                touched = true;
+            },
         }
-
-        if let Some(old_position) = old_position {
-            assert!(old_position < new_position);
-        }
-
-        old_position = Some(new_position);
     }
 
     touched
@@ -645,45 +663,66 @@ pub async fn main_js() -> Result<(), JsValue> {
                                 browser.get_window(browser_window.window_id, move |window| {
                                     if let Some(window) = window {
                                         if let Some(index) = browser_window.serialized.tab_index(uuid) {
-                                            if reloading_tabs.insert(uuid) {
-                                                pending.replace_with(|pending| *pending + 1);
+                                            let serialized = db.get::<SerializedTab>(&SerializedTab::key(uuid)).unwrap();
 
-                                                let index = browser_window.serialized.tabs[(index + 1)..]
-                                                    .into_iter()
-                                                    // Look for the first tab which exists in the browser
-                                                    .find(|uuid| ids.contains_key(uuid));
+                                            if serialized.has_good_url() {
+                                                if reloading_tabs.insert(uuid) {
+                                                    struct OnPanic {
+                                                        pending: Mutable<u32>,
+                                                    }
 
-                                                let index = match index {
-                                                    Some(uuid) => {
-                                                        // TODO look this up in the real browser window ?
-                                                        // TODO this conversion is a bit hacky
-                                                        JsValue::from(browser_window.tabs.iter().position(|x| x == uuid).unwrap() as u32)
-                                                    },
-                                                    None => {
-                                                        JsValue::UNDEFINED
-                                                    },
-                                                };
+                                                    impl OnPanic {
+                                                        fn new(pending: Mutable<u32>) -> Self {
+                                                            pending.replace_with(|pending| *pending + 1);
+                                                            Self { pending }
+                                                        }
+                                                    }
 
-                                                let serialized = db.get::<SerializedTab>(&SerializedTab::key(uuid)).unwrap();
+                                                    impl Drop for OnPanic {
+                                                        fn drop(&mut self) {
+                                                            self.pending.replace_with(|pending| *pending - 1);
+                                                        }
+                                                    }
 
-                                                // TODO set active ?
-                                                let fut = browser.create_tab(&object! {
-                                                    "windowId": window.real_id(),
-                                                    "pinned": serialized.pinned,
-                                                    "title": serialized.title,
-                                                    // TODO handle privileged URLs (e.g. chrome: and about:)
-                                                    "url": serialized.url,
-                                                    "index": index,
-                                                }, move |tab| tab.set_uuid(uuid));
+                                                    let on_panic = OnPanic::new(pending.clone());
 
-                                                spawn(clone!(pending => async move {
-                                                    fut.await?.await?;
 
-                                                    // TODO custom Drop impl so that this is panic-safe
-                                                    pending.replace_with(|pending| *pending - 1);
+                                                    let index = browser_window.serialized.tabs[(index + 1)..]
+                                                        .into_iter()
+                                                        // Look for the first tab which exists in the browser
+                                                        .find(|uuid| ids.contains_key(uuid));
 
-                                                    Ok(())
-                                                }));
+                                                    let index = match index {
+                                                        Some(uuid) => {
+                                                            // TODO look this up in the real browser window ?
+                                                            // TODO this conversion is a bit hacky
+                                                            JsValue::from(browser_window.tabs.iter().position(|x| x == uuid).unwrap() as u32)
+                                                        },
+                                                        None => {
+                                                            JsValue::UNDEFINED
+                                                        },
+                                                    };
+
+                                                    // TODO set active ?
+                                                    // TODO set openInReaderMode ?
+                                                    let fut = browser.create_tab(&object! {
+                                                        "windowId": window.real_id(),
+                                                        "pinned": serialized.pinned,
+                                                        //"cookieStoreId": serialized.cookie_store_id.map(JsValue::from).unwrap_or(JsValue::UNDEFINED),
+                                                        //"openerTabId": ,
+                                                        // TODO handle privileged URLs (e.g. chrome: and about:)
+                                                        "url": serialized.url.map(JsValue::from).unwrap_or(JsValue::UNDEFINED),
+                                                        "index": index,
+                                                    }, move |tab| tab.set_uuid(uuid));
+
+                                                    spawn(async move {
+                                                        fut.await?.await?;
+
+                                                        drop(on_panic);
+
+                                                        Ok(())
+                                                    });
+                                                }
                                             }
                                         }
                                     }

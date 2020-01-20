@@ -292,8 +292,6 @@ impl BrowserState {
     fn new_tab(&mut self, browser_tab: &web_extension::Tab) -> TabState {
         let id = Id::new();
 
-        super::log!("EVENT TAB CREATED {:?}", id);
-
         let tab_id = browser_tab.id().unwrap();
 
         self.tabs.insert(tab_id, id, Tab {
@@ -327,8 +325,6 @@ impl BrowserState {
             let tab_id = browser_tab.id().unwrap();
 
             if let Some(id) = self.tabs.get_key(tab_id) {
-                super::log!("EVENT TAB UPDATED {:?}", id);
-
                 Some(BrowserChange::TabUpdated {
                     timestamp,
                     tab: TabState::new(id, &browser_tab),
@@ -455,22 +451,16 @@ impl Browser {
     pub fn create_tab<A, F>(&self, obj: &js_sys::Object, f: F) -> impl Future<Output = Result<A, JsValue>>
         where F: FnOnce(&Tab) -> A {
 
-        super::log!("STARTING TAB CREATE");
-
         let fut = browser.tabs().create(&obj);
 
         let state = self.state.clone();
 
         async move {
-            super::log!("STARTING AWAIT");
-
             let tab = JsFuture::from(fut).await?.unchecked_into::<web_extension::Tab>();
 
             let mut state = state.borrow_mut();
 
             let tab_id = tab.id().unwrap();
-
-            super::log!("TAB CREATED {:?}", tab_id);
 
             let (_, tab) = state.tabs.get_mut(tab_id).unwrap();
 

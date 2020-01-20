@@ -184,6 +184,19 @@ impl SerializedTab {
         format!("tab-ids.{}", uuid)
     }
 
+    pub fn has_good_url(&self) -> bool {
+        self.url.as_deref().map(|url| {
+            // Based on the restrictions here: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/tabs/create
+            !(
+                url.starts_with("chrome:") ||
+                url.starts_with("javascript:") ||
+                url.starts_with("data:") ||
+                url.starts_with("file:") ||
+                (url.starts_with("about:") && url != "about:blank")
+            )
+        }).unwrap_or(true)
+    }
+
     // TODO hack needed because Firefox doesn't provide favicon URLs for built-in pages
     fn get_favicon(favicon: Option<&str>, url: Option<&str>) -> Option<String> {
         lazy_static! {
