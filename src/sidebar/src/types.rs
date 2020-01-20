@@ -100,16 +100,20 @@ pub(crate) struct TabMenuState {
 
 
 #[derive(Debug)]
-pub(crate) struct TabMenu {
+pub(crate) struct Menus {
     pub(crate) state: Mutable<Option<TabMenuState>>,
-    pub(crate) menu: Menu,
+    pub(crate) global: Menu,
+    pub(crate) group: Menu,
+    pub(crate) tab: Menu,
 }
 
-impl TabMenu {
+impl Menus {
     fn new() -> Self {
         Self {
             state: Mutable::new(None),
-            menu: Menu::new(),
+            global: Menu::new(),
+            group: Menu::new(),
+            tab: Menu::new(),
         }
     }
 }
@@ -131,8 +135,7 @@ pub(crate) struct State {
     pub(crate) scrolling: Scrolling,
     pub(crate) window_size: Mutable<WindowSize>,
 
-    pub(crate) global_menu: Menu,
-    pub(crate) tab_menu: TabMenu,
+    pub(crate) menus: Menus,
     pub(crate) port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
 }
 
@@ -158,8 +161,7 @@ impl State {
             scrolling: Scrolling::new(scroll_y),
             window_size: Mutable::new(WindowSize::new()),
 
-            global_menu: Menu::new(),
-            tab_menu: TabMenu::new(),
+            menus: Menus::new(),
             port,
         };
 
@@ -197,7 +199,8 @@ impl State {
         });
     }
 
-    pub(crate) fn close_tabs(&self, tabs: &[&TabState]) {
+    // TODO unselect the closing tabs ?
+    pub(crate) fn close_tabs(&self, tabs: Vec<Arc<Tab>>) {
         let uuids = tabs.into_iter().map(|tab| {
             tab.manually_closed.set_neq(true);
             tab.id

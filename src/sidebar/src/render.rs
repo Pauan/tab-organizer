@@ -1,3 +1,4 @@
+use uuid::Uuid;
 use std::sync::Arc;
 use dominator::{Dom, html, clone, events, with_node, apply_methods, RefFn, DomBuilder};
 use dominator::animation::{MutableAnimation, Percentage};
@@ -13,6 +14,7 @@ use tab_organizer::styles::*;
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
 use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize};
+use crate::menu::MenuBuilder;
 use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
 use tab_organizer::state::SortTabs;
 
@@ -204,17 +206,25 @@ fn tab_template<A>(state: &Arc<State>, group: &Arc<Group>, tab: &Arc<Tab>, mixin
     where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
 
     tab_base_template(state, tab, move |dom| { dom
-        // TODO only define 1 global event
+        // TODO only define 1 global event somehow
         .event(clone!(state, group, tab => move |e: events::ContextMenu| {
-            state.tab_menu.state.set(Some(TabMenuState {
+            state.menus.state.set(Some(TabMenuState {
                 x: e.x() as f64,
                 y: e.y() as f64,
                 group: group.clone(),
                 tab: tab.clone(),
             }));
 
-            // TODO instead pass in a Mutable<bool> into the Menu
-            state.tab_menu.menu.show();
+            if tab.selected.get() {
+                // TODO instead pass in a Mutable<bool> into the Menu
+                state.menus.group.show();
+
+            } else {
+                group.unselect_all_tabs();
+
+                // TODO instead pass in a Mutable<bool> into the Menu
+                state.menus.tab.show();
+            }
         }))
 
         .apply(mixin)
@@ -335,7 +345,7 @@ impl State {
                                 },
                                 events::MouseButton::Middle => {
                                     if !shift && !ctrl && !alt {
-                                        state.close_tabs(&[&tab]);
+                                        state.close_tabs(vec![ tab.clone() ]);
                                     }
                                 },
                                 events::MouseButton::Right => {
@@ -514,7 +524,7 @@ impl State {
                                         },
                                         events::MouseButton::Middle => {
                                             if !shift && !ctrl && !alt {
-                                                state.close_tabs(&[&tab]);
+                                                state.close_tabs(vec![ tab.clone() ]);
                                             }
                                         },
                                         events::MouseButton::Right => {
@@ -562,7 +572,7 @@ impl State {
                                         }))
 
                                         .event(clone!(state, tab => move |_: events::Click| {
-                                            state.close_tabs(&[&tab]);
+                                            state.close_tabs(vec![ tab.clone() ]);
                                         }))
                                     }),
                                 ])
@@ -570,6 +580,119 @@ impl State {
                         })))
                 }),
             ])
+        })
+    }
+
+    fn render_global_menu(state: &Arc<Self>) -> Dom {
+        state.menus.global.render(|menu| { menu
+            .submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |menu| { menu
+                .toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::Window);
+                }))
+
+                .toggle("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::Tag);
+                }))
+
+                .separator()
+
+                .toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
+                }))
+
+                .toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
+                }))
+
+                .separator()
+
+                .toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::Url);
+                }))
+
+                .toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::Name);
+                }))
+            })
+        })
+    }
+
+    fn make_group_header(menu: MenuBuilder, state: &Arc<State>) -> MenuBuilder {
+        menu
+            .header("Group...")
+
+            .action("Select all tabs", Some("/icons/iconic/plus.svg"), clone!(state => move || {
+                let mut state = state.menus.state.lock_mut();
+
+                state.as_ref().unwrap().group.select_all_tabs();
+
+                *state = None;
+            }))
+
+            .action("Unselect all tabs", Some("/icons/iconic/minus.svg"), clone!(state => move || {
+                let mut state = state.menus.state.lock_mut();
+
+                state.as_ref().unwrap().group.unselect_all_tabs();
+
+                *state = None;
+            }))
+    }
+
+    // TODO is this Copy a good idea ?
+    fn make_menu_tabs<F>(menu: MenuBuilder, state: &Arc<State>, f: F) -> MenuBuilder where F: FnMut(&TabMenuState) -> Vec<Arc<Tab>> + Copy + 'static {
+        fn get_tabs<F>(state: &State, mut f: F) -> Vec<Arc<Tab>> where F: FnMut(&TabMenuState) -> Vec<Arc<Tab>> {
+            let mut state = state.menus.state.lock_mut();
+
+            let unwrapped = state.as_ref().unwrap();
+
+            let selected_tabs = f(unwrapped);
+
+            *state = None;
+
+            selected_tabs
+        }
+
+        menu
+            .action("Unload", Some("/icons/iconic/account-logout.svg"), clone!(state => move || {
+                let selected_tabs = get_tabs(&state, f);
+                state.unload_tabs(selected_tabs.into_iter().map(|x| x.id).collect());
+            }))
+
+            .action("Close", Some("/icons/iconic/x.svg"), clone!(state => move || {
+                let selected_tabs = get_tabs(&state, f);
+                state.close_tabs(selected_tabs);
+            }))
+    }
+
+    fn render_group_menu(state: &Arc<Self>) -> Dom {
+        /*html!("div", {
+            .class(&*TAB_MENU_STYLE)
+
+            .style_signal("left", map_ref! {
+                let x = state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| state.x)),
+                let size = state.window_size.signal() => {
+                    x.map(|x| {
+                        px((x + 12.0).max(206.0))
+                    })
+                }
+            })
+
+            .style_signal("top", state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| px(state.y + 5.0))))
+
+            .children(&mut [
+                ,
+            ])
+        })*/
+
+        state.menus.group.render(|menu| {
+            // TODO replace with dominator::apply
+            Self::make_menu_tabs(
+                Self::make_group_header(menu, state)
+                    .separator()
+                    .header("Selected tabs..."),
+                state,
+                |state| state.group.selected_tabs(),
+            )
         })
     }
 
@@ -593,42 +716,15 @@ impl State {
             ])
         })*/
 
-        state.tab_menu.menu.render(|menu| { menu
-            .header("Group...")
-
-            .separator()
-
-            .action("Select all tabs", Some("/icons/iconic/plus.svg"), clone!(state => move || {
-                let mut tab_menu = state.tab_menu.state.lock_mut();
-
-                tab_menu.as_ref().unwrap().group.select_all_tabs();
-
-                *tab_menu = None;
-            }))
-
-            .action("Unselect all tabs", Some("/icons/iconic/minus.svg"), clone!(state => move || {
-                let mut tab_menu = state.tab_menu.state.lock_mut();
-
-                tab_menu.as_ref().unwrap().group.unselect_all_tabs();
-
-                *tab_menu = None;
-            }))
-
-            .separator()
-
-            .action("Unload selected tabs", Some("/icons/iconic/account-logout.svg"), clone!(state => move || {
-                let selected_tabs = {
-                    let mut tab_menu = state.tab_menu.state.lock_mut();
-
-                    let selected_tabs = tab_menu.as_ref().unwrap().group.selected_tabs();
-
-                    *tab_menu = None;
-
-                    selected_tabs
-                };
-
-                state.unload_tabs(selected_tabs.into_iter().map(|x| x.id).collect());
-            }))
+        state.menus.tab.render(|menu| {
+            // TODO replace with dominator::apply
+            Self::make_menu_tabs(
+                Self::make_group_header(menu, state)
+                    .separator()
+                    .header("Tab..."),
+                state,
+                |state| vec![ state.tab.clone() ],
+            )
         })
     }
 
@@ -839,7 +935,15 @@ impl State {
                                                 ])
 
                                                 .class_signal(&*TOOLBAR_MENU_HOVER_STYLE, hovering.signal())
-                                                .class_signal(&*TOOLBAR_MENU_OPEN_STYLE, state.global_menu.is_showing())
+
+                                                // TODO a little hacky
+                                                .class_signal(&*TOOLBAR_MENU_OPEN_STYLE, or(
+                                                    state.menus.global.is_showing(),
+                                                    or(
+                                                        state.menus.group.is_showing(),
+                                                        state.menus.tab.is_showing(),
+                                                    ),
+                                                ))
 
                                                 .cursor!(state.is_dragging(), "pointer")
 
@@ -852,7 +956,7 @@ impl State {
                                                 })
 
                                                 .event(clone!(state => move |_: events::MouseDown| {
-                                                    state.global_menu.show();
+                                                    state.menus.global.show();
                                                 }))
 
                                                 .children(&mut [
@@ -868,50 +972,8 @@ impl State {
                                                 ])
                                             }),
 
-                                            state.global_menu.render(|menu| { menu
-                                                .submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |menu| { menu
-                                                    .toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::Window);
-                                                    }))
-
-                                                    .toggle("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::Tag);
-                                                    }))
-
-                                                    .separator()
-
-                                                    .toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
-                                                    }))
-
-                                                    .toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
-                                                    }))
-
-                                                    .separator()
-
-                                                    .toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::Url);
-                                                    }))
-
-                                                    .toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
-                                                        state.options.sort_tabs.set_neq(SortTabs::Name);
-                                                    }))
-                                                })
-
-                                                .separator()
-
-                                                .submenu("Foo", None, |menu| { menu
-                                                    .action("Bar", None, || {})
-                                                    .action("Qux", None, || {})
-
-                                                    .submenu("Corge", None, |menu| { menu
-                                                        .toggle("Yes", futures_signals::signal::always(true), || {})
-                                                        .toggle("No", futures_signals::signal::always(false), || {})
-                                                    })
-                                                })
-                                            }),
-
+                                            Self::render_global_menu(&state),
+                                            Self::render_group_menu(&state),
                                             Self::render_tab_menu(&state),
                                         ])
                                     })
