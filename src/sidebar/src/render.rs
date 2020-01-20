@@ -1,4 +1,3 @@
-use uuid::Uuid;
 use std::sync::Arc;
 use dominator::{Dom, html, clone, events, with_node, apply_methods, RefFn, DomBuilder};
 use dominator::animation::{MutableAnimation, Percentage};
@@ -13,7 +12,7 @@ use lazy_static::lazy_static;
 use tab_organizer::styles::*;
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
-use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize};
+use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize, MenuMode};
 use crate::menu::MenuBuilder;
 use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
 use tab_organizer::state::SortTabs;
@@ -208,23 +207,21 @@ fn tab_template<A>(state: &Arc<State>, group: &Arc<Group>, tab: &Arc<Tab>, mixin
     tab_base_template(state, tab, move |dom| { dom
         // TODO only define 1 global event somehow
         .event(clone!(state, group, tab => move |e: events::ContextMenu| {
-            state.menus.state.set(Some(TabMenuState {
+            let mode = if tab.selected.get() {
+                MenuMode::Group
+
+            } else {
+                MenuMode::Tab
+            };
+
+            state.menus.show(TabMenuState {
+                mode,
                 x: e.x() as f64,
                 y: e.y() as f64,
                 group: group.clone(),
                 tab: tab.clone(),
-            }));
-
-            if tab.selected.get() {
-                // TODO instead pass in a Mutable<bool> into the Menu
-                state.menus.group.show();
-
-            } else {
-                group.unselect_all_tabs();
-
-                // TODO instead pass in a Mutable<bool> into the Menu
-                state.menus.tab.show();
-            }
+                selected: group.selected_tabs(),
+            });
         }))
 
         .apply(mixin)
@@ -345,7 +342,7 @@ impl State {
                                 },
                                 events::MouseButton::Middle => {
                                     if !shift && !ctrl && !alt {
-                                        state.close_tabs(vec![ tab.clone() ]);
+                                        state.close_tabs(&[ tab.clone() ]);
                                     }
                                 },
                                 events::MouseButton::Right => {
@@ -524,7 +521,7 @@ impl State {
                                         },
                                         events::MouseButton::Middle => {
                                             if !shift && !ctrl && !alt {
-                                                state.close_tabs(vec![ tab.clone() ]);
+                                                state.close_tabs(&[ tab.clone() ]);
                                             }
                                         },
                                         events::MouseButton::Right => {
@@ -572,7 +569,7 @@ impl State {
                                         }))
 
                                         .event(clone!(state, tab => move |_: events::Click| {
-                                            state.close_tabs(vec![ tab.clone() ]);
+                                            state.close_tabs(&[ tab.clone() ]);
                                         }))
                                     }),
                                 ])
@@ -621,47 +618,96 @@ impl State {
         menu
             .header("Group...")
 
-            .action("Select all tabs", Some("/icons/iconic/plus.svg"), clone!(state => move || {
-                let mut state = state.menus.state.lock_mut();
+            .action(
+                "Select all tabs",
+                Some("/icons/iconic/plus.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        let len = state.group.visible_tabs_len();
+                        state.selected.len() < len
 
-                state.as_ref().unwrap().group.select_all_tabs();
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    let mut state = state.menus.state.lock_mut();
 
-                *state = None;
-            }))
+                    state.as_ref().unwrap().group.select_all_tabs();
 
-            .action("Unselect all tabs", Some("/icons/iconic/minus.svg"), clone!(state => move || {
-                let mut state = state.menus.state.lock_mut();
+                    *state = None;
+                }),
+            )
 
-                state.as_ref().unwrap().group.unselect_all_tabs();
+            .action(
+                "Unselect all tabs",
+                Some("/icons/iconic/minus.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        state.selected.len() > 0
 
-                *state = None;
-            }))
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    let mut state = state.menus.state.lock_mut();
+
+                    state.as_ref().unwrap().group.unselect_all_tabs();
+
+                    *state = None;
+                }),
+            )
     }
 
-    // TODO is this Copy a good idea ?
-    fn make_menu_tabs<F>(menu: MenuBuilder, state: &Arc<State>, f: F) -> MenuBuilder where F: FnMut(&TabMenuState) -> Vec<Arc<Tab>> + Copy + 'static {
-        fn get_tabs<F>(state: &State, mut f: F) -> Vec<Arc<Tab>> where F: FnMut(&TabMenuState) -> Vec<Arc<Tab>> {
+    fn make_menu_tabs(menu: MenuBuilder, state: &Arc<State>) -> MenuBuilder {
+        fn with_tabs<F>(state: &State, f: F) where F: FnOnce(&[Arc<Tab>]) {
             let mut state = state.menus.state.lock_mut();
 
-            let unwrapped = state.as_ref().unwrap();
-
-            let selected_tabs = f(unwrapped);
+            state.as_ref().unwrap().with_tabs(f);
 
             *state = None;
-
-            selected_tabs
         }
 
         menu
-            .action("Unload", Some("/icons/iconic/account-logout.svg"), clone!(state => move || {
-                let selected_tabs = get_tabs(&state, f);
-                state.unload_tabs(selected_tabs.into_iter().map(|x| x.id).collect());
-            }))
+            // TODO put a confirmation box ?
+            .action(
+                "Unload",
+                Some("/icons/iconic/account-logout.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        state.with_tabs(|tabs| tabs.into_iter().any(|tab| !tab.status.get().is_unloaded()))
 
-            .action("Close", Some("/icons/iconic/x.svg"), clone!(state => move || {
-                let selected_tabs = get_tabs(&state, f);
-                state.close_tabs(selected_tabs);
-            }))
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    with_tabs(&state, |tabs| {
+                        state.unload_tabs(tabs.into_iter().map(|x| x.id).collect());
+                    });
+                }),
+            )
+
+            // TODO put a spacer/separator to make it harder to click this by accident
+            // TODO put a confirmation box ?
+            .action(
+                "Close",
+                Some("/icons/iconic/x.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        state.with_tabs(|tabs| tabs.len() > 0)
+
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    with_tabs(&state, |tabs| {
+                        state.close_tabs(tabs);
+                    });
+                }),
+            )
     }
 
     fn render_group_menu(state: &Arc<Self>) -> Dom {
@@ -691,31 +737,11 @@ impl State {
                     .separator()
                     .header("Selected tabs..."),
                 state,
-                |state| state.group.selected_tabs(),
             )
         })
     }
 
     fn render_tab_menu(state: &Arc<Self>) -> Dom {
-        /*html!("div", {
-            .class(&*TAB_MENU_STYLE)
-
-            .style_signal("left", map_ref! {
-                let x = state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| state.x)),
-                let size = state.window_size.signal() => {
-                    x.map(|x| {
-                        px((x + 12.0).max(206.0))
-                    })
-                }
-            })
-
-            .style_signal("top", state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| px(state.y + 5.0))))
-
-            .children(&mut [
-                ,
-            ])
-        })*/
-
         state.menus.tab.render(|menu| {
             // TODO replace with dominator::apply
             Self::make_menu_tabs(
@@ -723,7 +749,6 @@ impl State {
                     .separator()
                     .header("Tab..."),
                 state,
-                |state| vec![ state.tab.clone() ],
             )
         })
     }

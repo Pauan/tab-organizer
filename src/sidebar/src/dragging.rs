@@ -270,10 +270,7 @@ impl State {
                     let tab_index = Some(tab_index);
 
                     let selected_tabs: Vec<Arc<Tab>> = if tab.selected.get() {
-                        group.tabs.lock_ref().iter()
-                            .filter(|x| x.selected.get() && x.matches_search.get())
-                            .cloned()
-                            .collect()
+                        group.selected_tabs()
 
                     } else {
                         vec![tab.clone()]

@@ -381,7 +381,7 @@ lazy_static! {
     };
 
     pub(crate) static ref TAB_FAVICON_STYLE_UNLOADED: String = class! {
-        .style("filter", "grayscale(100%)")
+        //.style("filter", "grayscale(100%)")
     };
 
     pub(crate) static ref TAB_TEXT_STYLE: String = class! {

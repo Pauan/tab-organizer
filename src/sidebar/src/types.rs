@@ -90,12 +90,29 @@ impl WindowSize {
 }
 
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum MenuMode {
+    Group,
+    Tab,
+}
+
 #[derive(Debug)]
 pub(crate) struct TabMenuState {
+    pub(crate) mode: MenuMode,
     pub(crate) x: f64,
     pub(crate) y: f64,
     pub(crate) group: Arc<Group>,
     pub(crate) tab: Arc<Tab>,
+    pub(crate) selected: Vec<Arc<Tab>>,
+}
+
+impl TabMenuState {
+    pub(crate) fn with_tabs<A, F>(&self, f: F) -> A where F: FnOnce(&[Arc<Tab>]) -> A {
+        match self.mode {
+            MenuMode::Group => f(&self.selected),
+            MenuMode::Tab => f(&[self.tab.clone()]),
+        }
+    }
 }
 
 
@@ -114,6 +131,24 @@ impl Menus {
             global: Menu::new(),
             group: Menu::new(),
             tab: Menu::new(),
+        }
+    }
+
+    pub(crate) fn show(&self, state: TabMenuState) {
+        let mode = state.mode;
+
+        self.state.set(Some(state));
+
+        // TODO instead pass in a Mutable<bool> into the Menu
+        match mode {
+            MenuMode::Group => {
+                self.group.show();
+            },
+
+            // TODO unselect all tabs in the group ?
+            MenuMode::Tab => {
+                self.tab.show();
+            },
         }
     }
 }
@@ -183,15 +218,8 @@ impl State {
 
     pub(crate) fn click_tab(&self, group: &Group, tab: &Tab) {
         if !tab.selected.get() {
-            {
-                let tabs = group.tabs.lock_ref();
-
-                for tab in tabs.iter() {
-                    tab.selected.set_neq(false);
-                }
-            }
-
-            group.last_selected_tab.set_neq(None);
+            // TODO maybe this should unselect all tabs, even the ones which don't match the search ?
+            group.unselect_all_tabs();
         }
 
         self.port.send_message(&sidebar::ClientMessage::ClickTab {
@@ -200,7 +228,7 @@ impl State {
     }
 
     // TODO unselect the closing tabs ?
-    pub(crate) fn close_tabs(&self, tabs: Vec<Arc<Tab>>) {
+    pub(crate) fn close_tabs(&self, tabs: &[Arc<Tab>]) {
         let uuids = tabs.into_iter().map(|tab| {
             tab.manually_closed.set_neq(true);
             tab.id
@@ -412,6 +440,8 @@ impl Group {
         }
     }
 
+    // TODO only include the tabs which match the search
+    // TODO maybe only include the visible tabs ?
     pub(crate) fn shift_select_tab(&self, tab: &Arc<Tab>) {
         let mut last_selected_tab = self.last_selected_tab.lock_mut();
 
@@ -448,36 +478,51 @@ impl Group {
         }
     }
 
+    // TODO maybe only include the visible tabs ?
+    pub(crate) fn visible_tabs_len(&self) -> usize {
+        self.tabs.lock_ref()
+            .into_iter()
+            .filter(|tab| tab.matches_search.get())
+            .count()
+    }
+
+    // TODO maybe only include the visible tabs ?
     pub(crate) fn select_all_tabs(&self) {
-        self.last_selected_tab.set_neq(None);
+        {
+            let tabs = self.tabs.lock_ref();
 
-        let tabs = self.tabs.lock_ref();
-
-        for tab in tabs.iter() {
-            tab.selected.set_neq(true);
+            for tab in tabs.iter() {
+                if tab.matches_search.get() {
+                    tab.selected.set_neq(true);
+                }
+            }
         }
+
+        self.last_selected_tab.set_neq(None);
     }
 
+    // TODO maybe only include the visible tabs ?
     pub(crate) fn unselect_all_tabs(&self) {
-        self.last_selected_tab.set_neq(None);
+        {
+            let tabs = self.tabs.lock_ref();
 
-        let tabs = self.tabs.lock_ref();
-
-        for tab in tabs.iter() {
-            tab.selected.set_neq(false);
+            for tab in tabs.iter() {
+                if tab.matches_search.get() {
+                    tab.selected.set_neq(false);
+                }
+            }
         }
+
+        self.last_selected_tab.set_neq(None);
     }
 
+    // TODO maybe only include the visible tabs ?
     pub(crate) fn selected_tabs(&self) -> Vec<Arc<Tab>> {
         let tabs = self.tabs.lock_ref();
 
-        tabs.iter().filter_map(|tab| {
-            if tab.selected.get() {
-                Some(tab.clone())
-
-            } else {
-                None
-            }
-        }).collect()
+        tabs.iter()
+            .filter(|tab| tab.selected.get() && tab.matches_search.get())
+            .cloned()
+            .collect()
     }
 }

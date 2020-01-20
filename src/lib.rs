@@ -360,7 +360,7 @@ pub fn info(time: String, file: &'static str, line: u32, message: String) {
 
     // The 7 is the length of " [...] "
     // The 4 is the length of "    "
-    const MAX_LINE_LENGTH: usize = 172 - 7 - 4;
+    const MAX_LINE_LENGTH: usize = 171 - 7 - 4;
 
     fn process_line(line: &str) -> String {
         // TODO make this more efficient

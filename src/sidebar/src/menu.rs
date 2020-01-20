@@ -1,6 +1,6 @@
 use tab_organizer::styles::*;
 use std::sync::{RwLock, Arc};
-use futures_signals::signal::{Signal, SignalExt, Mutable};
+use futures_signals::signal::{and, always, Signal, SignalExt, Mutable};
 use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX, html, clone, events, class, text};
 use lazy_static::lazy_static;
 use web_sys::{Element, EventTarget};
@@ -105,7 +105,12 @@ lazy_static! {
         .style("padding-left", "12px")
         .style("padding-right", "12px")
         .style("color", "black")
-        .style("text-shadow", "none")
+        //.style("text-shadow", "none")
+    };
+
+    static ref MENU_ITEM_DISABLED_STYLE: String = class! {
+        .style("cursor", "default")
+        .style("opacity", "50%")
     };
 
     static ref MENU_ITEM_HOVER_STYLE: String = class! {
@@ -222,7 +227,10 @@ impl MenuBuilder {
         }
     }
 
-    fn menu_item<A>(&mut self) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A> where A: AsRef<Element> + AsRef<EventTarget> + Clone + 'static {
+    fn menu_item<S, A>(&mut self, enabled: S) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
+        where S: Signal<Item = bool> + 'static,
+              A: AsRef<Element> + AsRef<EventTarget> + Clone + 'static {
+
         let hovered = Mutable::new(false);
 
         self.state.push(ChildState::Item {
@@ -235,7 +243,7 @@ impl MenuBuilder {
             .class(&*ROW_STYLE)
             .class(&*MENU_ITEM_STYLE)
 
-            .class_signal(&*MENU_ITEM_HOVER_STYLE, hovered.signal())
+            .class_signal(&*MENU_ITEM_HOVER_STYLE, and(enabled, hovered.signal()))
             //.class_signal(&*MENU_ITEM_SHADOW_STYLE, hovered.signal())
 
             .event(clone!(hovered => move |_: events::MouseEnter| {
@@ -280,7 +288,7 @@ impl MenuBuilder {
 
         let parent = self.parent.clone();
         let state = self.state.clone();
-        let mixin = self.menu_item();
+        let mixin = self.menu_item(always(true));
 
 
         self.children.push(html!("div", {
@@ -396,7 +404,7 @@ impl MenuBuilder {
         where A: Signal<Item = bool> + 'static,
               F: FnMut() + 'static {
 
-        let mixin = self.menu_item();
+        let mixin = self.menu_item(always(true));
 
         let state = self.state.clone();
 
@@ -436,19 +444,30 @@ impl MenuBuilder {
     }
 
 
-    fn push_action<F>(&mut self, name: &str, icon: Option<&str>, mut on_click: F)
-        where F: FnMut() + 'static {
+    fn push_action<S, F>(&mut self, name: &str, icon: Option<&str>, signal: S, mut on_click: F)
+        where S: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
 
-        let mixin = self.menu_item();
+        // TODO a bit hacky
+        let enabled = Mutable::new(false);
+
+        let mixin = self.menu_item(enabled.signal());
 
         let state = self.state.clone();
 
         self.children.push(html!("div", {
             .apply(mixin)
 
+            .class_signal(&*MENU_ITEM_DISABLED_STYLE, signal.map(clone!(enabled => move |x| {
+                enabled.set_neq(x);
+                !x
+            })))
+
             .event(move |_: events::Click| {
-                state.hide();
-                on_click();
+                if enabled.get() {
+                    state.hide();
+                    on_click();
+                }
             })
 
             .children(&mut [
@@ -459,9 +478,10 @@ impl MenuBuilder {
     }
 
     #[inline]
-    pub(crate) fn action<F>(mut self, name: &str, icon: Option<&str>, on_click: F) -> Self
-        where F: FnMut() + 'static {
-        self.push_action(name, icon, on_click);
+    pub(crate) fn action<S, F>(mut self, name: &str, icon: Option<&str>, signal: S, on_click: F) -> Self
+        where S: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
+        self.push_action(name, icon, signal, on_click);
         self
     }
 
