@@ -497,4 +497,8 @@ lazy_static! {
     pub(crate) static ref URL_BAR_HASH_STYLE: String = class! {
         .style("color", "darkblue") // TODO replace with hsl
     };
+
+    pub(crate) static ref TAB_MENU_STYLE: String = class! {
+        .style("position", "fixed")
+    };
 }

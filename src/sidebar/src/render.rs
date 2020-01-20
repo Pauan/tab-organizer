@@ -12,7 +12,7 @@ use lazy_static::lazy_static;
 use tab_organizer::styles::*;
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
-use crate::types::{State, DragState, Group, Tab};
+use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize};
 use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
 use tab_organizer::state::SortTabs;
 
@@ -142,7 +142,7 @@ fn tab_audio(state: &Arc<State>, tab: &Arc<Tab>, pinned: bool) -> Dom {
         }))
 
         .event(clone!(state, tab => move |_: events::Click| {
-            state.set_muted(&[&tab], !tab.muted.get());
+            state.set_muted(vec![tab.id], !tab.muted.get());
         }))
     })
 }
@@ -180,7 +180,7 @@ fn tab_close<A>(mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlElement>) -> Dom
     })
 }
 
-fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
+fn tab_base_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
     where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
 
     html!("div", {
@@ -194,6 +194,28 @@ fn tab_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
 
         .class_signal(&*TAB_UNLOADED_STYLE, tab.is_unloaded())
         .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
+
+        .apply(mixin)
+    })
+}
+
+
+fn tab_template<A>(state: &Arc<State>, group: &Arc<Group>, tab: &Arc<Tab>, mixin: A) -> Dom
+    where A: FnOnce(DomBuilder<HtmlElement>) -> DomBuilder<HtmlElement> {
+
+    tab_base_template(state, tab, move |dom| { dom
+        // TODO only define 1 global event
+        .event(clone!(state, group, tab => move |e: events::ContextMenu| {
+            state.tab_menu.state.set(Some(TabMenuState {
+                x: e.x() as f64,
+                y: e.y() as f64,
+                group: group.clone(),
+                tab: tab.clone(),
+            }));
+
+            // TODO instead pass in a Mutable<bool> into the Menu
+            state.tab_menu.menu.show();
+        }))
 
         .apply(mixin)
     })
@@ -216,7 +238,7 @@ impl State {
                 .delay_remove(|tab| tab.wait_until_removed())
                 .filter_signal_cloned(|tab| tab.visible.signal())
                 .map(clone!(state => move |tab| {
-                    tab_template(&state, &tab, |dom| apply_methods!(dom, {
+                    tab_template(&state, &group, &tab, |dom| apply_methods!(dom, {
                         .class(&*TAB_PINNED_STYLE)
 
                         .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
@@ -403,7 +425,7 @@ impl State {
                                 tab.drag_over.jump_to(Percentage::new(1.0));
                             }
 
-                            tab_template(&state, &tab, |dom| apply_methods!(dom, {
+                            tab_template(&state, &group, &tab, |dom| apply_methods!(dom, {
                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
@@ -551,9 +573,66 @@ impl State {
         })
     }
 
-    pub(crate) fn render(state: Arc<Self>) -> Dom {
-        let window_height = Mutable::new(tab_organizer::window_height());
+    fn render_tab_menu(state: &Arc<Self>) -> Dom {
+        /*html!("div", {
+            .class(&*TAB_MENU_STYLE)
 
+            .style_signal("left", map_ref! {
+                let x = state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| state.x)),
+                let size = state.window_size.signal() => {
+                    x.map(|x| {
+                        px((x + 12.0).max(206.0))
+                    })
+                }
+            })
+
+            .style_signal("top", state.tab_menu.state.signal_ref(|state| state.as_ref().map(|state| px(state.y + 5.0))))
+
+            .children(&mut [
+                ,
+            ])
+        })*/
+
+        state.tab_menu.menu.render(|menu| { menu
+            .header("Group...")
+
+            .separator()
+
+            .action("Select all tabs", Some("/icons/iconic/plus.svg"), clone!(state => move || {
+                let mut tab_menu = state.tab_menu.state.lock_mut();
+
+                tab_menu.as_ref().unwrap().group.select_all_tabs();
+
+                *tab_menu = None;
+            }))
+
+            .action("Unselect all tabs", Some("/icons/iconic/minus.svg"), clone!(state => move || {
+                let mut tab_menu = state.tab_menu.state.lock_mut();
+
+                tab_menu.as_ref().unwrap().group.unselect_all_tabs();
+
+                *tab_menu = None;
+            }))
+
+            .separator()
+
+            .action("Unload selected tabs", Some("/icons/iconic/account-logout.svg"), clone!(state => move || {
+                let selected_tabs = {
+                    let mut tab_menu = state.tab_menu.state.lock_mut();
+
+                    let selected_tabs = tab_menu.as_ref().unwrap().group.selected_tabs();
+
+                    *tab_menu = None;
+
+                    selected_tabs
+                };
+
+                state.unload_tabs(selected_tabs.into_iter().map(|x| x.id).collect());
+            }))
+        })
+    }
+
+    pub(crate) fn render(state: Arc<Self>) -> Dom {
         html!("div", {
             .class([
                 &*TOP_STYLE,
@@ -570,10 +649,18 @@ impl State {
                 state.drag_move(e.mouse_x(), e.mouse_y());
             }))
 
-            .future(culling::cull_groups(state.clone(), window_height.signal()))
+            .future(culling::cull_groups(state.clone()))
 
-            .global_event(move |_: events::Resize| {
-                window_height.set_neq(tab_organizer::window_height());
+            .global_event(clone!(state => move |_: events::Resize| {
+                // TODO use set_neq ?
+                state.window_size.set(WindowSize::new());
+            }))
+
+            .global_event_preventable(move |e: events::ContextMenu| {
+                // TODO a little bit hacky
+                if let None = e.dyn_target::<HtmlInputElement>() {
+                    e.prevent_default();
+                }
             })
 
             .children(&mut [
@@ -611,7 +698,7 @@ impl State {
                             }
 
                             Dom::with_state(animation, |animation| {
-                                tab_template(&state, &tab,
+                                tab_base_template(&state, &tab,
                                     |dom| dom
                                         .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
                                         .class(&*MENU_ITEM_SHADOW_STYLE)
@@ -752,7 +839,7 @@ impl State {
                                                 ])
 
                                                 .class_signal(&*TOOLBAR_MENU_HOVER_STYLE, hovering.signal())
-                                                .class_signal(&*TOOLBAR_MENU_OPEN_STYLE, state.menu.is_showing())
+                                                .class_signal(&*TOOLBAR_MENU_OPEN_STYLE, state.global_menu.is_showing())
 
                                                 .cursor!(state.is_dragging(), "pointer")
 
@@ -765,7 +852,7 @@ impl State {
                                                 })
 
                                                 .event(clone!(state => move |_: events::MouseDown| {
-                                                    state.menu.show();
+                                                    state.global_menu.show();
                                                 }))
 
                                                 .children(&mut [
@@ -781,7 +868,7 @@ impl State {
                                                 ])
                                             }),
 
-                                            state.menu.render(|menu| { menu
+                                            state.global_menu.render(|menu| { menu
                                                 .submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |menu| { menu
                                                     .toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                                                         state.options.sort_tabs.set_neq(SortTabs::Window);
@@ -824,6 +911,8 @@ impl State {
                                                     })
                                                 })
                                             }),
+
+                                            Self::render_tab_menu(&state),
                                         ])
                                     })
                                 },

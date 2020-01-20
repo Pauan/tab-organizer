@@ -1,10 +1,10 @@
 use std::pin::Pin;
 use std::marker::Unpin;
 use std::sync::Arc;
-use tab_organizer::{time, ease, window_width};
+use tab_organizer::{time, ease};
 use tab_organizer::state::SortTabs;
 use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_BORDER_CROWN_WIDTH, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
-use crate::types::{State, Group, Tab};
+use crate::types::{State, Group, Tab, WindowSize};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
 use futures::{Future, Poll};
@@ -290,7 +290,7 @@ struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: SignalVec
     search_parser: MutableSink<MutableSignalCloned<Arc<search::Parsed>>>,
     sort_tabs: MutableSink<MutableSignal<SortTabs>>,
     scroll_y: MutableSink<B>,
-    window_height: MutableSink<C>,
+    window_size: MutableSink<C>,
     pinned: CulledGroup<D>,
 }
 
@@ -298,7 +298,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
-          D: Signal<Item = f64> + Unpin,
+          D: Signal<Item = WindowSize> + Unpin,
           E: SignalVec<Item = CulledTab> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
@@ -321,7 +321,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
         let pinned = self.pinned.is_changed(cx);
         let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
         let scroll_y = self.scroll_y.is_changed(cx);
-        let window_height = self.window_height.is_changed(cx);
+        let window_size = self.window_size.is_changed(cx);
 
         let search_parser = self.search_parser.is_changed(cx);
 
@@ -329,7 +329,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
             pinned ||
             groups ||
             scroll_y ||
-            window_height,
+            window_size,
 
             search_parser ||
             sort_tabs
@@ -340,9 +340,11 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
     fn update(&mut self, should_search: bool) {
+        let window_size = self.window_size.unwrap();
+
         // TODO take into account the animations ?
         let pinned_height = {
-            let window_width = window_width() - (TOOLBAR_MARGIN * 2.0);
+            let window_width = window_size.width.floor() - (TOOLBAR_MARGIN * 2.0);
 
             let mut total_height = TOOLBAR_MARGIN;
             let mut max_height = None;
@@ -397,7 +399,7 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
         // TODO is this floor correct ?
         let top_y = self.scroll_y.unwrap().floor();
         // TODO is this ceil correct ?
-        let bottom_y = top_y + (self.window_height.unwrap().ceil() - TOOLBAR_TOTAL_HEIGHT - pinned_height);
+        let bottom_y = top_y + (window_size.height.ceil() - TOOLBAR_TOTAL_HEIGHT - pinned_height);
 
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
@@ -492,7 +494,7 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
-          D: Signal<Item = f64> + Unpin,
+          D: Signal<Item = WindowSize> + Unpin,
           E: SignalVec<Item = CulledTab> + Unpin {
 
     type Output = ();
@@ -510,7 +512,7 @@ impl<A, B, C, D, E> Future for Culler<A, C, D, E>
     }
 }
 
-pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future<Output = ()> where A: Signal<Item = f64> + Unpin {
+pub(crate) fn cull_groups(state: Arc<State>) -> impl Future<Output = ()> {
     Culler {
         first: true,
         pinned: culled_group(state.groups.pinned_group()),
@@ -521,7 +523,7 @@ pub(crate) fn cull_groups<A>(state: Arc<State>, window_height: A) -> impl Future
         search_parser: MutableSink::new(state.search_parser.signal_cloned()),
         sort_tabs: MutableSink::new(state.options.sort_tabs.signal()),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),
-        window_height: MutableSink::new(window_height),
+        window_size: MutableSink::new(state.window_size.signal()),
         state,
     }
 }

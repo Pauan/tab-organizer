@@ -62,6 +62,7 @@ lazy_static! {
         .style("text-align", "center")
         .style("font-size", "13px")
         .style("height", "28px")
+        .style("font-weight", "bold")
     };
 
     static ref SUBMENU_HEADER_BACK_STYLE: String = class! {
@@ -463,6 +464,24 @@ impl MenuBuilder {
         self.push_action(name, icon, on_click);
         self
     }
+
+
+    fn push_header(&mut self, name: &str) {
+        self.children.push(html!("div", {
+            .class([
+                &*CENTER_STYLE,
+                &*SUBMENU_HEADER_STYLE,
+            ])
+
+            .text(name)
+        }));
+    }
+
+    #[inline]
+    pub(crate) fn header(mut self, name: &str) -> Self {
+        self.push_header(name);
+        self
+    }
 }
 
 
@@ -547,7 +566,11 @@ impl Menu {
                         &*MENU_MODAL_STYLE,
                     ])
 
-                    .event(move |_: events::Click| {
+                    .event(clone!(menus => move |_: events::Click| {
+                        menus.hide();
+                    }))
+
+                    .event(move |_: events::ContextMenu| {
                         menus.hide();
                     })
                 }),

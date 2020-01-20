@@ -74,6 +74,47 @@ impl Scrolling {
 }
 
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct WindowSize {
+    pub(crate) width: f64,
+    pub(crate) height: f64,
+}
+
+impl WindowSize {
+    pub(crate) fn new() -> Self {
+        Self {
+            width: tab_organizer::window_width(),
+            height: tab_organizer::window_height(),
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub(crate) struct TabMenuState {
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) group: Arc<Group>,
+    pub(crate) tab: Arc<Tab>,
+}
+
+
+#[derive(Debug)]
+pub(crate) struct TabMenu {
+    pub(crate) state: Mutable<Option<TabMenuState>>,
+    pub(crate) menu: Menu,
+}
+
+impl TabMenu {
+    fn new() -> Self {
+        Self {
+            state: Mutable::new(None),
+            menu: Menu::new(),
+        }
+    }
+}
+
+
 #[derive(Debug)]
 pub(crate) struct State {
     pub(crate) search_box: Mutable<Arc<String>>,
@@ -88,8 +129,10 @@ pub(crate) struct State {
 
     pub(crate) dragging: Dragging,
     pub(crate) scrolling: Scrolling,
+    pub(crate) window_size: Mutable<WindowSize>,
 
-    pub(crate) menu: Menu,
+    pub(crate) global_menu: Menu,
+    pub(crate) tab_menu: TabMenu,
     pub(crate) port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
 }
 
@@ -113,8 +156,10 @@ impl State {
 
             dragging: Dragging::new(),
             scrolling: Scrolling::new(scroll_y),
+            window_size: Mutable::new(WindowSize::new()),
 
-            menu: Menu::new(),
+            global_menu: Menu::new(),
+            tab_menu: TabMenu::new(),
             port,
         };
 
@@ -162,10 +207,12 @@ impl State {
     }
 
     // TODO maybe mutate muted ?
-    pub(crate) fn set_muted(&self, tabs: &[&TabState], muted: bool) {
-        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
-
+    pub(crate) fn set_muted(&self, uuids: Vec<Uuid>, muted: bool) {
         self.port.send_message(&sidebar::ClientMessage::MuteTabs { uuids, muted });
+    }
+
+    pub(crate) fn unload_tabs(&self, uuids: Vec<Uuid>) {
+        self.port.send_message(&sidebar::ClientMessage::UnloadTabs { uuids });
     }
 }
 
@@ -396,5 +443,38 @@ impl Group {
             tab.selected.set_neq(true);
             *last_selected_tab = Some(tab.id);
         }
+    }
+
+    pub(crate) fn select_all_tabs(&self) {
+        self.last_selected_tab.set_neq(None);
+
+        let tabs = self.tabs.lock_ref();
+
+        for tab in tabs.iter() {
+            tab.selected.set_neq(true);
+        }
+    }
+
+    pub(crate) fn unselect_all_tabs(&self) {
+        self.last_selected_tab.set_neq(None);
+
+        let tabs = self.tabs.lock_ref();
+
+        for tab in tabs.iter() {
+            tab.selected.set_neq(false);
+        }
+    }
+
+    pub(crate) fn selected_tabs(&self) -> Vec<Arc<Tab>> {
+        let tabs = self.tabs.lock_ref();
+
+        tabs.iter().filter_map(|tab| {
+            if tab.selected.get() {
+                Some(tab.clone())
+
+            } else {
+                None
+            }
+        }).collect()
     }
 }
