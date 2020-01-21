@@ -280,18 +280,20 @@ lazy_static! {
         .style("opacity", "0.75")
     };
 
-    pub(crate) static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
-        .style("background-color", "hsla(0, 0%, 0%, 0.4)")
+    /*pub(crate) static ref TAB_UNLOADED_HOVER_STYLE: String = class! {
+        //.style("background-color", "hsla(0, 0%, 0%, 0.4)")
 
         // TODO this is needed to override the border color from TAB_FOCUSED_STYLE
-        .style_important("border-color", "hsl(0, 0%, 62%) \
+        /*.style_important("border-color", "hsl(0, 0%, 62%) \
                                           hsl(0, 0%, 57%) \
                                           hsl(0, 0%, 52%) \
-                                          hsl(0, 0%, 57%)")
+                                          hsl(0, 0%, 57%)")*/
 
-        .style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
+        .style("color", "black")
+
+        //.style("color", "hsla(0, 0%, 99%, 0.95)") // TODO minor code duplication with `MENU_ITEM_HOVER_STYLE`
         .style("opacity", "1")
-    };
+    };*/
 
     pub(crate) static ref TAB_FOCUSED_STYLE: String = class! {
         //.style("background-color", "hsl(30, 100%, 94%")
@@ -430,13 +432,17 @@ lazy_static! {
 
     pub(crate) static ref DRAGGING_STYLE: String = class! {
         .style("position", "fixed")
-        .style("z-index", HIGHEST_ZINDEX)
+        .style("z-index", "1")
 
+        .style("height", "100%")
         .style("left", "0px")
         .style("top", "0px")
-        .style("overflow", "visible")
         .style("pointer-events", "none")
         .style("opacity", "0.98")
+
+        // This resets the direction so it works properly
+        .style("direction", "ltr")
+        .style("overflow", "hidden")
     };
 
     pub(crate) static ref URL_BAR_STYLE: String = class! {

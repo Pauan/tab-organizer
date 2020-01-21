@@ -4,7 +4,7 @@ use dominator::animation::{MutableAnimation, Percentage};
 use dominator::traits::*;
 use web_sys::{HtmlElement, HtmlInputElement};
 use futures_signals::map_ref;
-use futures_signals::signal::{Signal, SignalExt, Mutable, and, or, always};
+use futures_signals::signal::{Signal, SignalExt, Mutable, and, or, not, always};
 use futures_signals::signal_vec::SignalVecExt;
 use wasm_bindgen::intern;
 use lazy_static::lazy_static;
@@ -55,7 +55,7 @@ fn tab_favicon<A>(tab: &Tab, mixin: A) -> Dom where A: FnOnce(DomBuilder<HtmlEle
             &*ICON_STYLE,
         ])*/
 
-        .class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.is_unloaded())
+        //.class_signal(&*TAB_FAVICON_STYLE_UNLOADED, tab.is_unloaded())
 
         .attribute_signal("src", tab.is_loading()
             // TODO make this more efficient somehow ?
@@ -193,7 +193,7 @@ fn tab_base_template<A>(state: &State, tab: &Tab, mixin: A) -> Dom
 
         .cursor!(state.is_dragging(), intern("pointer"))
 
-        .class_signal(&*TAB_UNLOADED_STYLE, tab.is_unloaded())
+        .class_signal(&*TAB_UNLOADED_STYLE, and(tab.is_unloaded(), not(state.is_tab_hovered(&tab))))
         .class_signal(&*TAB_FOCUSED_STYLE, tab.is_focused())
 
         .apply(mixin)
@@ -250,7 +250,7 @@ impl State {
 
                         .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                         //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                        .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
+                        //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
                         .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                         //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -435,7 +435,7 @@ impl State {
                             tab_template(&state, &group, &tab, |dom| apply_methods!(dom, {
                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
-                                .class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
+                                //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
                                 .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                                 //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -753,6 +753,53 @@ impl State {
         })
     }
 
+    fn render_dragging_tab(state: &Arc<State>, tab: &Arc<Tab>, animation: &MutableAnimation, index: usize) -> Dom {
+        tab_base_template(&state, &tab,
+            |dom| dom
+                .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
+                .class(&*MENU_ITEM_SHADOW_STYLE)
+                .style("z-index", format!("-{}", index))
+
+                .apply_if(index == 0, |dom| dom
+                    .class(&*TAB_HOVER_STYLE)
+                    /*.class([
+                        &*TAB_HOVER_STYLE,
+                        &*MENU_ITEM_HOVER_STYLE,
+                    ])*/
+                    .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
+                    //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.is_unloaded())
+                    .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
+
+                .apply_if(index != 0, |dom| dom
+                    .class_signal(&*TAB_UNLOADED_STYLE, tab.is_unloaded()))
+
+                // TODO use ease-out easing
+                .apply_if(index > 0 && index < 5, |dom| dom
+                    .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_TOTAL_HEIGHT - 2.0))))
+
+                .apply_if(index >= 5, |dom| dom
+                    .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_TOTAL_HEIGHT))
+                    // TODO use ease-out easing
+                    .style_signal("opacity", none_if(animation.signal(), 0.0, float_range, 1.0, 0.0)))
+
+                .children(&mut [
+                    tab_favicon(&tab, |dom| dom),
+
+                    tab_attention(&tab),
+
+                    tab_audio(&state, &tab, false),
+
+                    tab_text(&tab, |dom| dom),
+
+                    if index == 0 {
+                        tab_close(|dom| dom)
+
+                    } else {
+                        dominator::Dom::empty()
+                    },
+                ]))
+    }
+
     pub(crate) fn render(state: Arc<Self>) -> Dom {
         html!("div", {
             .class([
@@ -785,86 +832,6 @@ impl State {
             })
 
             .children(&mut [
-                html!("div", {
-                    .class(&*DRAGGING_STYLE)
-
-                    .visible_signal(state.is_dragging())
-
-                    .style_signal("width", state.dragging.state.signal_ref(|dragging| {
-                        if let Some(DragState::Dragging { rect, .. }) = dragging {
-                            Some(px(rect.width()))
-
-                        } else {
-                            None
-                        }
-                    }))
-
-                    .style_signal("transform", state.dragging.state.signal_ref(|dragging| {
-                        if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
-                            Some(format!("translate({}px, {}px)", rect.x().round(), (mouse_y - TAB_DRAGGING_TOP)))
-
-                        } else {
-                            None
-                        }
-                    }))
-
-                    .children_signal_vec(state.dragging.selected_tabs.signal_ref(clone!(state => move |tabs| {
-                        tabs.iter().enumerate().map(|(index, tab)| {
-                            // TODO use some sort of oneshot animation instead
-                            // TODO don't create the animation at all for index 0
-                            let animation = MutableAnimation::new(SELECTED_TABS_ANIMATION_DURATION);
-
-                            if index > 0 {
-                                animation.animate_to(Percentage::new(1.0));
-                            }
-
-                            Dom::with_state(animation, |animation| {
-                                tab_base_template(&state, &tab,
-                                    |dom| dom
-                                        .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
-                                        .class(&*MENU_ITEM_SHADOW_STYLE)
-                                        .style("z-index", format!("-{}", index))
-
-                                        .apply_if(index == 0, |dom| dom
-                                            .class(&*TAB_HOVER_STYLE)
-                                            /*.class([
-                                                &*TAB_HOVER_STYLE,
-                                                &*MENU_ITEM_HOVER_STYLE,
-                                            ])*/
-                                            .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
-                                            .class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.is_unloaded())
-                                            .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
-
-                                        // TODO use ease-out easing
-                                        .apply_if(index > 0 && index < 5, |dom| dom
-                                            .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -(TAB_TOTAL_HEIGHT - 2.0))))
-
-                                        .apply_if(index >= 5, |dom| dom
-                                            .style_signal("margin-top", none_if(animation.signal(), 0.0, px_range, 0.0, -TAB_TOTAL_HEIGHT))
-                                            // TODO use ease-out easing
-                                            .style_signal("opacity", none_if(animation.signal(), 0.0, float_range, 1.0, 0.0)))
-
-                                        .children(&mut [
-                                            tab_favicon(&tab, |dom| dom),
-
-                                            tab_attention(&tab),
-
-                                            tab_audio(&state, &tab, false),
-
-                                            tab_text(&tab, |dom| dom),
-
-                                            if index == 0 {
-                                                tab_close(|dom| dom)
-
-                                            } else {
-                                                dominator::Dom::empty()
-                                            },
-                                        ]))
-                            })
-                        }).collect()
-                    })).to_signal_vec())
-                }),
-
                 html!("div", {
                     .class([
                         &*ROW_STYLE,
@@ -1078,6 +1045,46 @@ impl State {
                                 .map(clone!(state => move |group| {
                                     State::render_group(state.clone(), group)
                                 })))
+                        }),
+
+                        html!("div", {
+                            .class(&*DRAGGING_STYLE)
+
+                            .visible_signal(state.is_dragging())
+
+                            .style_signal("width", state.dragging.state.signal_ref(|dragging| {
+                                if let Some(DragState::Dragging { rect, .. }) = dragging {
+                                    Some(px(rect.width()))
+
+                                } else {
+                                    None
+                                }
+                            }))
+
+                            .style_signal("transform", state.dragging.state.signal_ref(|dragging| {
+                                if let Some(DragState::Dragging { mouse_y, rect, .. }) = dragging {
+                                    Some(format!("translate({}px, {}px)", rect.x().round(), (mouse_y - TAB_DRAGGING_TOP)))
+
+                                } else {
+                                    None
+                                }
+                            }))
+
+                            .children_signal_vec(state.dragging.selected_tabs.signal_ref(clone!(state => move |tabs| {
+                                tabs.iter().enumerate().map(|(index, tab)| {
+                                    // TODO use some sort of oneshot animation instead
+                                    // TODO don't create the animation at all for index 0
+                                    let animation = MutableAnimation::new(SELECTED_TABS_ANIMATION_DURATION);
+
+                                    if index > 0 {
+                                        animation.animate_to(Percentage::new(1.0));
+                                    }
+
+                                    Dom::with_state(animation, |animation| {
+                                        Self::render_dragging_tab(&state, &tab, &animation, index)
+                                    })
+                                }).collect()
+                            })).to_signal_vec())
                         }),
 
                         html!("div", {
