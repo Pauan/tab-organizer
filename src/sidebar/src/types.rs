@@ -245,6 +245,10 @@ impl State {
     pub(crate) fn unload_tabs(&self, uuids: Vec<Uuid>) {
         self.port.send_message(&sidebar::ClientMessage::UnloadTabs { uuids });
     }
+
+    pub(crate) fn pin_tabs(&self, uuids: Vec<Uuid>, pinned: bool) {
+        self.port.send_message(&sidebar::ClientMessage::PinTabs { uuids, pinned });
+    }
 }
 
 

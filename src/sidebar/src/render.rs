@@ -670,6 +670,42 @@ impl State {
         }
 
         menu
+            .action(
+                "Pin",
+                Some("/icons/iconic/lock-locked.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        state.with_tabs(|tabs| tabs.into_iter().any(|tab| !tab.pinned.get()))
+
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    with_tabs(&state, |tabs| {
+                        state.pin_tabs(tabs.into_iter().map(|x| x.id).collect(), true);
+                    });
+                }),
+            )
+
+            .action(
+                "Unpin",
+                Some("/icons/iconic/lock-unlocked.svg"),
+                state.menus.state.signal_ref(move |state| {
+                    if let Some(ref state) = state {
+                        state.with_tabs(|tabs| tabs.into_iter().any(|tab| tab.pinned.get()))
+
+                    } else {
+                        false
+                    }
+                }),
+                clone!(state => move || {
+                    with_tabs(&state, |tabs| {
+                        state.pin_tabs(tabs.into_iter().map(|x| x.id).collect(), false);
+                    });
+                }),
+            )
+
             // TODO put a confirmation box ?
             .action(
                 "Unload",

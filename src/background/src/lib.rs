@@ -542,6 +542,50 @@ impl State {
             self.db.set(intern("windows"), &window_ids);
         }
     }
+
+    fn update_tabs<F, U>(&mut self, uuids: &[Uuid], mut future: F, mut update: U) -> Vec<(Uuid, Vec<sidebar::TabChange>)>
+        where F: FnMut(i32) -> js_sys::Promise,
+              U: FnMut(&mut SerializedTab) -> Option<Vec<sidebar::TabChange>> {
+
+        let mut unloaded = vec![];
+
+        let fut = try_join_all(uuids.into_iter().filter_map(|&uuid| {
+            match self.ids.get(&uuid) {
+                Some(id) => {
+                    // TODO what if this returns None ?
+                    self.browser.get_tab_real_id(*id).map(|id| {
+                        let fut = future(id);
+
+                        async move {
+                            let _ = JsFuture::from(fut).await?;
+                            Ok(()) as Result<(), JsValue>
+                        }
+                    })
+                },
+
+                // Tab is unloaded
+                None => {
+                    let key = SerializedTab::key(uuid);
+
+                    if let Some(mut tab) = self.db.get::<SerializedTab>(&key) {
+                        if let Some(changes) = update(&mut tab) {
+                            self.db.set(&key, &tab);
+                            unloaded.push((uuid, changes));
+                        }
+                    }
+
+                    None
+                },
+            }
+        }));
+
+        spawn(async move {
+            let _ = fut.await?;
+            Ok(())
+        });
+
+        unloaded
+    }
 }
 
 
@@ -616,6 +660,19 @@ pub async fn main_js() -> Result<(), JsValue> {
                         JsFuture::from(fut).await?;
                         Ok(())
                     });
+                }
+            }
+
+            fn send_messages(state: &State, port_id: &Cell<Option<Id>>, unloaded: Vec<(Uuid, Vec<sidebar::TabChange>)>) {
+                if !unloaded.is_empty() {
+                    // TODO what if the window is unloaded ?
+                    if let Some(window) = port_id.get().and_then(|window_id| state.window_ids.get(&window_id)) {
+                        for (uuid, changes) in unloaded {
+                            let tab_index = window.serialized.tab_index(uuid).unwrap();
+
+                            window.send_message(&sidebar::ServerMessage::TabChanged { tab_index, changes });
+                        }
+                    }
                 }
             }
 
@@ -830,63 +887,58 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 sidebar::ClientMessage::MuteTabs { uuids, muted } => {
-                    let state: &mut State = &mut state.borrow_mut();
+                    let mut state = state.borrow_mut();
 
-                    let mut unloaded = vec![];
+                    let unloaded = state.update_tabs(
+                        &uuids,
+                        move |id| {
+                            web_extension::browser.tabs().update(Some(id), &object! {
+                                "muted": muted,
+                            })
+                        },
+                        move |tab| {
+                            if tab.muted != muted {
+                                tab.muted = muted;
 
-                    let fut = try_join_all(uuids.into_iter().filter_map(|uuid| {
-                        match state.ids.get(&uuid) {
-                            Some(id) => {
-                                // TODO what if this returns None ?
-                                state.browser.get_tab_real_id(*id).map(|id| {
-                                    let fut = web_extension::browser.tabs().update(Some(id), &object! {
-                                        "muted": muted,
-                                    });
+                                Some(vec![
+                                    sidebar::TabChange::Muted { muted },
+                                ])
 
-                                    async move {
-                                        let _ = JsFuture::from(fut).await?;
-                                        Ok(()) as Result<(), JsValue>
-                                    }
-                                })
-                            },
-
-                            // Tab is unloaded
-                            None => {
-                                let key = SerializedTab::key(uuid);
-
-                                if let Some(mut tab) = state.db.get::<SerializedTab>(&key) {
-                                    if tab.muted != muted {
-                                        tab.muted = muted;
-                                        state.db.set(&key, &tab);
-                                        unloaded.push(uuid);
-                                    }
-                                }
-
+                            } else {
                                 None
-                            },
-                        }
-                    }));
-
-                    spawn(async move {
-                        let _ = fut.await?;
-                        Ok(())
-                    });
-
-                    if !unloaded.is_empty() {
-                        // TODO what if the window is unloaded ?
-                        if let Some(window) = port_id.get().and_then(|window_id| state.window_ids.get_mut(&window_id)) {
-                            for uuid in unloaded {
-                                let tab_index = window.serialized.tab_index(uuid).unwrap();
-
-                                window.send_message(&sidebar::ServerMessage::TabChanged {
-                                    tab_index,
-                                    changes: vec![
-                                        sidebar::TabChange::Muted { muted },
-                                    ],
-                                });
                             }
-                        }
-                    }
+                        },
+                    );
+
+                    send_messages(&state, &port_id, unloaded);
+                },
+
+                sidebar::ClientMessage::PinTabs { uuids, pinned } => {
+                    let mut state = state.borrow_mut();
+
+                    let unloaded = state.update_tabs(
+                        &uuids,
+                        move |id| {
+                            web_extension::browser.tabs().update(Some(id), &object! {
+                                "pinned": pinned,
+                            })
+                        },
+                        move |tab| {
+                            // TODO also move its position ?
+                            if tab.pinned != pinned {
+                                tab.pinned = pinned;
+
+                                Some(vec![
+                                    sidebar::TabChange::Pinned { pinned },
+                                ])
+
+                            } else {
+                                None
+                            }
+                        },
+                    );
+
+                    send_messages(&state, &port_id, unloaded);
                 },
 
                 sidebar::ClientMessage::MoveTabs { uuids, index } => {

@@ -35,6 +35,10 @@ pub mod sidebar {
             uuids: Vec<Uuid>,
             index: usize,
         },
+        PinTabs {
+            uuids: Vec<Uuid>,
+            pinned: bool,
+        },
     }
 
     #[derive(Debug, Serialize, Deserialize)]
