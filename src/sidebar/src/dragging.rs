@@ -1,7 +1,7 @@
 use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
 use crate::types::{State, DragState, GroupId, Group, Tab};
-use tab_organizer::state::SortTabs;
+use tab_organizer::state::{sidebar, SortTabs};
 use web_sys::DomRect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
@@ -118,8 +118,28 @@ impl State {
         })
     }
 
-    fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>]) {
-        let _tabs = tabs.into_iter().filter(|x| !x.removed.get());
+    fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>], tab_index: Option<usize>) {
+        let tab_index = {
+            let tabs = group.tabs.lock_ref();
+
+            let tab = match tab_index {
+                Some(index) => tabs.get(index),
+                None => tabs.last(),
+            };
+
+            tab.map(|tab| tab.index.get()).unwrap_or(0)
+        };
+
+        let uuids = tabs.into_iter().filter_map(|tab| {
+            if tab.removed.get() {
+                None
+
+            } else {
+                Some(tab.id)
+            }
+        }).collect();
+
+        self.port.send_message(&sidebar::ClientMessage::MoveTabs { uuids, index: tab_index });
     }
 
     pub(crate) fn should_be_dragging_group(&self, new_group_id: GroupId) -> bool {
@@ -337,7 +357,7 @@ impl State {
         let mut dragging = self.dragging.state.lock_mut();
         let mut selected_tabs = self.dragging.selected_tabs.lock_mut();
 
-        if let Some(DragState::Dragging { ref group, .. }) = *dragging {
+        if let Some(DragState::Dragging { ref group, tab_index, .. }) = *dragging {
             self.stop_scrolling();
 
             group.drag_over.jump_to(Percentage::new(0.0));
@@ -354,7 +374,7 @@ impl State {
                 }
             }
 
-            self.drag_tabs_to(&group, &**selected_tabs);
+            self.drag_tabs_to(&group, &**selected_tabs, tab_index);
         }
 
         if dragging.is_some() {

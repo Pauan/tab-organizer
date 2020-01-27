@@ -31,6 +31,10 @@ pub mod sidebar {
             uuids: Vec<Uuid>,
             muted: bool,
         },
+        MoveTabs {
+            uuids: Vec<Uuid>,
+            index: usize,
+        },
     }
 
     #[derive(Debug, Serialize, Deserialize)]

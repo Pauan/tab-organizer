@@ -888,6 +888,45 @@ pub async fn main_js() -> Result<(), JsValue> {
                         }
                     }
                 },
+
+                sidebar::ClientMessage::MoveTabs { uuids, index } => {
+                    let state: &mut State = &mut state.borrow_mut();
+
+                    let mut unloaded = vec![];
+
+                    let ids = uuids.iter().filter_map(|uuid| {
+                        match state.ids.get(&uuid) {
+                            Some(id) => {
+                                // TODO can this be made faster ?
+                                state.browser.get_tab_real_id(*id).map(JsValue::from)
+                            },
+
+                            // Tab is unloaded
+                            None => {
+                                unloaded.push(uuid);
+                                None
+                            },
+                        }
+                    }).collect::<js_sys::Array>();
+
+                    if ids.length() > 0 {
+                        // TODO immediately send out a message to the sidebar ?
+                        let fut = web_extension::browser.tabs().move_(&ids, &object! {
+                            "index": index as u32,
+                        });
+
+                        // TODO should this spawn ?
+                        spawn(async {
+                            JsFuture::from(fut).await?;
+                            Ok(())
+                        });
+                    }
+
+                    // TODO handle unloaded
+                    if !unloaded.is_empty() {
+
+                    }
+                },
             }
 
             Ok(())

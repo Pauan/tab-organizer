@@ -26,10 +26,16 @@ use web_extension::browser;
 
 // The logging is written in JS so it will keep working even if Rust/Wasm fails
 #[wasm_bindgen(inline_js = "
+    var max_messages = 100;
+
     var logs = [];
 
     export function push_log(message) {
         logs.push(message);
+
+        if (logs.length > max_messages) {
+            logs.shift();
+        }
     }
 
     export function set_print_logs() {

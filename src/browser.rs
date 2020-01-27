@@ -569,14 +569,18 @@ impl Browser {
                     let state = state.borrow();
 
                     if let Some(window_id) = state.windows.get_key(active_info.window_id()) {
-                        let old_tab_id = active_info.previous_tab_id().map(|tab_id| state.tabs.get_key(tab_id).unwrap());
-                        let tab_id = state.tabs.get_key(active_info.tab_id()).unwrap();
+                        if let Some(tab_id) = state.tabs.get_key(active_info.tab_id()) {
+                            let old_tab_id = active_info.previous_tab_id().and_then(|tab_id| state.tabs.get_key(tab_id));
 
-                        if old_tab_id == Some(tab_id) {
-                            warn!("New focused tab is the same as the old focused tab: {:?}", tab_id);
+                            if old_tab_id == Some(tab_id) {
+                                warn!("New focused tab is the same as the old focused tab: {:?}", tab_id);
+                            }
+
+                            Some(BrowserChange::TabFocused { timestamp, tab_id, window_id })
+
+                        } else {
+                            None
                         }
-
-                        Some(BrowserChange::TabFocused { timestamp, tab_id, window_id })
 
                     } else {
                         None
