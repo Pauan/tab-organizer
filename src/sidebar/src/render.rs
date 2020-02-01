@@ -683,7 +683,7 @@ impl State {
                 }),
                 clone!(state => move || {
                     with_tabs(&state, |tabs| {
-                        state.pin_tabs(tabs.into_iter().map(|x| x.id).collect(), true);
+                        state.pin_tabs(tabs, true);
                     });
                 }),
             )
@@ -701,7 +701,7 @@ impl State {
                 }),
                 clone!(state => move || {
                     with_tabs(&state, |tabs| {
-                        state.pin_tabs(tabs.into_iter().map(|x| x.id).collect(), false);
+                        state.pin_tabs(tabs, false);
                     });
                 }),
             )
@@ -720,7 +720,7 @@ impl State {
                 }),
                 clone!(state => move || {
                     with_tabs(&state, |tabs| {
-                        state.unload_tabs(tabs.into_iter().map(|x| x.id).collect());
+                        state.unload_tabs(tabs);
                     });
                 }),
             )

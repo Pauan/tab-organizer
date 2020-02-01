@@ -242,11 +242,18 @@ impl State {
         self.port.send_message(&sidebar::ClientMessage::MuteTabs { uuids, muted });
     }
 
-    pub(crate) fn unload_tabs(&self, uuids: Vec<Uuid>) {
+    pub(crate) fn unload_tabs(&self, tabs: &[Arc<Tab>]) {
+        let uuids = tabs.into_iter().map(|tab| {
+            tab.selected.set_neq(false);
+            tab.id
+        }).collect();
+
         self.port.send_message(&sidebar::ClientMessage::UnloadTabs { uuids });
     }
 
-    pub(crate) fn pin_tabs(&self, uuids: Vec<Uuid>, pinned: bool) {
+    pub(crate) fn pin_tabs(&self, tabs: &[Arc<Tab>], pinned: bool) {
+        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+
         self.port.send_message(&sidebar::ClientMessage::PinTabs { uuids, pinned });
     }
 }

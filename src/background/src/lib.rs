@@ -173,12 +173,12 @@ impl BrowserWindow {
     }
 
     /// This finds the nearest browser tab index to the left of the index
-    fn tab_index_left(&self, index: usize) -> usize {
+    fn serialized_index_left(&self, index: usize) -> usize {
         self.real_index_to_serialized_index(index - 1).map(|index| index + 1).unwrap_or(0)
     }
 
     /// This finds the nearest browser tab index to the right of the index
-    fn tab_index_right(&self, index: usize) -> usize {
+    fn serialized_index_right(&self, index: usize) -> usize {
         self.real_index_to_serialized_index(index).unwrap_or_else(|| self.serialized.tabs.len())
     }
 
@@ -186,7 +186,7 @@ impl BrowserWindow {
     fn insert_tab(&mut self, tab_uuid: Uuid, new_index: u32) -> usize {
         let new_index = new_index as usize;
 
-        let tab_index = self.tab_index_left(new_index);
+        let tab_index = self.serialized_index_left(new_index);
 
         self.tabs.insert(new_index, tab_uuid);
 
@@ -199,10 +199,10 @@ impl BrowserWindow {
         let new_index = new_index as usize;
 
         let tab_index = if old_index < new_index {
-            self.tab_index_left(new_index)
+            self.serialized_index_left(new_index)
 
         } else {
-            self.tab_index_right(new_index)
+            self.serialized_index_right(new_index)
         };
 
         self.tabs.insert(new_index, tab_uuid);
@@ -1200,16 +1200,24 @@ pub async fn main_js() -> Result<(), JsValue> {
                                         None => true,
                                     };
 
-                                    assert_eq!(browser_window.serialized.tabs.remove(old_tab_index), info.uuid);
+                                    let is_right_okay = match browser_window.real_index_to_serialized_index(index as usize) {
+                                        Some(index) => index > old_tab_index,
+                                        None => true,
+                                    };
 
-                                    let new_tab_index = browser_window.insert_tab(info.uuid, index);
+                                    // Do nothing if the tab is in the correct position
+                                    if is_left_okay && is_right_okay {
+                                        // TODO code duplication with insert_tab
+                                        browser_window.tabs.insert(index as usize, info.uuid);
 
-                                    // Don't move the tab if it's already in the correct position
-                                    if is_left_okay && old_tab_index <= new_tab_index {
-                                        browser_window.serialized.tabs.insert(old_tab_index, info.uuid);
-
+                                    // Move the tab if it's in the wrong position
                                     } else {
+                                        assert_eq!(browser_window.serialized.tabs.remove(old_tab_index), info.uuid);
+
+                                        let new_tab_index = browser_window.insert_tab(info.uuid, index);
+
                                         browser_window.serialized.tabs.insert(new_tab_index, info.uuid);
+
                                         browser_window.serialize(&state.db);
                                         browser_window.send_message(&sidebar::ServerMessage::TabMoved { old_tab_index, new_tab_index });
                                     }
