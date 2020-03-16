@@ -2,7 +2,7 @@ use crate::types::{State, TabState, Group, Tab};
 use crate::url_bar::UrlBar;
 use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
 use tab_organizer::state as shared;
-use tab_organizer::state::{SortTabs, Tag};
+use tab_organizer::state::{SortTabs, Label};
 use tab_organizer::state::sidebar::TabChange;
 use js_sys::Date;
 use std::ops::Deref;
@@ -153,18 +153,18 @@ fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &T
                 })
             }),
 
-            SortTabs::Tag => {
-                let tags = tab.tags.lock_ref();
+            SortTabs::Label => {
+                let labels = tab.labels.lock_ref();
 
-                let f = |groups: &mut A, tag: &Tag| {
-                    let index = get_group_index_name_empty(groups, &tag.name);
+                let f = |groups: &mut A, label: &Label| {
+                    let index = get_group_index_name_empty(groups, &label.name);
                     insert_group(groups, index, || {
-                        // TODO make this clone more efficient (e.g. by using Arc for the tags)
-                        make_new_group(false, Some(Arc::new(tag.name.clone())), 0.0, should_animate)
+                        // TODO make this clone more efficient (e.g. by using Arc for the labels)
+                        make_new_group(false, Some(Arc::new(label.name.clone())), 0.0, should_animate)
                     })
                 };
 
-                match tags.as_slice() {
+                match labels.as_slice() {
                     // TODO test this
                     [] => StackVec::Single({
                         // TODO guarantee that this puts this group first ?
@@ -173,8 +173,8 @@ fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &T
                             make_new_group(false, None, 0.0, should_animate)
                         })
                     }),
-                    [tag] => StackVec::Single(f(groups, tag)),
-                    tags => StackVec::Multiple(tags.into_iter().map(|tag| f(groups, tag)).collect()),
+                    [label] => StackVec::Single(f(groups, label)),
+                    labels => StackVec::Multiple(labels.into_iter().map(|label| f(groups, label)).collect()),
                 }
             },
 
@@ -257,7 +257,7 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 
     } else {
         match sort {
-            SortTabs::Window | SortTabs::Tag => {
+            SortTabs::Window | SortTabs::Label => {
                 if is_initial {
                     tabs.len()
 
@@ -705,16 +705,16 @@ impl State {
                     TabChange::Pinned { pinned } => {
                         tab.pinned.set_neq(pinned);
                     },
-                    TabChange::AddedToTag { tag } => {
-                        let mut tags = tab.tags.lock_mut();
-                        assert!(tags.iter().all(|x| x.name != tag.name));
-                        tags.push(tag);
+                    TabChange::AddedToLabel { label } => {
+                        let mut labels = tab.labels.lock_mut();
+                        assert!(labels.iter().all(|x| x.name != label.name));
+                        labels.push(label);
                     },
-                    TabChange::RemovedFromTag { tag_name } => {
-                        let mut tags = tab.tags.lock_mut();
+                    TabChange::RemovedFromLabel { label_name } => {
+                        let mut labels = tab.labels.lock_mut();
                         // TODO use remove_item
-                        let index = tags.iter().position(|x| x.name == tag_name).unwrap();
-                        tags.remove(index);
+                        let index = labels.iter().position(|x| x.name == label_name).unwrap();
+                        labels.remove(index);
                     },
                     TabChange::Muted { muted } => {
                         // TODO should this affect the sort ?

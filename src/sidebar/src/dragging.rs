@@ -420,7 +420,7 @@ impl State {
         let sort_tabs = self.options.sort_tabs.lock_ref();
 
         *sort_tabs == SortTabs::Window ||
-        *sort_tabs == SortTabs::Tag
+        *sort_tabs == SortTabs::Label
     }
 
     pub(crate) fn is_dragging(&self) -> impl Signal<Item = bool> {

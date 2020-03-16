@@ -276,7 +276,7 @@ pub(crate) struct TabState {
     pub(crate) manually_closed: Mutable<bool>,
     pub(crate) timestamp_created: Mutable<f64>,
     pub(crate) timestamp_focused: Mutable<Option<f64>>,
-    pub(crate) tags: Mutable<Vec<shared::Tag>>,
+    pub(crate) labels: Mutable<Vec<shared::Label>>,
 }
 
 impl TabState {
@@ -297,7 +297,7 @@ impl TabState {
             manually_closed: Mutable::new(false),
             timestamp_created: Mutable::new(state.serialized.timestamp_created),
             timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
-            tags: Mutable::new(state.serialized.tags),
+            labels: Mutable::new(state.serialized.labels),
         }
     }
 

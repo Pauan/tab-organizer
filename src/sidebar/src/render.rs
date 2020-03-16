@@ -587,8 +587,8 @@ impl State {
                     state.options.sort_tabs.set_neq(SortTabs::Window);
                 }))
 
-                .toggle("Tag", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Tag), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::Tag);
+                .toggle("Label", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Label), clone!(state => move || {
+                    state.options.sort_tabs.set_neq(SortTabs::Label);
                 }))
 
                 .separator()

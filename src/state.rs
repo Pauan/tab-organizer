@@ -7,7 +7,7 @@ use crate::browser;
 
 
 pub mod sidebar {
-    use super::{Tag, Tab, TabStatus};
+    use super::{Label, Tab, TabStatus};
     use serde_derive::{Serialize, Deserialize};
     use uuid::Uuid;
 
@@ -56,11 +56,11 @@ pub mod sidebar {
         Pinned {
             pinned: bool,
         },
-        AddedToTag {
-            tag: Tag,
+        AddedToLabel {
+            label: Label,
         },
-        RemovedFromTag {
-            tag_name: String,
+        RemovedFromLabel {
+            label_name: String,
         },
         Muted {
             muted: bool,
@@ -129,7 +129,7 @@ pub mod options {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum SortTabs {
     Window,
-    Tag,
+    Label,
     TimeFocused,
     TimeCreated,
     Url,
@@ -156,7 +156,7 @@ impl Options {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Tag {
+pub struct Label {
     pub name: String,
     pub timestamp_added: f64,
 }
@@ -165,7 +165,7 @@ pub struct Tag {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedTab {
     pub uuid: Uuid,
-    pub tags: Vec<Tag>,
+    pub labels: Vec<Label>,
     pub timestamp_created: f64,
     pub timestamp_focused: Option<f64>,
     pub pinned: bool,
@@ -179,7 +179,7 @@ impl SerializedTab {
     pub fn new(uuid: Uuid, timestamp_created: f64) -> Self {
         Self {
             uuid,
-            tags: vec![],
+            labels: vec![],
             timestamp_created,
             timestamp_focused: None,
             pinned: false,
