@@ -44,6 +44,15 @@ impl Group {
             }
         }
     }
+
+    fn group_index_to_window_index(&self, index: Option<usize>) -> Option<usize> {
+        let tabs = self.tabs.lock_ref();
+
+        match index.and_then(|index| tabs.get(index)) {
+            Some(tab) => Some(tab.index.get()),
+            None => Some(tabs.last()?.index.get() + 1)
+        }
+    }
 }
 
 
@@ -118,23 +127,26 @@ impl State {
         })
     }
 
-    fn drag_tabs_to(&self, group: &Group, tabs: &[Arc<Tab>], tab_index: Option<usize>) {
-        let tab_index = {
-            let tabs = group.tabs.lock_ref();
+    fn drag_tabs_to(&self, group: &Group, selected_tabs: &[Arc<Tab>], previous_tab_index: usize, tab_index: Option<usize>) {
+        let mut tab_index = group.group_index_to_window_index(tab_index)
+            // This will only happen when the group has no tabs
+            .unwrap_or(previous_tab_index);
 
-            let tab = match tab_index {
-                Some(index) => tabs.get(index),
-                None => tabs.last(),
-            };
+        let mut seen = false;
 
-            tab.map(|tab| tab.index.get()).unwrap_or(0)
-        };
-
-        let uuids = tabs.into_iter().filter_map(|tab| {
+        let uuids = selected_tabs.into_iter().filter_map(|tab| {
             if tab.removed.get() {
                 None
 
             } else {
+                // TODO what if the indexes are equal ?
+                if tab.index.get() < tab_index {
+                    if !seen {
+                        seen = true;
+                        tab_index -= 1;
+                    }
+                }
+
                 Some(tab.id)
             }
         }).collect();
@@ -366,15 +378,29 @@ impl State {
                 tab.drag_over.jump_to(Percentage::new(0.0));
             });
 
+            let mut previous_tab_index = 0;
+
             {
                 let groups = self.groups.lock_ref();
 
+                let id = group.id;
+                let mut seen = false;
+
                 for group in groups.iter() {
+                    if group.id == id {
+                        seen = true;
+
+                    } else if !seen {
+                        if let Some(last) = group.tabs.lock_ref().last() {
+                            previous_tab_index = last.index.get();
+                        }
+                    }
+
                     group.drag_top.jump_to(Percentage::new(0.0));
                 }
             }
 
-            self.drag_tabs_to(&group, &**selected_tabs, tab_index);
+            self.drag_tabs_to(&group, &**selected_tabs, previous_tab_index, tab_index);
         }
 
         if dragging.is_some() {

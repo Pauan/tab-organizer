@@ -961,6 +961,8 @@ pub async fn main_js() -> Result<(), JsValue> {
                         }
                     }).collect::<js_sys::Array>();
 
+                    log!("Moving {}", index);
+
                     if ids.length() > 0 {
                         // TODO immediately send out a message to the sidebar ?
                         let fut = web_extension::browser.tabs().move_(&ids, &object! {

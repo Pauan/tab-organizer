@@ -1,4 +1,4 @@
-import rust from "rollup-plugin-rust";
+import rust from "@wasm-tool/rollup-plugin-rust";
 import { terser } from "rollup-plugin-terser";
 const copy = require("./rollup-plugin-copy/index.js");
 import zip from "rollup-plugin-zip";
@@ -18,7 +18,7 @@ export default {
     },
     plugins: [
         rust({
-            outdir: "js",
+            outDir: "js",
             importHook: function (path) {
                 return "browser.runtime.getURL(" + JSON.stringify(path) + ")";
             },
