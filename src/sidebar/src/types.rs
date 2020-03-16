@@ -1,5 +1,6 @@
 use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::Deref;
+use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get};
@@ -11,6 +12,7 @@ use crate::menu::Menu;
 use crate::groups::Groups;
 use uuid::Uuid;
 use web_sys::DomRect;
+use js_sys::Date;
 use futures_signals::signal::{Signal, Mutable};
 use futures_signals::signal_vec::MutableVec;
 use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
@@ -170,6 +172,8 @@ pub(crate) struct State {
     pub(crate) scrolling: Scrolling,
     pub(crate) window_size: Mutable<WindowSize>,
 
+    pub(crate) all_labels: RwLock<BTreeMap<String, u32>>,
+
     pub(crate) menus: Menus,
     pub(crate) port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
 }
@@ -191,6 +195,8 @@ impl State {
             groups: Groups::new(options.sort_tabs.get()),
             tabs: RwLock::new(tabs),
             options,
+
+            all_labels: RwLock::new(BTreeMap::new()),
 
             dragging: Dragging::new(),
             scrolling: Scrolling::new(scroll_y),
@@ -255,6 +261,17 @@ impl State {
         let uuids = tabs.into_iter().map(|tab| tab.id).collect();
 
         self.port.send_message(&sidebar::ClientMessage::PinTabs { uuids, pinned });
+    }
+
+    pub(crate) fn add_label(&self, tabs: &[Arc<Tab>], name: String) {
+        let label = shared::Label {
+            name,
+            timestamp_added: Date::now(),
+        };
+
+        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+
+        self.port.send_message(&sidebar::ClientMessage::AddLabelToTabs { uuids, label });
     }
 }
 

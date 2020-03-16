@@ -586,6 +586,44 @@ impl State {
 
         unloaded
     }
+
+    fn update_tabs_serialized<U>(&mut self, uuids: &[Uuid], mut update: U) -> Vec<(Uuid, Vec<sidebar::TabChange>)>
+        where U: FnMut(&mut SerializedTab) -> Option<Vec<sidebar::TabChange>> {
+
+        uuids.into_iter().filter_map(|&uuid| {
+            let key = SerializedTab::key(uuid);
+
+            match self.ids.get(&uuid) {
+                Some(id) => {
+                    let tab = self.tab_ids.get_mut(&id).unwrap();
+
+                    if let Some(changes) = update(&mut tab.serialized) {
+                        self.db.set(&key, &tab.serialized);
+                        Some((uuid, changes))
+
+                    } else {
+                        None
+                    }
+                },
+
+                // Tab is unloaded
+                None => {
+                    if let Some(mut tab) = self.db.get::<SerializedTab>(&key) {
+                        if let Some(changes) = update(&mut tab) {
+                            self.db.set(&key, &tab);
+                            Some((uuid, changes))
+
+                        } else {
+                            None
+                        }
+
+                    } else {
+                        None
+                    }
+                },
+            }
+        }).collect()
+    }
 }
 
 
@@ -980,6 +1018,42 @@ pub async fn main_js() -> Result<(), JsValue> {
                     if !unloaded.is_empty() {
 
                     }
+                },
+
+                sidebar::ClientMessage::AddLabelToTabs { uuids, label } => {
+                    let state: &mut State = &mut state.borrow_mut();
+
+                    let messages = state.update_tabs_serialized(&uuids, move |tab| {
+                        if tab.has_label(&label.name) {
+                            None
+
+                        } else {
+                            tab.add_label(label.clone());
+
+                            Some(vec![
+                                sidebar::TabChange::AddedToLabel { label: label.clone() },
+                            ])
+                        }
+                    });
+
+                    send_messages(&state, &port_id, messages);
+                },
+
+                sidebar::ClientMessage::RemoveLabelFromTabs { uuids, label_name } => {
+                    let state: &mut State = &mut state.borrow_mut();
+
+                    let messages = state.update_tabs_serialized(&uuids, move |tab| {
+                        if tab.remove_label(&label_name) {
+                            Some(vec![
+                                sidebar::TabChange::RemovedFromLabel { label_name: label_name.clone() },
+                            ])
+
+                        } else {
+                            None
+                        }
+                    });
+
+                    send_messages(&state, &port_id, messages);
                 },
             }
 

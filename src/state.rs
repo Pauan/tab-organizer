@@ -39,6 +39,14 @@ pub mod sidebar {
             uuids: Vec<Uuid>,
             pinned: bool,
         },
+        AddLabelToTabs {
+            uuids: Vec<Uuid>,
+            label: Label,
+        },
+        RemoveLabelFromTabs {
+            uuids: Vec<Uuid>,
+            label_name: String,
+        },
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -188,6 +196,31 @@ impl SerializedTab {
             title: None,
             muted: false,
         }
+    }
+
+    pub fn has_label(&self, label: &str) -> bool {
+        self.labels.iter().any(|x| x.name == label)
+    }
+
+    pub fn add_label(&mut self, label: Label) {
+        // TODO insert sorted ?
+        self.labels.push(label);
+    }
+
+    pub fn remove_label(&mut self, name: &str) -> bool {
+        let mut removed = false;
+
+        self.labels.retain(|label| {
+            if label.name == name {
+                removed = true;
+                false
+
+            } else {
+                true
+            }
+        });
+
+        removed
     }
 
     pub fn key(uuid: Uuid) -> String {

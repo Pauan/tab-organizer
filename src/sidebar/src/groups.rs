@@ -497,6 +497,13 @@ impl Groups {
     pub(crate) fn initialize(&self, state: &State) {
         let tabs = state.tabs.read().unwrap();
 
+        // TODO move this into the initialize function ?
+        for tab in tabs.iter() {
+            for label in tab.labels.lock_ref().iter() {
+                state.add_label_count(&label.name);
+            }
+        }
+
         let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
@@ -625,10 +632,41 @@ fn decrement_indexes(tabs: &[Arc<TabState>]) {
 }
 
 impl State {
+    pub(crate) fn has_label(&self, label: &str) -> bool {
+        self.all_labels.read().unwrap().contains_key(label)
+    }
+
+    fn add_label_count(&self, label: &str) {
+        let mut labels = self.all_labels.write().unwrap();
+
+        if let Some(count) = labels.get_mut(label) {
+            *count += 1;
+
+        } else {
+            labels.insert(label.to_string(), 1);
+        }
+    }
+
+    fn remove_label_count(&self, label: &str) {
+        let mut labels = self.all_labels.write().unwrap();
+
+        if let Some(count) = labels.get_mut(label) {
+            *count -= 1;
+
+            if *count == 0 {
+                labels.remove(label);
+            }
+        }
+    }
+
     pub(crate) fn insert_tab(&self, tab_index: usize, tab: shared::Tab) {
         let mut tabs = self.tabs.write().unwrap();
 
         let tab = Arc::new(TabState::new(tab, tab_index));
+
+        for label in tab.labels.lock_ref().iter() {
+            self.add_label_count(&label.name);
+        }
 
         increment_indexes(&tabs[tab_index..]);
 
@@ -641,6 +679,10 @@ impl State {
         let mut tabs = self.tabs.write().unwrap();
 
         let tab = tabs.remove(tab_index);
+
+        for label in tab.labels.lock_ref().iter() {
+            self.remove_label_count(&label.name);
+        }
 
         tab.removed.set_neq(true);
 
@@ -706,6 +748,7 @@ impl State {
                         tab.pinned.set_neq(pinned);
                     },
                     TabChange::AddedToLabel { label } => {
+                        self.add_label_count(&label.name);
                         let mut labels = tab.labels.lock_mut();
                         assert!(labels.iter().all(|x| x.name != label.name));
                         labels.push(label);
@@ -715,6 +758,7 @@ impl State {
                         // TODO use remove_item
                         let index = labels.iter().position(|x| x.name == label_name).unwrap();
                         labels.remove(index);
+                        self.remove_label_count(&label_name);
                     },
                     TabChange::Muted { muted } => {
                         // TODO should this affect the sort ?

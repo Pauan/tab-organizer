@@ -706,6 +706,31 @@ impl State {
                 }),
             )
 
+            .separator()
+
+            .submenu("Labels...", Some("/icons/iconic/tag.svg"), |menu| { menu
+                .action(
+                    "New label...",
+                    Some("/icons/iconic/pencil.svg"),
+                    always(true),
+                    clone!(state => move || {
+                        // TODO make this better ?
+                        let new_label = web_sys::window()
+                            .unwrap()
+                            .prompt_with_message_and_default("", "")
+                            .unwrap();
+
+                        if let Some(new_label) = new_label {
+                            with_tabs(&state, |tabs| {
+                                state.add_label(tabs, new_label);
+                            });
+                        }
+                    }),
+                )
+            })
+
+            .separator()
+
             // TODO put a confirmation box ?
             .action(
                 "Unload",
@@ -724,6 +749,8 @@ impl State {
                     });
                 }),
             )
+
+            .separator()
 
             // TODO put a spacer/separator to make it harder to click this by accident
             // TODO put a confirmation box ?
