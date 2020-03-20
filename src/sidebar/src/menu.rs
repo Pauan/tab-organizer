@@ -1,9 +1,8 @@
 use tab_organizer::styles::*;
-use std::sync::{RwLock, Arc};
 use futures_signals::signal::{and, always, Signal, SignalExt, Mutable};
-use dominator::{Dom, DomBuilder, HIGHEST_ZINDEX, html, clone, events, class, text};
+use futures_signals::signal_vec::{SignalVec, SignalVecExt};
+use dominator::{Dom, HIGHEST_ZINDEX, html, clone, events, class, text};
 use lazy_static::lazy_static;
-use web_sys::{Element, EventTarget};
 
 
 lazy_static! {
@@ -45,6 +44,14 @@ lazy_static! {
         //.style("overflow", "hidden")
         .style("border", "1px solid rgb(204, 204, 204)")
         .style("box-shadow", "rgb(204, 204, 204) 0px 0px 5px")
+        .style("font-size", "12px")
+        .style("background-color", "white")
+        .style("white-space", "pre")
+        .style("padding-top", "6px")
+        .style("padding-bottom", "6px")
+
+        // TODO is this a good width ?
+        .style("min-width", "200px")
     };
 
     static ref MENU_CHEVRON_STYLE: String = class! {
@@ -84,16 +91,6 @@ lazy_static! {
         .style("width", "6.48px")
         .style("height", "6.48px")
         .style("transform", "rotate(-45deg)")
-    };
-
-    static ref SUBMENU_STYLE: String = class! {
-        .style("font-size", "12px")
-        // TODO is this a good width ?
-        .style("min-width", "200px")
-        .style("background-color", "white")
-        .style("white-space", "pre")
-        .style("padding-top", "6px")
-        .style("padding-bottom", "6px")
     };
 
     static ref MENU_ITEM_STYLE: String = class! {
@@ -148,103 +145,84 @@ lazy_static! {
 }
 
 
+fn icon(url: Option<&str>) -> Dom {
+    html!("div", {
+        .class(&*MENU_ICON_STYLE)
+
+        .apply(|dom| {
+            if let Some(url) = url {
+                dom.children(&mut [
+                    html!("img", {
+                        .class(&*MENU_ICON_IMAGE_STYLE)
+                        .attribute("src", url)
+                        .attribute("alt", "")
+                    }),
+                ])
+
+            } else {
+                dom
+            }
+        })
+    })
+}
+
+
 #[derive(Debug)]
-struct Parent {
+pub(crate) struct Parent {
+    menu_visible: Mutable<bool>,
     visible: Mutable<bool>,
 }
 
+impl Parent {
+    pub(crate) fn header(&self, name: &str) -> Child {
+        let dom = html!("div", {
+            .class([
+                &*CENTER_STYLE,
+                &*SUBMENU_HEADER_STYLE,
+            ])
 
-#[derive(Debug)]
-enum ChildState {
-    Item {
-        hovered: Mutable<bool>,
-    },
-    Submenu {
-        visible: Mutable<bool>,
-    },
-}
+            .visible_signal(self.visible.signal())
 
-
-// TODO verify that there aren't any Arc cycles
-#[derive(Debug)]
-struct MenuBuilderState {
-    state: Arc<MenuState>,
-    children: RwLock<Vec<ChildState>>,
-}
-
-impl MenuBuilderState {
-    fn new(state: Arc<MenuState>) -> Self {
-        Self {
-            state,
-            children: RwLock::new(vec![]),
-        }
-    }
-
-    fn hide(&self) {
-        self.state.visible.set_neq(false);
-        self.hide_children();
-    }
-
-    fn hide_children(&self) {
-        let lock = self.children.read().unwrap();
-
-        for item in lock.iter() {
-            match item {
-                ChildState::Item { hovered } => {
-                    hovered.set_neq(false);
-                },
-                ChildState::Submenu { visible } => {
-                    visible.set_neq(false);
-                },
-            }
-        }
-    }
-
-    fn push(&self, child: ChildState) {
-        let mut lock = self.children.write().unwrap();
-
-        lock.push(child);
-    }
-}
-
-
-// TODO verify that there aren't any Arc cycles
-#[derive(Debug)]
-pub(crate) struct MenuBuilder {
-    state: Arc<MenuBuilderState>,
-    parent: Arc<Parent>,
-    children: Vec<Dom>,
-    submenus: Vec<Dom>,
-}
-
-impl MenuBuilder {
-    fn new(state: Arc<MenuBuilderState>, parent: Arc<Parent>) -> Self {
-        Self {
-            state,
-            parent,
-            children: vec![],
-            submenus: vec![],
-        }
-    }
-
-    fn menu_item<S, A>(&mut self, enabled: S) -> impl FnOnce(DomBuilder<A>) -> DomBuilder<A>
-        where S: Signal<Item = bool> + 'static,
-              A: AsRef<Element> + AsRef<EventTarget> + Clone + 'static {
-
-        let hovered = Mutable::new(false);
-
-        self.state.push(ChildState::Item {
-            hovered: hovered.clone(),
+            .text(name)
         });
 
-        // TODO is this inline a good idea ?
-        #[inline]
-        move |dom| { dom
+        Child { dom }
+    }
+
+    pub(crate) fn separator(&self) -> Child {
+        let dom = html!("hr", {
+            .class(&*SEPARATOR_STYLE)
+            .visible_signal(self.visible.signal())
+        });
+
+        Child { dom }
+    }
+
+    fn action_<S, F>(&self, submenu: bool, name: &str, icon: Dom, signal: S, mut on_click: F) -> Child
+        where S: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
+
+        let menu_visible = self.menu_visible.clone();
+
+        let enabled = Mutable::new(false);
+        let hovered = Mutable::new(false);
+
+        let dom = html!("div", {
             .class(&*ROW_STYLE)
             .class(&*MENU_ITEM_STYLE)
 
-            .class_signal(&*MENU_ITEM_HOVER_STYLE, and(enabled, hovered.signal()))
+            .class_signal(&*MENU_ITEM_HOVER_STYLE, and(enabled.signal(), hovered.signal()))
             //.class_signal(&*MENU_ITEM_SHADOW_STYLE, hovered.signal())
+
+            .visible_signal(self.visible.signal())
+
+            .future(menu_visible.signal().for_each(clone!(hovered => move |x| {
+                if !x {
+                    hovered.set_neq(false);
+                }
+
+                async {}
+            })))
 
             .event(clone!(hovered => move |_: events::MouseEnter| {
                 hovered.set_neq(true);
@@ -253,79 +231,152 @@ impl MenuBuilder {
             .event(move |_: events::MouseLeave| {
                 hovered.set_neq(false);
             })
-        }
-    }
 
+            .class_signal(&*MENU_ITEM_DISABLED_STYLE, signal.map(clone!(enabled => move |x| {
+                enabled.set_neq(x);
+                !x
+            })))
 
-    fn icon(url: Option<&str>) -> Dom {
-        html!("div", {
-            .class(&*MENU_ICON_STYLE)
+            .event(move |_: events::Click| {
+                if enabled.get() {
+                    if !submenu {
+                        menu_visible.set_neq(false);
+                    }
 
-            .apply(|dom| {
-                if let Some(url) = url {
-                    dom.children(&mut [
-                        html!("img", {
-                            .class(&*MENU_ICON_IMAGE_STYLE)
-                            .attribute("src", url)
-                            .attribute("alt", "")
-                        }),
-                    ])
-
-                } else {
-                    dom
+                    on_click();
                 }
             })
-        })
-    }
-
-
-    fn push_submenu<F>(&mut self, name: &str, icon: Option<&str>, f: F) where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        let visible = Mutable::new(false);
-
-        let MenuBuilder { mut children, mut submenus, .. } = f(MenuBuilder::new(self.state.clone(), Arc::new(Parent {
-            visible: visible.clone(),
-        })));
-
-        let parent = self.parent.clone();
-        let state = self.state.clone();
-        let mixin = self.menu_item(always(true));
-
-
-        self.children.push(html!("div", {
-            .apply(mixin)
-
-            .event(clone!(state, visible => move |_: events::Click| {
-                state.hide_children();
-                visible.set_neq(true);
-            }))
 
             .children(&mut [
-                Self::icon(icon),
+                icon,
 
-                // TODO figure out a way to avoid this wrapper div ?
-                html!("div", {
-                    .class(&*STRETCH_STYLE)
-                    .text(name)
-                }),
+                if submenu {
+                    // TODO figure out a way to avoid this wrapper div ?
+                    html!("div", {
+                        .class(&*STRETCH_STYLE)
+                        .text(name)
+                    })
 
-                html!("div", {
-                    .class(&*MENU_CHEVRON_STYLE)
-                }),
+                } else {
+                    text(name)
+                },
+
+                if submenu {
+                    html!("div", {
+                        .class(&*MENU_CHEVRON_STYLE)
+                    })
+
+                } else {
+                    Dom::empty()
+                },
             ])
-        }));
-
-
-        let back_hover = Mutable::new(false);
-
-        self.state.push(ChildState::Item {
-            hovered: back_hover.clone(),
         });
 
-        children.insert(0, html!("div", {
+        Child { dom }
+    }
+
+    pub(crate) fn action<S, F>(&self, name: &str, icon_url: Option<&str>, signal: S, on_click: F) -> Child
+        where S: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
+
+        self.action_(false, name, icon(icon_url), signal, on_click)
+    }
+
+    pub(crate) fn toggle<A, F>(&self, name: &str, signal: A, on_click: F) -> Child
+        where A: Signal<Item = bool> + 'static,
+              F: FnMut() + 'static {
+
+        self.action_(
+            false,
+            name,
+            html!("div", {
+                .class(&*MENU_ICON_STYLE)
+
+                .children(&mut [
+                    html!("img", {
+                        .class(&*MENU_ICON_IMAGE_STYLE)
+                        .visible_signal(signal)
+                        .attribute("src", "/icons/iconic/check.svg")
+                        .attribute("alt", "")
+                    }),
+                ])
+            }),
+            always(true),
+            on_click,
+        )
+    }
+
+    pub(crate) fn multiselect<A, F>(&self, name: &str, signal: A, mut on_click: F) -> Child
+        where A: Signal<Item = Option<bool>> + 'static,
+              F: FnMut(Option<bool>) + 'static {
+
+        let state = Mutable::new(Some(false));
+
+        self.action_(
+            false,
+            name,
+            html!("div", {
+                .class(&*MENU_ICON_STYLE)
+
+                .future(signal.for_each(clone!(state => move |x| {
+                    state.set_neq(x);
+                    async {}
+                })))
+
+                .children(&mut [
+                    html!("img", {
+                        .class(&*MENU_ICON_IMAGE_STYLE)
+                        .visible_signal(state.signal().map(|x| x == Some(true)))
+                        .attribute("src", "/icons/iconic/check.svg")
+                        .attribute("alt", "")
+                    }),
+
+                    html!("img", {
+                        .class(&*MENU_ICON_IMAGE_STYLE)
+                        .visible_signal(state.signal().map(|x| x == None))
+                        .attribute("src", "/icons/iconic/minus.svg")
+                        .attribute("alt", "")
+                    }),
+                ])
+            }),
+            always(true),
+            move || {
+                on_click(state.get());
+            },
+        )
+    }
+
+    pub(crate) fn submenu<F>(&self, name: &str, icon_url: Option<&str>, f: F) -> Child
+        where F: FnOnce(Parent) -> Vec<Child> {
+
+        let parent_visible = self.visible.clone();
+
+        let visible = Mutable::new(false);
+        let back_hover = Mutable::new(false);
+
+        let action = self.action_(true, name, icon(icon_url), always(true), clone!(parent_visible, visible => move || {
+            parent_visible.set_neq(false);
+            visible.set_neq(true);
+        }));
+
+        let this = Parent {
+            menu_visible: self.menu_visible.clone(),
+            visible: visible.clone(),
+        };
+
+        let separator = this.separator();
+
+        let mut children: Vec<Dom> = f(this).into_iter().map(|x| x.dom).collect();
+
+        children.insert(0, action.dom);
+
+        children.insert(1, html!("div", {
             .class([
                 &*CENTER_STYLE,
                 &*SUBMENU_HEADER_STYLE,
             ])
+
+            .visible_signal(visible.signal())
 
             .children(&mut [
                 html!("div", {
@@ -340,13 +391,13 @@ impl MenuBuilder {
                         back_hover.set_neq(true);
                     }))
 
-                    .event(move |_: events::MouseLeave| {
+                    .event(clone!(back_hover => move |_: events::MouseLeave| {
                         back_hover.set_neq(false);
-                    })
+                    }))
 
-                    .event(clone!(state, parent => move |_: events::Click| {
-                        state.hide_children();
-                        parent.visible.set_neq(true);
+                    .event(clone!(visible => move |_: events::Click| {
+                        parent_visible.set_neq(true);
+                        visible.set_neq(false);
                     }))
 
                     .children(&mut [
@@ -360,224 +411,87 @@ impl MenuBuilder {
             ])
         }));
 
-        // TODO code duplication
-        children.insert(1, html!("hr", {
-            .class(&*SEPARATOR_STYLE)
-        }));
+        children.insert(2, separator.dom);
 
-        self.state.push(ChildState::Submenu {
-            visible: visible.clone(),
-        });
+        let dom = html!("div", {
+            .future(self.menu_visible.signal().for_each(move |x| {
+                if !x {
+                    visible.set_neq(false);
+                    back_hover.set_neq(false);
+                }
 
-        self.submenus.push(html!("div", {
-            .class(&*SUBMENU_STYLE)
-
-            .visible_signal(visible.signal())
+                async {}
+            }))
 
             .children(&mut children)
-        }));
+        });
 
-        self.submenus.append(&mut submenus);
+        Child { dom }
     }
 
-    #[inline]
-    pub(crate) fn submenu<F>(mut self, name: &str, icon: Option<&str>, f: F) -> Self where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        self.push_submenu(name, icon, f);
-        self
-    }
+    pub(crate) fn children_signal_vec<S, F>(&self, f: F) -> Child
+        where F: FnOnce(Parent) -> S,
+              S: SignalVec<Item = Child> + 'static {
 
+        let parent = Parent {
+            menu_visible: self.menu_visible.clone(),
+            visible: self.visible.clone(),
+        };
 
-    fn push_separator(&mut self) {
-        self.children.push(html!("hr", {
-            .class(&*SEPARATOR_STYLE)
-        }));
-    }
+        let signal = f(parent);
 
-    #[inline]
-    pub(crate) fn separator(mut self) -> Self {
-        self.push_separator();
-        self
-    }
+        let dom = html!("div", {
+            .children_signal_vec(signal.map(|x| x.dom))
+        });
 
-
-    fn push_toggle<A, F>(&mut self, name: &str, signal: A, mut on_click: F)
-        where A: Signal<Item = bool> + 'static,
-              F: FnMut() + 'static {
-
-        let mixin = self.menu_item(always(true));
-
-        let state = self.state.clone();
-
-        self.children.push(html!("div", {
-            .apply(mixin)
-
-            .event(move |_: events::Click| {
-                state.hide();
-                on_click();
-            })
-
-            .children(&mut [
-                html!("div", {
-                    .class(&*MENU_ICON_STYLE)
-
-                    .children(&mut [
-                        html!("img", {
-                            .class(&*MENU_ICON_IMAGE_STYLE)
-                            .visible_signal(signal)
-                            .attribute("src", "/icons/iconic/check.svg")
-                            .attribute("alt", "")
-                        }),
-                    ])
-                }),
-
-                text(name),
-            ])
-        }));
-    }
-
-    #[inline]
-    pub(crate) fn toggle<A, F>(mut self, name: &str, signal: A, on_click: F) -> Self
-        where A: Signal<Item = bool> + 'static,
-              F: FnMut() + 'static {
-        self.push_toggle(name, signal, on_click);
-        self
-    }
-
-
-    fn push_action<S, F>(&mut self, name: &str, icon: Option<&str>, signal: S, mut on_click: F)
-        where S: Signal<Item = bool> + 'static,
-              F: FnMut() + 'static {
-
-        // TODO a bit hacky
-        let enabled = Mutable::new(false);
-
-        let mixin = self.menu_item(enabled.signal());
-
-        let state = self.state.clone();
-
-        self.children.push(html!("div", {
-            .apply(mixin)
-
-            .class_signal(&*MENU_ITEM_DISABLED_STYLE, signal.map(clone!(enabled => move |x| {
-                enabled.set_neq(x);
-                !x
-            })))
-
-            .event(move |_: events::Click| {
-                if enabled.get() {
-                    state.hide();
-                    on_click();
-                }
-            })
-
-            .children(&mut [
-                Self::icon(icon),
-                text(name),
-            ])
-        }));
-    }
-
-    #[inline]
-    pub(crate) fn action<S, F>(mut self, name: &str, icon: Option<&str>, signal: S, on_click: F) -> Self
-        where S: Signal<Item = bool> + 'static,
-              F: FnMut() + 'static {
-        self.push_action(name, icon, signal, on_click);
-        self
-    }
-
-
-    fn push_header(&mut self, name: &str) {
-        self.children.push(html!("div", {
-            .class([
-                &*CENTER_STYLE,
-                &*SUBMENU_HEADER_STYLE,
-            ])
-
-            .text(name)
-        }));
-    }
-
-    #[inline]
-    pub(crate) fn header(mut self, name: &str) -> Self {
-        self.push_header(name);
-        self
+        Child { dom }
     }
 }
 
 
 #[derive(Debug)]
-struct MenuState {
-    visible: Mutable<bool>,
-}
-
-impl MenuState {
-    fn new() -> Self {
-        Self {
-            visible: Mutable::new(false),
-        }
-    }
+pub(crate) struct Child {
+    dom: Dom,
 }
 
 
 // TODO verify that there aren't any Arc cycles
 #[derive(Debug)]
 pub(crate) struct Menu {
-    state: Arc<MenuState>,
+    menu_visible: Mutable<bool>,
 }
 
 impl Menu {
     pub(crate) fn new() -> Self {
         Self {
-            state: Arc::new(MenuState::new()),
+            menu_visible: Mutable::new(false),
         }
     }
 
     pub(crate) fn show(&self) {
-        self.state.visible.set_neq(true);
+        self.menu_visible.set_neq(true);
     }
 
     pub(crate) fn is_showing(&self) -> impl Signal<Item = bool> {
-        self.state.visible.signal()
+        self.menu_visible.signal()
     }
 
-    pub(crate) fn render<F>(&self, f: F) -> Dom where F: FnOnce(MenuBuilder) -> MenuBuilder {
-        let menus = Arc::new(MenuBuilderState::new(self.state.clone()));
+    pub(crate) fn render<F>(&self, f: F) -> Dom where F: FnOnce(Parent) -> Vec<Child> {
+        let menu_visible = self.menu_visible.clone();
+
         let visible = Mutable::new(false);
 
-        let MenuBuilder { mut children, mut submenus, .. } = f(MenuBuilder::new(menus.clone(), Arc::new(Parent {
+        let parent = Parent {
+            menu_visible: menu_visible.clone(),
             visible: visible.clone(),
-        })));
+        };
 
-        {
-            menus.push(ChildState::Submenu {
-                visible: visible.clone(),
-            });
-
-            submenus.insert(0, html!("div", {
-                .class(&*SUBMENU_STYLE)
-
-                .visible_signal(visible.signal())
-
-                // TODO is there a better way of doing this ?
-                .future(self.state.visible.signal().for_each(clone!(menus => move |show| {
-                    if show {
-                        visible.set_neq(true);
-
-                    } else {
-                        menus.hide_children();
-                    }
-
-                    async {}
-                })))
-
-                .children(&mut children)
-            }));
-        }
+        let mut children: Vec<Dom> = f(parent).into_iter().map(|x| x.dom).collect();
 
         html!("div", {
             .class(&*TOP_STYLE)
 
-            .visible_signal(self.state.visible.signal())
+            .visible_signal(self.menu_visible.signal())
 
             .children(&mut [
                 html!("div", {
@@ -586,19 +500,25 @@ impl Menu {
                         &*MENU_MODAL_STYLE,
                     ])
 
-                    .event(clone!(menus => move |_: events::Click| {
-                        menus.hide();
+                    .event(clone!(menu_visible => move |_: events::Click| {
+                        menu_visible.set_neq(false);
                     }))
 
                     .event(move |_: events::ContextMenu| {
-                        menus.hide();
+                        menu_visible.set_neq(false);
                     })
                 }),
 
                 html!("div", {
                     .class(&*MENU_STYLE)
 
-                    .children(&mut submenus)
+                    // TODO is there a better way of doing this ?
+                    .future(self.menu_visible.signal().for_each(move |x| {
+                        visible.set_neq(x);
+                        async {}
+                    }))
+
+                    .children(&mut children)
                 }),
 
                 html!("div", {

@@ -13,7 +13,7 @@ use tab_organizer::styles::*;
 use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
 use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize, MenuMode};
-use crate::menu::MenuBuilder;
+use crate::menu;
 use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
 use tab_organizer::state::SortTabs;
 
@@ -581,44 +581,63 @@ impl State {
     }
 
     fn render_global_menu(state: &Arc<Self>) -> Dom {
-        state.menus.global.render(|menu| { menu
-            .submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |menu| { menu
-                .toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
+        state.menus.global.render(|parent| vec![
+            parent.submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |parent| vec![
+                parent.toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::Window);
-                }))
+                })),
 
-                .toggle("Label", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Label), clone!(state => move || {
+                parent.toggle("Label", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Label), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::Label);
-                }))
+                })),
 
-                .separator()
+                parent.separator(),
 
-                .toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
+                parent.toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
-                }))
+                })),
 
-                .toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
+                parent.toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
-                }))
+                })),
 
-                .separator()
+                parent.separator(),
 
-                .toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
+                parent.toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::Url);
-                }))
+                })),
 
-                .toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
+                parent.toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::Name);
-                }))
-            })
-        })
+                })),
+            ]),
+
+            parent.submenu("Foo", None, |parent| vec![
+                parent.submenu("Bar", None, |parent| vec![
+                    parent.submenu("Qux", None, |parent| vec![
+                        parent.action("Yesno", None, always(true), move || {}),
+                        parent.action("Noyes", None, always(true), move || {}),
+                        parent.action("Always", None, always(true), move || {}),
+                        parent.action("Never", None, always(true), move || {}),
+                    ]),
+                ]),
+            ]),
+        ])
     }
 
-    fn make_group_header(menu: MenuBuilder, state: &Arc<State>) -> MenuBuilder {
-        menu
-            .header("Group...")
+    fn make_menu_tabs(parent: menu::Parent, state: &Arc<State>, header_name: &str) -> Vec<menu::Child> {
+        fn with_tabs<F>(state: &State, f: F) where F: FnOnce(&[Arc<Tab>]) {
+            let mut state = state.menus.state.lock_mut();
 
-            .action(
+            state.as_ref().unwrap().with_tabs(f);
+
+            *state = None;
+        }
+
+        vec![
+            parent.header("Group..."),
+
+            parent.action(
                 "Select all tabs",
                 Some("/icons/iconic/plus.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -637,9 +656,9 @@ impl State {
 
                     *state = None;
                 }),
-            )
+            ),
 
-            .action(
+            parent.action(
                 "Unselect all tabs",
                 Some("/icons/iconic/minus.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -657,20 +676,13 @@ impl State {
 
                     *state = None;
                 }),
-            )
-    }
+            ),
 
-    fn make_menu_tabs(menu: MenuBuilder, state: &Arc<State>) -> MenuBuilder {
-        fn with_tabs<F>(state: &State, f: F) where F: FnOnce(&[Arc<Tab>]) {
-            let mut state = state.menus.state.lock_mut();
+            parent.separator(),
 
-            state.as_ref().unwrap().with_tabs(f);
+            parent.header(header_name),
 
-            *state = None;
-        }
-
-        menu
-            .action(
+            parent.action(
                 "Pin",
                 Some("/icons/iconic/lock-locked.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -686,9 +698,9 @@ impl State {
                         state.pin_tabs(tabs, true);
                     });
                 }),
-            )
+            ),
 
-            .action(
+            parent.action(
                 "Unpin",
                 Some("/icons/iconic/lock-unlocked.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -704,12 +716,12 @@ impl State {
                         state.pin_tabs(tabs, false);
                     });
                 }),
-            )
+            ),
 
-            .separator()
+            parent.separator(),
 
-            .submenu("Labels...", Some("/icons/iconic/tag.svg"), |menu| { menu
-                .action(
+            parent.submenu("Labels...", Some("/icons/iconic/tag.svg"), move |parent| vec![
+                parent.action(
                     "New label...",
                     Some("/icons/iconic/pencil.svg"),
                     always(true),
@@ -726,13 +738,65 @@ impl State {
                             });
                         }
                     }),
-                )
-            })
+                ),
 
-            .separator()
+                parent.separator(),
+
+                parent.children_signal_vec(clone!(state => move |parent| {
+                    state.all_labels.signal_vec_keys()
+                        // TODO use Unicode lowercase ?
+                        .map(|key| {
+                            let lower = key.to_ascii_lowercase();
+                            (key, lower)
+                        })
+                        .sort_by_cloned(|x, y| x.1.cmp(&y.1))
+                        .map(move |(key, _)| {
+                            parent.multiselect(
+                                &key,
+                                // TODO avoid this clone somehow
+                                state.menus.state.signal_ref(clone!(key => move |state| {
+                                    if let Some(ref state) = state {
+                                        state.with_tabs(|tabs| {
+                                            let has = tabs.into_iter().filter(|x| x.has_label(&key)).count();
+
+                                            if has == 0 {
+                                                Some(false)
+
+                                            } else if has == tabs.len() {
+                                                Some(true)
+
+                                            } else {
+                                                None
+                                            }
+                                        })
+
+                                    } else {
+                                        Some(false)
+                                    }
+                                })),
+                                clone!(state, key => move |selected| {
+                                    match selected {
+                                        Some(false) | None => {
+                                            with_tabs(&state, |tabs| {
+                                                state.add_label(tabs, key.clone());
+                                            });
+                                        },
+                                        Some(true) => {
+                                            with_tabs(&state, |tabs| {
+                                                state.remove_label(tabs, key.clone());
+                                            });
+                                        },
+                                    }
+                                }),
+                            )
+                        })
+                })),
+            ]),
+
+            parent.separator(),
 
             // TODO put a confirmation box ?
-            .action(
+            parent.action(
                 "Unload",
                 Some("/icons/iconic/account-logout.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -748,13 +812,13 @@ impl State {
                         state.unload_tabs(tabs);
                     });
                 }),
-            )
+            ),
 
-            .separator()
+            parent.separator(),
 
             // TODO put a spacer/separator to make it harder to click this by accident
             // TODO put a confirmation box ?
-            .action(
+            parent.action(
                 "Close",
                 Some("/icons/iconic/x.svg"),
                 state.menus.state.signal_ref(move |state| {
@@ -770,7 +834,8 @@ impl State {
                         state.close_tabs(tabs);
                     });
                 }),
-            )
+            ),
+        ]
     }
 
     fn render_group_menu(state: &Arc<Self>) -> Dom {
@@ -793,27 +858,11 @@ impl State {
             ])
         })*/
 
-        state.menus.group.render(|menu| {
-            // TODO replace with dominator::apply
-            Self::make_menu_tabs(
-                Self::make_group_header(menu, state)
-                    .separator()
-                    .header("Selected tabs..."),
-                state,
-            )
-        })
+        state.menus.group.render(move |parent| Self::make_menu_tabs(parent, state, "Selected tabs..."))
     }
 
     fn render_tab_menu(state: &Arc<Self>) -> Dom {
-        state.menus.tab.render(|menu| {
-            // TODO replace with dominator::apply
-            Self::make_menu_tabs(
-                Self::make_group_header(menu, state)
-                    .separator()
-                    .header("Tab..."),
-                state,
-            )
-        })
+        state.menus.tab.render(move |parent| Self::make_menu_tabs(parent, state, "Tab..."))
     }
 
     fn render_dragging_tab(state: &Arc<State>, tab: &Arc<Tab>, animation: &MutableAnimation, index: usize) -> Dom {

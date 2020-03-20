@@ -632,29 +632,25 @@ fn decrement_indexes(tabs: &[Arc<TabState>]) {
 }
 
 impl State {
-    pub(crate) fn has_label(&self, label: &str) -> bool {
-        self.all_labels.read().unwrap().contains_key(label)
-    }
-
+    // TODO make this more efficient
     fn add_label_count(&self, label: &str) {
-        let mut labels = self.all_labels.write().unwrap();
+        let mut labels = self.all_labels.lock_mut();
 
-        if let Some(count) = labels.get_mut(label) {
-            *count += 1;
+        let count = labels.get(label).unwrap_or(&0) + 1;
 
-        } else {
-            labels.insert(label.to_string(), 1);
-        }
+        labels.insert_cloned(label.to_string(), count);
     }
 
-    fn remove_label_count(&self, label: &str) {
-        let mut labels = self.all_labels.write().unwrap();
+    // TODO make this more efficient
+    fn remove_label_count(&self, label: &String) {
+        let mut labels = self.all_labels.lock_mut();
 
-        if let Some(count) = labels.get_mut(label) {
-            *count -= 1;
-
-            if *count == 0 {
+        if let Some(count) = labels.get(label).map(|count| count - 1) {
+            if count == 0 {
                 labels.remove(label);
+
+            } else {
+                labels.insert_cloned(label.to_string(), count);
             }
         }
     }
