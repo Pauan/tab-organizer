@@ -591,7 +591,7 @@ impl State {
                     state.options.sort_tabs.set_neq(SortTabs::Label);
                 })),
 
-                parent.separator(),
+                parent.subseparator(),
 
                 parent.toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
@@ -601,7 +601,7 @@ impl State {
                     state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
                 })),
 
-                parent.separator(),
+                parent.subseparator(),
 
                 parent.toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
                     state.options.sort_tabs.set_neq(SortTabs::Url);
@@ -718,7 +718,7 @@ impl State {
                 }),
             ),
 
-            parent.separator(),
+            parent.subseparator(),
 
             parent.submenu("Labels...", Some("/icons/iconic/tag.svg"), move |parent| vec![
                 parent.action(
@@ -740,7 +740,7 @@ impl State {
                     }),
                 ),
 
-                parent.separator(),
+                parent.subseparator(),
 
                 parent.children_signal_vec(clone!(state => move |parent| {
                     state.all_labels.signal_vec_keys()
@@ -793,7 +793,7 @@ impl State {
                 })),
             ]),
 
-            parent.separator(),
+            parent.subseparator(),
 
             // TODO put a confirmation box ?
             parent.action(
@@ -814,7 +814,7 @@ impl State {
                 }),
             ),
 
-            parent.separator(),
+            parent.subseparator(),
 
             // TODO put a spacer/separator to make it harder to click this by accident
             // TODO put a confirmation box ?

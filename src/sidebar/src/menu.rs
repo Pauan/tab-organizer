@@ -142,6 +142,13 @@ lazy_static! {
         .style("margin", "6px 0px")
         .style("height", "1px")
     };
+
+    static ref SUBSEPARATOR_STYLE: String = class! {
+        // 12 + 16 + 9 = Icon width + padding
+        .style("background-image", "linear-gradient(to right, transparent 0px, rgb(242, 242, 242) 37px, rgb(242, 242, 242) calc(100% - 37px), transparent 100%)")
+        .style("margin", "6px 0px")
+        .style("height", "1px")
+    };
 }
 
 
@@ -192,6 +199,15 @@ impl Parent {
     pub(crate) fn separator(&self) -> Child {
         let dom = html!("hr", {
             .class(&*SEPARATOR_STYLE)
+            .visible_signal(self.visible.signal())
+        });
+
+        Child { dom }
+    }
+
+    pub(crate) fn subseparator(&self) -> Child {
+        let dom = html!("hr", {
+            .class(&*SUBSEPARATOR_STYLE)
             .visible_signal(self.visible.signal())
         });
 
