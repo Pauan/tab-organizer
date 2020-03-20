@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
-use tab_organizer::Database;
+use tab_organizer::{time, Database};
 use tab_organizer::state as latest;
 use wasm_bindgen::intern;
 
@@ -152,15 +152,17 @@ pub(crate) fn migrate(db: &Database) {
     let mut version = db.get_or_insert::<u32, _>(intern("version"), || LATEST_VERSION);
 
     if version != LATEST_VERSION {
-        while version < LATEST_VERSION {
-            match version {
-                1 => v1::migrate(db),
-                2 => v2::migrate(db),
-                _ => unreachable!(),
-            }
+        time!("Migrating", {
+            while version < LATEST_VERSION {
+                match version {
+                    1 => v1::migrate(db),
+                    2 => v2::migrate(db),
+                    _ => unreachable!(),
+                }
 
-            version += 1;
-        }
+                version += 1;
+            }
+        });
 
         db.set(intern("version"), &LATEST_VERSION);
     }

@@ -2,7 +2,7 @@ use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
-use tab_organizer::{local_storage_get};
+use tab_organizer::{local_storage_get, Port};
 use tab_organizer::state as shared;
 use tab_organizer::state::{sidebar, TabStatus};
 use crate::url_bar::UrlBar;
@@ -19,7 +19,9 @@ use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
 
 
 pub(crate) struct OptionsLockMut<'a> {
+    port: &'a Port<sidebar::ClientMessage, sidebar::ServerMessage>,
     lock: MutableLockMut<'a, shared::WindowOptions>,
+    is_mutated: bool,
 }
 
 impl<'a> Deref for OptionsLockMut<'a> {
@@ -32,19 +34,30 @@ impl<'a> Deref for OptionsLockMut<'a> {
 
 impl<'a> DerefMut for OptionsLockMut<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        self.is_mutated = true;
         &mut *self.lock
+    }
+}
+
+impl<'a> Drop for OptionsLockMut<'a> {
+    fn drop(&mut self) {
+        if self.is_mutated {
+            self.port.send_message(&sidebar::ClientMessage::ChangeOptions { options: self.lock.clone() });
+        }
     }
 }
 
 
 #[derive(Debug)]
 pub(crate) struct Options {
+    port: Arc<Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
     inner: Mutable<shared::WindowOptions>,
 }
 
 impl Options {
-    pub(crate) fn new(options: shared::WindowOptions) -> Self {
+    pub(crate) fn new(port: Arc<Port<sidebar::ClientMessage, sidebar::ServerMessage>>, options: shared::WindowOptions) -> Self {
         Self {
+            port,
             inner: Mutable::new(options),
         }
     }
@@ -55,7 +68,9 @@ impl Options {
 
     pub(crate) fn lock_mut(&self) -> OptionsLockMut {
         OptionsLockMut {
+            port: &self.port,
             lock: self.inner.lock_mut(),
+            is_mutated: false,
         }
     }
 
@@ -223,11 +238,11 @@ pub(crate) struct State {
     pub(crate) all_labels: MutableBTreeMap<String, u32>,
 
     pub(crate) menus: Menus,
-    pub(crate) port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
+    pub(crate) port: Arc<Port<sidebar::ClientMessage, sidebar::ServerMessage>>,
 }
 
 impl State {
-    pub(crate) fn new(port: Arc<tab_organizer::Port<sidebar::ClientMessage, sidebar::ServerMessage>>, options: Options, tabs: Vec<shared::Tab>) -> Self {
+    pub(crate) fn new(port: Arc<Port<sidebar::ClientMessage, sidebar::ServerMessage>>, options: Options, tabs: Vec<shared::Tab>) -> Self {
         let tabs = tabs.into_iter().enumerate().map(|(index, tab)| Arc::new(TabState::new(tab, index))).collect();
 
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());

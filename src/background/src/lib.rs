@@ -701,10 +701,14 @@ pub async fn main_js() -> Result<(), JsValue> {
                 }
             }
 
-            fn send_messages(state: &State, port_id: &Cell<Option<Id>>, unloaded: Vec<(Uuid, Vec<sidebar::TabChange>)>) {
+            fn get_window<'a>(window_ids: &'a mut HashMap<Id, BrowserWindow>, port_id: &Cell<Option<Id>>) -> Option<&'a mut BrowserWindow> {
+                port_id.get().and_then(move |window_id| window_ids.get_mut(&window_id))
+            }
+
+            fn send_messages(state: &mut State, port_id: &Cell<Option<Id>>, unloaded: Vec<(Uuid, Vec<sidebar::TabChange>)>) {
                 if !unloaded.is_empty() {
                     // TODO what if the window is unloaded ?
-                    if let Some(window) = port_id.get().and_then(|window_id| state.window_ids.get(&window_id)) {
+                    if let Some(window) = get_window(&mut state.window_ids, port_id) {
                         for (uuid, changes) in unloaded {
                             let tab_index = window.serialized.tab_index(uuid).unwrap();
 
@@ -749,6 +753,15 @@ pub async fn main_js() -> Result<(), JsValue> {
                         let options = window.serialized.options.clone();
 
                         port.send_message(&sidebar::ServerMessage::Initial { tabs, options });
+                    }
+                },
+
+                sidebar::ClientMessage::ChangeOptions { options } => {
+                    let state: &mut State = &mut state.borrow_mut();
+
+                    if let Some(window) = get_window(&mut state.window_ids, &port_id) {
+                        window.serialized.options = options;
+                        window.serialize(&state.db);
                     }
                 },
 
@@ -950,7 +963,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         },
                     );
 
-                    send_messages(&state, &port_id, unloaded);
+                    send_messages(&mut state, &port_id, unloaded);
                 },
 
                 sidebar::ClientMessage::PinTabs { uuids, pinned } => {
@@ -978,7 +991,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         },
                     );
 
-                    send_messages(&state, &port_id, unloaded);
+                    send_messages(&mut state, &port_id, unloaded);
                 },
 
                 sidebar::ClientMessage::MoveTabs { uuids, index } => {
@@ -1038,7 +1051,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         }
                     });
 
-                    send_messages(&state, &port_id, messages);
+                    send_messages(state, &port_id, messages);
                 },
 
                 sidebar::ClientMessage::RemoveLabelFromTabs { uuids, label_name } => {
@@ -1055,7 +1068,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                         }
                     });
 
-                    send_messages(&state, &port_id, messages);
+                    send_messages(state, &port_id, messages);
                 },
             }
 

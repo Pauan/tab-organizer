@@ -17,6 +17,9 @@ pub mod sidebar {
         Initialize {
             id: String,
         },
+        ChangeOptions {
+            options: WindowOptions,
+        },
         ClickTab {
             uuid: Uuid,
         },

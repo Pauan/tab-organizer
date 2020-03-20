@@ -417,7 +417,8 @@ pub async fn main_js() -> Result<(), JsValue> {
                         assert!(state.is_none());
 
                         state = time!("Initializing", {
-                            let state = Arc::new(State::new(port, Options::new(options), tabs));
+                            let options = Options::new(port.clone(), options);
+                            let state = Arc::new(State::new(port, options, tabs));
                             initialize(state.clone());
                             Some(state)
                         });
