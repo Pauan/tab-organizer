@@ -583,32 +583,32 @@ impl State {
     fn render_global_menu(state: &Arc<Self>) -> Dom {
         state.menus.global.render(|parent| vec![
             parent.submenu("Sort tabs by...", Some("/icons/iconic/sort-ascending.svg"), |parent| vec![
-                parent.toggle("Window", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Window), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::Window);
+                parent.toggle("Label", state.options.signal_ref(|x| x.sort_tabs == SortTabs::Label), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::Label;
                 })),
 
-                parent.toggle("Label", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Label), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::Label);
-                })),
-
-                parent.subseparator(),
-
-                parent.toggle("Time last seen", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeFocused), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::TimeFocused);
-                })),
-
-                parent.toggle("Time created", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::TimeCreated), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::TimeCreated);
+                parent.toggle("Position", state.options.signal_ref(|x| x.sort_tabs == SortTabs::Index), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::Index;
                 })),
 
                 parent.subseparator(),
 
-                parent.toggle("URL", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Url), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::Url);
+                parent.toggle("Time last seen", state.options.signal_ref(|x| x.sort_tabs == SortTabs::TimeFocused), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::TimeFocused;
                 })),
 
-                parent.toggle("Name", state.options.sort_tabs.signal_ref(|x| *x == SortTabs::Name), clone!(state => move || {
-                    state.options.sort_tabs.set_neq(SortTabs::Name);
+                parent.toggle("Time created", state.options.signal_ref(|x| x.sort_tabs == SortTabs::TimeCreated), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::TimeCreated;
+                })),
+
+                parent.subseparator(),
+
+                parent.toggle("URL", state.options.signal_ref(|x| x.sort_tabs == SortTabs::Url), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::Url;
+                })),
+
+                parent.toggle("Name", state.options.signal_ref(|x| x.sort_tabs == SortTabs::Name), clone!(state => move || {
+                    state.options.lock_mut().sort_tabs = SortTabs::Name;
                 })),
             ]),
 

@@ -283,23 +283,24 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 }
 
 
-struct Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: SignalVec {
+struct Culler<A, B, C, D, E> where A: SignalVec, B: Signal, C: Signal, D: SignalVec, E: Signal {
     first: bool,
     state: Arc<State>,
     groups: MutableVecSink<A>,
     search_parser: MutableSink<MutableSignalCloned<Arc<search::Parsed>>>,
-    sort_tabs: MutableSink<MutableSignal<SortTabs>>,
+    sort_tabs: MutableSink<E>,
     scroll_y: MutableSink<B>,
     window_size: MutableSink<C>,
     pinned: CulledGroup<D>,
 }
 
-impl<A, B, C, D, E> Culler<A, C, D, E>
+impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
           D: Signal<Item = WindowSize> + Unpin,
-          E: SignalVec<Item = CulledTab> + Unpin {
+          E: SignalVec<Item = CulledTab> + Unpin,
+          F: Signal<Item = SortTabs> + Unpin {
 
     fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
         let sort_tabs = self.sort_tabs.is_changed(cx);
@@ -488,14 +489,15 @@ impl<A, B, C, D, E> Culler<A, C, D, E>
     }
 }
 
-impl<A, B, C, D> Unpin for Culler<A, B, C, D> where A: SignalVec, B: Signal, C: Signal, D: SignalVec {}
+impl<A, B, C, D, E> Unpin for Culler<A, B, C, D, E> where A: SignalVec, B: Signal, C: Signal, D: SignalVec, E: Signal {}
 
-impl<A, B, C, D, E> Future for Culler<A, C, D, E>
+impl<A, B, C, D, E, F> Future for Culler<A, C, D, E, F>
     where A: SignalVec<Item = CulledGroup<B>> + Unpin,
           B: SignalVec<Item = CulledTab> + Unpin,
           C: Signal<Item = f64> + Unpin,
           D: Signal<Item = WindowSize> + Unpin,
-          E: SignalVec<Item = CulledTab> + Unpin {
+          E: SignalVec<Item = CulledTab> + Unpin,
+          F: Signal<Item = SortTabs> + Unpin {
 
     type Output = ();
 
@@ -521,7 +523,7 @@ pub(crate) fn cull_groups(state: Arc<State>) -> impl Future<Output = ()> {
             .delay_remove(|group| group.wait_until_removed())
             .map(culled_group)),
         search_parser: MutableSink::new(state.search_parser.signal_cloned()),
-        sort_tabs: MutableSink::new(state.options.sort_tabs.signal()),
+        sort_tabs: MutableSink::new(state.options.signal_ref(|x| x.sort_tabs)),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),
         window_size: MutableSink::new(state.window_size.signal()),
         state,

@@ -146,7 +146,7 @@ fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &T
 
     } else {
         match sort {
-            SortTabs::Window => StackVec::Single({
+            SortTabs::Index => StackVec::Single({
                 let index = get_unpinned_index(groups);
                 insert_group(groups, index, || {
                     make_new_group(false, None, 0.0, should_animate)
@@ -257,7 +257,7 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 
     } else {
         match sort {
-            SortTabs::Window | SortTabs::Label => {
+            SortTabs::Index | SortTabs::Label => {
                 if is_initial {
                     tabs.len()
 

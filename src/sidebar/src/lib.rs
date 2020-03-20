@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use std::sync::Arc;
 use tab_organizer::{Timer, connect, log, info, time, cursor, every_hour, set_print_logs, panic_hook};
-use tab_organizer::state::{sidebar, Options};
+use tab_organizer::state::sidebar;
 use dominator::{html, stylesheet, clone};
 use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
@@ -12,7 +12,7 @@ use futures_signals::signal::{Mutable, SignalExt};
 use lazy_static::lazy_static;
 use web_sys::{window, ScrollRestoration};
 
-use crate::types::State;
+use crate::types::{State, Options};
 use crate::constants::*;
 use tab_organizer::styles::*;
 
@@ -413,11 +413,11 @@ pub async fn main_js() -> Result<(), JsValue> {
                 info!("Received message {:#?}", message);
 
                 match message {
-                    sidebar::ServerMessage::Initial { tabs } => {
+                    sidebar::ServerMessage::Initial { tabs, options } => {
                         assert!(state.is_none());
 
                         state = time!("Initializing", {
-                            let state = Arc::new(State::new(port, Options::new(), tabs));
+                            let state = Arc::new(State::new(port, Options::new(options), tabs));
                             initialize(state.clone());
                             Some(state)
                         });

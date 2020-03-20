@@ -1,10 +1,10 @@
 use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get};
 use tab_organizer::state as shared;
-use tab_organizer::state::{Options, sidebar, TabStatus};
+use tab_organizer::state::{sidebar, TabStatus};
 use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
@@ -12,10 +12,58 @@ use crate::groups::Groups;
 use uuid::Uuid;
 use web_sys::DomRect;
 use js_sys::Date;
-use futures_signals::signal::{Signal, Mutable};
+use futures_signals::signal::{Signal, Mutable, MutableLockRef, MutableLockMut};
 use futures_signals::signal_vec::MutableVec;
 use futures_signals::signal_map::MutableBTreeMap;
 use dominator::animation::{MutableAnimation, Percentage, OnTimestampDiff};
+
+
+pub(crate) struct OptionsLockMut<'a> {
+    lock: MutableLockMut<'a, shared::WindowOptions>,
+}
+
+impl<'a> Deref for OptionsLockMut<'a> {
+    type Target = shared::WindowOptions;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.lock
+    }
+}
+
+impl<'a> DerefMut for OptionsLockMut<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.lock
+    }
+}
+
+
+#[derive(Debug)]
+pub(crate) struct Options {
+    inner: Mutable<shared::WindowOptions>,
+}
+
+impl Options {
+    pub(crate) fn new(options: shared::WindowOptions) -> Self {
+        Self {
+            inner: Mutable::new(options),
+        }
+    }
+
+    pub(crate) fn lock_ref(&self) -> MutableLockRef<shared::WindowOptions> {
+        self.inner.lock_ref()
+    }
+
+    pub(crate) fn lock_mut(&self) -> OptionsLockMut {
+        OptionsLockMut {
+            lock: self.inner.lock_mut(),
+        }
+    }
+
+    pub(crate) fn signal_ref<A, F>(&self, f: F) -> impl Signal<Item = A>
+        where F: FnMut(&shared::WindowOptions) -> A {
+        self.inner.signal_ref(f)
+    }
+}
 
 
 #[derive(Debug)]
@@ -185,6 +233,8 @@ impl State {
         let search_value = local_storage_get("tab-organizer.search").unwrap_or_else(|| "".to_string());
         let scroll_y = local_storage_get("tab-organizer.scroll.y").map(|value| value.parse().unwrap()).unwrap_or(0.0);
 
+        let sort_tabs = options.lock_ref().sort_tabs;
+
         let state = Self {
             search_parser: Mutable::new(Arc::new(search::Parsed::new(&search_value))),
             search_box: Mutable::new(Arc::new(search_value)),
@@ -192,7 +242,7 @@ impl State {
             url_bar: Mutable::new(None),
             groups_padding: Mutable::new(0.0),
 
-            groups: Groups::new(options.sort_tabs.get()),
+            groups: Groups::new(sort_tabs),
             tabs: RwLock::new(tabs),
             options,
 

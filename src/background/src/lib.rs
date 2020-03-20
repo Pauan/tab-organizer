@@ -746,7 +746,9 @@ pub async fn main_js() -> Result<(), JsValue> {
                             })
                             .collect();
 
-                        port.send_message(&sidebar::ServerMessage::Initial { tabs });
+                        let options = window.serialized.options.clone();
+
+                        port.send_message(&sidebar::ServerMessage::Initial { tabs, options });
                     }
                 },
 

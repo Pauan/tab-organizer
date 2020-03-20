@@ -1,13 +1,12 @@
 use serde_derive::{Serialize, Deserialize};
 use uuid::Uuid;
-use futures_signals::signal::Mutable;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use crate::browser;
 
 
 pub mod sidebar {
-    use super::{Label, Tab, TabStatus};
+    use super::{Label, Tab, TabStatus, WindowOptions};
     use serde_derive::{Serialize, Deserialize};
     use uuid::Uuid;
 
@@ -93,6 +92,7 @@ pub mod sidebar {
     pub enum ServerMessage {
         Initial {
             tabs: Vec<Tab>,
+            options: WindowOptions,
         },
         TabInserted {
             tab_index: usize,
@@ -134,10 +134,10 @@ pub mod options {
 
 
 // TODO this is a common option
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SortTabs {
-    Window,
     Label,
+    Index,
     TimeFocused,
     TimeCreated,
     Url,
@@ -145,20 +145,16 @@ pub enum SortTabs {
 }
 
 
-#[derive(Debug)]
-pub struct Options {
-    pub sort_tabs: Mutable<SortTabs>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowOptions {
+    pub sort_tabs: SortTabs,
 }
 
-impl Options {
+impl WindowOptions {
     pub fn new() -> Self {
         Self {
-            sort_tabs: Mutable::new(SortTabs::Window),
+            sort_tabs: SortTabs::Label,
         }
-    }
-
-    pub fn merge(&self, other: &Self) {
-        self.sort_tabs.set_neq(other.sort_tabs.get());
     }
 }
 
@@ -323,6 +319,7 @@ pub struct SerializedWindow {
     pub name: Option<String>,
     pub timestamp_created: f64,
     pub tabs: Vec<Uuid>,
+    pub options: WindowOptions,
 }
 
 impl SerializedWindow {
@@ -332,6 +329,7 @@ impl SerializedWindow {
             name: None,
             timestamp_created,
             tabs: vec![],
+            options: WindowOptions::new(),
         }
     }
 

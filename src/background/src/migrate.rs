@@ -3,40 +3,48 @@ use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use tab_organizer::Database;
-use tab_organizer::state::{SerializedTab, SerializedWindow};
+use tab_organizer::state as latest;
 use wasm_bindgen::intern;
 
 
-const LATEST_VERSION: u32 = 2;
-
-
-fn each_tab<F>(db: &Database, mut f: F) where F: FnMut(&Database, String) {
+fn each_window<F>(db: &Database, mut f: F) where F: FnMut(&Database, String) {
     if let Some(window_ids) = db.get::<Vec<Uuid>>(intern("windows")) {
         for window_id in window_ids {
-            let window = db.get::<SerializedWindow>(&SerializedWindow::key(window_id)).unwrap();
-
-            for tab_id in window.tabs {
-                let key = SerializedTab::key(tab_id);
-                f(db, key);
-            }
+            f(db, latest::SerializedWindow::key(window_id));
         }
     }
 }
 
-fn migrate_tabs<Old, New>(db: &Database)
+fn migrate_tabs<Window, Old, New, F>(db: &Database, mut f: F)
+    where Window: DeserializeOwned,
+          Old: DeserializeOwned,
+          New: Serialize + From<Old>,
+          F: FnMut(&Window) -> &[Uuid] {
+    each_window(db, move |db, key| {
+        let window = db.get::<Window>(&key).unwrap();
+
+        for tab_id in f(&window) {
+            let key = latest::SerializedTab::key(*tab_id);
+            let tab = db.get::<Old>(&key).unwrap();
+            db.set::<New>(&key, &tab.into());
+        }
+    });
+}
+
+fn migrate_windows<Old, New>(db: &Database)
     where Old: DeserializeOwned,
           New: Serialize + From<Old> {
-    each_tab(db, move |db, key| {
-        let tab = db.get::<Old>(&key).unwrap();
-        db.set::<New>(&key, &tab.into());
+    each_window(db, move |db, key| {
+        let window = db.get::<Old>(&key).unwrap();
+        db.set::<New>(&key, &window.into());
     });
 }
 
 
 mod v1 {
+    use super::v2;
     use serde_derive::Deserialize;
     use uuid::Uuid;
-    use tab_organizer::state;
 
     #[derive(Deserialize)]
     pub struct Tag {
@@ -57,7 +65,15 @@ mod v1 {
         pub muted: bool,
     }
 
-    impl From<SerializedTab> for state::SerializedTab {
+    #[derive(Deserialize)]
+    pub struct SerializedWindow {
+        pub uuid: Uuid,
+        pub name: Option<String>,
+        pub timestamp_created: f64,
+        pub tabs: Vec<Uuid>,
+    }
+
+    impl From<SerializedTab> for v2::SerializedTab {
         fn from(input: SerializedTab) -> Self {
             let SerializedTab {
                 uuid,
@@ -74,7 +90,7 @@ mod v1 {
             Self {
                 uuid,
                 labels: tags.into_iter().map(|x| {
-                    state::Label {
+                    v2::Label {
                         name: x.name,
                         timestamp_added: x.timestamp_added,
                     }
@@ -89,15 +105,61 @@ mod v1 {
             }
         }
     }
+
+    pub(crate) fn migrate(db: &tab_organizer::Database) {
+        super::migrate_tabs::<SerializedWindow, SerializedTab, v2::SerializedTab, _>(db, |window| &window.tabs);
+    }
+}
+
+mod v2 {
+    use super::v3;
+
+    pub(crate) use v3::{SerializedTab, Label};
+    pub(crate) use super::v1::SerializedWindow;
+
+    impl From<SerializedWindow> for v3::SerializedWindow {
+        fn from(input: SerializedWindow) -> Self {
+            let SerializedWindow {
+                uuid,
+                name,
+                timestamp_created,
+                tabs,
+            } = input;
+
+            Self {
+                uuid,
+                name,
+                timestamp_created,
+                tabs,
+                options: v3::WindowOptions::new(),
+            }
+        }
+    }
+
+    pub(crate) fn migrate(db: &tab_organizer::Database) {
+        super::migrate_windows::<SerializedWindow, v3::SerializedWindow>(db);
+    }
+}
+
+mod v3 {
+    pub(crate) use tab_organizer::state::{SerializedTab, SerializedWindow, Label, WindowOptions};
 }
 
 
 pub(crate) fn migrate(db: &Database) {
-    let version = db.get_or_insert::<u32, _>(intern("version"), || LATEST_VERSION);
+    const LATEST_VERSION: u32 = 3;
+
+    let mut version = db.get_or_insert::<u32, _>(intern("version"), || LATEST_VERSION);
 
     if version != LATEST_VERSION {
-        if version == 1 {
-            migrate_tabs::<v1::SerializedTab, SerializedTab>(db);
+        while version < LATEST_VERSION {
+            match version {
+                1 => v1::migrate(db),
+                2 => v2::migrate(db),
+                _ => unreachable!(),
+            }
+
+            version += 1;
         }
 
         db.set(intern("version"), &LATEST_VERSION);

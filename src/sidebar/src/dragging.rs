@@ -417,10 +417,10 @@ impl State {
     }
 
     pub(crate) fn can_start_drag(&self) -> bool {
-        let sort_tabs = self.options.sort_tabs.lock_ref();
+        let sort_tabs = self.options.lock_ref().sort_tabs;
 
-        *sort_tabs == SortTabs::Window ||
-        *sort_tabs == SortTabs::Label
+        sort_tabs == SortTabs::Index ||
+        sort_tabs == SortTabs::Label
     }
 
     pub(crate) fn is_dragging(&self) -> impl Signal<Item = bool> {
