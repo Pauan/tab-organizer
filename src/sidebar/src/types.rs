@@ -497,7 +497,6 @@ pub(crate) struct Group {
     pub(crate) insert_animation: MutableAnimation,
     pub(crate) visible: Mutable<bool>,
 
-    pub(crate) matches_search: Mutable<bool>,
     pub(crate) last_selected_tab: Mutable<Option<Uuid>>,
 
     pub(crate) drag_over: MutableAnimation,
@@ -521,7 +520,6 @@ impl Group {
             insert_animation: MutableAnimation::new_with_initial(INSERT_ANIMATION_DURATION, Percentage::new(0.0)),
             visible: Mutable::new(false),
 
-            matches_search: Mutable::new(false),
             last_selected_tab: Mutable::new(None),
 
             drag_over: MutableAnimation::new(DRAG_ANIMATION_DURATION),

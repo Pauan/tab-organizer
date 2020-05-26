@@ -679,14 +679,20 @@ impl DatabaseFlusher {
 
             info!("Flushing {} changes took {} ms", len, end_flush - start_flush);
 
-            let mut lock = this.borrow_mut();
+            let should_flush = {
+                let mut lock = this.borrow_mut();
 
-            if lock.changes.is_empty() {
-                lock.waiting = false;
+                if lock.changes.is_empty() {
+                    lock.waiting = false;
+                    false
+
+                } else {
+                    true
+                }
+            };
 
             // More changes were queued while we were waiting
-            } else {
-                drop(lock);
+            if should_flush {
                 Self::flush(this);
             }
 
@@ -700,13 +706,21 @@ impl DatabaseFlusher {
     }
 
     fn push_changes(this: &Rc<RefCell<Self>>, changes: &mut Vec<Change>) {
-        let mut lock = this.borrow_mut();
+        let should_flush = {
+            let mut lock = this.borrow_mut();
 
-        lock.changes.append(changes);
+            lock.changes.append(changes);
 
-        if !lock.waiting {
-            lock.waiting = true;
-            drop(lock);
+            if !lock.waiting {
+                lock.waiting = true;
+                true
+
+            } else {
+                false
+            }
+        };
+
+        if should_flush {
             Self::flush(this.clone());
         }
     }

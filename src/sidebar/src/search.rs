@@ -30,13 +30,6 @@ named!(parse<CompleteStr, Parsed>,
 );*/
 
 
-impl Group {
-    pub(crate) fn set_matches_search(&self, matches: bool) {
-        self.matches_search.set_neq(matches);
-    }
-}
-
-
 impl Tab {
     pub(crate) fn set_matches_search(&self, matches: bool) {
         self.matches_search.set_neq(matches);
@@ -45,26 +38,13 @@ impl Tab {
 
 
 impl State {
-    pub(crate) fn update_group_search(group: &Group, tab_matches: bool) {
-        let group_matches = tab_matches || if group.matches_search.get() {
-            group.tabs.lock_ref().iter().any(|tab| tab.matches_search.get())
-
-        } else {
-            false
-        };
-
-        group.set_matches_search(group_matches);
-    }
-
-    pub(crate) fn search_tab(&self, group: &Group, tab: &Tab) {
+    pub(crate) fn search_tab(&self, tab: &Tab) {
         let tab_matches = {
             let search_parser = self.search_parser.lock_ref();
             search_parser.matches_tab(tab)
         };
 
         tab.set_matches_search(tab_matches);
-
-        Self::update_group_search(group, tab_matches);
     }
 }
 

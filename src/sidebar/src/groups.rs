@@ -348,7 +348,7 @@ fn create_new_tab(state: &State, group: &Group, tab: Arc<TabState>, should_anima
 
     // TODO is this correct ?
     if !is_initial {
-        state.search_tab(&group, &tab);
+        state.search_tab(&tab);
     }
 
     tab
@@ -393,33 +393,33 @@ fn remove_group<A>(groups: &mut A, group: &Group, should_animate: bool) where A:
 }
 
 fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, should_animate: bool) where A: Insertable<Arc<Group>> {
-    let mut tabs = group.tabs.lock_mut();
+    let len = {
+        let mut tabs = group.tabs.lock_mut();
 
-    let id = tab.id;
+        let id = tab.id;
 
-    // TODO make this more efficient ?
-    tabs.retain(|tab| {
-        if tab.id == id {
-            if should_animate {
-                tab.insert_animation.animate_to(Percentage::new(0.0));
+        // TODO make this more efficient ?
+        tabs.retain(|tab| {
+            if tab.id == id {
+                if should_animate {
+                    tab.insert_animation.animate_to(Percentage::new(0.0));
+
+                } else {
+                    tab.insert_animation.jump_to(Percentage::new(0.0));
+                }
+
+                false
 
             } else {
-                tab.insert_animation.jump_to(Percentage::new(0.0));
+                true
             }
+        });
 
-            false
+        tabs.len()
+    };
 
-        } else {
-            true
-        }
-    });
-
-    if tabs.len() == 0 {
+    if len == 0 {
         remove_group(groups, group, should_animate);
-
-    } else {
-        drop(tabs);
-        State::update_group_search(group, false);
     }
 }
 
@@ -457,7 +457,8 @@ fn tab_updated<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &m
             let new_index = sorted_tab_index(sort, &tabs_copy, &tab, tab_index, false);
 
             if old_index == new_index {
-                state.search_tab(&group, &old_tab);
+                drop(tabs);
+                state.search_tab(&old_tab);
 
             } else {
                 old_tab.insert_animation.animate_to(Percentage::new(0.0));

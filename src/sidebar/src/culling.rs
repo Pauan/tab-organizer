@@ -256,29 +256,24 @@ impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
 
     // TODO this must be kept in sync with render.rs
     // There is no offset, because the group list has `top: 1px` and the groups have `top: -1px` so it cancels out
-    fn height(&self) -> Option<(f64, f64)> {
-        if self.state.matches_search.get() {
-            let percentage = ease(self.insert_animation.unwrap());
-            let drag_over = ease(self.drag_over.unwrap());
+    fn height(&self) -> (f64, f64) {
+        let percentage = ease(self.insert_animation.unwrap());
+        let drag_over = ease(self.drag_over.unwrap());
 
-            Some((
-                // Height top
-                percentage.range_inclusive(0.0, GROUP_BORDER_WIDTH).round() +
-                percentage.range_inclusive(0.0, GROUP_PADDING_TOP).round() +
-                (if self.state.show_header {
-                    percentage.range_inclusive(0.0, GROUP_HEADER_HEIGHT).round()
-                } else {
-                    0.0
-                }),
+        (
+            // Height top
+            percentage.range_inclusive(0.0, GROUP_BORDER_WIDTH).round() +
+            percentage.range_inclusive(0.0, GROUP_PADDING_TOP).round() +
+            (if self.state.show_header {
+                percentage.range_inclusive(0.0, GROUP_HEADER_HEIGHT).round()
+            } else {
+                0.0
+            }),
 
-                // Height bottom
-                percentage.range_inclusive(0.0, GROUP_PADDING_BOTTOM).round() +
-                drag_over.range_inclusive(0.0, DRAG_GAP_PX).round()
-            ))
-
-        } else {
-            None
-        }
+            // Height bottom
+            percentage.range_inclusive(0.0, GROUP_PADDING_BOTTOM).round() +
+            drag_over.range_inclusive(0.0, DRAG_GAP_PX).round()
+        )
     }
 }
 
@@ -405,38 +400,35 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
+        let search_parser = self.search_parser.as_ref();
+
         for group in self.groups.values.iter() {
-            if should_search {
-                let search_parser = self.search_parser.as_ref();
+            let (top_height, bottom_height) = group.height();
 
-                let mut group_matches = false;
+            let old_height = current_height;
 
-                // TODO figure out a way to merge this with the other tabs loop
-                for tab in group.tabs.values.iter() {
+            let mut tabs_padding: Option<f64> = None;
+
+            current_height += top_height;
+
+            let tabs_height = current_height;
+
+            let mut group_matches_search = false;
+
+            // TODO what if there aren't any tabs in the group ?
+            for tab in group.tabs.values.iter() {
+                if should_search {
                     let tab_matches = search_parser.matches_tab(&tab.state);
 
                     tab.state.set_matches_search(tab_matches);
-
-                    if tab_matches {
-                        group_matches = true;
-                    }
                 }
 
-                group.state.set_matches_search(group_matches);
-            }
+                if tab.state.matches_search.get() {
+                    group_matches_search = true;
+                }
 
-            if let Some((top_height, bottom_height)) = group.height() {
-                let old_height = current_height;
-
-                let mut tabs_padding: Option<f64> = None;
-
-                current_height += top_height;
-
-                let tabs_height = current_height;
-
-                // TODO what if there aren't any tabs in the group ?
-                for tab in group.tabs.values.iter() {
-                    if let Some((offset, height)) = tab.height() {
+                if let Some((offset, height)) = tab.height() {
+                    if height > 0.0 {
                         let old_height = current_height;
 
                         current_height += height;
@@ -444,7 +436,7 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
                         let tab_top = old_height + offset;
                         let tab_bottom = current_height + offset;
 
-                        if tab_bottom > tab_top && tab_top < bottom_y && tab_bottom > top_y {
+                        if tab_top < bottom_y && tab_bottom > top_y {
                             if let None = tabs_padding {
                                 // This must not use the offset
                                 tabs_padding = Some(old_height - tabs_height);
@@ -459,14 +451,17 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
                     } else {
                         self.state.hide_tab(&tab.state);
                     }
-                }
 
+                } else {
+                    self.state.hide_tab(&tab.state);
+                }
+            }
+
+            if group_matches_search {
                 let tabs_height = current_height - tabs_height;
 
                 current_height += bottom_height;
 
-                // TODO what if the group has height but the tabs don't ?
-                // TODO what if the tabs have height but the group doesn't ?
                 if current_height > old_height && old_height < bottom_y && current_height > top_y {
                     if let None = padding {
                         padding = Some(old_height);
@@ -480,6 +475,7 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
                 }
 
             } else {
+                current_height -= top_height;
                 group.state.visible.set_neq(false);
             }
         }
