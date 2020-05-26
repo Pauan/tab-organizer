@@ -54,9 +54,11 @@ pub(crate) enum Parsed {
     True,
     Literal(Regex),
     And(Box<Parsed>, Box<Parsed>),
+    IsLoaded,
 }
 
 impl Parsed {
+    // TODO proper parser
     pub(crate) fn new(input: &str) -> Self {
         // TODO a bit hacky
         //parse(CompleteStr(input)).unwrap().1
@@ -64,11 +66,26 @@ impl Parsed {
         input.split(" ")
             .filter(|x| *x != "")
             .map(|x| {
-                Parsed::Literal(RegexBuilder::new(&escape(x))
-                    .case_insensitive(true)
-                    .unicode(false)
-                    .build()
-                    .unwrap())
+                // TODO make this faster
+                match x.splitn(2, ":").collect::<Vec<_>>().as_slice() {
+                    [x] => {
+                        Parsed::Literal(RegexBuilder::new(&escape(x))
+                            .case_insensitive(true)
+                            .unicode(false)
+                            .build()
+                            .unwrap())
+                    },
+                    [x, y] => {
+                        if *x == "is" && *y == "loaded" {
+                            Parsed::IsLoaded
+
+                        } else {
+                            // TODO error on invalid input
+                            Parsed::True
+                        }
+                    },
+                    _ => unreachable!(),
+                }
             })
             .fold(Parsed::True, |old, new| {
                 if let Parsed::True = old {
@@ -80,28 +97,30 @@ impl Parsed {
             })
     }
 
-    pub(crate) fn matches(&self, input: &str) -> bool {
+    pub(crate) fn matches_tab(&self, tab: &Tab) -> bool {
         match self {
             Parsed::True => true,
-            Parsed::Literal(regexp) => regexp.is_match(input),
-            Parsed::And(left, right) => left.matches(input) && right.matches(input),
+
+            Parsed::Literal(regexp) => {
+                let title = tab.title.lock_ref();
+                let url = tab.url.lock_ref();
+
+                // TODO make this more efficient ?
+                let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
+                let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
+
+                regexp.is_match(title) || regexp.is_match(url)
+            },
+
+            Parsed::And(left, right) => left.matches_tab(tab) && right.matches_tab(tab),
+
+            Parsed::IsLoaded => !tab.state.status.get().is_unloaded(),
         }
-    }
-
-    pub(crate) fn matches_tab(&self, tab: &Tab) -> bool {
-        let title = tab.title.lock_ref();
-        let url = tab.url.lock_ref();
-
-        // TODO make this more efficient ?
-        let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
-        let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
-
-        self.matches(title) || self.matches(url)
     }
 }
 
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     #[test]
     fn parse() {
@@ -121,4 +140,4 @@ mod tests {
         assert!(parsed.matches("Foo"));
         assert!(parsed.matches("bAR"));
     }
-}
+}*/
