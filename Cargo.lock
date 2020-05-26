@@ -297,6 +297,7 @@ dependencies = [
  "wasm-bindgen 0.2.59 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasm-bindgen-futures 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "web-extension 0.1.0",
+ "web-sys 0.3.36 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

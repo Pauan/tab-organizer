@@ -1,6 +1,6 @@
 use crate::types::{State, TabState, Group, Tab};
 use crate::url_bar::UrlBar;
-use tab_organizer::{str_default, round_to_hour, time, TimeDifference, StackVec};
+use tab_organizer::{str_default, round_to_day, time, TimeDifference, StackVec};
 use tab_organizer::state as shared;
 use tab_organizer::state::{SortTabs, Label};
 use tab_organizer::state::sidebar::TabChange;
@@ -84,7 +84,7 @@ fn get_group_index<F>(groups: &[Arc<Group>], mut f: F) -> Result<usize, usize> w
 
 fn get_timestamp_index(groups: &[Arc<Group>], timestamp: f64) -> Result<usize, usize> {
     groups.binary_search_by(|group: &Arc<Group>| {
-        group.timestamp.partial_cmp(&timestamp).unwrap().reverse()
+        group.timestamp.partial_cmp(&timestamp).unwrap()
     })
 }
 
@@ -102,7 +102,7 @@ fn get_unpinned_index(groups: &[Arc<Group>]) -> Result<usize, usize> {
 }
 
 fn generate_timestamp_title(timestamp: f64, current_time: f64) -> String {
-    TimeDifference::new(timestamp, round_to_hour(current_time)).pretty()
+    TimeDifference::new(timestamp, round_to_day(current_time)).pretty()
 }
 
 
@@ -179,7 +179,7 @@ fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &T
             },
 
             SortTabs::TimeFocused => StackVec::Single({
-                let timestamp = round_to_hour(tab.timestamp_focused());
+                let timestamp = round_to_day(tab.timestamp_focused());
 
                 let index = get_timestamp_index(groups, timestamp);
                 insert_group(groups, index, || {
@@ -189,7 +189,7 @@ fn sorted_groups<A>(sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: &T
             }),
 
             SortTabs::TimeCreated => StackVec::Single({
-                let timestamp = round_to_hour(tab.timestamp_created.get());
+                let timestamp = round_to_day(tab.timestamp_created.get());
 
                 let index = get_timestamp_index(groups, timestamp);
                 insert_group(groups, index, || {
@@ -272,7 +272,7 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
                 let timestamp = tab.timestamp_focused();
 
                 get_tab_index(tabs, |tab| {
-                    tab.timestamp_focused().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
+                    tab.timestamp_focused().partial_cmp(&timestamp).unwrap().then_with(|| {
                         tab.index.get().cmp(&tab_index)
                     })
                 })
@@ -282,7 +282,7 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
                 let timestamp = tab.timestamp_created.get();
 
                 get_tab_index(tabs, |tab| {
-                    tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().reverse().then_with(|| {
+                    tab.timestamp_created.get().partial_cmp(&timestamp).unwrap().then_with(|| {
                         tab.index.get().cmp(&tab_index)
                     })
                 })

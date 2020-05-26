@@ -57,9 +57,10 @@ impl State {
     }
 
     pub(crate) fn search_tab(&self, group: &Group, tab: &Tab) {
-        let search_parser = self.search_parser.lock_ref();
-
-        let tab_matches = search_parser.matches_tab(tab);
+        let tab_matches = {
+            let search_parser = self.search_parser.lock_ref();
+            search_parser.matches_tab(tab)
+        };
 
         tab.set_matches_search(tab_matches);
 

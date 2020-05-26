@@ -26,7 +26,7 @@ use web_extension::browser;
 
 // The logging is written in JS so it will keep working even if Rust/Wasm fails
 #[wasm_bindgen(inline_js = "
-    var max_messages = 100;
+    var max_messages = 1000;
 
     var logs = [];
 
@@ -792,14 +792,17 @@ impl Database {
         async move {
             let db = fut.await?;
             let db: Object = db.unchecked_into();
+            Ok(Self::new_from_object(db))
+        }
+    }
 
-            let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
+    pub fn new_from_object(db: Object) -> Self {
+        let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
 
-            Ok(Self {
-                db,
-                state: TransactionState::new(flusher.clone(), false),
-                flusher,
-            })
+        Self {
+            db,
+            state: TransactionState::new(flusher.clone(), false),
+            flusher,
         }
     }
 
@@ -1177,6 +1180,17 @@ pub fn round_to_hour(time: f64) -> f64 {
 }
 
 
+pub fn round_to_day(time: f64) -> f64 {
+    // TODO direct f64 bindings for Date
+    let t = Date::new(&JsValue::from(time));
+    t.set_utc_hours(0);
+    t.set_utc_minutes(0);
+    t.set_utc_seconds(0);
+    t.set_utc_milliseconds(0);
+    t.get_time()
+}
+
+
 pub struct TimeDifference {
     pub years: f64,
     pub weeks: f64,
@@ -1240,7 +1254,8 @@ impl TimeDifference {
            self.weeks == 0.0 &&
            self.days == 0.0 &&
            self.hours == 0.0 {
-            "Less than an hour ago".to_string()
+            "Today".to_string()
+            //"Less than an hour ago".to_string()
 
         } else {
             let mut output = vec![];

@@ -2,6 +2,7 @@
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::{intern, JsCast};
 use std::rc::Rc;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -10,13 +11,12 @@ use uuid::Uuid;
 use futures::{try_join, FutureExt};
 use futures::future::try_join_all;
 use futures::stream::{Stream, StreamExt, TryStreamExt};
-use wasm_bindgen::intern;
 use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
 use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
-use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, sidebar, options};
+use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
 
@@ -440,7 +440,7 @@ impl State {
             }))
     }
 
-    fn new_tab(&mut self, timestamp_created: f64, uuid: Uuid, tab: &browser::TabState) -> TabCreated {
+    fn new_tab(&mut self, transfer_tags: bool, timestamp_created: f64, uuid: Uuid, tab: &browser::TabState) -> TabCreated {
         let key = SerializedTab::key(uuid);
 
         let mut is_new = false;
@@ -453,6 +453,26 @@ impl State {
         // TODO send ServerMessage::TabFocused ?
         let changed = serialized.initialize(&tab, timestamp_created);
         let mut changes = serialized.update(&tab);
+
+        if is_new && transfer_tags {
+            // Transfer labels from the opener tab
+            if let Some(opener) = tab.opener_id.map(|id| self.tab_ids.get_mut(&id).unwrap()) {
+                for label in opener.serialized.labels.iter() {
+                    let has_label = serialized.labels.iter().any(|x| x.name == label.name);
+
+                    if !has_label {
+                        let label = Label {
+                            name: label.name.clone(),
+                            timestamp_added: timestamp_created,
+                        };
+
+                        serialized.labels.push(label.clone());
+
+                        changes.push(sidebar::TabChange::AddedToLabel { label });
+                    }
+                }
+            }
+        }
 
         if changed || !changes.is_empty() {
             self.db.set(&key, &serialized);
@@ -473,11 +493,11 @@ impl State {
         }
     }
 
-    fn new_window(&mut self, timestamp_created: f64, uuid: Uuid, id: Id, focused: bool, tabs: &[AsyncTab]) -> Uuid {
+    fn new_window(&mut self, transfer_tags: bool, timestamp_created: f64, uuid: Uuid, id: Id, focused: bool, tabs: &[AsyncTab]) -> Uuid {
         let mut focused_tab = None;
 
         let tabs: Vec<Uuid> = tabs.into_iter().map(|(uuid, tab)| {
-            let info = self.new_tab(timestamp_created, *uuid, tab);
+            let info = self.new_tab(transfer_tags, timestamp_created, *uuid, tab);
 
             if info.focused {
                 assert_eq!(focused_tab, None);
@@ -525,7 +545,7 @@ impl State {
             // Filters out None
             .filter_map(|x| {
                 if let Some((uuid, id, focused, tabs)) = x {
-                    self.new_window(timestamp_created, uuid, id, focused, &tabs);
+                    self.new_window(false, timestamp_created, uuid, id, focused, &tabs);
                     Some(uuid)
 
                 } else {
@@ -1128,6 +1148,30 @@ pub async fn main_js() -> Result<(), JsValue> {
                         Ok(())
                     });
                 },
+
+                options::ClientMessage::Import { data } => {
+                    let json = js_sys::JSON::parse(&data)
+                        .unwrap()
+                        .dyn_into::<js_sys::Object>()
+                        .unwrap();
+
+                    let db = Database::new_from_object(json);
+
+                    let mut tabs = vec![];
+
+                    let windows = db.get::<Vec<Uuid>>("windows").unwrap();
+
+                    for id in windows {
+                        let window = db.get::<SerializedWindow>(&SerializedWindow::key(id)).unwrap();
+
+                        for id in window.tabs {
+                            let tab = db.get::<SerializedTab>(&SerializedTab::key(id)).unwrap();
+                            tabs.push(tab);
+                        }
+                    }
+
+                    port.send_message(&options::ServerMessage::Imported { tabs });
+                },
             }
 
             Ok(())
@@ -1176,7 +1220,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     if let Some((uuid, tabs)) = uuid.await? {
                         let mut state = state.borrow_mut();
 
-                        let uuid = state.new_window(timestamp, uuid, window.id, window.focused, &tabs);
+                        let uuid = state.new_window(true, timestamp, uuid, window.id, window.focused, &tabs);
 
                         let mut window_ids: Vec<Uuid> = state.db.get_or_insert(intern("windows"), || vec![]);
 
@@ -1260,7 +1304,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                             if state.window_ids.contains_key(&window_id) {
                                 state.insert_tab_uuid(uuid, tab.id);
 
-                                let info = state.new_tab(timestamp, uuid, &tab);
+                                let info = state.new_tab(true, timestamp, uuid, &tab);
 
                                 let browser_window = state.window_ids.get_mut(&window_id).unwrap();
                                 let browser_tab = state.tab_ids.get(&tab.id).unwrap();

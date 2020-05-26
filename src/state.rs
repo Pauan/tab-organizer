@@ -118,12 +118,16 @@ pub mod sidebar {
 
 pub mod options {
     use serde_derive::{Serialize, Deserialize};
+    use super::SerializedTab;
 
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(tag = "type")]
     pub enum ClientMessage {
         Initialize,
+        Import {
+            data: String,
+        },
         Export,
     }
 
@@ -132,6 +136,9 @@ pub mod options {
     pub enum ServerMessage {
         Initial,
         ExportFinished,
+        Imported {
+            tabs: Vec<SerializedTab>,
+        },
     }
 }
 
@@ -239,33 +246,22 @@ impl SerializedTab {
         }).unwrap_or(true)
     }
 
-    // TODO hack needed because Firefox doesn't provide favicon URLs for built-in pages
-    fn get_favicon(favicon: Option<&str>, url: Option<&str>) -> Option<String> {
+    // TODO hack needed because Firefox doesn't provide favicon URLs for some built-in pages
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1462948
+    fn get_favicon(favicon: Option<&str>) -> Option<String> {
         lazy_static! {
             static ref FAVICONS: HashMap<&'static str, &'static str> = vec![
-                // "chrome://branding/content/icon32.png"
-                ("about:blank", "favicons/icon32.png"),
-                ("about:newtab", "favicons/icon32.png"),
-                ("about:home", "favicons/icon32.png"),
-                ("about:welcome", "favicons/icon32.png"),
-
-                // "chrome://browser/skin/privatebrowsing/favicon.svg"
-                ("about:privatebrowsing", "favicons/privatebrowsing.svg"),
+                ("chrome://mozapps/skin/extensions/extension.svg", "favicons/extension.svg"),
+                ("chrome://devtools/skin/images/profiler-stopwatch.svg", "favicons/profiler-stopwatch.svg"),
             ].into_iter().collect();
         }
 
-        let favicon = favicon.map(|favicon| {
-            // https://bugzilla.mozilla.org/show_bug.cgi?id=1462948
-            if favicon == "chrome://mozapps/skin/extensions/extensionGeneric-16.svg" {
-                "favicons/extensionGeneric-16.svg"
+        let favicon = favicon?;
 
-            } else {
-                favicon
-            }
-        }).or_else(|| {
-            let favicon = FAVICONS.get(url?)?;
-            Some(favicon)
-        })?;
+        let favicon = match FAVICONS.get(favicon) {
+            Some(favicon) => favicon,
+            None => favicon,
+        };
 
         Some(favicon.to_owned())
     }
@@ -273,11 +269,15 @@ impl SerializedTab {
     pub fn update(&mut self, tab: &browser::TabState) -> Vec<sidebar::TabChange> {
         let mut changes = vec![];
 
-        let favicon_url = Self::get_favicon(tab.favicon_url.as_deref(), tab.url.as_deref());
+        let favicon_url = Self::get_favicon(tab.favicon_url.as_deref());
 
         if self.favicon_url != favicon_url {
-            self.favicon_url = favicon_url;
-            changes.push(sidebar::TabChange::FaviconUrl { new_favicon_url: self.favicon_url.clone() });
+            // TOOD update the favicon URL when the tab's status changes
+            // This is needed to fix the favicon for about:blank
+            if self.url != tab.url || favicon_url.is_some() {
+                self.favicon_url = favicon_url;
+                changes.push(sidebar::TabChange::FaviconUrl { new_favicon_url: self.favicon_url.clone() });
+            }
         }
 
         if self.url != tab.url {

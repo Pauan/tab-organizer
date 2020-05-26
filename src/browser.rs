@@ -129,6 +129,7 @@ impl TabAudio {
 #[derive(Debug)]
 pub struct TabState {
     pub id: Id,
+    pub opener_id: Option<Id>,
     pub focused: bool,
     pub pinned: bool,
     pub has_attention: bool,
@@ -149,9 +150,10 @@ impl TabState {
         }
     }
 
-    fn new(id: Id, browser_tab: &web_extension::Tab) -> Self {
+    fn new(id: Id, opener_id: Option<Id>, browser_tab: &web_extension::Tab) -> Self {
         Self {
             id,
+            opener_id,
             focused: browser_tab.active(),
             pinned: browser_tab.pinned(),
             has_attention: browser_tab.attention().unwrap_or(false),
@@ -289,8 +291,17 @@ struct BrowserState {
 }
 
 impl BrowserState {
+    fn opener_id(&self, browser_tab: &web_extension::Tab) -> Option<Id> {
+        browser_tab.opener_tab_id().and_then(|id| {
+            // TODO use unwrap ?
+            self.tabs.get_key(id)
+        })
+    }
+
     fn new_tab(&mut self, browser_tab: &web_extension::Tab) -> TabState {
         let id = Id::new();
+
+        let opener_id = self.opener_id(browser_tab);
 
         let tab_id = browser_tab.id().unwrap();
 
@@ -300,7 +311,7 @@ impl BrowserState {
             detached: None
         });
 
-        TabState::new(id, browser_tab)
+        TabState::new(id, opener_id, browser_tab)
     }
 
     fn new_window(&mut self, browser_window: &web_extension::Window) -> WindowState {
@@ -325,9 +336,11 @@ impl BrowserState {
             let tab_id = browser_tab.id().unwrap();
 
             if let Some(id) = self.tabs.get_key(tab_id) {
+                let opener_id = self.opener_id(browser_tab);
+
                 Some(BrowserChange::TabUpdated {
                     timestamp,
-                    tab: TabState::new(id, &browser_tab),
+                    tab: TabState::new(id, opener_id, &browser_tab),
                     window_id,
                 })
 

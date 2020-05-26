@@ -2,10 +2,11 @@
 
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use dominator::{Dom, clone, html, events};
+use dominator::{Dom, clone, html, events, with_node};
 use tab_organizer::{log, info, connect, panic_hook, set_print_logs, Port};
-use tab_organizer::state::options;
-use futures_signals::signal::Mutable;
+use tab_organizer::state::{options, SerializedTab};
+use web_sys::HtmlTextAreaElement;
+use futures_signals::signal::{Mutable, SignalExt};
 use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
 
@@ -14,6 +15,7 @@ use futures::stream::{StreamExt, TryStreamExt};
 struct State {
     port: Rc<Port<options::ClientMessage, options::ServerMessage>>,
     loading: Mutable<bool>,
+    tabs: Mutable<Vec<SerializedTab>>,
 }
 
 impl State {
@@ -21,6 +23,7 @@ impl State {
         Rc::new(Self {
             port,
             loading: Mutable::new(false),
+            tabs: Mutable::new(vec![]),
         })
     }
 
@@ -78,6 +81,27 @@ impl State {
                     state.loading.set_neq(true);
                     state.port.send_message(&options::ClientMessage::Export);
                 })),
+
+                html!("textarea" => HtmlTextAreaElement, {
+                    .with_node!(element => {
+                        .event(clone!(state => move |_: events::Change| {
+                            state.port.send_message(&options::ClientMessage::Import { data: element.value() });
+                        }))
+                    })
+                }),
+
+                html!("div", {
+                    .style("overflow", "auto")
+                    .style("height", "500px")
+
+                    .children_signal_vec(state.tabs.signal_ref(|tabs| {
+                        tabs.into_iter().map(|tab| {
+                            html!("div", {
+                                .text(&tab.url.as_deref().unwrap_or(""))
+                            })
+                        }).collect()
+                    }).to_signal_vec())
+                })
             ])
         })
     }
@@ -115,6 +139,10 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                     options::ServerMessage::ExportFinished => {
                         state.as_ref().unwrap().loading.set_neq(false);
+                    },
+
+                    options::ServerMessage::Imported { tabs } => {
+                        state.as_ref().unwrap().tabs.set(tabs);
                     },
                 }
 
