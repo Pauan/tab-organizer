@@ -148,6 +148,7 @@ struct CulledTab {
     dragging: MutableSink<MutableSignal<bool>>,
     manually_closed: MutableSink<MutableSignal<bool>>,
     insert_animation: MutableSink<MutableAnimationSignal>,
+    matches_search: MutableSink<MutableSignal<bool>>,
 }
 
 impl CulledTab {
@@ -157,20 +158,30 @@ impl CulledTab {
             dragging: MutableSink::new(state.dragging.signal()),
             manually_closed: MutableSink::new(state.manually_closed.signal()),
             insert_animation: MutableSink::new(state.insert_animation.signal()),
+            matches_search: MutableSink::new(state.matches_search.signal()),
             state,
         }
     }
 
-    fn is_changed(&mut self, cx: &mut Context) -> bool {
+    fn is_changed(&mut self, cx: &mut Context, should_search: Option<&Arc<search::Parsed>>) -> bool {
+        // This must be at the top
+        if let Some(parser) = should_search {
+            let tab_matches = parser.matches_tab(&self.state);
+
+            self.state.set_matches_search(tab_matches);
+        }
+
         let drag_over = self.drag_over.is_changed(cx);
         let dragging = self.dragging.is_changed(cx);
         let manually_closed = self.manually_closed.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
+        let matches_search = self.matches_search.is_changed(cx);
 
         drag_over ||
         dragging ||
         manually_closed ||
-        insert_animation
+        insert_animation ||
+        matches_search
     }
 
     // TODO this must be kept in sync with render.rs
@@ -199,8 +210,7 @@ impl CulledTab {
 
     // TODO this must be kept in sync with render.rs
     fn height(&self) -> Option<(f64, f64)> {
-        // TODO make matches_search a MutableSink ?
-        if self.state.matches_search.get() && !self.dragging.unwrap() && !self.manually_closed.unwrap() {
+        if self.matches_search.unwrap() && !self.dragging.unwrap() && !self.manually_closed.unwrap() {
             let percentage = ease(self.insert_animation.unwrap());
 
             let border = percentage.range_inclusive(0.0, TAB_BORDER_WIDTH).round();
@@ -244,8 +254,8 @@ fn culled_group(state: Arc<Group>) -> CulledGroup<impl SignalVec<Item = CulledTa
 }
 
 impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
-    fn is_changed(&mut self, cx: &mut Context) -> bool {
-        let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx));
+    fn is_changed(&mut self, cx: &mut Context, should_search: Option<&Arc<search::Parsed>>) -> bool {
+        let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx, should_search));
         let drag_over = self.drag_over.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
 
@@ -297,8 +307,9 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
           E: SignalVec<Item = CulledTab> + Unpin,
           F: Signal<Item = SortTabs> + Unpin {
 
-    fn is_changed(&mut self, cx: &mut Context) -> (bool, bool) {
+    fn is_changed(&mut self, cx: &mut Context) -> bool {
         let sort_tabs = self.sort_tabs.is_changed(cx);
+        let search_parser = self.search_parser.is_changed(cx);
 
         // This must be before groups
         // TODO is it guaranteed that groups will synchronously update ?
@@ -314,28 +325,29 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
             }
         }
 
-        let pinned = self.pinned.is_changed(cx);
-        let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx));
+        // TODO maybe it doesn't need to search if sort_tabs is true ?
+        let should_search = if search_parser || sort_tabs {
+            Some(self.search_parser.as_ref())
+
+        } else {
+            None
+        };
+
+        let pinned = self.pinned.is_changed(cx, should_search);
+        let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx, should_search));
         let scroll_y = self.scroll_y.is_changed(cx);
         let window_size = self.window_size.is_changed(cx);
 
-        let search_parser = self.search_parser.is_changed(cx);
-
-        (
-            pinned ||
-            groups ||
-            scroll_y ||
-            window_size,
-
-            search_parser ||
-            sort_tabs
-        )
+        pinned ||
+        groups ||
+        scroll_y ||
+        window_size
     }
 
     // TODO debounce this ?
     // TODO make this simpler somehow ?
     // TODO add in stuff to handle tab dragging
-    fn update(&mut self, should_search: bool) {
+    fn update(&mut self) {
         let window_size = self.window_size.unwrap();
 
         // TODO take into account the animations ?
@@ -400,8 +412,6 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
         let mut padding: Option<f64> = None;
         let mut current_height: f64 = 0.0;
 
-        let search_parser = self.search_parser.as_ref();
-
         for group in self.groups.values.iter() {
             let (top_height, bottom_height) = group.height();
 
@@ -417,13 +427,7 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
 
             // TODO what if there aren't any tabs in the group ?
             for tab in group.tabs.values.iter() {
-                if should_search {
-                    let tab_matches = search_parser.matches_tab(&tab.state);
-
-                    tab.state.set_matches_search(tab_matches);
-                }
-
-                if tab.state.matches_search.get() {
+                if tab.matches_search.unwrap() {
                     group_matches_search = true;
                 }
 
@@ -499,10 +503,10 @@ impl<A, B, C, D, E, F> Future for Culler<A, C, D, E, F>
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         //time!("Culling", {
-            let (changed, should_search) = self.is_changed(cx);
+            let changed = self.is_changed(cx);
 
-            if changed || should_search {
-                self.update(should_search);
+            if changed {
+                self.update();
             }
         //});
 
