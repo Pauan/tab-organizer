@@ -15,7 +15,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
+use tab_organizer::{fallible_promise, spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -577,7 +577,7 @@ impl State {
                         let fut = future(id);
 
                         async move {
-                            let _ = JsFuture::from(fut).await?;
+                            let _ = fallible_promise(fut).await;
                             Ok(()) as Result<(), JsValue>
                         }
                     })
@@ -715,7 +715,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                     // TODO should this spawn ?
                     spawn(async {
-                        JsFuture::from(fut).await?;
+                        let _ = fallible_promise(fut).await;
                         Ok(())
                     });
                 }
@@ -1044,7 +1044,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                         // TODO should this spawn ?
                         spawn(async {
-                            JsFuture::from(fut).await?;
+                            let _ = fallible_promise(fut).await;
                             Ok(())
                         });
                     }

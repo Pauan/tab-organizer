@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use serde_derive::{Serialize, Deserialize};
 use futures::channel::mpsc;
 use futures::stream::Stream;
-use futures::{try_join, FutureExt};
+use futures::{join, FutureExt};
 use std::future::Future;
 use dominator::clone;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use web_extension::browser;
-use super::{Listener, deserialize, serialize, object, array, generate_uuid, warn};
+use super::{Listener, deserialize, serialize, object, array, generate_uuid, warn, fallible_promise};
 use super::state::TabStatus;
 
 
@@ -70,25 +70,34 @@ impl<A> Mapping<A> where A: std::fmt::Debug {
 }
 
 
-fn get_uuid(fut: Promise) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+enum GetError {
+    TabClosed,
+}
+
+fn get_uuid(fut: Promise) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
     async move {
-        let id = JsFuture::from(fut).await?;
+        match fallible_promise(fut).await {
+            Some(id) => {
+                // TODO better implementation of this ?
+                if id.is_undefined() {
+                    Ok(None)
 
-        // TODO better implementation of this ?
-        if id.is_undefined() {
-            Ok(None)
-
-        } else {
-            Ok(Some(deserialize(&id)))
+                } else {
+                    Ok(Some(deserialize(&id)))
+                }
+            },
+            None => Err(GetError::TabClosed),
         }
     }
 }
 
 fn set_uuid(fut: Promise) -> impl Future<Output = Result<(), JsValue>> {
     async move {
-        let value = JsFuture::from(fut).await?;
+        let value = fallible_promise(fut).await;
 
-        assert!(value.is_undefined());
+        if let Some(value) = value {
+            assert!(value.is_undefined());
+        }
 
         Ok(())
     }
@@ -199,7 +208,7 @@ pub struct Tab {
 }
 
 impl Tab {
-    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
         get_uuid(browser.sessions().get_tab_value(self.tab_id, intern("id")))
     }
 
@@ -233,7 +242,7 @@ impl Tab {
         });
 
         async move {
-            let _ = try_join!(JsFuture::from(fut1), JsFuture::from(fut2))?;
+            let _ = join!(fallible_promise(fut1), fallible_promise(fut2));
             Ok(())
         }
     }
@@ -246,7 +255,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
         get_uuid(browser.sessions().get_window_value(self.window_id, intern("id")))
     }
 
@@ -272,7 +281,7 @@ impl Window {
         });
 
         async move {
-            let _ = JsFuture::from(fut).await?;
+            let _ = fallible_promise(fut).await;
             Ok(())
         }
     }
@@ -330,7 +339,22 @@ impl BrowserState {
         WindowState::new(id, tabs, browser_window)
     }
 
-    fn create_or_update_tab(&mut self, timestamp: f64, browser_tab: &web_extension::Tab) -> Option<BrowserChange> {
+    fn create_tab(&mut self, timestamp: f64, browser_tab: &web_extension::Tab) -> Option<BrowserChange> {
+        // If the tab is in a normal window
+        if let Some(window_id) = self.windows.get_key(browser_tab.window_id()) {
+            Some(BrowserChange::TabCreated {
+                timestamp,
+                tab: self.new_tab(&browser_tab),
+                window_id,
+                index: browser_tab.index(),
+            })
+
+        } else {
+            None
+        }
+    }
+
+    fn update_tab(&mut self, timestamp: f64, browser_tab: &web_extension::Tab) -> Option<BrowserChange> {
         // If the tab is in a normal window
         if let Some(window_id) = self.windows.get_key(browser_tab.window_id()) {
             let tab_id = browser_tab.id().unwrap();
@@ -345,12 +369,8 @@ impl BrowserState {
                 })
 
             } else {
-                Some(BrowserChange::TabCreated {
-                    timestamp,
-                    tab: self.new_tab(&browser_tab),
-                    window_id,
-                    index: browser_tab.index(),
-                })
+                // Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1641440
+                None
             }
 
         } else {
@@ -384,7 +404,7 @@ impl Browser {
     }
 
     fn get_uuid<GF, G, SF, S>(&self, get: G, set: S) -> impl Future<Output = Result<Option<Uuid>, JsValue>>
-        where GF: Future<Output = Result<Option<Uuid>, JsValue>> + 'static,
+        where GF: Future<Output = Result<Option<Uuid>, GetError>> + 'static,
               G: FnOnce(&BrowserState) -> Option<GF>,
               SF: Future<Output = Result<Uuid, JsValue>>,
               S: FnOnce(&BrowserState) -> Option<SF> + 'static {
@@ -404,18 +424,25 @@ impl Browser {
             }*/
 
             async move {
-                if let Some(uuid) = fut.await? {
-                    Ok(Some(uuid))
+                match fut.await {
+                    Ok(uuid) => {
+                        if let Some(uuid) = uuid {
+                            Ok(Some(uuid))
 
-                } else {
-                    let fut = set(&state.borrow());
+                        } else {
+                            let fut = set(&state.borrow());
 
-                    if let Some(fut) = fut {
-                        Ok(Some(fut.await?))
+                            if let Some(fut) = fut {
+                                Ok(Some(fut.await?))
 
-                    } else {
+                            } else {
+                                Ok(None)
+                            }
+                        }
+                    },
+                    Err(_) => {
                         Ok(None)
-                    }
+                    },
                 }
             }
         });
@@ -553,7 +580,7 @@ impl Browser {
 
             _tab_created: Listener::new(browser.tabs().on_created(), Closure::new(clone!(sender, state => move |tab: web_extension::Tab| {
                 let timestamp = Date::now();
-                let message = state.borrow_mut().create_or_update_tab(timestamp, &tab);
+                let message = state.borrow_mut().create_tab(timestamp, &tab);
 
                 if let Some(message) = message {
                     sender.unbounded_send(message).unwrap();
@@ -562,7 +589,7 @@ impl Browser {
 
             _tab_updated: Listener::new(browser.tabs().on_updated(), Closure::new(clone!(sender, state => move |_tab_id: i32, _change_info: JsValue, tab: web_extension::Tab| {
                 let timestamp = Date::now();
-                let message = state.borrow_mut().create_or_update_tab(timestamp, &tab);
+                let message = state.borrow_mut().update_tab(timestamp, &tab);
 
                 if let Some(message) = message {
                     sender.unbounded_send(message).unwrap();

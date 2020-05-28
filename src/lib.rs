@@ -97,6 +97,19 @@ pub fn download(filename: &str, value: &str) -> impl Future<Output = Result<(), 
 }
 
 
+pub fn fallible_promise(promise: js_sys::Promise) -> impl Future<Output = Option<JsValue>> {
+    async move {
+        match JsFuture::from(promise).await {
+            Ok(value) => Some(value),
+            Err(error) => {
+                print_error(&error);
+                None
+            },
+        }
+    }
+}
+
+
 pub mod state;
 pub mod browser;
 
@@ -430,13 +443,17 @@ macro_rules! closure {
 }
 
 
+// TODO better logging of the error
+fn print_error(e: &JsValue) {
+    web_sys::console::error_1(&JsValue::from(error_message(&e)));
+}
+
+
 pub fn unwrap_future<F>(future: F) -> impl Future<Output = ()>
     where F: Future<Output = Result<(), JsValue>> {
     async {
         if let Err(e) = future.await {
-            // TODO better logging of the error
-            //wasm_bindgen::throw_val(e);
-            web_sys::console::error_1(&JsValue::from(error_message(&e)));
+            print_error(&e);
         }
     }
 }
