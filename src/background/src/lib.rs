@@ -715,6 +715,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                     // TODO should this spawn ?
                     spawn(async {
+                        // TODO maybe remove each tab individually, so a single error doesn't break everything
                         let _ = fallible_promise(fut).await;
                         Ok(())
                     });

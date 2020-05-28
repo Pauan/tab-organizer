@@ -102,7 +102,7 @@ pub fn fallible_promise(promise: js_sys::Promise) -> impl Future<Output = Option
         match JsFuture::from(promise).await {
             Ok(value) => Some(value),
             Err(error) => {
-                print_error(&error);
+                crate::error(crate::pretty_time(), std::file!(), std::line!(), std::format!("Promise failed"), error.into());
                 None
             },
         }
