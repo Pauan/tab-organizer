@@ -10,25 +10,25 @@ export default {
         options: "src/options/Cargo.toml",
     },
     output: {
-        dir: "dist",
+        dir: "static/js",
         format: "esm",
         sourcemap: true,
         // TODO source map URL is missing the js/
-        entryFileNames: "js/[name].js",
+        //entryFileNames: "js/[name].js",
     },
     plugins: [
         rust({
-            outDir: "js",
+            //outDir: "static/js",
             importHook: function (path) {
                 return "browser.runtime.getURL(" + JSON.stringify(path) + ")";
             },
         }),
         //terser(),
-        copy({
+        /*copy({
             assets: ["static"],
         }),
         zip({
             file: "tab-organizer.zip",
-        }),
+        }),*/
     ],
 };

@@ -15,12 +15,15 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{fallible_promise, spawn, log, info, object, serialize, deserialize_str, serialize_str, Listener, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
+use tab_organizer::{fallible_promise, spawn, log, info, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
 
 mod migrate;
+
+
+const POPUP: bool = true;
 
 
 fn merge_ids(ids: &mut Vec<Uuid>, new_ids: &[Uuid]) -> bool {
@@ -493,6 +496,10 @@ impl State {
         }
     }
 
+    fn sidebar_url(id: Id) -> String {
+        format!("sidebar.html?{}", serialize_str(&id))
+    }
+
     fn new_window(&mut self, transfer_tags: bool, timestamp_created: f64, uuid: Uuid, id: Id, focused: bool, tabs: &[AsyncTab]) -> Uuid {
         let mut focused_tab = None;
 
@@ -534,7 +541,7 @@ impl State {
         }
 
         // This uses spawn so it doesn't block the rest of the messages
-        spawn(self.browser.set_sidebar(id, &format!("sidebar.html?{}", serialize_str(&id))));
+        spawn(self.browser.set_sidebar(id, &Self::sidebar_url(id)));
 
         uuid
     }
@@ -656,16 +663,6 @@ pub async fn main_js() -> Result<(), JsValue> {
     log!("Starting");
 
 
-    Listener::new(web_extension::browser.browser_action().on_clicked(), Closure::wrap(Box::new(move |_: JsValue| {
-        let fut = web_extension::browser.sidebar_action().open();
-
-        spawn(async move {
-            let _ = JsFuture::from(fut).await?;
-            Ok(())
-        });
-    }) as Box<dyn FnMut(JsValue)>)).forget();
-
-
     let sidebar_messages = on_connect::<sidebar::ServerMessage, sidebar::ClientMessage>("sidebar");
     let options_messages = on_connect::<options::ServerMessage, options::ClientMessage>("options");
 
@@ -699,6 +696,30 @@ pub async fn main_js() -> Result<(), JsValue> {
 
     let state = State::new(db, browser, timestamp_created, browser_windows).await?;
 
+
+    fn listen_to_browser_action(state: Rc<RefCell<State>>) {
+        let state: &mut State = &mut state.borrow_mut();
+
+        spawn(state.browser.browser_action_clicked()
+            .map(|x| -> Result<Id, JsValue> { Ok(x) })
+            .try_for_each_concurrent(None, move |window_id| {
+                let fut = if POPUP {
+                    web_extension::browser.windows().create(&object! {
+                        "focused": true,
+                        "type": "panel",
+                        "url": State::sidebar_url(window_id),
+                    })
+
+                } else {
+                    web_extension::browser.sidebar_action().open()
+                };
+
+                async move {
+                    let _ = JsFuture::from(fut).await?;
+                    Ok(())
+                }
+            }));
+    }
 
     fn listen_to_sidebar(state: Rc<RefCell<State>>, sidebar_messages: impl Stream<Item = Port<sidebar::ServerMessage, sidebar::ClientMessage>> + 'static) {
         async fn on_message(
@@ -1556,6 +1577,7 @@ pub async fn main_js() -> Result<(), JsValue> {
     }
 
 
+    listen_to_browser_action(state.clone());
     listen_to_sidebar(state.clone(), sidebar_messages);
     listen_to_options(state.clone(), options_messages);
     listen_to_changes(state, browser_changes);

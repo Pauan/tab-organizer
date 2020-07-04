@@ -533,6 +533,23 @@ impl Browser {
         }
     }
 
+    pub fn browser_action_clicked(&self) -> impl Stream<Item = Id> {
+        let (sender, receiver) = mpsc::unbounded();
+
+        let state = self.state.clone();
+
+        BrowserActionClicked {
+            _listener: Listener::new(browser.browser_action().on_clicked(), Closure::new(move |tab: web_extension::Tab| {
+                let window_id = tab.window_id();
+
+                if let Some(window_id) = state.borrow().windows.get_key(window_id) {
+                    sender.unbounded_send(window_id).unwrap();
+                }
+            })),
+            receiver,
+        }
+    }
+
     pub fn changes(&self) -> impl Stream<Item = BrowserChange> {
         let (sender, receiver) = mpsc::unbounded();
 
@@ -815,6 +832,21 @@ struct BrowserChanges {
 
 impl Stream for BrowserChanges {
     type Item = BrowserChange;
+
+    #[inline]
+    fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
+    }
+}
+
+
+struct BrowserActionClicked {
+    _listener: Listener<dyn FnMut(web_extension::Tab)>,
+    receiver: mpsc::UnboundedReceiver<Id>,
+}
+
+impl Stream for BrowserActionClicked {
+    type Item = Id;
 
     #[inline]
     fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {

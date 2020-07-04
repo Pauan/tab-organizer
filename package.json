@@ -3,7 +3,7 @@
   "name": "tab-organizer",
   "version": "5.0.0-beta",
   "scripts": {
-    "build": "rimraf dist && rollup --config"
+    "build": "rimraf static/js && rollup --config"
   },
   "devDependencies": {
     "@wasm-tool/rollup-plugin-rust": "^1.0.0",
