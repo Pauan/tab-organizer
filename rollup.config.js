@@ -19,6 +19,7 @@ export default {
     plugins: [
         rust({
             //outDir: "static/js",
+            serverPath: "js/",
             importHook: function (path) {
                 return "browser.runtime.getURL(" + JSON.stringify(path) + ")";
             },

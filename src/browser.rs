@@ -155,6 +155,7 @@ impl TabState {
             None => TabStatus::New,
             Some("loading") => TabStatus::Loading,
             Some("complete") => TabStatus::Complete,
+            Some("unloaded") => TabStatus::Discarded,
             Some(status) => panic!("Unknown tab status: {}", status),
         }
     }

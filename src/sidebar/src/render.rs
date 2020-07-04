@@ -801,7 +801,7 @@ impl State {
                 Some("/icons/iconic/account-logout.svg"),
                 state.menus.state.signal_ref(move |state| {
                     if let Some(ref state) = state {
-                        state.with_tabs(|tabs| tabs.into_iter().any(|tab| !tab.status.get().is_unloaded()))
+                        state.with_tabs(|tabs| tabs.into_iter().any(|tab| !tab.status.get().is_none()))
 
                     } else {
                         false

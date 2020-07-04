@@ -82,7 +82,7 @@ pub mod sidebar {
             has: bool,
         },
         Status {
-            status: TabStatus,
+            status: Option<TabStatus>,
         },
         Unfocused,
         Focused {
@@ -348,20 +348,10 @@ impl SerializedWindow {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum TabStatus {
-    Unloaded, // TODO is this a good idea ?
     New,
     Loading,
     Complete,
-}
-
-impl TabStatus {
-    #[inline]
-    pub fn is_unloaded(&self) -> bool {
-        match self {
-            Self::Unloaded => true,
-            _ => false,
-        }
-    }
+    Discarded,
 }
 
 
@@ -371,7 +361,7 @@ pub struct Tab {
     pub focused: bool,
     pub playing_audio: bool,
     pub has_attention: bool,
-    pub status: TabStatus,
+    pub status: Option<TabStatus>,
 }
 
 impl Tab {
@@ -381,7 +371,7 @@ impl Tab {
             focused: false,
             playing_audio: false,
             has_attention: false,
-            status: TabStatus::Unloaded,
+            status: None,
         }
     }
 }

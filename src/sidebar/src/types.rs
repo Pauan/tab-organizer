@@ -355,7 +355,7 @@ pub(crate) struct TabState {
     pub(crate) url: Mutable<Option<Arc<String>>>,
     pub(crate) index: Mutable<usize>,
     pub(crate) focused: Mutable<bool>,
-    pub(crate) status: Mutable<TabStatus>,
+    pub(crate) status: Mutable<Option<TabStatus>>,
     pub(crate) pinned: Mutable<bool>,
     pub(crate) playing_audio: Mutable<bool>,
     pub(crate) muted: Mutable<bool>,
@@ -456,14 +456,14 @@ impl Tab {
     }
 
     pub(crate) fn is_unloaded(&self) -> impl Signal<Item = bool> {
-        self.status.signal_ref(|status| status.is_unloaded())
+        self.status.signal_ref(|status| status.is_none())
     }
 
     pub(crate) fn is_loading(&self) -> impl Signal<Item = bool> {
         self.status.signal_ref(|status| {
             match status {
-                TabStatus::New | TabStatus::Loading => true,
-                TabStatus::Unloaded | TabStatus::Complete => false,
+                Some(TabStatus::New) | Some(TabStatus::Loading) => true,
+                Some(TabStatus::Complete) | Some(TabStatus::Discarded) | None => false,
             }
         })
     }

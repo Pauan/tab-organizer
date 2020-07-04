@@ -114,7 +114,7 @@ impl Parsed {
 
             Parsed::And(left, right) => left.matches_tab(tab) && right.matches_tab(tab),
 
-            Parsed::IsLoaded => !tab.state.status.get().is_unloaded(),
+            Parsed::IsLoaded => !tab.state.status.get().is_none(),
         }
     }
 }

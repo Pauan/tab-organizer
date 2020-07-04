@@ -80,7 +80,7 @@ struct BrowserTab {
     // These must be kept in sync with Tab
     playing_audio: bool,
     has_attention: bool,
-    status: TabStatus,
+    status: Option<TabStatus>,
 }
 
 impl BrowserTab {
@@ -93,7 +93,7 @@ impl BrowserTab {
             // This must be kept in sync with Tab::unloaded
             playing_audio: false,
             has_attention: false,
-            status: TabStatus::Unloaded,
+            status: None,
         }
     }
 
@@ -110,8 +110,13 @@ impl BrowserTab {
             changes.push(sidebar::TabChange::HasAttention { has: self.has_attention });
         }
 
-        if self.status != tab.status {
-            self.status = tab.status;
+        let status_changed = match self.status {
+            None => true,
+            Some(status) => status != tab.status,
+        };
+
+        if status_changed {
+            self.status = Some(tab.status);
             changes.push(sidebar::TabChange::Status { status: self.status });
         }
 
@@ -131,8 +136,8 @@ impl BrowserTab {
             changes.push(sidebar::TabChange::HasAttention { has: self.has_attention });
         }
 
-        if self.status != TabStatus::Unloaded {
-            self.status = TabStatus::Unloaded;
+        if self.status.is_some() {
+            self.status = None;
             changes.push(sidebar::TabChange::Status { status: self.status });
         }
 
