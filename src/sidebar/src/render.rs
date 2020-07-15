@@ -143,7 +143,7 @@ fn tab_audio(state: &Arc<State>, tab: &Arc<Tab>, pinned: bool) -> Dom {
         }))
 
         .event(clone!(state, tab => move |_: events::Click| {
-            state.set_muted(vec![tab.id], !tab.muted.get());
+            state.set_muted(vec![tab.id.clone()], !tab.muted.get());
         }))
     })
 }
@@ -428,7 +428,7 @@ impl State {
                         .delay_remove(|tab| tab.wait_until_removed())
                         .filter_signal_cloned(|tab| tab.visible.signal())
                         .map(clone!(state => move |tab| {
-                            if state.should_be_dragging_tab(group.id, tab.id) {
+                            if state.should_be_dragging_tab(group.id, &tab.id) {
                                 tab.drag_over.jump_to(Percentage::new(1.0));
                             }
 

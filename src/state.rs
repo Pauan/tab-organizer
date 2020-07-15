@@ -6,9 +6,8 @@ use crate::browser;
 
 
 pub mod sidebar {
-    use super::{Label, Tab, TabStatus, WindowOptions};
+    use super::{Label, Tab, TabStatus, TabId, WindowOptions};
     use serde_derive::{Serialize, Deserialize};
-    use uuid::Uuid;
 
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -21,32 +20,32 @@ pub mod sidebar {
             options: WindowOptions,
         },
         ClickTab {
-            uuid: Uuid,
+            id: TabId,
         },
         CloseTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
         },
         UnloadTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
         },
         MuteTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
             muted: bool,
         },
         MoveTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
             index: usize,
         },
         PinTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
             pinned: bool,
         },
         AddLabelToTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
             label: Label,
         },
         RemoveLabelFromTabs {
-            uuids: Vec<Uuid>,
+            ids: Vec<TabId>,
             label_name: String,
         },
     }
@@ -176,12 +175,63 @@ pub struct Label {
 }
 
 
+#[repr(transparent)]
+#[serde(transparent)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct TabId(String);
+
+impl TabId {
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid.to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<Uuid> for TabId {
+    fn from(other: Uuid) -> Self {
+        TabId::from_uuid(other)
+    }
+}
+
+
+#[repr(transparent)]
+#[serde(transparent)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct WindowId(String);
+
+impl WindowId {
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid.to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<Uuid> for WindowId {
+    fn from(other: Uuid) -> Self {
+        WindowId::from_uuid(other)
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Timestamps {
+    pub created: f64,
+    pub updated: Option<f64>,
+    pub focused: Option<f64>,
+    pub unloaded: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedTab {
-    pub uuid: Uuid,
+    pub id: TabId,
     pub labels: Vec<Label>,
-    pub timestamp_created: f64,
-    pub timestamp_focused: Option<f64>,
+    pub timestamps: Timestamps,
     pub pinned: bool,
     pub favicon_url: Option<String>,
     pub url: Option<String>,
@@ -190,12 +240,16 @@ pub struct SerializedTab {
 }
 
 impl SerializedTab {
-    pub fn new(uuid: Uuid, timestamp_created: f64) -> Self {
+    pub fn new(id: TabId, timestamp_created: f64) -> Self {
         Self {
-            uuid,
+            id,
             labels: vec![],
-            timestamp_created,
-            timestamp_focused: None,
+            timestamps: Timestamps {
+                created: timestamp_created,
+                updated: None,
+                focused: None,
+                unloaded: None,
+            },
             pinned: false,
             favicon_url: None,
             url: None,
@@ -229,8 +283,8 @@ impl SerializedTab {
         removed
     }
 
-    pub fn key(uuid: Uuid) -> String {
-        format!("tab-ids.{}", uuid)
+    pub fn key(id: &TabId) -> String {
+        format!("tab-ids.{}", id.as_str())
     }
 
     pub fn has_good_url(&self) -> bool {
@@ -306,8 +360,8 @@ impl SerializedTab {
     pub fn initialize(&mut self, tab: &browser::TabState, timestamp_focused: f64) -> bool {
         let mut changed = false;
 
-        if tab.focused && self.timestamp_focused.is_none() {
-            self.timestamp_focused = Some(timestamp_focused);
+        if tab.focused && self.timestamps.focused.is_none() {
+            self.timestamps.focused = Some(timestamp_focused);
             changed = true;
         }
 
@@ -318,17 +372,17 @@ impl SerializedTab {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerializedWindow {
-    pub uuid: Uuid,
+    pub id: WindowId,
     pub name: Option<String>,
     pub timestamp_created: f64,
-    pub tabs: Vec<Uuid>,
+    pub tabs: Vec<TabId>,
     pub options: WindowOptions,
 }
 
 impl SerializedWindow {
-    pub fn new(uuid: Uuid, timestamp_created: f64) -> Self {
+    pub fn new(id: WindowId, timestamp_created: f64) -> Self {
         Self {
-            uuid,
+            id,
             name: None,
             timestamp_created,
             tabs: vec![],
@@ -336,12 +390,12 @@ impl SerializedWindow {
         }
     }
 
-    pub fn key(uuid: Uuid) -> String {
-        format!("window-ids.{}", uuid)
+    pub fn key(id: &WindowId) -> String {
+        format!("window-ids.{}", id.as_str())
     }
 
-    pub fn tab_index(&self, tab_uuid: Uuid) -> Option<usize> {
-        self.tabs.iter().position(|x| *x == tab_uuid)
+    pub fn tab_index(&self, tab_id: &TabId) -> Option<usize> {
+        self.tabs.iter().position(|x| *x == *tab_id)
     }
 }
 

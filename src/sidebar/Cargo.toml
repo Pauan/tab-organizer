@@ -21,7 +21,7 @@ lazy_static = "1.0.0"
 #uuid = { version = "0.7.1", features = ["serde"] }
 dominator = "0.5.0"
 tab-organizer = { path = "../.." }
-uuid = { version = "0.7.1", features = ["serde", "v4", "wasm-bindgen"] }
+#uuid = { version = "0.7.1", features = ["serde", "v4", "wasm-bindgen"] }
 wasm-bindgen-futures = "0.4.0"
 
 [dependencies.regex]

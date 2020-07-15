@@ -4,12 +4,11 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
 use tab_organizer::{local_storage_get, Port};
 use tab_organizer::state as shared;
-use tab_organizer::state::{sidebar, TabStatus};
+use tab_organizer::state::{sidebar, TabStatus, TabId};
 use crate::url_bar::UrlBar;
 use crate::search;
 use crate::menu::Menu;
 use crate::groups::Groups;
-use uuid::Uuid;
 use web_sys::DomRect;
 use js_sys::Date;
 use futures_signals::signal::{Signal, Mutable, MutableLockRef, MutableLockMut};
@@ -294,38 +293,38 @@ impl State {
         }
 
         self.port.send_message(&sidebar::ClientMessage::ClickTab {
-            uuid: tab.id,
+            id: tab.id.clone(),
         });
     }
 
     // TODO unselect the closing tabs ?
     pub(crate) fn close_tabs(&self, tabs: &[Arc<Tab>]) {
-        let uuids = tabs.into_iter().map(|tab| {
+        let ids = tabs.into_iter().map(|tab| {
             tab.manually_closed.set_neq(true);
-            tab.id
+            tab.id.clone()
         }).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::CloseTabs { uuids });
+        self.port.send_message(&sidebar::ClientMessage::CloseTabs { ids });
     }
 
     // TODO maybe mutate muted ?
-    pub(crate) fn set_muted(&self, uuids: Vec<Uuid>, muted: bool) {
-        self.port.send_message(&sidebar::ClientMessage::MuteTabs { uuids, muted });
+    pub(crate) fn set_muted(&self, ids: Vec<TabId>, muted: bool) {
+        self.port.send_message(&sidebar::ClientMessage::MuteTabs { ids, muted });
     }
 
     pub(crate) fn unload_tabs(&self, tabs: &[Arc<Tab>]) {
-        let uuids = tabs.into_iter().map(|tab| {
+        let ids = tabs.into_iter().map(|tab| {
             tab.selected.set_neq(false);
-            tab.id
+            tab.id.clone()
         }).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::UnloadTabs { uuids });
+        self.port.send_message(&sidebar::ClientMessage::UnloadTabs { ids });
     }
 
     pub(crate) fn pin_tabs(&self, tabs: &[Arc<Tab>], pinned: bool) {
-        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+        let ids = tabs.into_iter().map(|tab| tab.id.clone()).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::PinTabs { uuids, pinned });
+        self.port.send_message(&sidebar::ClientMessage::PinTabs { ids, pinned });
     }
 
     pub(crate) fn add_label(&self, tabs: &[Arc<Tab>], name: String) {
@@ -334,22 +333,22 @@ impl State {
             timestamp_added: Date::now(),
         };
 
-        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+        let ids = tabs.into_iter().map(|tab| tab.id.clone()).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::AddLabelToTabs { uuids, label });
+        self.port.send_message(&sidebar::ClientMessage::AddLabelToTabs { ids, label });
     }
 
     pub(crate) fn remove_label(&self, tabs: &[Arc<Tab>], label_name: String) {
-        let uuids = tabs.into_iter().map(|tab| tab.id).collect();
+        let ids = tabs.into_iter().map(|tab| tab.id.clone()).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::RemoveLabelFromTabs { uuids, label_name });
+        self.port.send_message(&sidebar::ClientMessage::RemoveLabelFromTabs { ids, label_name });
     }
 }
 
 
 #[derive(Debug)]
 pub(crate) struct TabState {
-    pub(crate) id: Uuid,
+    pub(crate) id: TabId,
     pub(crate) favicon_url: Mutable<Option<Arc<String>>>,
     pub(crate) title: Mutable<Option<Arc<String>>>,
     pub(crate) url: Mutable<Option<Arc<String>>>,
@@ -370,7 +369,7 @@ pub(crate) struct TabState {
 impl TabState {
     pub(crate) fn new(state: shared::Tab, index: usize) -> Self {
         Self {
-            id: state.serialized.uuid,
+            id: state.serialized.id,
             favicon_url: Mutable::new(state.serialized.favicon_url.map(Arc::new)),
             title: Mutable::new(state.serialized.title.map(Arc::new)),
             url: Mutable::new(state.serialized.url.map(Arc::new)),
@@ -383,8 +382,8 @@ impl TabState {
             muted: Mutable::new(state.serialized.muted),
             removed: Mutable::new(false),
             manually_closed: Mutable::new(false),
-            timestamp_created: Mutable::new(state.serialized.timestamp_created),
-            timestamp_focused: Mutable::new(state.serialized.timestamp_focused),
+            timestamp_created: Mutable::new(state.serialized.timestamps.created),
+            timestamp_focused: Mutable::new(state.serialized.timestamps.focused),
             labels: Mutable::new(state.serialized.labels),
         }
     }
@@ -497,7 +496,7 @@ pub(crate) struct Group {
     pub(crate) insert_animation: MutableAnimation,
     pub(crate) visible: Mutable<bool>,
 
-    pub(crate) last_selected_tab: Mutable<Option<Uuid>>,
+    pub(crate) last_selected_tab: Mutable<Option<TabId>>,
 
     pub(crate) drag_over: MutableAnimation,
     pub(crate) drag_top: MutableAnimation,
@@ -534,7 +533,7 @@ impl Group {
         *selected = !*selected;
 
         if *selected {
-            self.last_selected_tab.set_neq(Some(tab.id));
+            self.last_selected_tab.set_neq(Some(tab.id.clone()));
 
         } else {
             self.last_selected_tab.set_neq(None);
@@ -546,16 +545,16 @@ impl Group {
     pub(crate) fn shift_select_tab(&self, tab: &Arc<Tab>) {
         let mut last_selected_tab = self.last_selected_tab.lock_mut();
 
-        let selected = if let Some(last_selected_tab) = *last_selected_tab {
+        let selected = if let Some(last_selected_tab) = &*last_selected_tab {
             let tabs = self.tabs.lock_ref();
             let mut seen = false;
 
             for x in tabs.iter() {
-                if x.id == last_selected_tab ||
+                if x.id == *last_selected_tab ||
                    x.id == tab.id {
                     x.selected.set_neq(true);
 
-                    if tab.id != last_selected_tab {
+                    if tab.id != *last_selected_tab {
                         seen = !seen;
                     }
 
@@ -575,7 +574,7 @@ impl Group {
 
         if !selected {
             tab.selected.set_neq(true);
-            *last_selected_tab = Some(tab.id);
+            *last_selected_tab = Some(tab.id.clone());
         }
     }
 

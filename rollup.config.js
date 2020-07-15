@@ -1,7 +1,7 @@
 import rust from "@wasm-tool/rollup-plugin-rust";
-import { terser } from "rollup-plugin-terser";
-const copy = require("./rollup-plugin-copy/index.js");
-import zip from "rollup-plugin-zip";
+//import { terser } from "rollup-plugin-terser";
+//const copy = require("./rollup-plugin-copy/index.js");
+//import zip from "rollup-plugin-zip";
 
 export default {
     input: {
@@ -27,8 +27,8 @@ export default {
         //terser(),
         /*copy({
             assets: ["static"],
-        }),
-        zip({
+        }),*/
+        /*zip({
             file: "tab-organizer.zip",
         }),*/
     ],

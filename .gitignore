@@ -3,3 +3,4 @@ node_modules
 /wasm-pack.log
 /yarn-error.log
 /static/js
+/tab-organizer.zip

@@ -1,11 +1,10 @@
 use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
 use crate::types::{State, DragState, GroupId, Group, Tab};
-use tab_organizer::state::{sidebar, SortTabs};
+use tab_organizer::state::{sidebar, SortTabs, TabId};
 use web_sys::DomRect;
 use futures_signals::signal::Signal;
 use dominator::animation::Percentage;
-use uuid::Uuid;
 
 
 impl Group {
@@ -57,11 +56,11 @@ impl Group {
 
 
 impl State {
-    fn tab_index(tabs: &[Arc<Tab>], tab_id: Uuid) -> Option<usize> {
-        tabs.iter().position(|x| x.id == tab_id)
+    fn tab_index(tabs: &[Arc<Tab>], tab_id: &TabId) -> Option<usize> {
+        tabs.iter().position(|x| x.id == *tab_id)
     }
 
-    fn unwrap_tab_index(tabs: &[Arc<Tab>], tab_id: Uuid) -> usize {
+    fn unwrap_tab_index(tabs: &[Arc<Tab>], tab_id: &TabId) -> usize {
         Self::tab_index(tabs, tab_id).unwrap_or_else(|| tabs.len())
     }
 
@@ -134,7 +133,7 @@ impl State {
 
         let mut seen = false;
 
-        let uuids = selected_tabs.into_iter().filter_map(|tab| {
+        let ids = selected_tabs.into_iter().filter_map(|tab| {
             if tab.removed.get() {
                 None
 
@@ -147,11 +146,11 @@ impl State {
                     }
                 }
 
-                Some(tab.id)
+                Some(tab.id.clone())
             }
         }).collect();
 
-        self.port.send_message(&sidebar::ClientMessage::MoveTabs { uuids, index: tab_index });
+        self.port.send_message(&sidebar::ClientMessage::MoveTabs { ids, index: tab_index });
     }
 
     pub(crate) fn should_be_dragging_group(&self, new_group_id: GroupId) -> bool {
@@ -181,7 +180,7 @@ impl State {
                 let tabs = new_group.tabs.lock_ref();
                 let len = tabs.len();
 
-                let new_index = Self::tab_index(&tabs, new_tab.id).unwrap_or(len);
+                let new_index = Self::tab_index(&tabs, &new_tab.id).unwrap_or(len);
 
                 let new_tab_index = if new_group.id == group.id {
                     let old_index = tab_index.unwrap_or(len);
@@ -272,7 +271,7 @@ impl State {
         }
     }
 
-    pub(crate) fn should_be_dragging_tab(&self, group_id: GroupId, tab_id: Uuid) -> bool {
+    pub(crate) fn should_be_dragging_tab(&self, group_id: GroupId, tab_id: &TabId) -> bool {
         self.with_dragging_group(group_id, |group, old_index| {
             let tabs = group.tabs.lock_ref();
             let old_index = old_index.unwrap_or_else(|| tabs.len());
@@ -285,7 +284,7 @@ impl State {
         let mut dragging = self.dragging.state.lock_mut();
 
         if dragging.is_none() && self.can_start_drag() {
-            let tab_index = Self::unwrap_tab_index(&group.tabs.lock_ref(), tab.id);
+            let tab_index = Self::unwrap_tab_index(&group.tabs.lock_ref(), &tab.id);
             *dragging = Some(DragState::DragStart { mouse_x, mouse_y, rect, group: group.clone(), tab: tab.clone(), tab_index });
         }
     }

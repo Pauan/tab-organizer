@@ -396,11 +396,11 @@ fn remove_tab_from_group<A>(groups: &mut A, group: &Group, tab: &TabState, shoul
     let len = {
         let mut tabs = group.tabs.lock_mut();
 
-        let id = tab.id;
+        let id = &tab.id;
 
         // TODO make this more efficient ?
         tabs.retain(|tab| {
-            if tab.id == id {
+            if tab.id == *id {
                 if should_animate {
                     tab.insert_animation.animate_to(Percentage::new(0.0));
 

@@ -2,20 +2,20 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::collections::HashMap;
+use serde::de::DeserializeOwned;
 use serde_derive::{Serialize, Deserialize};
 use futures::channel::mpsc;
 use futures::stream::Stream;
 use futures::{join, FutureExt};
 use std::future::Future;
 use dominator::clone;
-use uuid::Uuid;
 use js_sys::{Array, Promise, Date};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen::{JsCast, intern};
 use wasm_bindgen::prelude::*;
 use web_extension::browser;
 use super::{Listener, deserialize, serialize, object, array, generate_uuid, warn, fallible_promise};
-use super::state::TabStatus;
+use super::state::{TabId, WindowId, TabStatus} ;
 
 
 #[derive(Debug)]
@@ -74,7 +74,7 @@ enum GetError {
     TabClosed,
 }
 
-fn get_uuid(fut: Promise) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
+fn get_uuid<A>(fut: Promise) -> impl Future<Output = Result<Option<A>, GetError>> where A: DeserializeOwned {
     async move {
         match fallible_promise(fut).await {
             Some(id) => {
@@ -209,18 +209,18 @@ pub struct Tab {
 }
 
 impl Tab {
-    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<TabId>, GetError>> {
         get_uuid(browser.sessions().get_tab_value(self.tab_id, intern("id")))
     }
 
-    pub fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
+    pub fn set_uuid(&self, uuid: &TabId) -> impl Future<Output = Result<(), JsValue>> {
         set_uuid(browser.sessions().set_tab_value(self.tab_id, intern("id"), &serialize(&uuid)))
     }
 
-    pub fn set_new_uuid(&self) -> impl Future<Output = Result<Uuid, JsValue>> {
-        let uuid = generate_uuid();
+    pub fn set_new_uuid(&self) -> impl Future<Output = Result<TabId, JsValue>> {
+        let uuid = TabId::from_uuid(generate_uuid());
 
-        let fut = self.set_uuid(uuid);
+        let fut = self.set_uuid(&uuid);
 
         async move {
             fut.await?;
@@ -256,18 +256,18 @@ pub struct Window {
 }
 
 impl Window {
-    fn get_uuid(&self) -> impl Future<Output = Result<Option<Uuid>, GetError>> {
+    fn get_uuid(&self) -> impl Future<Output = Result<Option<WindowId>, GetError>> {
         get_uuid(browser.sessions().get_window_value(self.window_id, intern("id")))
     }
 
-    fn set_uuid(&self, uuid: Uuid) -> impl Future<Output = Result<(), JsValue>> {
+    fn set_uuid(&self, uuid: &WindowId) -> impl Future<Output = Result<(), JsValue>> {
         set_uuid(browser.sessions().set_window_value(self.window_id, intern("id"), &serialize(&uuid)))
     }
 
-    fn set_new_uuid(&self) -> impl Future<Output = Result<Uuid, JsValue>> {
-        let uuid = generate_uuid();
+    fn set_new_uuid(&self) -> impl Future<Output = Result<WindowId, JsValue>> {
+        let uuid = WindowId::from_uuid(generate_uuid());
 
-        let fut = self.set_uuid(uuid);
+        let fut = self.set_uuid(&uuid);
 
         async move {
             fut.await?;
@@ -404,10 +404,10 @@ impl Browser {
         f(self.state.borrow().windows.get_value(id))
     }
 
-    fn get_uuid<GF, G, SF, S>(&self, get: G, set: S) -> impl Future<Output = Result<Option<Uuid>, JsValue>>
-        where GF: Future<Output = Result<Option<Uuid>, GetError>> + 'static,
+    fn get_uuid<A, GF, G, SF, S>(&self, get: G, set: S) -> impl Future<Output = Result<Option<A>, JsValue>>
+        where GF: Future<Output = Result<Option<A>, GetError>> + 'static,
               G: FnOnce(&BrowserState) -> Option<GF>,
-              SF: Future<Output = Result<Uuid, JsValue>>,
+              SF: Future<Output = Result<A, JsValue>>,
               S: FnOnce(&BrowserState) -> Option<SF> + 'static {
 
         let state = self.state.clone();
@@ -459,14 +459,14 @@ impl Browser {
         }.boxed_local()
     }
 
-    pub fn get_window_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    pub fn get_window_uuid(&self, id: Id) -> impl Future<Output = Result<Option<WindowId>, JsValue>> {
         self.get_uuid(
             move |state| state.windows.get_value(id).map(Window::get_uuid),
             move |state| state.windows.get_value(id).map(Window::set_new_uuid),
         )
     }
 
-    pub fn get_tab_uuid(&self, id: Id) -> impl Future<Output = Result<Option<Uuid>, JsValue>> {
+    pub fn get_tab_uuid(&self, id: Id) -> impl Future<Output = Result<Option<TabId>, JsValue>> {
         self.get_uuid(
             move |state| state.tabs.get_value(id).map(Tab::get_uuid),
             move |state| state.tabs.get_value(id).map(Tab::set_new_uuid),

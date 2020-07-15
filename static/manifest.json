@@ -4,6 +4,11 @@
   "version": "5.0",
   "description": "Manager for quickly finding and organizing all your tabs.",
   "default_locale": "en",
+  "applications": {
+    "gecko": {
+      "id": "{d70497fe-4de0-47ff-ba0e-48de2a5d338b}"
+    }
+  },
   "icons": {
     "16": "data/icons/icon16.png",
     "19": "data/icons/icon19.png",
@@ -15,7 +20,21 @@
     "page": "background.html"
   },
   "options_ui": {
-    "page": "options.html"
+    "page": "options.html",
+    "browser_style": true
+  },
+  "sidebar_action": {
+    "default_icon": {
+      "16": "data/icons/icon16.png",
+      "19": "data/icons/icon19.png",
+      "32": "data/icons/icon32.png",
+      "48": "data/icons/icon48.png",
+      "128": "data/icons/icon128.png"
+    },
+    "default_title": "Tab Organizer",
+    "default_panel": "empty.html",
+    "browser_style": true,
+    "open_at_install": true
   },
   "browser_action": {
     "default_icon": {
