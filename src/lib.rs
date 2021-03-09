@@ -823,6 +823,7 @@ pub struct Database {
     flusher: Rc<RefCell<DatabaseFlusher>>,
     // TODO verify that this doesn't leak
     state: Rc<RefCell<TransactionState>>,
+    should_commit: bool,
 }
 
 impl Database {
@@ -833,39 +834,46 @@ impl Database {
         async move {
             let db = fut.await?;
             let db: Object = db.unchecked_into();
-            Ok(Self::new_from_object(db))
+            Ok(Self::new_from_object_(db, true))
         }
     }
 
-    pub fn new_from_object(db: Object) -> Self {
+    fn new_from_object_(db: Object, should_commit: bool) -> Self {
         let flusher = Rc::new(RefCell::new(DatabaseFlusher::new()));
 
         Self {
             db,
             state: TransactionState::new(flusher.clone(), false),
             flusher,
+            should_commit,
         }
     }
 
+    pub fn new_from_object(db: Object) -> Self {
+        Self::new_from_object_(db, false)
+    }
+
     pub fn delay_commit(&mut self) {
-        {
-            let mut state = self.state.borrow_mut();
+        if self.should_commit {
+            {
+                let mut state = self.state.borrow_mut();
 
-            if state.is_delayed {
-                assert!(state.timer.is_some());
-                state.reset_timer();
+                if state.is_delayed {
+                    assert!(state.timer.is_some());
+                    state.reset_timer();
 
-            } else if let None = state.timer {
-                assert_eq!(state.changes.len(), 0);
-                state.is_delayed = true;
+                } else if let None = state.timer {
+                    assert_eq!(state.changes.len(), 0);
+                    state.is_delayed = true;
 
-            } else {
-                drop(state);
-                self.state = TransactionState::new(self.flusher.clone(), true);
+                } else {
+                    drop(state);
+                    self.state = TransactionState::new(self.flusher.clone(), true);
+                }
             }
-        }
 
-        self.state.borrow_mut().start_commit(&self.state);
+            self.state.borrow_mut().start_commit(&self.state);
+        }
     }
 
     pub fn get_raw(&self, key: &str) -> Option<JsValue> {
@@ -886,11 +894,13 @@ impl Database {
 
         Reflect::set(&self.db, &key, &value).unwrap();
 
-        let mut state = self.state.borrow_mut();
+        if self.should_commit {
+            let mut state = self.state.borrow_mut();
 
-        state.changes.push(Change::Set(key, value));
+            state.changes.push(Change::Set(key, value));
 
-        state.start_commit(&self.state);
+            state.start_commit(&self.state);
+        }
     }
 
     pub fn get<T>(&self, key: &str) -> Option<T> where T: DeserializeOwned {
@@ -918,11 +928,13 @@ impl Database {
     fn remove_raw(&self, key: JsValue) {
         Reflect::delete_property(&self.db, &key).unwrap();
 
-        let mut state = self.state.borrow_mut();
+        if self.should_commit {
+            let mut state = self.state.borrow_mut();
 
-        state.changes.push(Change::Remove(key));
+            state.changes.push(Change::Remove(key));
 
-        state.start_commit(&self.state);
+            state.start_commit(&self.state);
+        }
     }
 
     pub fn remove(&self, key: &str) {

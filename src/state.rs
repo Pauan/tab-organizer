@@ -5,6 +5,52 @@ use std::collections::HashMap;
 use crate::browser;
 
 
+// TODO verify that this behaves correctly when importing windows/tabs
+pub fn merge_ids<A>(ids: &mut Vec<A>, new_ids: &[A]) -> bool where A: PartialEq + Clone {
+    let mut touched = false;
+
+    let mut indices = Vec::with_capacity(new_ids.len());
+
+    for new_id in new_ids {
+        match ids.iter().position(|old_id| *old_id == *new_id) {
+            // Tab exists
+            Some(index) => {
+                match indices.iter().position(|old_index| *old_index > index) {
+                    // Out of order
+                    Some(swap_start) => {
+                        let _ = indices[swap_start..].into_iter().fold(index, |old, &new| {
+                            ids.swap(old, new);
+                            new
+                        });
+
+                        indices.insert(swap_start, index);
+                        touched = true;
+                    },
+                    None => {
+                        indices.push(index);
+                    },
+                }
+            },
+
+            // Tab doesn't exist
+            None => {
+                let index = match indices.last() {
+                    Some(index) => index + 1,
+                    None => 0,
+                };
+
+                indices.push(index);
+                ids.insert(index, new_id.clone());
+
+                touched = true;
+            },
+        }
+    }
+
+    touched
+}
+
+
 pub mod sidebar {
     use super::{Label, Tab, TabStatus, TabId, WindowOptions};
     use serde_derive::{Serialize, Deserialize};
@@ -135,9 +181,7 @@ pub mod options {
     pub enum ServerMessage {
         Initial,
         ExportFinished,
-        Imported {
-            tabs: Vec<SerializedTab>,
-        },
+        Imported,
     }
 }
 
@@ -165,6 +209,18 @@ impl WindowOptions {
             sort_tabs: SortTabs::Label,
         }
     }
+
+    pub fn merge(&mut self, other: Self) -> bool {
+        let mut changed = false;
+
+        if self.sort_tabs != other.sort_tabs {
+            // TODO update based on the timestamp_updated
+            self.sort_tabs = other.sort_tabs;
+            changed = true;
+        }
+
+        changed
+    }
 }
 
 
@@ -172,6 +228,19 @@ impl WindowOptions {
 pub struct Label {
     pub name: String,
     pub timestamp_added: f64,
+}
+
+impl Label {
+    fn merge(&mut self, other: Self) -> bool {
+        let mut changed = false;
+
+        if other.timestamp_added < self.timestamp_added {
+            self.timestamp_added = other.timestamp_added;
+            changed = true;
+        }
+
+        changed
+    }
 }
 
 
@@ -219,12 +288,62 @@ impl From<Uuid> for WindowId {
 }
 
 
+fn merge_options(old: &mut Option<f64>, new: Option<f64>) -> bool {
+    match new {
+        Some(new) => {
+            let is_newer = match old {
+                Some(old) => new > *old,
+                None => true,
+            };
+
+            if is_newer {
+                *old = Some(new);
+                true
+
+            } else {
+                false
+            }
+        },
+        None => false,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Timestamps {
     pub created: f64,
     pub updated: Option<f64>,
     pub focused: Option<f64>,
     pub unloaded: Option<f64>,
+}
+
+impl Timestamps {
+    fn merge(&mut self, other: Self) -> bool {
+        let mut changed = false;
+
+        if other.created < self.created {
+            self.created = other.created;
+            changed = true;
+        }
+
+        if merge_options(&mut self.updated, other.updated) {
+            changed = true;
+        }
+
+        if merge_options(&mut self.focused, other.focused) {
+            changed = true;
+        }
+
+        // TODO should this use the min or max ?
+        if merge_options(&mut self.unloaded, other.unloaded) {
+            changed = true;
+        }
+
+        changed
+    }
+
+    fn updated(&self) -> f64 {
+        self.updated.unwrap_or_else(|| self.created)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -367,6 +486,61 @@ impl SerializedTab {
 
         changed
     }
+
+    pub fn merge(&mut self, other: Self) -> bool {
+        assert_eq!(self.id, other.id);
+
+        let mut changed = false;
+
+        let is_newer = other.timestamps.updated() > self.timestamps.updated();
+
+        for other in other.labels.into_iter() {
+            match self.labels.iter_mut().find(|label| label.name == other.name) {
+                Some(label) => {
+                    if label.merge(other) {
+                        changed = true;
+                    }
+                },
+                None => {
+                    self.labels.push(other);
+                    changed = true;
+                },
+            }
+        }
+
+        if self.timestamps.merge(other.timestamps) {
+            changed = true;
+        }
+
+        if is_newer {
+            if self.pinned != other.pinned {
+                self.pinned = other.pinned;
+                changed = true;
+            }
+
+            if self.favicon_url != other.favicon_url {
+                self.favicon_url = other.favicon_url;
+                changed = true;
+            }
+
+            if self.url != other.url {
+                self.url = other.url;
+                changed = true;
+            }
+
+            if self.title != other.title {
+                self.title = other.title;
+                changed = true;
+            }
+
+            if self.muted != other.muted {
+                self.muted = other.muted;
+                changed = true;
+            }
+        }
+
+        changed
+    }
 }
 
 
@@ -396,6 +570,34 @@ impl SerializedWindow {
 
     pub fn tab_index(&self, tab_id: &TabId) -> Option<usize> {
         self.tabs.iter().position(|x| *x == *tab_id)
+    }
+
+    // TODO ensure that tab IDs are unique across windows
+    pub fn merge(&mut self, other: Self) -> bool {
+        assert_eq!(self.id, other.id);
+
+        let mut changed = false;
+
+        // TODO update name based on timestamp_updated
+        if self.name != other.name {
+            self.name = other.name;
+            changed = true;
+        }
+
+        if other.timestamp_created < self.timestamp_created {
+            self.timestamp_created = other.timestamp_created;
+            changed = true;
+        }
+
+        if self.options.merge(other.options) {
+            changed = true;
+        }
+
+        if merge_ids(&mut self.tabs, &other.tabs) {
+            changed = true;
+        }
+
+        changed
     }
 }
 

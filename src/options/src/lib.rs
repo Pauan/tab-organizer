@@ -4,13 +4,12 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use dominator::{Dom, clone, html, events, with_node};
-use tab_organizer::{log, info, connect, panic_hook, set_print_logs, read_file, Port};
-use tab_organizer::state::{options, SerializedTab};
+use tab_organizer::{log, info, connect, panic_hook, set_print_logs, read_file, spawn, Port};
+use tab_organizer::state::options;
 use web_sys::{HtmlElement, HtmlInputElement, File, window};
-use futures_signals::signal::{Mutable, SignalExt};
+use futures_signals::signal::Mutable;
 use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
-use wasm_bindgen_futures::spawn_local;
 
 
 fn get_file(node: &HtmlInputElement) -> Option<File> {
@@ -42,7 +41,6 @@ fn click(id: &str) {
 struct State {
     port: Rc<Port<options::ClientMessage, options::ServerMessage>>,
     loading: Mutable<bool>,
-    tabs: Mutable<Vec<SerializedTab>>,
 }
 
 impl State {
@@ -50,7 +48,6 @@ impl State {
         Rc::new(Self {
             port,
             loading: Mutable::new(false),
-            tabs: Mutable::new(vec![]),
         })
     }
 
@@ -110,7 +107,7 @@ impl State {
                     .style("display", "none")
                     .with_node!(element => {
                         .event(clone!(state => move |_: events::Change| {
-                            async fn load_file(state: Rc<State>, element: HtmlInputElement) -> Result<(), JsValue> {
+                            spawn(clone!(element, state => async move {
                                 if let Some(file) = get_file(&element) {
                                     // If we don't reset the value then the button will stop working after 1 click
                                     element.set_value("");
@@ -123,10 +120,6 @@ impl State {
                                 }
 
                                 Ok(())
-                            }
-
-                            spawn_local(clone!(element, state => async move {
-                                load_file(state, element).await.unwrap()
                             }));
                         }))
                     })
@@ -141,19 +134,6 @@ impl State {
                     // TODO gross
                     click("import-input");
                 }),
-
-                html!("div", {
-                    .style("overflow", "auto")
-                    .style("height", "500px")
-
-                    .children_signal_vec(state.tabs.signal_ref(|tabs| {
-                        tabs.into_iter().map(|tab| {
-                            html!("div", {
-                                .text(&tab.url.as_deref().unwrap_or(""))
-                            })
-                        }).collect()
-                    }).to_signal_vec())
-                })
             ])
         })
     }
@@ -193,9 +173,8 @@ pub async fn main_js() -> Result<(), JsValue> {
                         state.as_ref().unwrap().loading.set_neq(false);
                     },
 
-                    options::ServerMessage::Imported { tabs } => {
+                    options::ServerMessage::Imported => {
                         state.as_ref().unwrap().loading.set_neq(false);
-                        state.as_ref().unwrap().tabs.set(tabs);
                     },
                 }
 

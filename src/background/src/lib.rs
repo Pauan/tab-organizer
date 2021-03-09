@@ -15,7 +15,7 @@ use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
 use tab_organizer::{fallible_promise, spawn, log, info, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
-use tab_organizer::state::{TabId, WindowId, Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options};
+use tab_organizer::state::{TabId, WindowId, Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options, merge_ids};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
 
@@ -23,51 +23,6 @@ mod migrate;
 
 
 const POPUP: bool = true;
-
-
-fn merge_ids<A>(ids: &mut Vec<A>, new_ids: &[A]) -> bool where A: PartialEq + Clone {
-    let mut touched = false;
-
-    let mut indices = Vec::with_capacity(new_ids.len());
-
-    for new_id in new_ids {
-        match ids.iter().position(|old_id| *old_id == *new_id) {
-            // Tab exists
-            Some(index) => {
-                match indices.iter().position(|old_index| *old_index > index) {
-                    // Out of order
-                    Some(swap_start) => {
-                        let _ = indices[swap_start..].into_iter().fold(index, |old, &new| {
-                            ids.swap(old, new);
-                            new
-                        });
-
-                        indices.insert(swap_start, index);
-                        touched = true;
-                    },
-                    None => {
-                        indices.push(index);
-                    },
-                }
-            },
-
-            // Tab doesn't exist
-            None => {
-                let index = match indices.last() {
-                    Some(index) => index + 1,
-                    None => 0,
-                };
-
-                indices.push(index);
-                ids.insert(index, new_id.clone());
-
-                touched = true;
-            },
-        }
-    }
-
-    touched
-}
 
 
 #[derive(Debug)]
@@ -563,6 +518,16 @@ impl State {
         uuid
     }
 
+    fn merge_window_ids(&self, new_windows: &[WindowId]) {
+        let mut window_ids: Vec<WindowId> = self.db.get_or_insert(intern("windows"), || vec![]);
+
+        let changed = merge_ids(&mut window_ids, &new_windows);
+
+        if changed {
+            self.db.set(intern("windows"), &window_ids);
+        }
+    }
+
     fn initialize(&mut self, timestamp_created: f64, window_uuids: Vec<AsyncWindow>) {
         let new_windows: Vec<WindowId> = window_uuids
             .into_iter()
@@ -578,12 +543,55 @@ impl State {
             })
             .collect();
 
-        let mut window_ids: Vec<WindowId> = self.db.get_or_insert(intern("windows"), || vec![]);
+        self.merge_window_ids(&new_windows);
+    }
 
-        let changed = merge_ids(&mut window_ids, &new_windows);
+    fn import(&self, data: &str) {
+        let json = js_sys::JSON::parse(data)
+            .unwrap()
+            .dyn_into::<js_sys::Object>()
+            .unwrap();
 
-        if changed {
-            self.db.set(intern("windows"), &window_ids);
+        let db = Database::new_from_object(json);
+
+        migrate::migrate(&db);
+
+        if let Some(new_windows) = db.get::<Vec<WindowId>>(intern("windows")) {
+            self.merge_window_ids(&new_windows);
+
+            for id in new_windows {
+                let key = SerializedWindow::key(&id);
+
+                let new_window = db.get::<SerializedWindow>(&key).unwrap();
+
+                for id in new_window.tabs.iter() {
+                    let key = SerializedTab::key(id);
+
+                    let new_tab = db.get::<SerializedTab>(&key).unwrap();
+
+                    match self.db.get::<SerializedTab>(&key) {
+                        Some(mut old_tab) => {
+                            if old_tab.merge(new_tab) {
+                                self.db.set(&key, &old_tab);
+                            }
+                        },
+                        None => {
+                            self.db.set(&key, &new_tab);
+                        },
+                    }
+                }
+
+                match self.db.get::<SerializedWindow>(&key) {
+                    Some(mut old_window) => {
+                        if old_window.merge(new_window) {
+                            self.db.set(&key, &old_window);
+                        }
+                    },
+                    None => {
+                        self.db.set(&key, &new_window);
+                    },
+                }
+            }
         }
     }
 
@@ -1190,27 +1198,9 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 options::ClientMessage::Import { data } => {
-                    let json = js_sys::JSON::parse(&data)
-                        .unwrap()
-                        .dyn_into::<js_sys::Object>()
-                        .unwrap();
+                    state.borrow_mut().import(&data);
 
-                    let db = Database::new_from_object(json);
-
-                    let mut tabs = vec![];
-
-                    let windows = db.get::<Vec<WindowId>>("windows").unwrap();
-
-                    for id in windows {
-                        let window = db.get::<SerializedWindow>(&SerializedWindow::key(&id)).unwrap();
-
-                        for id in window.tabs {
-                            let tab = db.get::<SerializedTab>(&SerializedTab::key(&id)).unwrap();
-                            tabs.push(tab);
-                        }
-                    }
-
-                    port.send_message(&options::ServerMessage::Imported { tabs });
+                    port.send_message(&options::ServerMessage::Imported);
                 },
             }
 
