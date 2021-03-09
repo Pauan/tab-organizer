@@ -722,7 +722,8 @@ pub async fn main_js() -> Result<(), JsValue> {
             .try_for_each_concurrent(None, move |window_id| {
                 let fut = if POPUP {
                     web_extension::browser.windows().create(&object! {
-                        "focused": true,
+                        // TODO re-enable this
+                        //"focused": true,
                         "type": "panel",
                         "url": State::sidebar_url(window_id),
                     })

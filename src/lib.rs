@@ -6,16 +6,19 @@ use std::borrow::Borrow;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::Arc;
-use futures_signals::signal::{Signal, SignalExt};
-use futures::channel::mpsc;
+use std::pin::Pin;
+use std::task::{Poll, Context};
+use futures_signals::map_ref;
+use futures_signals::signal::{Signal, SignalExt, Mutable};
+use futures::channel::{oneshot, mpsc};
 use futures::stream::Stream;
 use futures::try_join;
 use std::future::Future;
 use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
-use js_sys::{Date, Object, Reflect, Array, Set};
-use web_sys::{window, Performance, Storage, Blob, Url, BlobPropertyBag};
+use js_sys::{Date, Object, Reflect, Array, Set, Error};
+use web_sys::{window, Performance, Storage, Blob, Url, BlobPropertyBag, FileReader};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -112,6 +115,7 @@ pub fn fallible_promise(promise: js_sys::Promise) -> impl Future<Output = Option
 
 pub mod state;
 pub mod browser;
+pub mod colors;
 
 pub mod styles {
     use lazy_static::lazy_static;
@@ -145,7 +149,9 @@ pub mod styles {
             .style("width", "100%")
             .style("height", "100%")
             .style("overflow", "hidden")
-            .style("background-color", "rgb(247, 248, 249)") // rgb(244, 244, 244) #fdfeff rgb(227, 228, 230)
+
+            .style_signal("color", crate::theme_color(crate::colors::tab_text))
+            .style_signal("background-color", crate::theme_color(crate::colors::tab_background))
         };
 
         pub static ref MODAL_STYLE: String = class! {
@@ -541,9 +547,13 @@ impl<A> StackVec<A> {
     }));
 }*/
 
-
 pub fn decode_uri_component(input: &str) -> String {
-    js_sys::decode_uri_component(input).unwrap().into()
+    // This is needed because some URLs are malformed
+    // TODO replace /%(?![0-9a-fA-F][0-9a-fA-F])/ with %25
+    match js_sys::decode_uri_component(&input) {
+        Ok(s) => s.into(),
+        Err(_) => input.to_string(),
+    }
 }
 
 
@@ -1069,6 +1079,109 @@ pub fn connect<In, Out>(name: &str) -> Port<In, Out> {
 }
 
 
+struct Theme {
+    mutable: Mutable<Option<web_extension::Theme>>,
+    _listener: Listener<dyn FnMut(web_extension::ThemeUpdateInfo)>,
+}
+
+
+thread_local! {
+    // TODO cleanup when all the signals are done
+    static THEME: Theme = {
+        let mutable = Mutable::new(None);
+
+        spawn_local(clone!(mutable => async move {
+            let current = JsFuture::from(browser.theme().get_current(None)).await.unwrap();
+            let current = current.unchecked_into::<web_extension::Theme>();
+
+            mutable.set(Some(current));
+        }));
+
+        Theme {
+            _listener: Listener::new(
+                browser.theme().on_updated(),
+                clone!(mutable => closure!(move |info: web_extension::ThemeUpdateInfo| {
+                    let mut lock = mutable.lock_mut();
+
+                    // This makes sure that it only sets it after get_current
+                    if lock.is_some() {
+                        // TODO only set it for the current window ?
+                        // TODO only set it if window_id is None ?
+                        *lock = Some(info.theme());
+                    }
+                })),
+            ),
+            mutable,
+        }
+    };
+}
+
+pub fn theme() -> impl Signal<Item = Option<web_extension::Theme>> {
+    THEME.with(|theme| theme.mutable.signal_cloned())
+}
+
+pub fn theme_color<F>(mut f: F) -> impl Signal<Item = String>
+    where F: FnMut(Option<web_extension::ThemeColors>, ColorScheme) -> String {
+
+    map_ref! {
+        let theme = theme(),
+        let scheme = color_scheme() => move {
+            f(theme.as_ref().and_then(|theme| theme.colors()), *scheme)
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorScheme {
+    Light,
+    Dark,
+}
+
+impl ColorScheme {
+    fn from_bool(matches: bool) -> Self {
+        if matches {
+            Self::Dark
+        } else {
+            Self::Light
+        }
+    }
+
+    pub fn defaults(self, light: String, dark: String) -> String {
+        match self {
+            Self::Light => light,
+            Self::Dark => dark,
+        }
+    }
+}
+
+pub fn color_scheme() -> impl Signal<Item = ColorScheme> {
+    struct ColorListener {
+        mutable: Mutable<ColorScheme>,
+        _listener: gloo_events::EventListener,
+    }
+
+    thread_local! {
+        // TODO cleanup when all the signals are done
+        static COLOR_LISTENER: ColorListener = {
+            let query_list = window().unwrap().match_media("(prefers-color-scheme: dark)").unwrap().unwrap();
+
+            let mutable = Mutable::new(ColorScheme::from_bool(query_list.matches()));
+
+            let listener = gloo_events::EventListener::new(&query_list, "change", clone!(mutable => move |event| {
+                let event: &web_sys::MediaQueryListEvent = event.unchecked_ref();
+
+                mutable.set_neq(ColorScheme::from_bool(event.matches()));
+            }));
+
+            ColorListener { mutable, _listener: listener }
+        };
+    }
+
+    COLOR_LISTENER.with(|x| x.mutable.signal())
+}
+
+
 /*pub fn on_message<S, D, P, F>(mut f: F) -> Listener<dyn FnMut(String, JsValue, JsValue) -> Promise>
     where D: DeserializeOwned,
           S: Serialize,
@@ -1385,4 +1498,113 @@ pub fn every_hour<F>(mut f: F) where F: FnMut() + 'static {
         f();
         every_hour(f);
     }).forget();
+}
+
+
+
+#[derive(Debug)]
+pub struct MultiSender<A> {
+    sender: Rc<RefCell<Option<oneshot::Sender<A>>>>,
+}
+
+impl<A> MultiSender<A> {
+    pub fn new(sender: oneshot::Sender<A>) -> Self {
+        Self {
+            sender: Rc::new(RefCell::new(Some(sender))),
+        }
+    }
+
+    pub fn send(&self, value: A) {
+        let _ = self.sender.borrow_mut()
+            .take()
+            .unwrap()
+            .send(value);
+    }
+}
+
+impl<A> Clone for MultiSender<A> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
+    }
+}
+
+
+struct ReadFile {
+    reader: FileReader,
+    receiver: oneshot::Receiver<Result<String, JsValue>>,
+    _onabort: Closure<dyn FnMut(&JsValue)>,
+    _onerror: Closure<dyn FnMut(&JsValue)>,
+    _onload: Closure<dyn FnMut(&JsValue)>,
+}
+
+impl Future for ReadFile {
+    type Output = Result<String, JsValue>;
+
+    #[inline]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        Pin::new(&mut self.receiver).poll(cx).map(|x| {
+            // TODO better error handling
+            match x {
+                Ok(x) => x,
+                Err(_) => unreachable!(),
+            }
+        })
+    }
+}
+
+impl Drop for ReadFile {
+    // TODO test whether this triggers the abort event or not
+    #[inline]
+    fn drop(&mut self) {
+        self.reader.abort();
+    }
+}
+
+pub fn read_file(blob: &Blob) -> impl Future<Output = Result<String, JsValue>> {
+    let (sender, receiver) = oneshot::channel();
+
+    let sender = MultiSender::new(sender);
+
+    let reader = FileReader::new().unwrap();
+
+    let onabort = {
+        let sender = sender.clone();
+
+        Closure::once(move |_event: &JsValue| {
+            sender.send(Err(Error::new("read_file was aborted").into()));
+        })
+    };
+
+    let onerror = {
+        let reader = reader.clone();
+        let sender = sender.clone();
+
+        Closure::once(move |_event: &JsValue| {
+            sender.send(Err(reader.error().unwrap().into()));
+        })
+    };
+
+    let onload = {
+        let reader = reader.clone();
+
+        Closure::once(move |_event: &JsValue| {
+            sender.send(Ok(reader.result().unwrap().as_string().unwrap()));
+        })
+    };
+
+    reader.set_onabort(Some(onabort.as_ref().unchecked_ref()));
+    reader.set_onerror(Some(onerror.as_ref().unchecked_ref()));
+    reader.set_onload(Some(onload.as_ref().unchecked_ref()));
+
+    reader.read_as_text(blob).unwrap();
+
+    ReadFile {
+        reader,
+        receiver,
+        _onabort: onabort,
+        _onerror: onerror,
+        _onload: onload,
+    }
 }

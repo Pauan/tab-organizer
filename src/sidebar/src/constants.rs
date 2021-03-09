@@ -1,5 +1,6 @@
-use tab_organizer::px;
-use dominator::{class, HIGHEST_ZINDEX};
+use tab_organizer::{px, theme_color, colors};
+use futures_signals::signal::SignalExt;
+use dominator::{class, pseudo, HIGHEST_ZINDEX};
 use lazy_static::lazy_static;
 
 
@@ -73,14 +74,15 @@ lazy_static! {
     };
 
     pub(crate) static ref HEADER_STYLE: String = class! {
-        .style("background-color", "hsl(0, 0%, 100%)")
         .style("z-index", "3")
         .style("border-bottom-width", px(TOOLBAR_BORDER_WIDTH))
-        .style("border-color", "rgb(202, 202, 202)") // rgb(0, 120, 215)
         .style("padding-top", px(TOOLBAR_MARGIN))
         .style("padding-left", px(TOOLBAR_MARGIN))
         .style("padding-bottom", px(TOOLBAR_MARGIN))
         .style("margin-right", px(TOOLBAR_MARGIN))
+
+        .style_signal("border-color", theme_color(colors::toolbar_separator))
+        .style_signal("background-color", theme_color(colors::tab_focused_background))
     };
 
     pub(crate) static ref TOOLBAR_STYLE: String = class! {
@@ -111,21 +113,24 @@ lazy_static! {
     };
 
     pub(crate) static ref TOOLBAR_MENU_HOVER_STYLE: String = class! {
-        .style("background-color", "rgb(221, 222, 222)")
+        .style_signal("background-color", theme_color(colors::icon_background))
     };
 
     pub(crate) static ref TOOLBAR_MENU_OPEN_STYLE: String = class! {
-        .style("background-color", "rgb(210, 211, 212)")
+        .style_signal("background-color", theme_color(colors::icon_focused_background))
     };
 
     pub(crate) static ref HAMBURGER_STYLE: String = class! {
         .style("width", "12px")
         .style("height", "2px")
-        .style("background-color", "rgb(83, 84, 84)")
         .style("margin-top", "3px")
+
+        .style_signal("background-color", theme_color(colors::icon))
     };
 
     pub(crate) static ref SEARCH_STYLE: String = class! {
+        .style(["-moz-user-select", "user-select"], "auto")
+
         .style("box-sizing", "border-box")
         .style("height", "22px")
         .style("padding-top", "2px")
@@ -135,7 +140,22 @@ lazy_static! {
         //.style("height", "100%")
         //.style("box-shadow", "0px 1px 3px 0px hsl(211, 95%, 45%), inset 0px 0px 1px 0px hsl(211, 95%, 70%)")
         .style("border-radius", "3px")
-        .style("border", "1px solid rgb(0, 120, 215)")
+        .style("border", "1px solid")
+
+        .style_signal("color", theme_color(colors::search_text))
+        .style_signal("background-color", theme_color(colors::search_background))
+        .style_signal("border-color", theme_color(colors::search_border))
+
+        .pseudo!(":active", {
+            .style_signal("color", theme_color(colors::search_focused_text))
+            .style_signal("background-color", theme_color(colors::search_focused_background))
+            .style_signal("border-color", theme_color(colors::search_focused_border))
+        })
+
+        .pseudo!("::selection", {
+            .style_signal("color", theme_color(colors::search_highlight_text))
+            .style_signal("background-color", theme_color(colors::search_highlight_background))
+        })
     };
 
     pub(crate) static ref GROUP_LIST_STYLE: String = class! {
@@ -153,28 +173,36 @@ lazy_static! {
         .style("direction", "ltr")
         .style("margin-right", "4px")
         .style("min-height", "calc(100% - 1px)")
-        .style("background-image", "
-            linear-gradient(to right, rgba(0, 0, 0, 0.03), transparent 5%, transparent 75%, rgba(0, 0, 0, 0.03)),
-            linear-gradient(to right, rgb(202, 202, 202) 0px, transparent 2px)
-        ")
+
+        .style_signal("background-image", theme_color(colors::toolbar_separator).map(|color| {
+            format!("
+                linear-gradient(to right, rgba(0, 0, 0, 0.03), transparent 5%, transparent 75%, rgba(0, 0, 0, 0.03)),
+                linear-gradient(to right, {} 0px, transparent 2px)
+            ", color)
+        }))
     };
 
     pub(crate) static ref GROUP_LIST_RIGHT_BORDER: String = class! {
         .style("position", "fixed")
         .style("top", "0px")
-        .style("right", "0px")
-        .style("width", "3px")
+        .style("right", "1px")
+        .style("width", "2px")
         .style("height", "100%")
-        .style("border-left", "1px solid rgb(202, 202, 202)") // rgb(104, 150, 185)
-        .style("border-right", "1px solid #e3e3e3")
-        .style("background-color", "white") // rgb(217, 237, 255)
+        .style("border-left", "1px solid") // rgb(202, 202, 202) rgb(104, 150, 185)
+        .style("border-right", "1px solid") // #e3e3e3
+
+        .style_signal("border-left-color", theme_color(colors::tab_line))
+        .style_signal("border-right-color", theme_color(colors::page_separator))
+        .style_signal("background-color", theme_color(colors::tab_focused_background))
     };
 
     pub(crate) static ref GROUP_STYLE: String = class! {
         .style("padding-top", px(GROUP_PADDING_TOP))
         .style("border-top-width", px(GROUP_BORDER_WIDTH))
         .style("top", "-1px")
-        .style("border-color", "hsl(211, 50%, 75%)")
+
+        .style_signal("border-color", theme_color(colors::tab_line))
+
         //.style("background-color", "hsl(0, 0%, 100%)")
     };
 
@@ -260,14 +288,15 @@ lazy_static! {
 
     pub(crate) static ref TAB_HOVER_STYLE: String = class! {
         .style("border-color", "transparent")
-        .style("border-left-color", "rgb(163, 164, 166)")
-        .style("background-color", "rgb(227, 228, 230)") // rgb(204, 205, 207)
         //.style("font-weight", "bold")
+
+        .style_signal("border-left-color", theme_color(colors::tab_line))
+        .style_signal("background-color", theme_color(colors::tab_hovered_background))
     };
 
     pub(crate) static ref TAB_PINNED_HOVER_STYLE: String = class! {
         .style("border-color", "transparent")
-        .style("border-top-color", "rgb(163, 164, 166)")
+        .style_signal("border-top-color", theme_color(colors::tab_line))
     };
 
     pub(crate) static ref TAB_HOLD_STYLE: String = class! {
@@ -302,26 +331,23 @@ lazy_static! {
                                           hsl(30, 70%, 57%) \
                                           hsl(30, 70%, 52%) \
                                           hsl(30, 70%, 57%)")*/
-        .style("background-color", "white")
         .style("background-image", "linear-gradient(to right, rgba(0, 0, 0, 0.01) 61.8%, transparent)")
         //.style("background-image", "linear-gradient(to right, rgb(217, 237, 255), white)") // #bfe1ff rgb(254, 254, 255)
         //.style("border-image", "linear-gradient(to right, rgb(10, 132, 255), rgb(202, 202, 202)) 1") // rgb(104, 150, 185) rgb(132, 161, 189) rgb(158, 159, 160)
-        .style("border-color", "rgb(202, 202, 202)")
-        .style("border-left-color", "rgb(10, 132, 255)")
         .style("z-index", "1")
+
+        .style_signal("color", theme_color(colors::tab_focused_text))
+        .style_signal("background-color", theme_color(colors::tab_focused_background))
+        .style_signal("border-top-color", theme_color(colors::tab_line))
+        .style_signal("border-bottom-color", theme_color(colors::tab_line))
+        .style_signal("border-left-color", theme_color(colors::tab_focused_line))
     };
 
     pub(crate) static ref TAB_PINNED_FOCUSED_STYLE: String = class! {
-        .style("border-color", "rgb(202, 202, 202)")
-        .style("border-top-color", "rgb(10, 132, 255)")
-    };
-
-    pub(crate) static ref TAB_FOCUSED_HOVER_STYLE: String = class! {
-        .style("background-color", "white")
-        .style("border-color", "rgb(202, 202, 202)")
-        .style("border-left-color", "rgb(10, 132, 255)")
-        //.style("background-color", "hsl(30, 85%, 57%)")
-        //.style("background-image", "linear-gradient(to right, #b0daff 61.8%, white)")
+        .style_signal("border-top-color", theme_color(colors::tab_focused_line))
+        .style_signal("border-left-color", theme_color(colors::tab_line))
+        .style_signal("border-right-color", theme_color(colors::tab_line))
+        .style_signal("border-bottom-color", theme_color(colors::tab_line))
     };
 
     pub(crate) static ref TAB_SELECTED_STYLE: String = class! {

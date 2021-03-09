@@ -28,6 +28,9 @@ pub use runtime::*;
 mod port;
 pub use port::*;
 
+mod theme;
+pub use theme::*;
+
 
 #[wasm_bindgen]
 extern "C" {
@@ -58,6 +61,9 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     pub fn sessions(this: &Browser) -> Sessions;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn theme(this: &Browser) -> BrowserTheme;
 }
 
 

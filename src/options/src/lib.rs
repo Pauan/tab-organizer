@@ -2,13 +2,40 @@
 
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 use dominator::{Dom, clone, html, events, with_node};
-use tab_organizer::{log, info, connect, panic_hook, set_print_logs, Port};
+use tab_organizer::{log, info, connect, panic_hook, set_print_logs, read_file, Port};
 use tab_organizer::state::{options, SerializedTab};
-use web_sys::HtmlTextAreaElement;
+use web_sys::{HtmlElement, HtmlInputElement, File, window};
 use futures_signals::signal::{Mutable, SignalExt};
 use futures::FutureExt;
 use futures::stream::{StreamExt, TryStreamExt};
+use wasm_bindgen_futures::spawn_local;
+
+
+fn get_file(node: &HtmlInputElement) -> Option<File> {
+    let files = node.files().unwrap();
+
+    if files.length() == 1 {
+        Some(files.get(0).unwrap())
+
+    } else {
+        None
+    }
+}
+
+
+fn click(id: &str) {
+    window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id(id)
+        .unwrap()
+        .dyn_into::<HtmlElement>()
+        .unwrap()
+        .click();
+}
 
 
 #[derive(Debug)]
@@ -77,17 +104,42 @@ impl State {
     fn render(state: Rc<Self>) -> Dom {
         html!("div", {
             .children(&mut [
+                html!("input" => HtmlInputElement, {
+                    .attribute("id", "import-input")
+                    .attribute("type", "file")
+                    .style("display", "none")
+                    .with_node!(element => {
+                        .event(clone!(state => move |_: events::Change| {
+                            async fn load_file(state: Rc<State>, element: HtmlInputElement) -> Result<(), JsValue> {
+                                if let Some(file) = get_file(&element) {
+                                    // If we don't reset the value then the button will stop working after 1 click
+                                    element.set_value("");
+
+                                    state.loading.set_neq(true);
+
+                                    let data = read_file(&file).await?;
+
+                                    state.port.send_message(&options::ClientMessage::Import { data });
+                                }
+
+                                Ok(())
+                            }
+
+                            spawn_local(clone!(element, state => async move {
+                                load_file(state, element).await.unwrap()
+                            }));
+                        }))
+                    })
+                }),
+
                 Self::button("Export", clone!(state => move || {
                     state.loading.set_neq(true);
                     state.port.send_message(&options::ClientMessage::Export);
                 })),
 
-                html!("textarea" => HtmlTextAreaElement, {
-                    .with_node!(element => {
-                        .event(clone!(state => move |_: events::Change| {
-                            state.port.send_message(&options::ClientMessage::Import { data: element.value() });
-                        }))
-                    })
+                Self::button("Import", move || {
+                    // TODO gross
+                    click("import-input");
                 }),
 
                 html!("div", {
@@ -142,6 +194,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                     },
 
                     options::ServerMessage::Imported { tabs } => {
+                        state.as_ref().unwrap().loading.set_neq(false);
                         state.as_ref().unwrap().tabs.set(tabs);
                     },
                 }

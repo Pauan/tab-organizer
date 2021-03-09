@@ -251,7 +251,7 @@ impl State {
                         .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                         //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                         //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
-                        .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
+                        //.class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                         //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
                         //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -436,7 +436,7 @@ impl State {
                                 .class_signal(&*TAB_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*MENU_ITEM_HOVER_STYLE, state.is_tab_hovered(&tab))
                                 //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_unloaded()))
-                                .class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
+                                //.class_signal(&*TAB_FOCUSED_HOVER_STYLE, and(state.is_tab_hovered(&tab), tab.is_focused()))
 
                                 //.class_signal(&*TAB_HOLD_STYLE, state.is_tab_holding(&tab))
                                 //.class_signal(&*MENU_ITEM_HOLD_STYLE, state.is_tab_holding(&tab))
@@ -880,7 +880,8 @@ impl State {
                     ])*/
                     .class_signal(&*TAB_SELECTED_HOVER_STYLE, tab.selected.signal())
                     //.class_signal(&*TAB_UNLOADED_HOVER_STYLE, tab.is_unloaded())
-                    .class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused()))
+                    //.class_signal(&*TAB_FOCUSED_HOVER_STYLE, tab.is_focused())
+                    )
 
                 .apply_if(index != 0, |dom| dom
                     .class_signal(&*TAB_UNLOADED_STYLE, tab.is_unloaded()))
