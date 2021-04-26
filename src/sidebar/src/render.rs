@@ -866,6 +866,10 @@ impl State {
     }
 
     fn render_dragging_tab(state: &Arc<State>, tab: &Arc<Tab>, animation: &MutableAnimation, index: usize) -> Dom {
+        if index > 0 {
+            animation.animate_to(Percentage::new(1.0));
+        }
+
         tab_base_template(&state, &tab,
             |dom| dom
                 .class_signal(&*TAB_SELECTED_STYLE, tab.selected.signal())
@@ -1184,18 +1188,8 @@ impl State {
                             }))
 
                             .children_signal_vec(state.dragging.selected_tabs.signal_ref(clone!(state => move |tabs| {
-                                tabs.iter().enumerate().map(|(index, tab)| {
-                                    // TODO use some sort of oneshot animation instead
-                                    // TODO don't create the animation at all for index 0
-                                    let animation = MutableAnimation::new(SELECTED_TABS_ANIMATION_DURATION);
-
-                                    if index > 0 {
-                                        animation.animate_to(Percentage::new(1.0));
-                                    }
-
-                                    Dom::with_state(animation, |animation| {
-                                        Self::render_dragging_tab(&state, &tab, &animation, index)
-                                    })
+                                tabs.iter().enumerate().map(|(index, selected)| {
+                                    Self::render_dragging_tab(&state, &selected.tab, &selected.animation, index)
                                 }).collect()
                             })).to_signal_vec())
                         }),

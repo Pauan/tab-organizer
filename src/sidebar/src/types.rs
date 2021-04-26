@@ -1,4 +1,4 @@
-use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION};
+use crate::constants::{DRAG_ANIMATION_DURATION, INSERT_ANIMATION_DURATION, SELECTED_TABS_ANIMATION_DURATION};
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -105,9 +105,25 @@ pub(crate) enum DragState {
 
 
 #[derive(Debug)]
+pub(crate) struct SelectedTab {
+    pub(crate) animation: MutableAnimation,
+    pub(crate) tab: Arc<Tab>,
+}
+
+impl SelectedTab {
+    pub(crate) fn new(tab: Arc<Tab>) -> Self {
+        Self {
+            animation: MutableAnimation::new(SELECTED_TABS_ANIMATION_DURATION),
+            tab,
+        }
+    }
+}
+
+
+#[derive(Debug)]
 pub(crate) struct Dragging {
     pub(crate) state: Mutable<Option<DragState>>,
-    pub(crate) selected_tabs: Mutable<Vec<Arc<Tab>>>,
+    pub(crate) selected_tabs: Mutable<Vec<SelectedTab>>,
 }
 
 impl Dragging {

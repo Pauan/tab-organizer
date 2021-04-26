@@ -1,6 +1,6 @@
 use crate::constants::TAB_DRAGGING_THRESHOLD;
 use std::sync::Arc;
-use crate::types::{State, DragState, GroupId, Group, Tab};
+use crate::types::{State, DragState, GroupId, Group, Tab, SelectedTab};
 use tab_organizer::state::{sidebar, SortTabs, TabId};
 use web_sys::DomRect;
 use futures_signals::signal::Signal;
@@ -126,27 +126,27 @@ impl State {
         })
     }
 
-    fn drag_tabs_to(&self, group: &Group, selected_tabs: &[Arc<Tab>], previous_tab_index: usize, tab_index: Option<usize>) {
+    fn drag_tabs_to(&self, group: &Group, selected_tabs: &[SelectedTab], previous_tab_index: usize, tab_index: Option<usize>) {
         let mut tab_index = group.group_index_to_window_index(tab_index)
             // This will only happen when the group has no tabs
             .unwrap_or(previous_tab_index);
 
         let mut seen = false;
 
-        let ids = selected_tabs.into_iter().filter_map(|tab| {
-            if tab.removed.get() {
+        let ids = selected_tabs.into_iter().filter_map(|selected| {
+            if selected.tab.removed.get() {
                 None
 
             } else {
                 // TODO what if the indexes are equal ?
-                if tab.index.get() < tab_index {
+                if selected.tab.index.get() < tab_index {
                     if !seen {
                         seen = true;
                         tab_index -= 1;
                     }
                 }
 
-                Some(tab.id.clone())
+                Some(selected.tab.id.clone())
             }
         }).collect();
 
@@ -322,9 +322,10 @@ impl State {
                             tab.drag_over.jump_to(percentage);
                         });
 
-                        for tab in selected_tabs.iter() {
+                        let selected_tabs = selected_tabs.into_iter().map(|tab| {
                             tab.dragging.set_neq(true);
-                        }
+                            SelectedTab::new(tab)
+                        }).collect();
 
                         self.dragging.selected_tabs.set(selected_tabs);
 
@@ -407,8 +408,8 @@ impl State {
         }
 
         if selected_tabs.len() != 0 {
-            for tab in selected_tabs.iter() {
-                tab.dragging.set_neq(false);
+            for selected in selected_tabs.iter() {
+                selected.tab.dragging.set_neq(false);
             }
 
             *selected_tabs = vec![];
