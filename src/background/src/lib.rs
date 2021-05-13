@@ -787,7 +787,11 @@ impl State {
         window_ids[index] = new_id;
         self.db.set(intern("windows"), &window_ids);
 
-        fut
+        async move {
+            fut.await?;
+            log!("DONE");
+            Ok(())
+        }
     }
 }
 
