@@ -272,6 +272,10 @@ impl From<Uuid> for TabId {
 pub struct WindowId(String);
 
 impl WindowId {
+    pub fn from_string(s: String) -> Self {
+        Self(s)
+    }
+
     pub fn from_uuid(uuid: Uuid) -> Self {
         Self(uuid.to_string())
     }

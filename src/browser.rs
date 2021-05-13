@@ -466,6 +466,10 @@ impl Browser {
         )
     }
 
+    pub fn set_window_uuid(&self, id: Id, uuid: &WindowId) -> impl Future<Output = Result<(), JsValue>> {
+        self.state.borrow().windows.get_value(id).unwrap().set_uuid(&uuid)
+    }
+
     pub fn get_tab_uuid(&self, id: Id) -> impl Future<Output = Result<Option<TabId>, JsValue>> {
         self.get_uuid(
             move |state| state.tabs.get_value(id).map(Tab::get_uuid),

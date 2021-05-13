@@ -14,7 +14,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{fallible_promise, spawn, log, info, time, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
+use tab_organizer::{global_function, closure, fallible_promise, spawn, log, info, time, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{TabId, WindowId, Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options, merge_ids};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -533,8 +533,12 @@ impl State {
         uuid
     }
 
+    fn get_window_ids(&self) -> Vec<WindowId> {
+        self.db.get_or_insert(intern("windows"), || vec![])
+    }
+
     fn merge_window_ids(&self, new_windows: &[WindowId]) {
-        let mut window_ids: Vec<WindowId> = self.db.get_or_insert(intern("windows"), || vec![]);
+        let mut window_ids: Vec<WindowId> = self.get_window_ids();
 
         let changed = merge_ids(&mut window_ids, &new_windows);
 
@@ -757,6 +761,34 @@ impl State {
 
         remove_tabs(ids);
     }
+
+    // TODO does it need to notify that the id has changed ?
+    fn rename_window_id(&mut self, old_id: WindowId, new_id: WindowId) -> impl Future<Output = Result<(), JsValue>> {
+        log!("RENAMING {:?} {:?}", old_id, new_id);
+
+        let window_id = self.window_map.ids.remove(&old_id).unwrap();
+        self.window_map.ids.insert(new_id.clone(), window_id).unwrap_none();
+
+        let fut = self.browser.set_window_uuid(window_id, &new_id);
+
+        let old_key = SerializedWindow::key(&old_id);
+        let new_key = SerializedWindow::key(&new_id);
+        let mut serialized: SerializedWindow = self.db.get(&old_key).unwrap();
+        serialized.id = new_id.clone();
+        self.db.set(&new_key, &serialized);
+        self.db.remove(&old_key);
+
+        // TODO is this correct ?
+        let browser_window = self.window_map.values.get_mut(&window_id).unwrap();
+        browser_window.serialized = serialized;
+
+        let mut window_ids: Vec<WindowId> = self.get_window_ids();
+        let index = window_ids.iter().position(|x| *x == old_id).unwrap();
+        window_ids[index] = new_id;
+        self.db.set(intern("windows"), &window_ids);
+
+        fut
+    }
 }
 
 
@@ -801,6 +833,16 @@ pub async fn main_js() -> Result<(), JsValue> {
     log!("Initializing state");
 
     let state = State::new(db, browser, timestamp_created, browser_windows).await?;
+
+
+    global_function("rename_window_id", clone!(state => closure!(move |old_id: String, new_id: String| {
+        spawn(state.borrow_mut().rename_window_id(WindowId::from_string(old_id), WindowId::from_string(new_id)));
+    })));
+
+
+    global_function("get_window_ids", clone!(state => closure!(move || {
+        log!("{:?}", state.borrow().get_window_ids());
+    })));
 
 
     fn listen_to_time(state: Rc<RefCell<State>>) {
@@ -1308,7 +1350,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                         let uuid = state.new_window(true, timestamp, uuid, window.id, window.focused, &tabs);
 
-                        let mut window_ids: Vec<WindowId> = state.db.get_or_insert(intern("windows"), || vec![]);
+                        let mut window_ids: Vec<WindowId> = state.get_window_ids();
 
                         // TODO insert at the proper index ?
                         window_ids.push(uuid);
@@ -1345,7 +1387,7 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                             state.db.remove(&SerializedWindow::key(&uuid));
 
-                            let mut window_ids: Vec<WindowId> = state.db.get_or_insert(intern("windows"), || vec![]);
+                            let mut window_ids: Vec<WindowId> = state.get_window_ids();
 
                             window_ids.remove_item(uuid).unwrap();
 

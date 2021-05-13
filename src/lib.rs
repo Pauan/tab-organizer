@@ -17,9 +17,10 @@ use std::future::Future;
 use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
-use js_sys::{Date, Object, Reflect, Array, Set, Error};
+use js_sys::{Date, Object, Reflect, Array, Set, Error, Function};
 use web_sys::{window, Performance, Storage, Blob, Url, BlobPropertyBag, FileReader};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
+use wasm_bindgen::closure::WasmClosure;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use serde::Serialize;
@@ -57,6 +58,10 @@ use web_extension::browser;
         };
     }
 
+    export function set_global_function(name, f) {
+        window[name] = f;
+    }
+
     export function error_message(e) { return e.message + \"\\n--------------------\\n\" + e.stack; }
 ")]
 extern "C" {
@@ -64,7 +69,16 @@ extern "C" {
 
     pub fn set_print_logs();
 
+    fn set_global_function(name: &str, f: &Function);
+
     fn error_message(v: &JsValue) -> String;
+}
+
+
+pub fn global_function<F>(name: &str, f: Closure<F>) where F: WasmClosure + ?Sized {
+    set_global_function(name, f.as_ref().unchecked_ref());
+    // TODO is there a better way to do this ?
+    f.forget();
 }
 
 
