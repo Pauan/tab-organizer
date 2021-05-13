@@ -305,8 +305,8 @@ lazy_static! {
     };
 
     pub(crate) static ref TAB_UNLOADED_STYLE: String = class! {
-        .style("color", "hsl(0, 0%, 30%)")
-        .style("opacity", "0.75")
+        //.style("color", "hsl(0, 0%, 10%)")
+        .style("opacity", "0.80")
     };
 
     /*pub(crate) static ref TAB_UNLOADED_HOVER_STYLE: String = class! {

@@ -341,7 +341,11 @@ impl Timestamps {
         changed
     }
 
-    fn updated(&self) -> f64 {
+    pub fn focused(&self) -> f64 {
+        self.focused.unwrap_or_else(|| self.created)
+    }
+
+    pub fn updated(&self) -> f64 {
         self.updated.unwrap_or_else(|| self.created)
     }
 }

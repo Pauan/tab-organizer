@@ -1,14 +1,14 @@
 use std::pin::Pin;
 use std::marker::Unpin;
 use std::sync::Arc;
+use std::future::Future;
+use std::task::{Poll, Context};
 use tab_organizer::{time, ease};
 use tab_organizer::state::SortTabs;
 use crate::constants::{DRAG_GAP_PX, TOOLBAR_TOTAL_HEIGHT, GROUP_BORDER_WIDTH, GROUP_PADDING_TOP, GROUP_HEADER_HEIGHT, GROUP_PADDING_BOTTOM, TAB_BORDER_CROWN_WIDTH, TOOLBAR_MARGIN, TAB_PADDING, TAB_HEIGHT, TAB_BORDER_WIDTH};
 use crate::types::{State, Group, Tab, WindowSize};
 use crate::search;
 use dominator::animation::MutableAnimationSignal;
-use futures::{Future, Poll};
-use futures::task::Context;
 use futures_signals::signal::{Signal, SignalExt, MutableSignal, MutableSignalCloned};
 use futures_signals::signal_vec::{SignalVec, SignalVecExt, VecDiff};
 

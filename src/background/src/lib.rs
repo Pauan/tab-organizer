@@ -14,7 +14,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{fallible_promise, spawn, log, info, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
+use tab_organizer::{fallible_promise, spawn, log, info, time, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{TabId, WindowId, Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options, merge_ids};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -23,6 +23,21 @@ mod migrate;
 
 
 const POPUP: bool = true;
+
+
+fn remove_tabs(ids: js_sys::Array) {
+    if ids.length() > 0 {
+        // TODO immediately send out a message to the sidebar ?
+        let fut = web_extension::browser.tabs().remove(&ids);
+
+        // TODO should this spawn ?
+        spawn(async {
+            // TODO maybe remove each tab individually, so a single error doesn't break everything
+            let _ = fallible_promise(fut).await;
+            Ok(())
+        });
+    }
+}
 
 
 #[derive(Debug)]
@@ -546,7 +561,10 @@ impl State {
         self.merge_window_ids(&new_windows);
     }
 
+    // TODO import options
     fn import(&self, data: &str) {
+        log!("Starting import...");
+
         let json = js_sys::JSON::parse(data)
             .unwrap()
             .dyn_into::<js_sys::Object>()
@@ -554,7 +572,10 @@ impl State {
 
         let db = Database::new_from_object(json);
 
-        migrate::migrate(&db);
+        time!("Migrating imported data", { migrate::migrate(&db) });
+
+        let mut windows_len = 0;
+        let mut tabs_len = 0;
 
         if let Some(new_windows) = db.get::<Vec<WindowId>>(intern("windows")) {
             self.merge_window_ids(&new_windows);
@@ -573,10 +594,12 @@ impl State {
                         Some(mut old_tab) => {
                             if old_tab.merge(new_tab) {
                                 self.db.set(&key, &old_tab);
+                                windows_len += 1;
                             }
                         },
                         None => {
                             self.db.set(&key, &new_tab);
+                            windows_len += 1;
                         },
                     }
                 }
@@ -585,14 +608,18 @@ impl State {
                     Some(mut old_window) => {
                         if old_window.merge(new_window) {
                             self.db.set(&key, &old_window);
+                            tabs_len += 1;
                         }
                     },
                     None => {
                         self.db.set(&key, &new_window);
+                        tabs_len += 1;
                     },
                 }
             }
         }
+
+        log!("Successfully imported {} windows and {} tabs", windows_len, tabs_len);
     }
 
     fn update_tabs<F, U>(&mut self, uuids: &[TabId], mut future: F, mut update: U) -> Vec<(TabId, Vec<sidebar::TabChange>)>
@@ -676,6 +703,60 @@ impl State {
             }
         }).collect()
     }
+
+    fn maybe_unload_tabs(&mut self) {
+        // 1 week
+        const AGE_LIMIT: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 7.0;
+
+        let mut old_tabs = vec![];
+
+        if let Some(windows) = self.db.get::<Vec<WindowId>>(intern("windows")) {
+            let age_limit = Date::now() - AGE_LIMIT;
+
+            for id in windows {
+                let key = SerializedWindow::key(&id);
+
+                let window = self.db.get::<SerializedWindow>(&key).unwrap();
+
+                for id in window.tabs.iter() {
+                    let key = SerializedTab::key(id);
+
+                    let tab = self.db.get::<SerializedTab>(&key).unwrap();
+
+                    if !tab.pinned && tab.timestamps.focused() < age_limit {
+                        old_tabs.push(tab.id);
+                    }
+                }
+            }
+        }
+
+        self.unload_tabs(&old_tabs);
+    }
+
+    fn unload_tabs(&mut self, ids: &[TabId]) {
+        let ids = ids.into_iter().filter_map(|uuid| {
+            match self.tab_map.ids.get(&uuid) {
+                Some(id) => {
+                    let tab = self.tab_map.values.get_mut(&id).unwrap();
+
+                    if tab.is_unloading {
+                        None
+
+                    } else {
+                        tab.is_unloading = true;
+
+                        // TODO can this be made faster ?
+                        self.browser.get_tab_real_id(*id).map(JsValue::from)
+                    }
+                },
+
+                // Tab is unloaded
+                None => None,
+            }
+        }).collect::<js_sys::Array>();
+
+        remove_tabs(ids);
+    }
 }
 
 
@@ -722,6 +803,18 @@ pub async fn main_js() -> Result<(), JsValue> {
     let state = State::new(db, browser, timestamp_created, browser_windows).await?;
 
 
+    fn listen_to_time(state: Rc<RefCell<State>>) {
+        // 5 minutes
+        const INTERVAL: u32 = 1_000 * 60 * 5;
+
+        spawn(gloo_timers::future::IntervalStream::new(INTERVAL)
+            .map(|x| -> Result<(), JsValue> { Ok(x) })
+            .try_for_each(move |_| {
+                state.borrow_mut().maybe_unload_tabs();
+                async { Ok(()) }
+            }));
+    }
+
     fn listen_to_browser_action(state: Rc<RefCell<State>>) {
         let state: &mut State = &mut state.borrow_mut();
 
@@ -754,20 +847,6 @@ pub async fn main_js() -> Result<(), JsValue> {
             port: Rc<Port<sidebar::ServerMessage, sidebar::ClientMessage>>,
             message: sidebar::ClientMessage,
         ) -> Result<(), JsValue> {
-
-            fn remove_tabs(ids: js_sys::Array) {
-                if ids.length() > 0 {
-                    // TODO immediately send out a message to the sidebar ?
-                    let fut = web_extension::browser.tabs().remove(&ids);
-
-                    // TODO should this spawn ?
-                    spawn(async {
-                        // TODO maybe remove each tab individually, so a single error doesn't break everything
-                        let _ = fallible_promise(fut).await;
-                        Ok(())
-                    });
-                }
-            }
 
             fn get_window<'a>(window_ids: &'a mut HashMap<Id, BrowserWindow>, port_id: &Cell<Option<Id>>) -> Option<&'a mut BrowserWindow> {
                 port_id.get().and_then(move |window_id| window_ids.get_mut(&window_id))
@@ -981,30 +1060,7 @@ pub async fn main_js() -> Result<(), JsValue> {
                 },
 
                 sidebar::ClientMessage::UnloadTabs { ids } => {
-                    let state: &mut State = &mut state.borrow_mut();
-
-                    let ids = ids.into_iter().filter_map(|uuid| {
-                        match state.tab_map.ids.get(&uuid) {
-                            Some(id) => {
-                                let tab = state.tab_map.values.get_mut(&id).unwrap();
-
-                                if tab.is_unloading {
-                                    None
-
-                                } else {
-                                    tab.is_unloading = true;
-
-                                    // TODO can this be made faster ?
-                                    state.browser.get_tab_real_id(*id).map(JsValue::from)
-                                }
-                            },
-
-                            // Tab is unloaded
-                            None => None,
-                        }
-                    }).collect::<js_sys::Array>();
-
-                    remove_tabs(ids);
+                    state.borrow_mut().unload_tabs(&ids);
                 },
 
                 sidebar::ClientMessage::MuteTabs { ids, muted } => {
@@ -1588,7 +1644,8 @@ pub async fn main_js() -> Result<(), JsValue> {
     listen_to_browser_action(state.clone());
     listen_to_sidebar(state.clone(), sidebar_messages);
     listen_to_options(state.clone(), options_messages);
-    listen_to_changes(state, browser_changes);
+    listen_to_changes(state.clone(), browser_changes);
+    listen_to_time(state);
 
 
     log!("Background page started");

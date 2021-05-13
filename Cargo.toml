@@ -27,7 +27,7 @@ console_error_panic_hook = "0.1.5"
 wasm-bindgen = { version = "0.2.45", features = ["nightly"] }
 wasm-bindgen-futures = "0.4.0"
 js-sys = "0.3.27"
-futures-preview = { version = "0.3.0-alpha.19", features = ["async-await"] }
+futures = { version = "0.3.0", features = ["async-await"] }
 futures-signals = "0.3.0"
 gloo-events = "0.1.1"
 uuid = { version = "0.7.1", features = ["serde", "v4", "wasm-bindgen"] }
