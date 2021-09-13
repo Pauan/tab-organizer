@@ -53,7 +53,7 @@ impl<A> Mapping<A> {
 
     fn move_key(&mut self, old_key: i32, new_key: i32) -> Option<&mut A> {
         if let Some(id) = self.keys.remove(&old_key) {
-            self.keys.insert(new_key, id).unwrap_none();
+            assert!(self.keys.insert(new_key, id).is_none());
             Some(self.values.get_mut(&id).unwrap())
 
         } else {
@@ -64,8 +64,8 @@ impl<A> Mapping<A> {
 
 impl<A> Mapping<A> where A: std::fmt::Debug {
     fn insert(&mut self, key: i32, id: Id, value: A) {
-        self.keys.insert(key, id).unwrap_none();
-        self.values.insert(id, value).unwrap_none();
+        assert!(self.keys.insert(key, id).is_none());
+        assert!(self.values.insert(id, value).is_none());
     }
 }
 

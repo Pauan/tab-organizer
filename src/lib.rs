@@ -1,4 +1,3 @@
-#![feature(option_unwrap_none)]
 #![warn(unreachable_pub)]
 
 use lazy_static::lazy_static;
@@ -458,7 +457,7 @@ macro_rules! closure {
         $crate::closure!(move || -> () $body)
     };
     (move |$($arg:ident: $type:ty),*| $body:block) => {
-        $crate::closure!(move |$($arg: $type),*| -> () $body);
+        $crate::closure!(move |$($arg: $type),*| -> () $body)
     };
 }
 

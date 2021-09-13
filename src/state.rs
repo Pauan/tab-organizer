@@ -163,7 +163,6 @@ pub mod sidebar {
 
 pub mod options {
     use serde_derive::{Serialize, Deserialize};
-    use super::SerializedTab;
 
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -244,9 +243,9 @@ impl Label {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 #[serde(transparent)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TabId(String);
 
 impl TabId {
@@ -266,9 +265,9 @@ impl From<Uuid> for TabId {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[repr(transparent)]
 #[serde(transparent)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct WindowId(String);
 
 impl WindowId {

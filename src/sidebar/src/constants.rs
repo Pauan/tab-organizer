@@ -216,7 +216,7 @@ lazy_static! {
         .style("height", px(GROUP_HEADER_HEIGHT))
         .style("padding-left", "12px")
         .style("padding-bottom", "2px")
-        .style("font-size", "11px")
+        .style("font-size", "12px")
     };
 
     pub(crate) static ref GROUP_HEADER_TEXT_STYLE: String = class! {
@@ -274,7 +274,7 @@ lazy_static! {
         .style("border-left-width", "4px")
         .style("border-right-width", "0px")
         //.style("margin-bottom", "-1px")
-        .style("font-size", "12px")
+        .style("font-size", "13px")
     };
 
     pub(crate) static ref TAB_PINNED_STYLE: String = class! {

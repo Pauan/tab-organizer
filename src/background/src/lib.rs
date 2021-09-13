@@ -1,4 +1,3 @@
-#![feature(vec_remove_item, option_unwrap_none)]
 #![warn(unreachable_pub)]
 
 use wasm_bindgen::prelude::*;
@@ -22,6 +21,8 @@ use tab_organizer::browser;
 mod migrate;
 
 
+// 2 days
+const TAB_AGE_LIMIT: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 2.0;
 const POPUP: bool = true;
 
 
@@ -318,7 +319,7 @@ impl State {
     }
 
     fn insert_tab_uuid(&mut self, uuid: TabId, tab_id: Id) {
-        self.tab_map.ids.insert(uuid, tab_id).unwrap_none();
+        assert!(self.tab_map.ids.insert(uuid, tab_id).is_none());
     }
 
     fn tabs(state: &Rc<RefCell<Self>>, tabs: Vec<browser::TabState>) -> impl Future<Output = Result<Vec<AsyncTab>, JsValue>> {
@@ -473,7 +474,7 @@ impl State {
         changes.append(&mut browser_tab.update(&tab));
 
         // self.ids is set by other methods
-        self.tab_map.values.insert(tab.id, browser_tab).unwrap_none();
+        assert!(self.tab_map.values.insert(tab.id, browser_tab).is_none());
 
         TabCreated {
             id: uuid,
@@ -512,16 +513,16 @@ impl State {
         }
 
         // TODO is this needed ?
-        self.window_map.ids.insert(uuid.clone(), id).unwrap_none();
+        assert!(self.window_map.ids.insert(uuid.clone(), id).is_none());
 
-        self.window_map.values.insert(id, BrowserWindow {
+        assert!(self.window_map.values.insert(id, BrowserWindow {
             serialized,
             window_id: id,
             tabs,
             focused_tab,
             is_unloading: false,
             ports: vec![],
-        }).unwrap_none();
+        }).is_none());
 
         if focused {
             self.focused_window = Some(uuid.clone());
@@ -598,12 +599,12 @@ impl State {
                         Some(mut old_tab) => {
                             if old_tab.merge(new_tab) {
                                 self.db.set(&key, &old_tab);
-                                windows_len += 1;
+                                tabs_len += 1;
                             }
                         },
                         None => {
                             self.db.set(&key, &new_tab);
-                            windows_len += 1;
+                            tabs_len += 1;
                         },
                     }
                 }
@@ -612,12 +613,12 @@ impl State {
                     Some(mut old_window) => {
                         if old_window.merge(new_window) {
                             self.db.set(&key, &old_window);
-                            tabs_len += 1;
+                            windows_len += 1;
                         }
                     },
                     None => {
                         self.db.set(&key, &new_window);
-                        tabs_len += 1;
+                        windows_len += 1;
                     },
                 }
             }
@@ -709,13 +710,10 @@ impl State {
     }
 
     fn maybe_unload_tabs(&mut self) {
-        // 1 week
-        const AGE_LIMIT: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 7.0;
-
         let mut old_tabs = vec![];
 
         if let Some(windows) = self.db.get::<Vec<WindowId>>(intern("windows")) {
-            let age_limit = Date::now() - AGE_LIMIT;
+            let age_limit = Date::now() - TAB_AGE_LIMIT;
 
             for id in windows {
                 let key = SerializedWindow::key(&id);
@@ -767,7 +765,7 @@ impl State {
         log!("RENAMING {:?} {:?}", old_id, new_id);
 
         let window_id = self.window_map.ids.remove(&old_id).unwrap();
-        self.window_map.ids.insert(new_id.clone(), window_id).unwrap_none();
+        assert!(self.window_map.ids.insert(new_id.clone(), window_id).is_none());
 
         let fut = self.browser.set_window_uuid(window_id, &new_id);
 
@@ -851,9 +849,9 @@ pub async fn main_js() -> Result<(), JsValue> {
 
     fn listen_to_time(state: Rc<RefCell<State>>) {
         // 5 minutes
-        const INTERVAL: u32 = 1_000 * 60 * 5;
+        const UNLOAD_TABS_INTERVAL: u32 = 1_000 * 60 * 5;
 
-        spawn(gloo_timers::future::IntervalStream::new(INTERVAL)
+        spawn(gloo_timers::future::IntervalStream::new(UNLOAD_TABS_INTERVAL)
             .map(|x| -> Result<(), JsValue> { Ok(x) })
             .try_for_each(move |_| {
                 state.borrow_mut().maybe_unload_tabs();
@@ -1393,7 +1391,8 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                             let mut window_ids: Vec<WindowId> = state.get_window_ids();
 
-                            window_ids.remove_item(uuid).unwrap();
+                            let index = window_ids.iter().position(|x| x == uuid).unwrap();
+                            window_ids.remove(index);
 
                             state.db.set(intern("windows"), &window_ids);
                         }
@@ -1638,7 +1637,10 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                         let browser_window = state.window_map.values.get_mut(&window_id).unwrap();
 
-                        browser_window.tabs.remove_item(&tab_uuid).unwrap();
+                        {
+                            let index = browser_window.tabs.iter().position(|x| x == tab_uuid).unwrap();
+                            browser_window.tabs.remove(index);
+                        }
 
                         let is_tab_focused = browser_window.unfocus_tab(&tab_uuid);
 

@@ -752,7 +752,6 @@ impl State {
                     },
                     TabChange::RemovedFromLabel { label_name } => {
                         let mut labels = tab.labels.lock_mut();
-                        // TODO use remove_item
                         let index = labels.iter().position(|x| x.name == label_name).unwrap();
                         labels.remove(index);
                         self.remove_label_count(&label_name);
