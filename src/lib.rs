@@ -972,6 +972,19 @@ impl Database {
 }
 
 
+#[wasm_bindgen]
+extern "C" {
+    #[derive(Debug)]
+    type PortMessage;
+
+    #[wasm_bindgen(method, getter)]
+    fn data(this: &PortMessage) -> String;
+
+    #[wasm_bindgen(method, getter)]
+    fn done(this: &PortMessage) -> bool;
+}
+
+
 #[derive(Debug)]
 pub struct Port<In, Out> {
     port: web_extension::Port,
@@ -986,15 +999,55 @@ impl<In, Out> Port<In, Out> {
     }
 
     #[inline]
-    pub fn unchecked_send_message(&self, message: &JsValue) {
-        self.port.post_message(message);
+    pub fn send_message_str(&self, message: &str) {
+        // 32 megabyte chunks
+        const MAX_MESSAGE_LENGTH: usize = 33_554_432;
+
+        let len = message.len();
+
+        if len <= MAX_MESSAGE_LENGTH {
+            self.port.post_message(&object! {
+                "data": message,
+                "done": true,
+            }.into());
+
+        // Send message in multiple chunks
+        } else {
+            let mut start = 0;
+
+            loop {
+                let mut end = start + MAX_MESSAGE_LENGTH;
+
+                if end < len {
+                    // Needed to prevent splitting in the middle of a char
+                    while !message.is_char_boundary(end) {
+                        end -= 1;
+                    }
+
+                    self.port.post_message(&object! {
+                        "data": &message[start..end],
+                        "done": false,
+                    }.into());
+
+                    start = end;
+
+                } else {
+                    self.port.post_message(&object! {
+                        "data": &message[start..len],
+                        "done": true,
+                    }.into());
+
+                    break;
+                }
+            }
+        }
     }
 }
 
 impl<In, Out> Port<In, Out> where In: Serialize {
     #[inline]
     pub fn send_message(&self, message: &In) {
-        self.unchecked_send_message(&serialize(message));
+        self.send_message_str(&serialize_str(message));
     }
 
     #[inline]
@@ -1005,10 +1058,11 @@ impl<In, Out> Port<In, Out> where In: Serialize {
 
 
 struct OnMessage<A> {
-    _on_message: Listener<dyn FnMut(JsValue)>,
+    partial: Option<String>,
+    _on_message: Listener<dyn FnMut(PortMessage)>,
     _on_disconnect: Listener<dyn FnMut(web_extension::Port)>,
-    receiver: mpsc::UnboundedReceiver<JsValue>,
-    _output: std::marker::PhantomData<fn(JsValue) -> A>,
+    receiver: mpsc::UnboundedReceiver<PortMessage>,
+    _output: std::marker::PhantomData<fn(PortMessage) -> A>,
 }
 
 impl<A> Unpin for OnMessage<A> {}
@@ -1018,11 +1072,34 @@ impl<A> Stream for OnMessage<A> where A: DeserializeOwned {
 
     #[inline]
     fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
-        std::pin::Pin::new(&mut self.receiver).poll_next(cx).map(|option| {
-            option.map(|message| {
-                deserialize(&message)
-            })
-        })
+        match std::pin::Pin::new(&mut self.receiver).poll_next(cx) {
+            Poll::Ready(Some(message)) => {
+                if message.done() {
+                    if let Some(part) = &mut self.partial {
+                        part.push_str(&message.data());
+
+                        let output = Poll::Ready(Some(deserialize_str(&part)));
+                        self.partial = None;
+                        output
+
+                    } else {
+                        Poll::Ready(Some(deserialize_str(&message.data())))
+                    }
+
+                } else {
+                    if let Some(part) = &mut self.partial {
+                        part.push_str(&message.data());
+                        Poll::Pending
+
+                    } else {
+                        self.partial = Some(message.data());
+                        Poll::Pending
+                    }
+                }
+            },
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -1040,6 +1117,7 @@ impl<In, Out> Port<In, Out> where Out: DeserializeOwned {
         }));
 
         OnMessage {
+            partial: None,
             _on_message,
             _on_disconnect,
             receiver,

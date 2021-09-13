@@ -1,4 +1,4 @@
-use serde_derive::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -53,7 +53,7 @@ pub fn merge_ids<A>(ids: &mut Vec<A>, new_ids: &[A]) -> bool where A: PartialEq 
 
 pub mod sidebar {
     use super::{Label, Tab, TabStatus, TabId, WindowOptions};
-    use serde_derive::{Serialize, Deserialize};
+    use serde::{Serialize, Deserialize};
 
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -162,7 +162,7 @@ pub mod sidebar {
 
 
 pub mod options {
-    use serde_derive::{Serialize, Deserialize};
+    use serde::{Serialize, Deserialize};
 
 
     #[derive(Debug, Serialize, Deserialize)]

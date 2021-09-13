@@ -219,10 +219,10 @@ impl BrowserWindow {
 
     fn send_message(&self, message: &sidebar::ServerMessage) {
         if !self.ports.is_empty() {
-            let message = serialize(&message);
+            let message = serialize_str(&message);
 
             for port in self.ports.iter() {
-                port.unchecked_send_message(&message);
+                port.send_message_str(&message);
             }
         }
     }

@@ -67,7 +67,7 @@ fn migrate_db<OldWindow, NewWindow, OldTab, NewTab>(db: &Database)
 
 
 mod v1 {
-    use serde_derive::{Serialize, Deserialize};
+    use serde::{Serialize, Deserialize};
     use uuid::Uuid;
     use super::v2;
     use super::v2::{SerializedWindow, Label};
@@ -138,7 +138,7 @@ mod v1 {
 }
 
 mod v2 {
-    use serde_derive::{Serialize, Deserialize};
+    use serde::{Serialize, Deserialize};
     use uuid::Uuid;
     use super::v3;
     pub(crate) use v3::{SerializedTab, Label};
@@ -193,7 +193,7 @@ mod v2 {
 
 mod v3 {
     use uuid::Uuid;
-    use serde_derive::{Serialize, Deserialize};
+    use serde::{Serialize, Deserialize};
     use super::v4;
     pub(crate) use v4::{Label, WindowOptions, Timestamps, WindowId, TabId};
 

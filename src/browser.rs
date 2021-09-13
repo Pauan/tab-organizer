@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::collections::HashMap;
 use serde::de::DeserializeOwned;
-use serde_derive::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize};
 use futures::channel::mpsc;
 use futures::stream::Stream;
 use futures::{join, FutureExt};
