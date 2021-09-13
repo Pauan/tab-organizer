@@ -1058,11 +1058,10 @@ impl<In, Out> Port<In, Out> where In: Serialize {
 
 
 struct OnMessage<A> {
-    partial: Option<String>,
     _on_message: Listener<dyn FnMut(PortMessage)>,
     _on_disconnect: Listener<dyn FnMut(web_extension::Port)>,
-    receiver: mpsc::UnboundedReceiver<PortMessage>,
-    _output: std::marker::PhantomData<fn(PortMessage) -> A>,
+    receiver: mpsc::UnboundedReceiver<String>,
+    _output: std::marker::PhantomData<fn(String) -> A>,
 }
 
 impl<A> Unpin for OnMessage<A> {}
@@ -1072,34 +1071,7 @@ impl<A> Stream for OnMessage<A> where A: DeserializeOwned {
 
     #[inline]
     fn poll_next(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> std::task::Poll<Option<Self::Item>> {
-        match std::pin::Pin::new(&mut self.receiver).poll_next(cx) {
-            Poll::Ready(Some(message)) => {
-                if message.done() {
-                    if let Some(part) = &mut self.partial {
-                        part.push_str(&message.data());
-
-                        let output = Poll::Ready(Some(deserialize_str(&part)));
-                        self.partial = None;
-                        output
-
-                    } else {
-                        Poll::Ready(Some(deserialize_str(&message.data())))
-                    }
-
-                } else {
-                    if let Some(part) = &mut self.partial {
-                        part.push_str(&message.data());
-                        Poll::Pending
-
-                    } else {
-                        self.partial = Some(message.data());
-                        Poll::Pending
-                    }
-                }
-            },
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Pending => Poll::Pending,
-        }
+        Pin::new(&mut self.receiver).poll_next(cx).map(|option| option.map(|s| deserialize_str(&s)))
     }
 }
 
@@ -1107,8 +1079,27 @@ impl<In, Out> Port<In, Out> where Out: DeserializeOwned {
     pub fn on_message(&self) -> impl Stream<Item = Out> {
         let (sender, receiver) = mpsc::unbounded();
 
-        let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message| {
-            sender.unbounded_send(message).unwrap();
+        let mut partial: Option<String> = None;
+
+        let _on_message = Listener::new(self.port.on_message(), clone!(sender => Closure::new(move |message: PortMessage| {
+            if message.done() {
+                if let Some(mut part) = partial.take() {
+                    part.push_str(&message.data());
+
+                    sender.unbounded_send(part).unwrap();
+
+                } else {
+                    sender.unbounded_send(message.data()).unwrap();
+                }
+
+            } else {
+                if let Some(part) = &mut partial {
+                    part.push_str(&message.data());
+
+                } else {
+                    partial = Some(message.data());
+                }
+            }
         })));
 
         // TODO check port error ?
@@ -1117,7 +1108,6 @@ impl<In, Out> Port<In, Out> where Out: DeserializeOwned {
         }));
 
         OnMessage {
-            partial: None,
             _on_message,
             _on_disconnect,
             receiver,
