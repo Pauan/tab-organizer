@@ -55,6 +55,7 @@ pub(crate) enum Parsed {
     Literal(Regex),
     And(Box<Parsed>, Box<Parsed>),
     IsLoaded,
+    IsDuplicate,
 }
 
 impl Parsed {
@@ -76,12 +77,10 @@ impl Parsed {
                             .unwrap())
                     },
                     [x, y] => {
-                        if *x == "is" && *y == "loaded" {
-                            Parsed::IsLoaded
-
-                        } else {
-                            // TODO error on invalid input
-                            Parsed::True
+                        match (*x, *y) {
+                            ("is", "loaded") => Parsed::IsLoaded,
+                            ("is", "duplicate") => Parsed::IsDuplicate,
+                            _ => Parsed::True,
                         }
                     },
                     _ => unreachable!(),
@@ -115,6 +114,8 @@ impl Parsed {
             Parsed::And(left, right) => left.matches_tab(tab) && right.matches_tab(tab),
 
             Parsed::IsLoaded => !tab.state.status.get().is_none(),
+
+            Parsed::IsDuplicate => todo!(),
         }
     }
 }

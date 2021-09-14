@@ -13,7 +13,7 @@ use wasm_bindgen_futures::JsFuture;
 use js_sys::Date;
 use dominator::clone;
 use futures_signals::signal::{Mutable, SignalExt};
-use tab_organizer::{global_function, closure, fallible_promise, spawn, log, info, time, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
+use tab_organizer::{global_function, closure, fallible_promise, spawn, log, info, warn, time, object, serialize, deserialize_str, serialize_str, Database, on_connect, Port, panic_hook, set_print_logs, download, pretty_date};
 use tab_organizer::state::{TabId, WindowId, Tab, TabStatus, SerializedWindow, SerializedTab, Label, sidebar, options, merge_ids};
 use tab_organizer::browser::{Browser, Id, BrowserChange};
 use tab_organizer::browser;
@@ -22,7 +22,11 @@ mod migrate;
 
 
 // 2 days
-const TAB_AGE_LIMIT: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 2.0;
+const TAB_UNLOAD_AGE: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 2.0;
+
+// 365 days
+const TAB_CLOSE_AGE: f64 = 1_000.0 * 60.0 * 60.0 * 24.0 * 365.0;
+
 const POPUP: bool = true;
 
 
@@ -710,10 +714,13 @@ impl State {
     }
 
     fn maybe_unload_tabs(&mut self) {
-        let mut old_tabs = vec![];
+        let mut close_tabs = vec![];
+        let mut unload_tabs = vec![];
 
         if let Some(windows) = self.db.get::<Vec<WindowId>>(intern("windows")) {
-            let age_limit = Date::now() - TAB_AGE_LIMIT;
+            let now = Date::now();
+            let close_limit = now - TAB_CLOSE_AGE;
+            let unload_limit = now - TAB_UNLOAD_AGE;
 
             for id in windows {
                 let key = SerializedWindow::key(&id);
@@ -725,14 +732,68 @@ impl State {
 
                     let tab = self.db.get::<SerializedTab>(&key).unwrap();
 
-                    if !tab.pinned && tab.timestamps.focused() < age_limit {
-                        old_tabs.push(tab.id);
+                    if !tab.pinned {
+                        let focused = tab.timestamps.focused();
+
+                        if focused < close_limit {
+                            close_tabs.push(tab.id);
+
+                        } else if focused < unload_limit {
+                            unload_tabs.push(tab.id);
+                        }
                     }
                 }
             }
         }
 
-        self.unload_tabs(&old_tabs);
+        // TODO call close_tabs
+        self.unload_tabs(&unload_tabs);
+    }
+
+    fn close_tabs(&mut self, window_id: &Id, ids: &[TabId]) {
+        let mut close_unloaded = vec![];
+
+        let removed = ids.into_iter().filter_map(|uuid| {
+            match self.tab_map.ids.get(&uuid) {
+                Some(id) => {
+                    // TODO can this be made faster ?
+                    self.browser.get_tab_real_id(*id).map(JsValue::from)
+                },
+
+                // Tab is unloaded
+                None => {
+                    close_unloaded.push(uuid);
+                    None
+                },
+            }
+        }).collect::<js_sys::Array>();
+
+        remove_tabs(removed);
+
+        if !close_unloaded.is_empty() {
+            let db = &self.db;
+            let window_ids = &mut self.window_map.values;
+
+            // TODO what if the window is unloaded ?
+            let window = window_ids.get_mut(&window_id).unwrap();
+
+            let tab_indexes = close_unloaded.into_iter().map(|uuid| {
+                let tab_index = window.serialized.tab_index(&uuid).unwrap();
+
+                window.serialized.tabs.remove(tab_index);
+
+                // TODO verify that the key already existed
+                db.remove(&SerializedTab::key(&uuid));
+
+                tab_index
+            }).collect::<Vec<usize>>();
+
+            window.serialize(&db);
+
+            for tab_index in tab_indexes {
+                window.send_message(&sidebar::ServerMessage::TabRemoved { tab_index });
+            }
+        }
     }
 
     fn unload_tabs(&mut self, ids: &[TabId]) {
@@ -1057,49 +1118,12 @@ pub async fn main_js() -> Result<(), JsValue> {
                 sidebar::ClientMessage::CloseTabs { ids } => {
                     let state: &mut State = &mut state.borrow_mut();
 
-                    let mut close_unloaded = vec![];
+                    if let Some(window_id) = port_id.get() {
+                        state.close_tabs(&window_id, &ids);
 
-                    let removed = ids.into_iter().filter_map(|uuid| {
-                        match state.tab_map.ids.get(&uuid) {
-                            Some(id) => {
-                                // TODO can this be made faster ?
-                                state.browser.get_tab_real_id(*id).map(JsValue::from)
-                            },
-
-                            // Tab is unloaded
-                            None => {
-                                close_unloaded.push(uuid);
-                                None
-                            },
-                        }
-                    }).collect::<js_sys::Array>();
-
-                    remove_tabs(removed);
-
-                    if !close_unloaded.is_empty() {
-                        let window_ids = &mut state.window_map.values;
-
-                        // TODO what if the window is unloaded ?
-                        if let Some(window) = port_id.get().and_then(|window_id| window_ids.get_mut(&window_id)) {
-                            let db = &state.db;
-
-                            let tab_indexes = close_unloaded.into_iter().map(|uuid| {
-                                let tab_index = window.serialized.tab_index(&uuid).unwrap();
-
-                                window.serialized.tabs.remove(tab_index);
-
-                                // TODO verify that the key already existed
-                                db.remove(&SerializedTab::key(&uuid));
-
-                                tab_index
-                            }).collect::<Vec<usize>>();
-
-                            window.serialize(&state.db);
-
-                            for tab_index in tab_indexes {
-                                window.send_message(&sidebar::ServerMessage::TabRemoved { tab_index });
-                            }
-                        }
+                    } else {
+                        // TODO handle this better, such as by showing a popup box
+                        warn!("Missing window");
                     }
                 },
 
