@@ -322,7 +322,9 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 }
 
 
-fn initialize(search: &SearchLock, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], changing_sort: bool, should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], changing_sort: bool, should_animate: bool) -> Vec<Arc<Group>> {
+    let search = state.search.lock_ref();
+
     let mut groups = vec![];
 
     for (tab_index, tab) in tabs.iter().cloned().enumerate() {
@@ -331,7 +333,7 @@ fn initialize(search: &SearchLock, sort: SortTabs, pinned: &Arc<Group>, tabs: &[
             continue;
         }
 
-        tab_inserted(search, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
+        tab_inserted(&search, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
     }
 
     groups
@@ -503,6 +505,8 @@ impl Groups {
             for label in tab.labels.lock_ref().iter() {
                 state.add_label_count(&label.name);
             }
+
+            state.search.tab_created(tab);
         }
 
         let sort = *self.sort.lock().unwrap();
@@ -510,7 +514,7 @@ impl Groups {
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(&state.search.lock_ref(), sort, &self.pinned, &tabs, false, false) });
+        let new_groups = time!("Creating initial groups", { initialize(state, sort, &self.pinned, &tabs, false, false) });
         groups.replace_cloned(new_groups);
     }
 
@@ -560,24 +564,28 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        let new_groups = time!("Creating new groups", { initialize(&state.search.lock_ref(), *sort, &self.pinned, tabs, true, false) });
+        let new_groups = time!("Creating new groups", { initialize(state, *sort, &self.pinned, tabs, true, false) });
 
         groups.replace_cloned(new_groups);
     }
 
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
+        state.search.tab_created(&tab);
         let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
         tab_inserted(&state.search.lock_ref(), sort, &self.pinned, &mut groups, tab, tab_index, true, false);
     }
 
-    fn tab_removed(&self, tab_index: usize, tab: &TabState) {
+    fn tab_removed(&self, state: &State, tab_index: usize, tab: &TabState) {
+        state.search.tab_removed(&tab);
         let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
         tab_removed(sort, &self.pinned, &mut groups, tab, tab_index);
     }
 
     fn tab_updated<F>(&self, state: &State, tab_index: usize, tab: Arc<TabState>, change: F) where F: FnOnce() {
+        state.search.tab_removed(&tab);
+
         let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
 
@@ -585,6 +593,8 @@ impl Groups {
         let group_indexes = sorted_groups(sort, &self.pinned, &mut groups, &tab, true);
 
         change();
+
+        state.search.tab_created(&tab);
 
         tab_updated(&state.search.lock_ref(), sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
     }
@@ -683,7 +693,7 @@ impl State {
 
         tab.removed.set_neq(true);
 
-        self.groups.tab_removed(tab_index, &tab);
+        self.groups.tab_removed(self, tab_index, &tab);
 
         decrement_indexes(&tabs[tab_index..]);
     }

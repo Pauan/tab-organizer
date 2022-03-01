@@ -1,9 +1,10 @@
 //use nom::types::CompleteStr;
 use std::collections::HashMap;
 use futures_signals::signal::{Mutable, MutableLockRef};
+use std::cell::{RefCell, Ref};
 use std::sync::Arc;
 use regex::{Regex, RegexBuilder, escape};
-use crate::types::{State, Group, Tab};
+use crate::types::{Tab, TabState};
 
 
 /*named!(atom<CompleteStr, Parsed>,
@@ -63,7 +64,7 @@ fn matches_tab(parsed: &Parsed, url_count: &HashMap<String, usize>, tab: &Tab) -
 
 #[derive(Debug)]
 pub(crate) struct SearchLock<'a> {
-    url_count: &'a HashMap<String, usize>,
+    url_count: Ref<'a, HashMap<String, usize>>,
     parser: MutableLockRef<'a, Arc<Parsed>>,
 }
 
@@ -76,7 +77,7 @@ impl<'a> SearchLock<'a> {
 
 #[derive(Debug)]
 pub(crate) struct Search {
-    url_count: HashMap<String, usize>,
+    url_count: RefCell<HashMap<String, usize>>,
     pub(crate) value: Mutable<Arc<String>>,
     pub(crate) parser: Mutable<Arc<Parsed>>,
 }
@@ -84,28 +85,30 @@ pub(crate) struct Search {
 impl Search {
     pub(crate) fn new(search_value: String) -> Self {
         Self {
-            url_count: HashMap::new(),
+            url_count: RefCell::new(HashMap::new()),
 
             parser: Mutable::new(Arc::new(Parsed::new(&search_value))),
             value: Mutable::new(Arc::new(search_value)),
         }
     }
 
-    pub(crate) fn tab_created(&mut self, tab: &Tab) {
+    pub(crate) fn tab_created(&self, tab: &TabState) {
         let url = tab.url.lock_ref();
 
         if let Some(url) = url.as_deref() {
-            let count = self.url_count.entry(url.clone()).or_insert(0);
+            let mut url_count = self.url_count.borrow_mut();
+            let count = url_count.entry(url.clone()).or_insert(0);
             // TODO check for overflow ?
             *count += 1;
         }
     }
 
-    pub(crate) fn tab_removed(&mut self, tab: &Tab) {
+    pub(crate) fn tab_removed(&self, tab: &TabState) {
         let url = tab.url.lock_ref();
 
         if let Some(url) = url.as_deref() {
-            let count = self.url_count.get_mut(&*url).unwrap();
+            let mut url_count = self.url_count.borrow_mut();
+            let count = url_count.get_mut(&*url).unwrap();
             assert!(*count > 0);
             *count -= 1;
         }
@@ -113,7 +116,7 @@ impl Search {
 
     pub(crate) fn lock_ref(&self) -> SearchLock<'_> {
         SearchLock {
-            url_count: &self.url_count,
+            url_count: self.url_count.borrow(),
             parser: self.parser.lock_ref(),
         }
     }
