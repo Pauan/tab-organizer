@@ -1018,7 +1018,7 @@ impl State {
 
                                     .attribute_signal("title", FAILED.signal_cloned().map(|x| option_str_default(x, "")))
 
-                                    .attribute_signal("value", state.search_box.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
+                                    .attribute_signal("value", state.search.value.signal_cloned().map(|x| RefFn::new(x, |x| x.as_str())))
 
                                     .with_node!(element => {
                                         // TODO debounce
@@ -1026,8 +1026,8 @@ impl State {
                                             let value = Arc::new(element.value());
                                             local_storage_set("tab-organizer.search", &value);
                                             // TODO is it faster to not use Arc ?
-                                            state.search_parser.set(Arc::new(search::Parsed::new(&value)));
-                                            state.search_box.set(value);
+                                            state.search.parser.set(Arc::new(search::Parsed::new(&value)));
+                                            state.search.value.set(value);
                                         }))
                                     })
                                 }),

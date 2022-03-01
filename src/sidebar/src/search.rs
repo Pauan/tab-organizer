@@ -1,4 +1,7 @@
 //use nom::types::CompleteStr;
+use std::collections::HashMap;
+use futures_signals::signal::{Mutable, MutableLockRef};
+use std::sync::Arc;
 use regex::{Regex, RegexBuilder, escape};
 use crate::types::{State, Group, Tab};
 
@@ -30,21 +33,96 @@ named!(parse<CompleteStr, Parsed>,
 );*/
 
 
-impl Tab {
-    pub(crate) fn set_matches_search(&self, matches: bool) {
-        self.matches_search.set_neq(matches);
+fn matches_tab(parsed: &Parsed, url_count: &HashMap<String, usize>, tab: &Tab) -> bool {
+    match parsed {
+        Parsed::True => true,
+
+        Parsed::Literal(regexp) => {
+            let title = tab.title.lock_ref();
+            let url = tab.url.lock_ref();
+
+            // TODO make this more efficient ?
+            let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
+            let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
+
+            regexp.is_match(title) || regexp.is_match(url)
+        },
+
+        Parsed::And(left, right) => matches_tab(left, url_count, tab) && matches_tab(right, url_count, tab),
+
+        Parsed::IsLoaded => !tab.state.status.get().is_none(),
+
+        Parsed::IsDuplicate => todo!(),
+
+        Parsed::Tag(tag) => todo!(),
+
+        Parsed::Error(error) => todo!(),
     }
 }
 
 
-impl State {
-    pub(crate) fn search_tab(&self, tab: &Tab) {
-        let tab_matches = {
-            let search_parser = self.search_parser.lock_ref();
-            search_parser.matches_tab(tab)
-        };
+#[derive(Debug)]
+pub(crate) struct SearchLock<'a> {
+    url_count: &'a HashMap<String, usize>,
+    parser: MutableLockRef<'a, Arc<Parsed>>,
+}
 
-        tab.set_matches_search(tab_matches);
+impl<'a> SearchLock<'a> {
+    pub(crate) fn matches_tab(&self, tab: &Tab) -> bool {
+        matches_tab(&self.parser, &self.url_count, tab)
+    }
+}
+
+
+#[derive(Debug)]
+pub(crate) struct Search {
+    url_count: HashMap<String, usize>,
+    pub(crate) value: Mutable<Arc<String>>,
+    pub(crate) parser: Mutable<Arc<Parsed>>,
+}
+
+impl Search {
+    pub(crate) fn new(search_value: String) -> Self {
+        Self {
+            url_count: HashMap::new(),
+
+            parser: Mutable::new(Arc::new(Parsed::new(&search_value))),
+            value: Mutable::new(Arc::new(search_value)),
+        }
+    }
+
+    pub(crate) fn tab_created(&mut self, tab: &Tab) {
+        let url = tab.url.lock_ref();
+
+        if let Some(url) = url.as_deref() {
+            let count = self.url_count.entry(url.clone()).or_insert(0);
+            // TODO check for overflow ?
+            *count += 1;
+        }
+    }
+
+    pub(crate) fn tab_removed(&mut self, tab: &Tab) {
+        let url = tab.url.lock_ref();
+
+        if let Some(url) = url.as_deref() {
+            let count = self.url_count.get_mut(&*url).unwrap();
+            assert!(*count > 0);
+            *count -= 1;
+        }
+    }
+
+    pub(crate) fn lock_ref(&self) -> SearchLock<'_> {
+        SearchLock {
+            url_count: &self.url_count,
+            parser: self.parser.lock_ref(),
+        }
+    }
+}
+
+
+impl Tab {
+    pub(crate) fn set_matches_search(&self, matches: bool) {
+        self.matches_search.set_neq(matches);
     }
 }
 
@@ -56,6 +134,8 @@ pub(crate) enum Parsed {
     And(Box<Parsed>, Box<Parsed>),
     IsLoaded,
     IsDuplicate,
+    Tag(String),
+    Error(&'static str),
 }
 
 impl Parsed {
@@ -80,10 +160,11 @@ impl Parsed {
                         match (*x, *y) {
                             ("is", "loaded") => Parsed::IsLoaded,
                             ("is", "duplicate") => Parsed::IsDuplicate,
-                            _ => Parsed::True,
+                            ("tag", tag) => Parsed::Tag(tag.to_string()),
+                            _ => Parsed::Error("unknown search term"),
                         }
                     },
-                    _ => unreachable!(),
+                    _ => Parsed::Error("unknown search term"),
                 }
             })
             .fold(Parsed::True, |old, new| {
@@ -94,29 +175,6 @@ impl Parsed {
                     Parsed::And(Box::new(old), Box::new(new))
                 }
             })
-    }
-
-    pub(crate) fn matches_tab(&self, tab: &Tab) -> bool {
-        match self {
-            Parsed::True => true,
-
-            Parsed::Literal(regexp) => {
-                let title = tab.title.lock_ref();
-                let url = tab.url.lock_ref();
-
-                // TODO make this more efficient ?
-                let title = title.as_ref().map(|x| x.as_str()).unwrap_or("");
-                let url = url.as_ref().map(|x| x.as_str()).unwrap_or("");
-
-                regexp.is_match(title) || regexp.is_match(url)
-            },
-
-            Parsed::And(left, right) => left.matches_tab(tab) && right.matches_tab(tab),
-
-            Parsed::IsLoaded => !tab.state.status.get().is_none(),
-
-            Parsed::IsDuplicate => todo!(),
-        }
     }
 }
 

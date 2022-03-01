@@ -163,7 +163,7 @@ impl CulledTab {
         }
     }
 
-    fn is_changed(&mut self, cx: &mut Context, should_search: Option<&Arc<search::Parsed>>) -> bool {
+    fn is_changed(&mut self, cx: &mut Context, should_search: &Option<search::SearchLock>) -> bool {
         // This must be at the top
         if let Some(parser) = should_search {
             let tab_matches = parser.matches_tab(&self.state);
@@ -254,7 +254,7 @@ fn culled_group(state: Arc<Group>) -> CulledGroup<impl SignalVec<Item = CulledTa
 }
 
 impl<A> CulledGroup<A> where A: SignalVec<Item = CulledTab> + Unpin {
-    fn is_changed(&mut self, cx: &mut Context, should_search: Option<&Arc<search::Parsed>>) -> bool {
+    fn is_changed(&mut self, cx: &mut Context, should_search: &Option<search::SearchLock>) -> bool {
         let tabs = self.tabs.is_changed(cx, |cx, tab| tab.is_changed(cx, should_search));
         let drag_over = self.drag_over.is_changed(cx);
         let insert_animation = self.insert_animation.is_changed(cx);
@@ -327,14 +327,14 @@ impl<A, B, C, D, E, F> Culler<A, C, D, E, F>
 
         // TODO maybe it doesn't need to search if sort_tabs is true ?
         let should_search = if search_parser || sort_tabs {
-            Some(self.search_parser.as_ref())
+            Some(self.state.search.lock_ref())
 
         } else {
             None
         };
 
-        let pinned = self.pinned.is_changed(cx, should_search);
-        let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx, should_search));
+        let pinned = self.pinned.is_changed(cx, &should_search);
+        let groups = self.groups.is_changed(cx, |cx, group| group.is_changed(cx, &should_search));
         let scroll_y = self.scroll_y.is_changed(cx);
         let window_size = self.window_size.is_changed(cx);
 
@@ -522,7 +522,7 @@ pub(crate) fn cull_groups(state: Arc<State>) -> impl Future<Output = ()> {
             // TODO duplication with render.rs
             .delay_remove(|group| group.wait_until_removed())
             .map(culled_group)),
-        search_parser: MutableSink::new(state.search_parser.signal_cloned()),
+        search_parser: MutableSink::new(state.search.parser.signal_cloned()),
         sort_tabs: MutableSink::new(state.options.signal_ref(|x| x.sort_tabs)),
         scroll_y: MutableSink::new(state.scrolling.y.signal()),
         window_size: MutableSink::new(state.window_size.signal()),

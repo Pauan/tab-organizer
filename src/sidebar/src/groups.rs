@@ -1,5 +1,6 @@
 use crate::types::{State, TabState, Group, Tab};
 use crate::url_bar::UrlBar;
+use crate::search::{Search, SearchLock};
 use tab_organizer::{str_default, round_to_day, time, TimeDifference, StackVec};
 use tab_organizer::state as shared;
 use tab_organizer::state::{SortTabs, Label};
@@ -321,7 +322,7 @@ fn sorted_tab_index(sort: SortTabs, tabs: &[Arc<Tab>], tab: &TabState, tab_index
 }
 
 
-fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], changing_sort: bool, should_animate: bool) -> Vec<Arc<Group>> {
+fn initialize(search: &SearchLock, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<TabState>], changing_sort: bool, should_animate: bool) -> Vec<Arc<Group>> {
     let mut groups = vec![];
 
     for (tab_index, tab) in tabs.iter().cloned().enumerate() {
@@ -330,13 +331,13 @@ fn initialize(state: &State, sort: SortTabs, pinned: &Arc<Group>, tabs: &[Arc<Ta
             continue;
         }
 
-        tab_inserted(state, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
+        tab_inserted(search, sort, pinned, &mut groups, tab, tab_index, should_animate, true);
     }
 
     groups
 }
 
-fn create_new_tab(state: &State, group: &Group, tab: Arc<TabState>, should_animate: bool, is_initial: bool) -> Arc<Tab> {
+fn create_new_tab(search: &SearchLock, group: &Group, tab: Arc<TabState>, should_animate: bool, is_initial: bool) -> Arc<Tab> {
     let tab = Arc::new(Tab::new(tab));
 
     if should_animate {
@@ -348,14 +349,14 @@ fn create_new_tab(state: &State, group: &Group, tab: Arc<TabState>, should_anima
 
     // TODO is this correct ?
     if !is_initial {
-        state.search_tab(&tab);
+        tab.set_matches_search(search.matches_tab(&tab));
     }
 
     tab
 }
 
-fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
-    let tab = create_new_tab(state, group, tab, should_animate, is_initial);
+fn insert_tab_into_group(search: &SearchLock, sort: SortTabs, group: &Group, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) {
+    let tab = create_new_tab(search, group, tab, should_animate, is_initial);
 
     let mut tabs = group.tabs.lock_mut();
 
@@ -364,10 +365,10 @@ fn insert_tab_into_group(state: &State, sort: SortTabs, group: &Group, tab: Arc<
     tabs.insert_cloned(index, tab);
 }
 
-fn tab_inserted<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
+fn tab_inserted<A>(search: &SearchLock, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, tab: Arc<TabState>, tab_index: usize, should_animate: bool, is_initial: bool) where A: Insertable<Arc<Group>> {
     sorted_groups(sort, pinned, groups, &tab, should_animate).each(|group| {
         // TODO if the tab doesn't match the search, and the group is already matching, then do nothing
-        insert_tab_into_group(state, sort, &group, tab.clone(), tab_index, should_animate, is_initial);
+        insert_tab_into_group(search, sort, &group, tab.clone(), tab_index, should_animate, is_initial);
     });
 }
 
@@ -430,7 +431,7 @@ fn tab_removed(sort: SortTabs, pinned: &Arc<Group>, groups: &mut MutableVecLockM
     });
 }
 
-fn tab_updated<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
+fn tab_updated<A>(search: &SearchLock, sort: SortTabs, pinned: &Arc<Group>, groups: &mut A, old_groups: StackVec<Arc<Group>>, tab: Arc<TabState>, tab_index: usize) where A: Insertable<Arc<Group>> {
     let new_groups = sorted_groups(sort, pinned, groups, &tab, true);
 
     // TODO make this more efficient
@@ -458,21 +459,20 @@ fn tab_updated<A>(state: &State, sort: SortTabs, pinned: &Arc<Group>, groups: &m
 
             if old_index == new_index {
                 drop(tabs);
-                state.search_tab(&old_tab);
+                old_tab.set_matches_search(search.matches_tab(&old_tab));
 
             } else {
                 old_tab.insert_animation.animate_to(Percentage::new(0.0));
                 tabs.remove(old_index);
 
-                // TODO pass over some (or all) of the tab's state ?
-                let tab = create_new_tab(state, group, tab.clone(), true, false);
+                let tab = create_new_tab(search, group, tab.clone(), true, false);
                 tabs.insert_cloned(new_index, tab);
             }
 
         } else {
             let new_index = sorted_tab_index(sort, &tabs, &tab, tab_index, false);
 
-            let tab = create_new_tab(state, group, tab.clone(), true, false);
+            let tab = create_new_tab(search, group, tab.clone(), true, false);
             tabs.insert_cloned(new_index, tab);
         }
     });
@@ -510,7 +510,7 @@ impl Groups {
 
         assert_eq!(groups.len(), 0);
 
-        let new_groups = time!("Creating initial groups", { initialize(state, sort, &self.pinned, &tabs, false, false) });
+        let new_groups = time!("Creating initial groups", { initialize(&state.search.lock_ref(), sort, &self.pinned, &tabs, false, false) });
         groups.replace_cloned(new_groups);
     }
 
@@ -560,7 +560,7 @@ impl Groups {
 
         *sort = sort_tabs;
 
-        let new_groups = time!("Creating new groups", { initialize(state, *sort, &self.pinned, tabs, true, false) });
+        let new_groups = time!("Creating new groups", { initialize(&state.search.lock_ref(), *sort, &self.pinned, tabs, true, false) });
 
         groups.replace_cloned(new_groups);
     }
@@ -568,7 +568,7 @@ impl Groups {
     fn tab_inserted(&self, state: &State, tab_index: usize, tab: Arc<TabState>) {
         let sort = *self.sort.lock().unwrap();
         let mut groups = self.groups.lock_mut();
-        tab_inserted(state, sort, &self.pinned, &mut groups, tab, tab_index, true, false);
+        tab_inserted(&state.search.lock_ref(), sort, &self.pinned, &mut groups, tab, tab_index, true, false);
     }
 
     fn tab_removed(&self, tab_index: usize, tab: &TabState) {
@@ -586,7 +586,7 @@ impl Groups {
 
         change();
 
-        tab_updated(state, sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
+        tab_updated(&state.search.lock_ref(), sort, &self.pinned, &mut groups, group_indexes, tab, tab_index);
     }
 
     pub(crate) fn pinned_group(&self) -> Arc<Group> {

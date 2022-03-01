@@ -6,7 +6,7 @@ use tab_organizer::{local_storage_get, Port};
 use tab_organizer::state as shared;
 use tab_organizer::state::{sidebar, TabStatus, TabId};
 use crate::url_bar::UrlBar;
-use crate::search;
+use crate::search::Search;
 use crate::menu::Menu;
 use crate::groups::Groups;
 use web_sys::DomRect;
@@ -236,8 +236,7 @@ impl Menus {
 
 #[derive(Debug)]
 pub(crate) struct State {
-    pub(crate) search_box: Mutable<Arc<String>>,
-    pub(crate) search_parser: Mutable<Arc<search::Parsed>>,
+    pub(crate) search: Search,
 
     pub(crate) url_bar: Mutable<Option<Arc<UrlBar>>>,
     pub(crate) groups_padding: Mutable<f64>, // TODO use u32 instead ?
@@ -266,8 +265,7 @@ impl State {
         let sort_tabs = options.lock_ref().sort_tabs;
 
         let state = Self {
-            search_parser: Mutable::new(Arc::new(search::Parsed::new(&search_value))),
-            search_box: Mutable::new(Arc::new(search_value)),
+            search: Search::new(search_value),
 
             url_bar: Mutable::new(None),
             groups_padding: Mutable::new(0.0),
