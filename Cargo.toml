@@ -30,7 +30,7 @@ js-sys = "0.3.27"
 futures = { version = "0.3.0", features = ["async-await"] }
 futures-signals = "0.3.0"
 gloo-events = "0.1.1"
-uuid = { version = "0.7.1", features = ["serde", "v4", "wasm-bindgen"] }
+uuid = { version = "1.1.1", features = ["serde", "v4", "js"] }
 dominator = "0.5.0"
 serde = { version = "1.0.36", features = ["derive"] }
 serde_json = "1.0.40"

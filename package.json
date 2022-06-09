@@ -6,10 +6,10 @@
     "build": "rimraf static/js tab-organizer.zip && rollup --config && node zip.js"
   },
   "devDependencies": {
-    "@wasm-tool/rollup-plugin-rust": "^1.0.0",
-    "archiver": "^4.0.2",
-    "rimraf": "^2.6.3",
-    "rollup": "^1.27.14",
-    "rollup-plugin-terser": "^5.1.3"
+    "@wasm-tool/rollup-plugin-rust": "^2.2.2",
+    "archiver": "^5.3.1",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.75.6",
+    "rollup-plugin-terser": "^7.0.2"
   }
 }
