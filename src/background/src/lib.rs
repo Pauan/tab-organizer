@@ -750,6 +750,64 @@ impl State {
         self.unload_tabs(&unload_tabs);
     }
 
+    fn close_duplicate_tabs(&mut self, window_id: &Id) {
+        let mut seen: HashMap<String, Vec<TabId>> = HashMap::new();
+
+        // TODO what if the window is unloaded ?
+        let window = self.window_map.values.get_mut(&window_id).unwrap();
+
+        for uuid in window.serialized.tabs.iter() {
+            let key = SerializedTab::key(uuid);
+
+            let tab = self.db.get::<SerializedTab>(&key).unwrap();
+
+            // TODO maybe it should add pinned tabs to seen, but not remove them
+            if !tab.pinned {
+                if let Some(url) = &tab.url {
+                    let tabs = seen.entry(url.to_string()).or_insert(vec![]);
+                    tabs.push(uuid.clone());
+                }
+            }
+        }
+
+        let mut remove_tabs: Vec<TabId> = vec![];
+
+        for ids in seen.values() {
+            let len = ids.len();
+
+            if len > 1 {
+                let remove = &ids[0..(len - 1)];
+
+                assert!(remove.len() < len);
+
+                for id in remove {
+                    remove_tabs.push(id.clone());
+                }
+            }
+        }
+
+        self.close_tabs(window_id, &remove_tabs);
+    }
+
+    fn close_unloaded_tabs(&mut self, window_id: &WindowId, ids: &[TabId]) {
+        if !ids.is_empty() {
+            let key = SerializedWindow::key(&window_id);
+
+            let mut window = self.db.get::<SerializedWindow>(&key).unwrap();
+
+            for uuid in ids {
+                let tab_index = window.tab_index(&uuid).unwrap();
+
+                window.tabs.remove(tab_index);
+
+                // TODO verify that the key already existed
+                self.db.remove(&SerializedTab::key(&uuid));
+            }
+
+            self.db.set(&key, &window);
+        }
+    }
+
     fn close_tabs(&mut self, window_id: &Id, ids: &[TabId]) {
         let mut close_unloaded = vec![];
 
@@ -1120,6 +1178,18 @@ pub async fn main_js() -> Result<(), JsValue> {
 
                     if let Some(window_id) = port_id.get() {
                         state.close_tabs(&window_id, &ids);
+
+                    } else {
+                        // TODO handle this better, such as by showing a popup box
+                        warn!("Missing window");
+                    }
+                },
+
+                sidebar::ClientMessage::CloseDuplicateTabs {} => {
+                    let state: &mut State = &mut state.borrow_mut();
+
+                    if let Some(window_id) = port_id.get() {
+                        state.close_duplicate_tabs(&window_id);
 
                     } else {
                         // TODO handle this better, such as by showing a popup box

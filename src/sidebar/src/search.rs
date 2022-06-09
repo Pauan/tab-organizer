@@ -49,15 +49,27 @@ fn matches_tab(parsed: &Parsed, url_count: &HashMap<String, usize>, tab: &Tab) -
             regexp.is_match(title) || regexp.is_match(url)
         },
 
+        Parsed::Not(expr) => !matches_tab(expr, url_count, tab),
+
         Parsed::And(left, right) => matches_tab(left, url_count, tab) && matches_tab(right, url_count, tab),
 
         Parsed::IsLoaded => !tab.state.status.get().is_none(),
 
-        Parsed::IsDuplicate => todo!(),
+        // TODO should this ignore pinned tabs ?
+        Parsed::IsDuplicate => {
+            let url = tab.url.lock_ref();
 
-        Parsed::Tag(tag) => todo!(),
+            url.as_ref()
+                .and_then(|url| {
+                    url_count.get(&**url).map(|count| *count > 1)
+                })
+                .unwrap_or(false)
+        },
 
-        Parsed::Error(error) => todo!(),
+        Parsed::Label(label) => tab.labels.lock_ref().iter().position(|x| x.name == *label).is_some(),
+
+        // TODO implement this properly
+        Parsed::Error(error) => false,
     }
 }
 
@@ -100,6 +112,12 @@ impl Search {
             let count = url_count.entry(url.clone()).or_insert(0);
             // TODO check for overflow ?
             *count += 1;
+
+            if *count == 2 {
+                // This triggers a re-search of all the tabs.
+                // This is needed because `is:duplicate` changes when a tab is removed.
+                self.parser.set(self.parser.get_cloned());
+            }
         }
     }
 
@@ -111,6 +129,12 @@ impl Search {
             let count = url_count.get_mut(&*url).unwrap();
             assert!(*count > 0);
             *count -= 1;
+
+            if *count == 1 {
+                // This triggers a re-search of all the tabs.
+                // This is needed because `is:duplicate` changes when a tab is removed.
+                self.parser.set(self.parser.get_cloned());
+            }
         }
     }
 
@@ -134,14 +158,45 @@ impl Tab {
 pub(crate) enum Parsed {
     True,
     Literal(Regex),
+    Not(Box<Parsed>),
     And(Box<Parsed>, Box<Parsed>),
     IsLoaded,
     IsDuplicate,
-    Tag(String),
+    Label(String),
     Error(&'static str),
 }
 
 impl Parsed {
+    fn parse_token(input: &str) -> Self {
+        if input.len() == 0 {
+            Parsed::True
+
+        } else if &input[0..1] == "-" {
+            Parsed::Not(Box::new(Self::parse_token(&input[1..])))
+
+        } else {
+            // TODO make this faster
+            match input.splitn(2, ":").collect::<Vec<_>>().as_slice() {
+                [x] => {
+                    Parsed::Literal(RegexBuilder::new(&escape(x))
+                        .case_insensitive(true)
+                        .unicode(false)
+                        .build()
+                        .unwrap())
+                },
+                [x, y] => {
+                    match (*x, *y) {
+                        ("is", "loaded") => Parsed::IsLoaded,
+                        ("is", "duplicate") => Parsed::IsDuplicate,
+                        ("label", tag) => Parsed::Label(tag.to_string()),
+                        _ => Parsed::Error("unknown search term"),
+                    }
+                },
+                _ => Parsed::Error("unknown search term"),
+            }
+        }
+    }
+
     // TODO proper parser
     pub(crate) fn new(input: &str) -> Self {
         // TODO a bit hacky
@@ -150,25 +205,7 @@ impl Parsed {
         input.split(" ")
             .filter(|x| *x != "")
             .map(|x| {
-                // TODO make this faster
-                match x.splitn(2, ":").collect::<Vec<_>>().as_slice() {
-                    [x] => {
-                        Parsed::Literal(RegexBuilder::new(&escape(x))
-                            .case_insensitive(true)
-                            .unicode(false)
-                            .build()
-                            .unwrap())
-                    },
-                    [x, y] => {
-                        match (*x, *y) {
-                            ("is", "loaded") => Parsed::IsLoaded,
-                            ("is", "duplicate") => Parsed::IsDuplicate,
-                            ("tag", tag) => Parsed::Tag(tag.to_string()),
-                            _ => Parsed::Error("unknown search term"),
-                        }
-                    },
-                    _ => Parsed::Error("unknown search term"),
-                }
+                Self::parse_token(x)
             })
             .fold(Parsed::True, |old, new| {
                 if let Parsed::True = old {

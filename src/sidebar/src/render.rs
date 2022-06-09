@@ -14,7 +14,7 @@ use crate::constants::*;
 use crate::{cursor, culling, search, url_bar, FAILED, IS_LOADED};
 use crate::types::{State, DragState, Group, Tab, TabMenuState, WindowSize, MenuMode};
 use crate::menu;
-use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease};
+use tab_organizer::{none_if, px, px_range, option_str_default, float_range, is_empty, option_str_default_fn, local_storage_set, none_if_px, ease, confirm};
 use tab_organizer::state::SortTabs;
 
 
@@ -622,6 +622,18 @@ impl State {
                     ]),
                 ]),
             ]),
+
+            parent.separator(),
+
+            // Some("/icons/iconic/code.svg")
+            // Some("/icons/iconic/delete.svg")
+            // Some("/icons/iconic/warning.svg")
+            // Some("/icons/iconic/x.svg")
+            parent.action("Close Duplicate Tabs", Some("/icons/iconic/ban.svg"), always(true), clone!(state => move || {
+                if confirm("Close all duplicate tabs?") {
+                    state.close_duplicate_tabs();
+                }
+            })),
         ])
     }
 

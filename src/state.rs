@@ -68,6 +68,7 @@ pub mod sidebar {
         ClickTab {
             id: TabId,
         },
+        CloseDuplicateTabs {},
         CloseTabs {
             ids: Vec<TabId>,
         },

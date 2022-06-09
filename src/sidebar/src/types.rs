@@ -311,6 +311,10 @@ impl State {
         });
     }
 
+    pub(crate) fn close_duplicate_tabs(&self) {
+        self.port.send_message(&sidebar::ClientMessage::CloseDuplicateTabs {});
+    }
+
     // TODO unselect the closing tabs ?
     pub(crate) fn close_tabs(&self, tabs: &[Arc<Tab>]) {
         let ids = tabs.into_iter().map(|tab| {

@@ -17,7 +17,7 @@ use dominator::{clone, RefFn};
 use dominator::animation::{easing, Percentage};
 use uuid::Uuid;
 use js_sys::{Date, Object, Reflect, Array, Set, Error, Function};
-use web_sys::{window, Performance, Storage, Blob, Url, BlobPropertyBag, FileReader};
+use web_sys::{window, Window, Performance, Storage, Blob, Url, BlobPropertyBag, FileReader};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use wasm_bindgen::closure::WasmClosure;
 use wasm_bindgen::JsCast;
@@ -296,10 +296,19 @@ pub fn normalize(value: f64, min: f64, max: f64) -> f64 {
 }
 
 
+thread_local! {
+    static WINDOW: Window = window().unwrap();
+}
+
+pub fn confirm(message: &str) -> bool {
+    WINDOW.with(|w| w.confirm_with_message(message)).unwrap()
+}
+
+
 #[inline]
 pub fn performance_now() -> f64 {
     thread_local! {
-        static PERFORMANCE: Performance = window().unwrap().performance().unwrap();
+        static PERFORMANCE: Performance = WINDOW.with(|w| w.performance()).unwrap();
     }
 
     PERFORMANCE.with(|a| a.now())
@@ -439,8 +448,9 @@ pub fn info(time: String, file: &'static str, line: u32, message: String) {
 
 
 pub fn export_function<A>(name: &str, f: Closure<A>) where A: wasm_bindgen::closure::WasmClosure + ?Sized {
-    let window = window().unwrap();
-    js_sys::Reflect::set(&window, &JsValue::from(name), f.as_ref()).unwrap();
+    WINDOW.with(|w| {
+        js_sys::Reflect::set(&w, &JsValue::from(name), f.as_ref()).unwrap();
+    });
     f.forget();
 }
 
@@ -490,7 +500,7 @@ fn generate_random_bytes() -> [u8; 16] {
     thread_local! {
         static UUID_ARRAY: Uint8Array = Uint8Array::new_with_length(16);
 
-        static CRYPTO: web_sys::Crypto = window().unwrap().crypto().unwrap();
+        static CRYPTO: web_sys::Crypto = WINDOW.with(|w| w.crypto().unwrap());
     }
 
     CRYPTO.with(|crypto| {
@@ -510,11 +520,7 @@ pub fn generate_uuid() -> Uuid {
 
 
 thread_local! {
-    static STORAGE: Storage = window()
-        .unwrap()
-        .local_storage()
-        .unwrap()
-        .unwrap();
+    static STORAGE: Storage = WINDOW.with(|w| w.local_storage().unwrap().unwrap());
 }
 
 pub fn local_storage_get(key: &str) -> Option<String> {
@@ -571,21 +577,11 @@ pub fn decode_uri_component(input: &str) -> String {
 
 
 pub fn window_width() -> f64 {
-    window()
-        .unwrap()
-        .inner_width()
-        .unwrap()
-        .as_f64()
-        .unwrap()
+    WINDOW.with(|w| w.inner_width().unwrap().as_f64().unwrap())
 }
 
 pub fn window_height() -> f64 {
-    window()
-        .unwrap()
-        .inner_height()
-        .unwrap()
-        .as_f64()
-        .unwrap()
+    WINDOW.with(|w| w.inner_height().unwrap().as_f64().unwrap())
 }
 
 
@@ -1257,7 +1253,7 @@ pub fn color_scheme() -> impl Signal<Item = ColorScheme> {
     thread_local! {
         // TODO cleanup when all the signals are done
         static COLOR_LISTENER: ColorListener = {
-            let query_list = window().unwrap().match_media("(prefers-color-scheme: dark)").unwrap().unwrap();
+            let query_list = WINDOW.with(|w| w.match_media("(prefers-color-scheme: dark)").unwrap().unwrap());
 
             let mutable = Mutable::new(ColorScheme::from_bool(query_list.matches()));
 
@@ -1410,9 +1406,9 @@ pub fn pretty_time() -> String {
 pub fn round_to_hour(time: f64) -> f64 {
     // TODO direct f64 bindings for Date
     let t = Date::new(&JsValue::from(time));
-    t.set_utc_minutes(0);
-    t.set_utc_seconds(0);
-    t.set_utc_milliseconds(0);
+    t.set_minutes(0);
+    t.set_seconds(0);
+    t.set_milliseconds(0);
     t.get_time()
 }
 
@@ -1420,10 +1416,10 @@ pub fn round_to_hour(time: f64) -> f64 {
 pub fn round_to_day(time: f64) -> f64 {
     // TODO direct f64 bindings for Date
     let t = Date::new(&JsValue::from(time));
-    t.set_utc_hours(0);
-    t.set_utc_minutes(0);
-    t.set_utc_seconds(0);
-    t.set_utc_milliseconds(0);
+    t.set_hours(0);
+    t.set_minutes(0);
+    t.set_seconds(0);
+    t.set_milliseconds(0);
     t.get_time()
 }
 
@@ -1529,14 +1525,14 @@ impl Timer {
     pub fn new<F>(ms: u32, f: F) -> Self where F: FnOnce() + 'static {
         let closure = Closure::once(f);
 
-        let id = window()
-            .unwrap()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(
+        let id = WINDOW.with(|w| {
+            w.set_timeout_with_callback_and_timeout_and_arguments_0(
                 closure.as_ref().unchecked_ref(),
                 // TODO is this conversion correct ?
                 ms as i32,
             )
-            .unwrap();
+            .unwrap()
+        });
 
         Self { closure: Some(closure), id }
     }
@@ -1549,9 +1545,7 @@ impl Timer {
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(_) = self.closure {
-            window()
-                .unwrap()
-                .clear_timeout_with_handle(self.id);
+            WINDOW.with(|w| w.clear_timeout_with_handle(self.id));
         }
     }
 }
@@ -1560,14 +1554,14 @@ impl Drop for Timer {
 pub fn set_interval<F>(f: F, ms: u32) where F: FnMut() + 'static {
     let f = Closure::wrap(Box::new(f) as Box<dyn FnMut()>);
 
-    window()
-        .unwrap()
-        .set_interval_with_callback_and_timeout_and_arguments_0(
+    WINDOW.with(|w| {
+        w.set_interval_with_callback_and_timeout_and_arguments_0(
             f.as_ref().unchecked_ref(),
             // TODO is this conversion correct ?
             ms as i32,
         )
-        .unwrap();
+        .unwrap()
+    });
 
     f.forget();
 }
